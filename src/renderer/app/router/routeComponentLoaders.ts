@@ -22,6 +22,8 @@ export const rawRouteLoaders = {
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
   archive: () => import('@renderer/features/archive/pages/ArchivePage.vue'),
+  archiveAnnualSummary: () =>
+    import('@renderer/features/archive/pages/ArchiveAnnualSummaryPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
 export function createRouteLoaderRegistry(
@@ -56,6 +58,7 @@ export function createRouteLoaderRegistry(
     cdAlbumIndex: () => getOrLoad('cdAlbumIndex', loaders.cdAlbumIndex),
     albumDetail: () => getOrLoad('albumDetail', loaders.albumDetail),
     archive: () => getOrLoad('archive', loaders.archive),
+    archiveAnnualSummary: () => getOrLoad('archiveAnnualSummary', loaders.archiveAnnualSummary),
   }
 
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {

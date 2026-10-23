@@ -3,12 +3,13 @@ import type {
   NativePlaybackEvent,
   UpdateTrackMetadataResult,
 } from '@shared/ipc/contracts'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from '../metadata/audioTagEdit'
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
 import type { SpectrumSource } from './playbackSpectrumService'
 import { BufferedTagPlayback } from './bufferedTagPlayback'
 import { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 import { NativePlaybackSession } from './nativePlaybackSession'
+import { canReplacePlayingM4a, replacePlayingM4a } from './m4aFileReplacement'
 import type { LogicalPlaybackView, NativePlaybackOptions } from './nativePlaybackTypes'
 
 export type { PlaybackCoordinator } from './nativePlaybackTypes'
@@ -25,6 +26,7 @@ export class NativePlaybackService {
   private path = ''
   private paused = false
   private buffering = false
+  private pendingEnd: { session: number; client: MpvClient } | null = null
   private snapshot: NativePlaybackEvent = {
     session: 0,
     kind: 'state',
@@ -63,11 +65,17 @@ export class NativePlaybackService {
       },
       (error) => this.failure(error),
     )
-    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, this.tags)
+    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, this.tags, () =>
+      this.flushPendingEnd(),
+    )
   }
 
   canWriteMetadata(filePath: string): boolean {
     return this.tags.canWriteMetadata(filePath)
+  }
+
+  canReplaceMetadata(filePath: string): boolean {
+    return canReplacePlayingM4a(filePath, this.options.ffmpegPath)
   }
 
   writeMetadata(
@@ -75,6 +83,14 @@ export class NativePlaybackService {
     metadata: EditableTrackMetadata,
     commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
   ): Promise<UpdateTrackMetadataResult> {
+    if (canReplacePlayingM4a(filePath, this.options.ffmpegPath))
+      return replacePlayingM4a(
+        this.options,
+        () => this.scheduler.suspendMetadataAnalysis(),
+        filePath,
+        metadata,
+        commitAndReconcile,
+      )
     return this.tags.writeMetadata(filePath, metadata, commitAndReconcile)
   }
 
@@ -112,6 +128,7 @@ export class NativePlaybackService {
   }
 
   private release(): Promise<void> {
+    this.pendingEnd = null
     this.tags.reset()
     const opening = this.opening
     this.opening = null
@@ -254,6 +271,7 @@ export class NativePlaybackService {
       this.loaded = false
     }
     this.runtime.begin(request.session)
+    this.pendingEnd = null
     const signal = this.runtime.signal
     let path: string
     try {
@@ -301,6 +319,13 @@ export class NativePlaybackService {
         if (!isCurrent()) return { accepted: false }
         await client.command('set_property', 'mute', request.muted)
         if (!isCurrent()) return { accepted: false }
+        // Resolution, lease acquisition and transport setup can all await a move.
+        // Keep this check synchronous with submitting loadfile to mpv.
+        if (
+          leaseId &&
+          !this.options.coordinator!.isReadLeaseForTrack(leaseId, request.trackId, path)
+        )
+          throw new Error('Playback track path changed before loading')
         await this.runtime.load(client, path, (event, session) => this.onEvent(event, session))
         if (!isCurrent()) return { accepted: false }
         // A reused transport may be paused for replacement. Resume only after B
@@ -324,28 +349,7 @@ export class NativePlaybackService {
     if (event.event === 'start-file' && this.loaded) {
       if (!this.tags.onStartFile()) this.scheduler.onStartFile(session)
     } else if (event.event === 'property-change') {
-      if (event.name === 'idle-active' && event.data === true && this.loaded) {
-        if (!this.tags.ignoresIdle) this.playbackEnded()
-        return
-      }
-      const time = this.tags.timeFromProperty(event.name, event.data, this.scheduler.isEnteringNext)
-      if (time !== undefined)
-        this.snapshot.currentTime =
-          event.name === 'time-pos' && this.scheduler.bridge
-            ? this.scheduler.bridge.incomingStart + time
-            : time
-      if (
-        event.name === 'duration' &&
-        typeof event.data === 'number' &&
-        !this.scheduler.isEnteringNext &&
-        !this.tags.isActive() &&
-        !this.scheduler.bridge
-      )
-        this.snapshot.duration = event.data + this.tags.decodeOffset
-      if (event.name === 'pause' && typeof event.data === 'boolean') this.paused = event.data
-      if (event.name === 'paused-for-cache' && typeof event.data === 'boolean')
-        this.buffering = event.data
-      if (this.loaded) this.publish()
+      this.propertyChanged(event)
     } else if (event.event === 'file-loaded') {
       void this.fileLoaded(session).catch((error: Error) => {
         if (session === this.runtime.id && this.runtime.client) this.failure(error)
@@ -359,6 +363,11 @@ export class NativePlaybackService {
   }
 
   private playbackEnded(): void {
+    if (this.scheduler.isRecoveringContinuation && this.runtime.client) {
+      this.pendingEnd = { session: this.runtime.id, client: this.runtime.client }
+      return
+    }
+    this.pendingEnd = null
     this.tags.onPlaybackEnded(() => {
       this.snapshot.currentTime = this.snapshot.duration
     })
@@ -367,6 +376,77 @@ export class NativePlaybackService {
     this.runtime.releasePlaybackLeases()
     this.publish('ended')
     void this.tags.cleanup().catch(this.options.warn)
+  }
+
+  private flushPendingEnd(): void {
+    const pending = this.pendingEnd
+    if (
+      pending &&
+      this.runtime.isCurrent(pending.session, pending.client) &&
+      !this.scheduler.isRecoveringContinuation
+    )
+      this.playbackEnded()
+  }
+
+  private propertyChanged(event: MpvMessage): void {
+    if (event.name === 'idle-active' && event.data === true && this.loaded) {
+      if (!this.tags.ignoresIdle) this.playbackEnded()
+      return
+    }
+    const time = this.tags.timeFromProperty(event.name, event.data, this.scheduler.isEnteringNext)
+    if (time !== undefined)
+      this.snapshot.currentTime =
+        event.name === 'time-pos' && this.scheduler.bridge
+          ? this.scheduler.bridge.incomingStart + time
+          : time
+    if (
+      event.name === 'duration' &&
+      typeof event.data === 'number' &&
+      !this.scheduler.isEnteringNext &&
+      !this.tags.isActive() &&
+      !this.scheduler.bridge
+    )
+      this.snapshot.duration = event.data + this.tags.decodeOffset
+    if (event.name === 'pause' && typeof event.data === 'boolean') this.paused = event.data
+    if (event.name === 'paused-for-cache' && typeof event.data === 'boolean')
+      this.buffering = event.data
+    if (this.loaded) this.publish()
+  }
+
+  private beginLoadedTrack(paused: unknown): { continuation: boolean; boundary: boolean } {
+    if (typeof paused === 'boolean') this.paused = paused
+    const tagContinuation = this.tags.consumeSeekContinuation()
+    const continuation = this.scheduler.isContinuation || tagContinuation
+    const boundary = this.loaded && !continuation
+    if (boundary) {
+      const next = this.scheduler.takeEnteredTrack()
+      this.snapshot.trackId = next.id
+      this.path = next.path
+      this.tags.onLogicalBoundary()
+      this.runtime.advanceLease()
+    }
+    this.loaded = true
+    return { continuation, boundary }
+  }
+
+  private publishLoadedFile(
+    properties: readonly [unknown, unknown, unknown],
+    continuation: boolean,
+    boundary: boolean,
+  ): void {
+    const [duration, position] = properties
+    this.snapshot.duration = typeof duration === 'number' ? duration : 0
+    this.snapshot.currentTime = typeof position === 'number' ? position : 0
+    const bridge = this.scheduler.bridge
+    if (bridge) {
+      this.snapshot.duration = bridge.incomingDuration
+      this.snapshot.currentTime += bridge.incomingStart
+    }
+    if (continuation) {
+      this.pendingEnd = null
+      this.scheduler.finishContinuation()
+    }
+    this.publish(boundary ? 'boundary' : 'state')
   }
 
   private async fileLoaded(session: number): Promise<void> {
@@ -391,35 +471,24 @@ export class NativePlaybackService {
       throw error
     }
     if (!this.runtime.isCurrent(session, client)) return
-    const [duration, position, paused] = properties
-    if (typeof paused === 'boolean') this.paused = paused
-    const tagContinuation = this.tags.consumeSeekContinuation()
-    const continuation = this.scheduler.isContinuation || tagContinuation
-    const boundary = this.loaded && !continuation
-    if (boundary) {
-      const next = this.scheduler.takeEnteredTrack()
-      this.snapshot.trackId = next.id
-      this.path = next.path
-      this.tags.onLogicalBoundary()
-      this.runtime.advanceLease()
-    }
-    this.loaded = true
-    if (
-      this.options.coordinator?.reserveWriteIntent &&
-      !(await this.tags.refreshEligibility(this.path, session, client))
-    )
-      return
-    this.snapshot.duration = typeof duration === 'number' ? duration : 0
-    this.snapshot.currentTime = typeof position === 'number' ? position : 0
-    const bridge = this.scheduler.bridge
-    if (bridge) {
-      this.snapshot.duration = bridge.incomingDuration
-      this.snapshot.currentTime += bridge.incomingStart
-    }
-    if (continuation) this.scheduler.finishContinuation()
-    this.publish(boundary ? 'boundary' : 'state')
+    const { continuation, boundary } = this.beginLoadedTrack(properties[2])
+    const loadedPath = this.path
+    const eligibility = this.tags.refreshEligibility(loadedPath, session, client)
+    // Preserve start/continuation readiness for tag editing. A natural boundary
+    // must publish its new logical track before optional tag parsing can finish.
+    if (!boundary && !(await eligibility)) return
+    this.publishLoadedFile(properties, continuation, boundary)
     if (!this.runtime.isCurrent(session, client)) return
-    this.options.coordinator?.refreshPlaybackCapability?.(this.path)
+    if (boundary) {
+      void eligibility
+        .then((current) => {
+          if (current && this.runtime.isCurrent(session, client) && this.path === loadedPath)
+            this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
+        })
+        .catch(this.options.warn)
+    } else {
+      this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
+    }
     this.runtime.finishLoad()
   }
 }

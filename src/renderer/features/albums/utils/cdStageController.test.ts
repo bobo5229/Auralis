@@ -1,73 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createCdStage } from './cdStageController'
 
-const clock = vi.hoisted(() => ({
-  update: (() => false) as (seconds: number) => boolean,
-  running: false,
-  cancel: vi.fn(),
-  press: vi.fn(() => vi.fn()),
-}))
-vi.mock('@renderer/shared/animation/motion', () => ({
-  animateCdPress: clock.press,
-  animateFrames: (update: typeof clock.update) => {
-    clock.update = update
-    clock.running = true
-    return () => {
-      clock.running = false
-      clock.cancel()
-    }
-  },
-  animateProgress: (duration: number, update: (progress: number) => void, complete: () => void) => {
-    let elapsed = 0
-    clock.update = (seconds) => {
-      elapsed += seconds * 1000
-      update(Math.min(1, elapsed / duration))
-      if (elapsed < duration) return true
-      complete()
-      return false
-    }
-    clock.running = true
-    return () => {
-      clock.running = false
-      clock.cancel()
-    }
-  },
-}))
+import { stageClock as clock, TestElement } from './cdStageTestSupport'
 
-// Small DOM substitute: these tests cover controller state/lifetime, not visuals.
-class TestElement extends EventTarget {
-  src = ''
-  style = {} as CSSStyleDeclaration
-  children: TestElement[] = []
-  parent: TestElement | null = null
-  attributes = new Map<string, string>()
-  classList = { add: vi.fn() }
-  clientWidth = 1200
-  clientHeight = 700
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value)
+vi.mock('@renderer/shared/animation/motion', async () => {
+  const { stageClock } = await import('./cdStageTestSupport')
+  return {
+    animateCdPress: stageClock.press,
+    animateFrames: stageClock.animateFrames,
+    animateProgress: stageClock.animateProgress,
   }
-  focus(): void {}
-  getBoundingClientRect(): DOMRect {
-    return { left: 0, top: 0, width: 400, height: 400 } as DOMRect
-  }
-  setPointerCapture(): void {}
-  hasPointerCapture(): boolean {
-    return true
-  }
-  releasePointerCapture(): void {}
-  append(...children: TestElement[]): void {
-    for (const child of children) {
-      child.parent = this
-      this.children.push(child)
-    }
-  }
-  remove(): void {
-    if (this.parent) this.parent.children = this.parent.children.filter((child) => child !== this)
-  }
-}
+})
 
 afterEach(() => {
+  clock.reset()
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
@@ -76,11 +22,7 @@ afterEach(() => {
 
 describe('CD stage lifetime', () => {
   function advance(frames: number): void {
-    for (let index = 0; index < frames && clock.running; index++) {
-      const update = clock.update
-      const running = update(1 / 60)
-      if (clock.update === update) clock.running = running
-    }
+    clock.advance(frames)
   }
   function settle(): void {
     advance(600)
@@ -137,11 +79,44 @@ describe('CD stage lifetime', () => {
     return { stage, select, approach, rapid, controller, disconnect, albums, media, document }
   }
 
+  function slotsLeftToRight(stage: TestElement): TestElement[] {
+    const left = (slot: TestElement): number =>
+      Number(slot.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1])
+    return [...stage.children].sort((first, second) => left(first) - left(second))
+  }
+
   function discAt(stage: TestElement, index: number): TestElement {
-    const slot = stage.children.find((node) => Number(node.style.zIndex) === index)
-    if (!slot) throw new Error(`Missing disc at layer ${index}`)
+    // Browse positions are spatial slots; focus uses the foreground layer explicitly.
+    const slot =
+      index === 5
+        ? stage.children.find((node) => node.style.zIndex === '5')
+        : slotsLeftToRight(stage)[index - 1]
+    if (!slot) throw new Error(`Missing disc at position ${index}`)
     return slot.children[0].children[0]
   }
+
+  it('keeps the main browsing disc above both neighbors before, during and after navigation', () => {
+    const { stage, controller } = setup(8)
+    const expectForeground = (): void => {
+      const slots = slotsLeftToRight(stage)
+      const mainLayer = Number(slots[2].style.zIndex)
+      for (const neighbor of [slots[0], slots[1], slots[3]]) {
+        expect(mainLayer).toBeGreaterThan(Number(neighbor.style.zIndex))
+      }
+    }
+    expectForeground()
+    for (const direction of [1, -1]) {
+      controller.navigate(direction)
+      for (let frame = 0; frame < 60 && clock.running; frame++) {
+        advance(1)
+        expectForeground()
+      }
+      settle()
+      expectForeground()
+      expect(slotsLeftToRight(stage)[2].attributes.get('data-selected')).toBe('true')
+    }
+    controller.dispose()
+  })
 
   it('focuses only the resting centre and restores the same discs without changing selection', () => {
     const change = vi.fn()
@@ -383,6 +358,47 @@ describe('CD stage lifetime', () => {
     document.elementFromPoint.mockReturnValue(disc)
     stage.dispatchEvent(pointerEvent('pointerup', stage, options))
   }
+
+  it('keeps stage and ring clocks alive when concurrent hover or artwork animation ends', () => {
+    vi.useFakeTimers()
+    const { controller, stage, document } = setup(8, vi.fn())
+    stage.dispatchEvent(
+      pointerEvent('pointermove', discAt(stage, 3), {
+        pointerType: 'mouse',
+        buttons: 0,
+        clientX: 350,
+      }),
+    )
+    advance(2)
+    controller.navigate(1)
+    expect(clock.size).toBe(2)
+    settle()
+    controller.setFocused(true)
+    settle()
+    controller.setPlayback({ visible: true, playing: true, progress: 0.4, accent: '#abc' })
+    const disc = discAt(stage, 5)
+    const ring = disc.parent!.children[1]
+    const track = ring.children[0]
+    tap(stage, document, disc, { button: 2 })
+    vi.advanceTimersByTime(320)
+    expect(clock.size).toBe(2)
+    advance(100)
+    expect(clock.size).toBe(1)
+    const wave = track.attributes.get('d')
+    advance(3)
+    expect(track.attributes.get('d')).not.toBe(wave)
+    // A new spin survives ring cancellation and the focus transition.
+    tap(stage, document, disc, { button: 2 })
+    vi.advanceTimersByTime(320)
+    controller.setFocused(false)
+    expect(clock.size).toBe(2)
+    const angle = disc.children[0].style.transform
+    advance(10)
+    expect(disc.children[0].style.transform).not.toBe(angle)
+    settle()
+    controller.dispose()
+    expect(clock.size).toBe(0)
+  })
 
   it('toggles playback only for left double-clicks on the settled focused disc', () => {
     const toggle = vi.fn(() => true)
@@ -1058,6 +1074,145 @@ describe('CD stage lifetime', () => {
     controller.dispose()
   })
 
+  function releaseArrow(key: 'ArrowLeft' | 'ArrowRight'): void {
+    window.dispatchEvent(Object.assign(new Event('keyup'), { key }))
+  }
+
+  it('keeps a short arrow press to one album and cancels the hold delay on keyup', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid } = setup(64)
+    select.mockClear()
+    controller.startKeyboardNavigation(1)
+    advance(10)
+    releaseArrow('ArrowRight')
+    vi.advanceTimersByTime(1000)
+    settle()
+    expect(select).toHaveBeenCalledExactlyOnceWith(1)
+    expect(rapid).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
+  it('cruises while held and settles nearby on release without queuing repeated requests', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid, stage } = setup(64)
+    select.mockClear()
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    for (let index = 0; index < 50; index++) controller.startKeyboardNavigation(1)
+    advance(180)
+    expect(clock.running).toBe(true)
+    expect(select).not.toHaveBeenCalled()
+    expect(stage.children).toHaveLength(4)
+    expect(rapid).toHaveBeenCalledExactlyOnceWith(true)
+    releaseArrow('ArrowRight')
+    settle()
+    const landed = select.mock.lastCall![0] as number
+    expect(landed).toBeGreaterThan(4)
+    expect(landed).toBeLessThan(14)
+    expect(rapid.mock.calls).toEqual([[true], [false]])
+    const transforms = stage.children.map((node) => node.style.transform)
+    vi.advanceTimersByTime(5000)
+    advance(120)
+    expect(select).toHaveBeenCalledTimes(1)
+    expect(stage.children.map((node) => node.style.transform)).toEqual(transforms)
+    controller.dispose()
+  })
+
+  it('switches held directions and ignores release of the previous direction', () => {
+    vi.useFakeTimers()
+    const { controller, select } = setup(64)
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    advance(120)
+    controller.startKeyboardNavigation(-1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    releaseArrow('ArrowRight')
+    advance(60)
+    expect(clock.running).toBe(true)
+    select.mockClear()
+    releaseArrow('ArrowLeft')
+    settle()
+    expect(select).toHaveBeenCalledTimes(1)
+    expect(select.mock.lastCall![0]).toBeLessThan(7)
+    controller.dispose()
+  })
+
+  it.each(['blur', 'hidden', 'pointerdown', 'refresh', 'reduced-motion', 'dispose'] as const)(
+    'cancels both a pending and an active keyboard hold on %s',
+    (reason) => {
+      vi.useFakeTimers()
+      for (const holding of [false, true]) {
+        const { controller, document, albums, stage, select, media } = setup(64)
+        controller.startKeyboardNavigation(1)
+        if (holding) {
+          advance(21)
+          vi.advanceTimersByTime(350)
+          advance(60)
+        }
+        if (reason === 'blur') window.dispatchEvent(new Event('blur'))
+        else if (reason === 'hidden') {
+          document.hidden = true
+          document.dispatchEvent(new Event('visibilitychange'))
+        } else if (reason === 'pointerdown') window.dispatchEvent(new Event('pointerdown'))
+        else if (reason === 'refresh') controller.setAlbums(albums)
+        else if (reason === 'reduced-motion') {
+          media.matches = true
+          media.dispatchEvent(new Event('change'))
+        } else controller.dispose()
+        vi.advanceTimersByTime(5000)
+        settle()
+        const selections = select.mock.calls.length
+        vi.advanceTimersByTime(1000)
+        advance(120)
+        expect(select).toHaveBeenCalledTimes(selections)
+        expect(stage.children).toHaveLength(reason === 'dispose' ? 0 : 4)
+        controller.dispose()
+      }
+    },
+  )
+
+  it('bounds held navigation in a small catalog and excludes focused browsing', () => {
+    vi.useFakeTimers()
+    const { controller, select } = setup(2)
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    settle()
+    expect(select).toHaveBeenLastCalledWith(1)
+    releaseArrow('ArrowRight')
+    controller.dispose()
+    const focused = setup(8, vi.fn())
+    focused.controller.setFocused(true)
+    settle()
+    focused.select.mockClear()
+    focused.controller.startKeyboardNavigation(1)
+    vi.advanceTimersByTime(1000)
+    expect(clock.running).toBe(false)
+    expect(focused.select).not.toHaveBeenCalled()
+    focused.controller.dispose()
+  })
+
+  it('repeats discrete selections for reduced motion and stops on release', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid, media } = setup(8)
+    media.matches = true
+    controller.startKeyboardNavigation(1)
+    expect(select).toHaveBeenLastCalledWith(1)
+    vi.advanceTimersByTime(350)
+    expect(select).toHaveBeenLastCalledWith(2)
+    vi.advanceTimersByTime(180)
+    expect(select).toHaveBeenLastCalledWith(3)
+    releaseArrow('ArrowRight')
+    vi.advanceTimersByTime(1000)
+    expect(select).toHaveBeenLastCalledWith(3)
+    expect(clock.running).toBe(false)
+    expect(rapid).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
   it('announces the approaching album after a delay and before settling', () => {
     const { controller, select, approach } = setup(8)
     for (const [direction, target] of [
@@ -1135,9 +1290,9 @@ describe('CD stage lifetime', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
     const { stage, controller, albums } = setup(8)
     const angles = () =>
-      [...stage.children]
-        .sort((left, right) => Number(left.style.zIndex) - Number(right.style.zIndex))
-        .map((slot) => slot.children[0].children[0].children[0].style.transform)
+      slotsLeftToRight(stage).map(
+        (slot) => slot.children[0].children[0].children[0].style.transform,
+      )
     const initial = angles()
     expect(new Set(initial).size).toBe(4)
     for (const transform of initial) {

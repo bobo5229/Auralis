@@ -12,6 +12,8 @@ export function createWindowBehaviorPreference(
     const saved: unknown = JSON.parse(readFileSync(file, 'utf8'))
     if (saved && typeof saved === 'object' && 'closeBehavior' in saved) {
       if (isWindowCloseBehavior(saved.closeBehavior)) behavior = saved.closeBehavior
+      // Legacy minimize-on-close preferences retain their background-playback intent.
+      else if (saved.closeBehavior === 'minimize') behavior = 'tray'
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') reportError(error)

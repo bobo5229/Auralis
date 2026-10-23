@@ -172,7 +172,7 @@ describe('useLibraryViewport', () => {
     )
     const { viewport, scrollElement, isCoverView } = createViewport({
       tracks: source,
-      scrollTop: 560,
+      scrollTop: 576,
       isCoverView: true,
     })
     const saved = viewport.captureNavigationViewport()!
@@ -180,7 +180,7 @@ describe('useLibraryViewport', () => {
     expect(saved.anchorOffset).toBe(12)
     scrollElement.scrollTop = 0
     viewport.restoreNavigationViewport(saved, viewport.captureNavigationIntent(), () => true)
-    expect(scrollElement.scrollTop).toBe(560)
+    expect(scrollElement.scrollTop).toBe(576)
     isCoverView.value = false
     viewport.restoreNavigationViewport(saved, viewport.captureNavigationIntent(), () => true)
     expect(scrollElement.scrollTop).toBe(508)
@@ -376,7 +376,7 @@ describe('useLibraryViewport', () => {
 
     await viewport.scrollToTrackIndex(8)
 
-    expect(scrollElement.scrollTop).toBe(8_320)
+    expect(scrollElement.scrollTop).toBe(8_336)
     const targetRowTop =
       16 +
       8_000 +
@@ -390,8 +390,8 @@ describe('useLibraryViewport', () => {
 
   it.each([
     [0, 3_912],
-    [4, 4_128],
-    [8, 4_344],
+    [4, 4_144],
+    [8, 4_376],
   ])('positions track %i with only preceding in-flow disc headings', async (index, expectedTop) => {
     const tracks = Array.from({ length: 12 }, (_, trackIndex) =>
       createTrack(trackIndex + 1, { discNo: Math.floor(trackIndex / 4) + 1 }),

@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import type {
   LibraryTrackPageResponse,
   LibraryTrackPageRequest,
@@ -7,16 +7,13 @@ import type { TrackListItem, LibraryScanProgress } from '@shared/types/librarySc
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { createLibrarySnapshotLoader, dependsOnPlayStats } from '../utils/librarySnapshotLoader'
+import { useLibrarySnapshotPresentation } from './useLibrarySnapshotPresentation'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryMetadataRefreshResult } from './useLibraryMetadataEditor'
 import type { LibraryViewportCapture } from './useLibraryViewport'
-import {
-  createAllSongsLibrarySnapshot,
-  createPlaylistLibrarySnapshot,
-  createSmartPlaylistLibrarySnapshot,
-  type LibraryDataSnapshot,
-} from '../utils/libraryDataSnapshot'
+import type { LibraryDataSnapshot } from '../utils/libraryDataSnapshot'
 import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
@@ -64,28 +61,44 @@ export function useLibraryCatalogLoader(options: {
         | 'play-stats-updated'
         | 'play-stats-reset'
         | string
+      libraryRevision?: string
     }) => void | Promise<void>,
   ) => () => void
   onScanProgress: (callback: (progress: LibraryScanProgress) => void | Promise<void>) => () => void
 }) {
   const coordinator = new LibraryRequestCoordinator()
   const catalogClient = options.catalogClient ?? new SharedLibraryCatalogLoad(options.getTrackPage)
-  const hasInitialLoadError = ref(false)
-  const isPositioningForegroundViewport = ref(false)
-  const initialLoadError = computed(() =>
-    hasInitialLoadError.value ? options.loadErrorMessage() : null,
-  )
-  let committedScope: LibraryRouteScope | null = null
+  const presentation = useLibrarySnapshotPresentation(options)
+  const {
+    hasInitialLoadError,
+    isPositioningForegroundViewport,
+    initialLoadError,
+    commitLibrarySnapshot,
+  } = presentation
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
   let importRefreshTimer: ReturnType<typeof setTimeout> | null = null
   let importRefreshDeadline: ReturnType<typeof setTimeout> | null = null
   let disposed = false
   let playStatsRevision = 0
+  let revisionRefresh: {
+    revision: string
+    scope: LibraryRouteScope
+    catalogRevision: number
+    isCurrent: () => boolean
+    promise: Promise<LibraryLoadResult>
+  } | null = null
 
-  function dependsOnPlayStats(preset: string | undefined): boolean {
-    return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
-  }
+  const { fetchLibrarySnapshot } = createLibrarySnapshotLoader({
+    catalogClient,
+    getSmartPlaylistDetail: options.getSmartPlaylistDetail,
+    getPlaylistDetail: options.getPlaylistDetail,
+    readPersistedViewMode: options.readPersistedViewMode,
+    getPlayStatsRevision: () => playStatsRevision,
+    requestBackgroundRefresh: () => {
+      void loadLibraryData('background')
+    },
+  })
 
   function isDisposed(): boolean {
     return disposed || options.isDisposed()
@@ -120,74 +133,55 @@ export function useLibraryCatalogLoader(options: {
     )
   }
 
-  async function fetchLibrarySnapshot(
-    scope: LibraryRouteScope,
-    isRequestCurrent: () => boolean,
+  async function loadLibraryData(
+    mode: LibraryLoadMode = 'foreground',
+    libraryRevision?: string,
+  ): Promise<LibraryLoadResult> {
+    if (isDisposed()) return 'stale'
+    if (!libraryRevision) return executeLibraryLoad(mode)
+
+    catalogClient.invalidateForLibraryRevision(libraryRevision)
+    const scope = options.captureRouteScope()
+    const existing = revisionRefresh
+    if (
+      existing?.revision === libraryRevision &&
+      isSameLibraryRouteScope(existing.scope, scope) &&
+      existing.catalogRevision === catalogClient.invalidationRevision &&
+      existing.isCurrent()
+    ) {
+      const result = await existing.promise
+      if (
+        result === 'committed' &&
+        existing.isCurrent() &&
+        existing.catalogRevision === catalogClient.invalidationRevision &&
+        catalogClient.isLibraryRevisionCurrent(libraryRevision)
+      )
+        return result
+      // Failed/queued/stale refreshes must not satisfy a successful save.
+      if (isDisposed()) return 'stale'
+    }
+
+    const refresh = {
+      revision: libraryRevision,
+      scope,
+      catalogRevision: catalogClient.invalidationRevision,
+      isCurrent: () => false,
+      promise: Promise.resolve<LibraryLoadResult>('stale'),
+    }
+    revisionRefresh = refresh
+    refresh.promise = executeLibraryLoad(mode, libraryRevision, (isCurrent) => {
+      refresh.isCurrent = isCurrent
+      refresh.catalogRevision = catalogClient.invalidationRevision
+      if (catalogClient.isLibraryRevisionCurrent(libraryRevision)) revisionRefresh = refresh
+    })
+    return refresh.promise
+  }
+
+  async function executeLibraryLoad(
     mode: LibraryLoadMode,
-  ): Promise<{ snapshot: LibraryDataSnapshot | null; isSnapshotCurrent: () => boolean }> {
-    if (scope.kind === 'smart-playlist') {
-      const statsRevision = playStatsRevision
-      const detail = await options.getSmartPlaylistDetail(scope.id)
-      const usesPlayStats =
-        detail !== null &&
-        'preset' in detail.playlist.rule &&
-        dependsOnPlayStats(detail.playlist.rule.preset)
-      return {
-        snapshot: detail ? createSmartPlaylistLibrarySnapshot(detail) : null,
-        isSnapshotCurrent: () => {
-          if (!usesPlayStats || statsRevision === playStatsRevision) return true
-          // The first detail also tells us whether this route consumes statistics.
-          // Check at commit time: an event can arrive after this fetch resolves
-          // but before its consumer resumes, while no identity is committed yet.
-          if (isRequestCurrent()) void loadLibraryData('background')
-          return false
-        },
-      }
-    }
-
-    if (scope.kind === 'playlist') {
-      const detail = await options.getPlaylistDetail(scope.id)
-      return {
-        snapshot: detail ? createPlaylistLibrarySnapshot(detail) : null,
-        isSnapshotCurrent: () => true,
-      }
-    }
-
-    const catalog = await catalogClient.load(
-      isRequestCurrent,
-      mode === 'metadata-save' ? 'fresh' : 'snapshot',
-    )
-    if (import.meta.env.DEV) {
-      rendererDiagnostics.info({
-        scope: 'library.catalog',
-        message: 'Library catalog snapshot loaded',
-        context: {
-          totalTracks: catalog.tracks.length,
-          totalPages: catalog.totalPages,
-          snapshotBuildMs: catalog.snapshotBuildMs,
-          snapshotHeapDeltaBytes: catalog.snapshotHeapDeltaBytes,
-          pageSliceMs: catalog.pageSliceMs,
-          pageRoundTripMs: catalog.pageRoundTripMs,
-          rendererAggregateMs: catalog.rendererAggregateMs,
-          rendererLoadMs: catalog.rendererLoadMs,
-          rendererHeapDeltaBytes: catalog.rendererHeapDeltaBytes,
-        },
-      })
-    }
-    return {
-      snapshot: createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
-      isSnapshotCurrent: () => catalogClient.isSnapshotCurrent(catalog),
-    }
-  }
-
-  function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
-    options.pageIdentity.value = snapshot.identity
-    options.tracks.value = snapshot.tracks
-    options.libraryViewMode.value = snapshot.viewMode
-    options.onSnapshotCommitted(snapshot)
-  }
-
-  async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
+    libraryRevision?: string,
+    onRequestStarted?: (isCurrent: () => boolean) => void,
+  ): Promise<LibraryLoadResult> {
     if (isDisposed()) return 'stale'
     if (mode === 'metadata-save') {
       while (coordinator.hasActiveForeground && !isDisposed()) {
@@ -195,7 +189,8 @@ export function useLibraryCatalogLoader(options: {
       }
 
       if (isDisposed()) return 'stale'
-      catalogClient.invalidate()
+      if (libraryRevision) catalogClient.invalidateForLibraryRevision(libraryRevision)
+      else catalogClient.invalidate()
     }
 
     const scope = options.captureRouteScope()
@@ -204,9 +199,9 @@ export function useLibraryCatalogLoader(options: {
       return mode === 'background' ? 'queued' : 'stale'
     }
     const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
+    onRequestStarted?.(isRequestCurrent)
     const isForeground = mode === 'foreground'
-    const hasPreviousSnapshot =
-      committedScope !== null && isSameLibraryRouteScope(committedScope, scope)
+    const hasPreviousSnapshot = presentation.hasPreviousSnapshot(scope)
     const viewportCapture =
       isForeground && !hasPreviousSnapshot ? null : options.captureViewportRestore()
 
@@ -222,6 +217,7 @@ export function useLibraryCatalogLoader(options: {
         scope,
         isRequestCurrent,
         mode,
+        libraryRevision,
       )
       if (!isRequestCurrent()) return 'stale'
       // An event may arrive between the shared load resolving and this consumer
@@ -235,7 +231,7 @@ export function useLibraryCatalogLoader(options: {
 
       if (isForeground) isPositioningForegroundViewport.value = true
       commitLibrarySnapshot(snapshot)
-      committedScope = scope
+      presentation.recordCommittedScope(scope)
       hasInitialLoadError.value = false
 
       // Mount the real scroll container before positioning it. Keep its first
@@ -343,6 +339,10 @@ export function useLibraryCatalogLoader(options: {
         return
       }
       clearImportRefresh()
+      if (event.libraryRevision) {
+        await loadLibraryData('background', event.libraryRevision)
+        return
+      }
       catalogClient.invalidate()
       await loadLibraryData('background')
     })
@@ -359,6 +359,7 @@ export function useLibraryCatalogLoader(options: {
 
   function dispose(): void {
     disposed = true
+    revisionRefresh = null
     clearImportRefresh()
     coordinator.invalidate()
     unsubscribeChanged?.()

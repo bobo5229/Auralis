@@ -62,6 +62,7 @@ describe('databaseBackupService', () => {
     it.each([
       'tracks-only',
       'missing-column',
+      'missing-stat-fingerprint',
       'future-version',
       'missing-history',
       'missing-table',
@@ -74,6 +75,8 @@ describe('databaseBackupService', () => {
         migrateDatabase(db)
         if (kind === 'missing-column')
           db.exec('ALTER TABLE tracks DROP COLUMN lyrics_sidecar_fingerprint')
+        if (kind === 'missing-stat-fingerprint')
+          db.exec('ALTER TABLE tracks DROP COLUMN file_stat_fingerprint')
         if (kind === 'future-version')
           db.exec("INSERT INTO schema_migrations (id, name) VALUES (999, 'future')")
         if (kind === 'missing-history') db.exec('DELETE FROM schema_migrations WHERE id = 2')
@@ -407,18 +410,9 @@ describe('databaseBackupService', () => {
 
       const db = openDb(dbPath)
       db.pragma('journal_mode = WAL')
-      // Run partial schema (migration 1)
+      // Use the complete migration-1 schema, including albums and its indexes.
+      db.exec(migrations[0].sql)
       db.exec(`
-        CREATE TABLE tracks (
-          id INTEGER PRIMARY KEY,
-          file_path TEXT NOT NULL UNIQUE,
-          title TEXT,
-          artist TEXT,
-          album TEXT,
-          duration_seconds REAL,
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
         CREATE TABLE schema_migrations (
           id INTEGER PRIMARY KEY,
           name TEXT NOT NULL,

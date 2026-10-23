@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { availableParallelism } from 'node:os'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -11,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    minWorkers: 1,
+    maxWorkers: Math.min(4, availableParallelism()),
     include: ['src/**/*.native.test.ts'],
   },
 })

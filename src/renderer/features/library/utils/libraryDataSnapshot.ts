@@ -3,11 +3,13 @@ import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
+import type { RecentAddedLibraryRange } from './recentAddedLibrary'
 import {
   createLibraryIdentity,
   createPlaylistIdentity,
   createSmartPlaylistIdentity,
 } from './libraryPageIdentity'
+import { selectRecentAddedLibraryTracks } from './recentAddedLibrary'
 
 export interface LibraryDataSnapshot {
   identity: LibraryPageIdentity
@@ -22,6 +24,19 @@ export function createAllSongsLibrarySnapshot(
   return {
     identity: createLibraryIdentity(),
     tracks,
+    viewMode,
+  }
+}
+
+export function createRecentAddedLibrarySnapshot(
+  tracks: readonly TrackListItem[],
+  range: RecentAddedLibraryRange,
+  viewMode: LibraryViewMode,
+  nowMs = Date.now(),
+): LibraryDataSnapshot {
+  return {
+    identity: { kind: 'recent-added', range },
+    tracks: selectRecentAddedLibraryTracks(tracks, range, nowMs),
     viewMode,
   }
 }

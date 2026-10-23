@@ -20,7 +20,7 @@ import {
 } from '@shared/smartPlaylists/recentFrequent'
 import { assertValidSmartPlaylistRule, normalizeRule, canonicalRule } from './smartPlaylistRules'
 import {
-  matchesRule,
+  compileRule,
   parseTrackCreatedAt,
   sortRecentAddedTracks,
   isRecentAddedSmartPlaylist,
@@ -52,10 +52,15 @@ export class SmartPlaylistService {
   }
 
   listTrackCounts(): SmartPlaylistTrackCount[] {
+    const playlists = this.smartPlaylistRepository.list()
+    if (playlists.length === 0) {
+      this.clearTrackListCache()
+      return []
+    }
     const tracks = this.getTracksCached()
     const now = new Date()
     const presetTracks = new Map<string, TrackListItem[]>()
-    return this.smartPlaylistRepository.list().map((playlist) => ({
+    return playlists.map((playlist) => ({
       playlistId: playlist.id,
       trackCount: this.getPlaylistTracks(playlist, tracks, now, presetTracks).length,
     }))
@@ -135,7 +140,7 @@ export class SmartPlaylistService {
     presetTracks = new Map<string, TrackListItem[]>(),
   ): TrackListItem[] {
     if (!('preset' in playlist.rule)) {
-      return tracks.filter((track) => matchesRule(track, playlist.rule))
+      return tracks.filter(compileRule(playlist.rule, now.getTime()))
     }
     const rule = playlist.rule
     const key = canonicalRule(rule)

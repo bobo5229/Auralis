@@ -11,8 +11,20 @@ import type { ArtworkCacheGarbageCollector } from '@main/features/artwork/artwor
 import { migrateDatabase } from '@main/database/schema'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
-import type { ScannedTrack } from '@shared/types/libraryScan'
+import type { ScannedTrackFile } from './libraryScanTypes'
 import { LibraryScanService } from './libraryScanService'
+
+const workerFiles = vi.hoisted(() => new Set<string>())
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    statSync: (path: string) =>
+      workerFiles.has(path)
+        ? { size: 10, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1, isFile: () => true }
+        : actual.statSync(path),
+  }
+})
 
 vi.mock('electron', () => ({
   BrowserWindow: { getFocusedWindow: () => null, getAllWindows: () => [] },
@@ -35,9 +47,12 @@ function deferred() {
   return { promise, resolve }
 }
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
-function track(filePath: string): ScannedTrack {
+function track(filePath: string): ScannedTrackFile {
+  workerFiles.add(filePath)
   return {
     filePath,
+    fileFingerprint: { size: 10, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1 },
+    lyricsSidecarFingerprint: '[null,null,null,null]',
     title: filePath,
     fileSize: 10,
     fileMtimeMs: 1,
@@ -82,6 +97,7 @@ function harness() {
   return { db, service, root, workers, send, repo: new TrackRepository(db) }
 }
 afterEach(() => {
+  workerFiles.clear()
   for (const db of databases.splice(0)) db.close()
   vi.clearAllMocks()
 })

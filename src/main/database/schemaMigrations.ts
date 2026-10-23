@@ -748,4 +748,89 @@ export const migrations = [
       ALTER TABLE tracks ADD COLUMN metadata_parser_version TEXT NOT NULL DEFAULT 'metadata:1';
     `,
   },
+  {
+    id: 27,
+    name: 'add_track_codec',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN codec TEXT;
+    `,
+  },
+  {
+    id: 28,
+    name: 'add_library_catalog_revision',
+    sql: `
+      CREATE TABLE library_catalog_revision (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO library_catalog_revision (id) VALUES (1);
+
+      -- Track the columns consumed by TrackQueryRepository.getAll(), including
+      -- its display joins. Keep revisions transactional and visible to workers.
+      CREATE TRIGGER catalog_tracks_insert AFTER INSERT ON tracks
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_tracks_delete AFTER DELETE ON tracks
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_tracks_update AFTER UPDATE ON tracks
+      WHEN NEW.id IS NOT OLD.id
+        OR NEW.title IS NOT OLD.title OR NEW.artist IS NOT OLD.artist
+        OR NEW.album IS NOT OLD.album OR NEW.album_artist IS NOT OLD.album_artist
+        OR NEW.track_no IS NOT OLD.track_no OR NEW.disc_no IS NOT OLD.disc_no
+        OR NEW.release_date IS NOT OLD.release_date OR NEW.copyright IS NOT OLD.copyright
+        OR NEW.composer IS NOT OLD.composer OR NEW.duration_seconds IS NOT OLD.duration_seconds
+        OR NEW.bitrate_bps IS NOT OLD.bitrate_bps OR NEW.genre IS NOT OLD.genre
+        OR NEW.availability IS NOT OLD.availability OR NEW.created_at IS NOT OLD.created_at
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_metadata_insert AFTER INSERT ON track_metadata
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_metadata_delete AFTER DELETE ON track_metadata
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_metadata_update AFTER UPDATE ON track_metadata
+      WHEN NEW.track_id IS NOT OLD.track_id
+        OR NEW.title IS NOT OLD.title OR NEW.artist_display IS NOT OLD.artist_display
+        OR NEW.album_title IS NOT OLD.album_title
+        OR NEW.album_artist_display IS NOT OLD.album_artist_display
+        OR NEW.genre_display IS NOT OLD.genre_display OR NEW.release_date IS NOT OLD.release_date
+        OR NEW.artwork_cache_key IS NOT OLD.artwork_cache_key
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_albums_insert AFTER INSERT ON albums
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_albums_delete AFTER DELETE ON albums
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_albums_update AFTER UPDATE ON albums
+      WHEN NEW.title IS NOT OLD.title OR NEW.artist IS NOT OLD.artist
+        OR NEW.artwork_cache_key IS NOT OLD.artwork_cache_key
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_play_stats_insert AFTER INSERT ON track_play_stats
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_play_stats_delete AFTER DELETE ON track_play_stats
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_play_stats_update AFTER UPDATE ON track_play_stats
+      WHEN NEW.track_id IS NOT OLD.track_id OR NEW.play_count IS NOT OLD.play_count
+        OR NEW.last_played_at IS NOT OLD.last_played_at
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+    `,
+  },
+  {
+    id: 29,
+    name: 'add_audio_file_stat_fingerprint',
+    sql: `ALTER TABLE tracks ADD COLUMN file_stat_fingerprint TEXT;`,
+  },
+  {
+    id: 30,
+    name: 'index_artwork_references',
+    sql: `
+      -- GC rechecks current references before each deletion, inside its write
+      -- transaction. Keep that safety check proportional to matching keys.
+      CREATE INDEX idx_albums_artwork_cache_key
+        ON albums(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_track_metadata_artwork_cache_key
+        ON track_metadata(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_removed_track_history_artwork_cache_key
+        ON removed_track_history(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+    `,
+  },
 ] as const

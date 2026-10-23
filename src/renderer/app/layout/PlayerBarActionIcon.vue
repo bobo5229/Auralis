@@ -1,13 +1,34 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{ icon: string }>()
+const props = withDefaults(
+  defineProps<{ icon: string; size?: 'compact' | 'playback-mode' | 'standard' }>(),
+  { size: 'standard' },
+)
 
 // 沿用 Phosphor 的图形结构，在 20px 网格内校正光学尺寸。
 // 使用描边绘制，避免缩放填充图标时同时改变线宽。
 const paths: Record<string, string[]> = {
   'i-ph-arrow-right': ['M3.25 10H16.25', 'M10.5 4.25 16.25 10 10.5 15.75'],
-  'i-ph-queue': ['M2.5 4.5H16 M2.5 10H9.5 M2.5 15.5H9.5', 'M12.5 9 17.5 12.25 12.5 15.5Z'],
+  'i-ph-repeat': [
+    'M3 8V7.5A3 3 0 0 1 6 4.5H16.5 M13.5 1.5 16.5 4.5 13.5 7.5',
+    'M17 12V12.5A3 3 0 0 1 14 15.5H3.5 M6.5 12.5 3.5 15.5 6.5 18.5',
+  ],
+  'i-ph-repeat-once': [
+    'M3 8V7.5A3 3 0 0 1 6 4.5H16.5 M13.5 1.5 16.5 4.5 13.5 7.5',
+    'M17 12V12.5A3 3 0 0 1 14 15.5H3.5 M6.5 12.5 3.5 15.5 6.5 18.5',
+    'M8.75 9 10.25 8V12',
+  ],
+  'i-ph-shuffle': [
+    'M2.5 5H5Q6.5 5 7.75 7L12.25 13Q13.5 15 15 15H17.5 M15 12.5 17.5 15 15 17.5',
+    'M2.5 15H5Q6.5 15 7.75 13 M12.25 7Q13.5 5 15 5H17.5 M15 2.5 17.5 5 15 7.5',
+  ],
+  'i-ph-vinyl-record': [
+    'M18 10A8 8 0 1 1 2 10A8 8 0 1 1 18 10Z',
+    'M12.5 10A2.5 2.5 0 1 1 7.5 10A2.5 2.5 0 1 1 12.5 10Z',
+    'M5 8A5.4 5.4 0 0 1 8 5 M12 15A5.4 5.4 0 0 0 15 12',
+  ],
+  'i-ph-list': ['M2.5 4.5H17.5 M2.5 10H17.5 M2.5 15.5H17.5'],
   'i-ph-subtitles': [
     'M3.5 3.75H16.5Q17.5 3.75 17.5 4.75V15.25Q17.5 16.25 16.5 16.25H3.5Q2.5 16.25 2.5 15.25V4.75Q2.5 3.75 3.5 3.75Z',
     'M5 10H6.5 M9 10H15 M5 13H11 M13.5 13H15',
@@ -22,25 +43,39 @@ const paths: Record<string, string[]> = {
     'M14 7.5Q15.4 9.1 15 10.7 M16.5 5.5Q19.6 9.2 17.6 13',
     'M3.5 3 16.5 17',
   ],
+  'i-ph-dots-three': ['M4 10h0', 'M10 10h0', 'M16 10h0'],
+  'i-ph-check': ['M4.25 10.5 8.25 14.5 15.75 6.5'],
 }
 
 const strokes = computed(() => paths[props.icon])
+const iconSizeClass = computed(() => {
+  if (props.size === 'compact') return 'h-4 w-4'
+  if (props.size === 'playback-mode') return 'h-[19px] w-[19px]'
+  return 'h-5 w-5'
+})
+// 20 单位 viewBox 按实际尺寸补偿，保持不同尺寸下约 1.2px 的描边。
+const strokeWidth = computed(() => {
+  if (props.size === 'compact') return 1.5
+  if (props.size === 'playback-mode') return 1.263157895
+  return 1.2
+})
 </script>
 
 <template>
   <svg
     v-if="strokes"
-    class="playbar-action-icon playbar-action-stroke-icon h-5 w-5"
+    class="playbar-action-icon playbar-action-stroke-icon"
+    :class="iconSizeClass"
     :data-icon="icon"
     viewBox="0 0 20 20"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.35"
+    :stroke-width="strokeWidth"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"
   >
     <path v-for="(path, index) in strokes" :key="index" :d="path" />
   </svg>
-  <span v-else class="playbar-action-icon h-5 w-5" :class="icon" aria-hidden="true" />
+  <span v-else class="playbar-action-icon" :class="[iconSizeClass, icon]" aria-hidden="true" />
 </template>

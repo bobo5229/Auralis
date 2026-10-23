@@ -42,15 +42,10 @@ const typographyState = {
 }
 
 const backgroundState = {
-  backgroundMode: ref<'metal' | 'fluid'>('metal'),
   backgroundMotionPaused: ref(false),
-  metalSettings: ref({ speed: 0.5, folds: 0.5, roughness: 0.5 }),
-  setBackgroundMode: vi.fn(
-    (mode: 'metal' | 'fluid') => (backgroundState.backgroundMode.value = mode),
+  setBackgroundMotionPaused: vi.fn(
+    (paused: boolean) => (backgroundState.backgroundMotionPaused.value = paused),
   ),
-  setBackgroundMotionPaused: vi.fn(),
-  setMetalSettings: vi.fn(),
-  resetMetalSettings: vi.fn(),
 }
 
 class TestNode {
@@ -67,6 +62,27 @@ class TestNode {
 
   focus(): void {
     ;(document as unknown as { activeElement: TestNode }).activeElement = this
+  }
+
+  getBoundingClientRect(): {
+    left: number
+    right: number
+    top: number
+    bottom: number
+    width: number
+    height: number
+  } {
+    // A longer option can make the content-sized menu wider than its trigger.
+    const width = this.props.role === 'listbox' ? 196 : 148
+    return { left: 100, right: 100 + width, top: 100, bottom: 130, width, height: 30 }
+  }
+
+  closest(): null {
+    return null
+  }
+
+  querySelector(): null {
+    return null
   }
 }
 
@@ -145,10 +161,16 @@ beforeEach(() => {
   typographyState.persistFailed.value = false
   typographyState.setPreference.mockClear()
   typographyState.resetPreference.mockClear()
-  backgroundState.backgroundMode.value = 'metal'
-  backgroundState.setBackgroundMode.mockClear()
+  backgroundState.backgroundMotionPaused.value = false
+  backgroundState.setBackgroundMotionPaused.mockClear()
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('HTMLElement', TestNode)
+  vi.stubGlobal('window', {
+    innerWidth: 1280,
+    innerHeight: 900,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
   vi.stubGlobal('document', {
     body,
     activeElement: body,
@@ -181,10 +203,31 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
       { target: { value: '125' } },
     )
     trigger(
-      find((node) => node.props['data-lyrics-typography-select'] !== undefined),
-      'Change',
-      { target: { value: '600' } },
+      find((node) => node.props.id === 'fullscreen-lyrics-font-weight'),
+      'Click',
+      {},
     )
+    await flush()
+    const weightMenu = find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')
+    expect(weightMenu?.props.role).toBe('listbox')
+    expect(weightMenu?.props.style).toMatchObject({
+      width: 'max-content',
+      minWidth: '148px',
+      maxWidth: '1264px',
+      left: '52px',
+    })
+    expect(weightMenu?.parent?.props.class).toBe('fullscreen-background-controls')
+    trigger(
+      find(
+        (node) =>
+          node.props.role === 'option' && node.textContent === 'fullscreen.lyrics.weights.600',
+      ),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')).toBeUndefined()
+    expect(find((node) => node.props.id === 'fullscreen-background-panel')).toBeDefined()
     trigger(
       find((node) => node.props['data-lyrics-typography'] === 'line-gap'),
       'Input',
@@ -198,12 +241,12 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     ])
   })
 
-  it('resets only lyrics, keeps controls available for both backgrounds and shows save feedback', async () => {
+  it('resets only lyrics, preserves paused background and shows save feedback', async () => {
     await mount()
     typographyState.preference.value = { fontSizePercent: 125, fontWeight: 600, lineGapPercent: 80 }
     await flush()
     trigger(
-      find((node) => node.props['data-background-mode'] === 'fluid'),
+      find((node) => node.props['data-background-pause'] !== undefined),
       'Click',
       {},
     )
@@ -217,7 +260,7 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     )
     await flush()
     expect(typographyState.resetPreference).toHaveBeenCalledOnce()
-    expect(backgroundState.setBackgroundMode).toHaveBeenCalledWith('fluid')
+    expect(backgroundState.backgroundMotionPaused.value).toBe(true)
     expect(
       find((node) => node.props['data-lyrics-typography-status'] !== undefined)?.textContent,
     ).toBe('fullscreen.lyrics.resetStatus')
@@ -246,5 +289,52 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     expect(controlsInstance?.close()).toBe(true)
     await flush()
     expect(documentStub.activeElement?.props['aria-controls']).toBe('fullscreen-background-panel')
+  })
+})
+
+describe('FullscreenBackgroundControls background motion', () => {
+  it('offers pause without a background mode selector', async () => {
+    await mount()
+    expect(find((node) => node.props['data-background-mode'] !== undefined)).toBeUndefined()
+    expect(find((node) => node.textContent === 'fullscreen.background.mode')).toBeUndefined()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
+    expect(
+      find((node) => node.type === 'input' && node.props['data-lyrics-typography'] === undefined),
+    ).toBeUndefined()
+  })
+
+  it('toggles motion and preserves its preference when the settings panel reopens', async () => {
+    await mount()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenCalledWith(true)
+    expect(controlsInstance?.close()).toBe(true)
+    await flush()
+    trigger(
+      find((node) => node.props['aria-controls'] === 'fullscreen-background-panel'),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(true)
+    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenLastCalledWith(false)
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
   })
 })

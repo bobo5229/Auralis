@@ -9,6 +9,7 @@ import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { checkFileStability } from './fileStabilityChecker'
 import { findUniqueRelocations } from './trackRelocationMatcher'
+import { scanFileFingerprint } from './libraryScanFileFingerprint'
 import { stat } from 'node:fs/promises'
 import { statSync, type Stats } from 'node:fs'
 import { win32 } from 'node:path'
@@ -153,7 +154,11 @@ export class LibraryIncrementalImportService {
         }
         try {
           const match = matches.get(track.filePath)
-          if (match && this.trackRepository.relocateTrack(match.trackId, track, match.filePath)) {
+          if (
+            match &&
+            this.canRelocateFrom(match.filePath, track.filePath) &&
+            this.trackRepository.relocateTrack(match.trackId, track, match.filePath)
+          ) {
             result.imported.push(track.filePath)
             relocatedIds.push(match.trackId)
             relocatedPaths.push(track.filePath)
@@ -204,6 +209,18 @@ export class LibraryIncrementalImportService {
     }
   }
 
+  private canRelocateFrom(oldPath: string, newPath: string): boolean {
+    if (win32.normalize(oldPath).toLowerCase() === win32.normalize(newPath).toLowerCase())
+      return true
+    try {
+      statSync(oldPath)
+      return false
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      return code === 'ENOENT' || code === 'ENOTDIR'
+    }
+  }
+
   private async waitForStability(filePath: string): Promise<boolean> {
     for (let attempt = 0; attempt < MAX_STABILITY_RETRIES; attempt++) {
       const result = await checkFileStability(filePath)
@@ -249,6 +266,7 @@ export class LibraryIncrementalImportService {
       return {
         track: {
           filePath,
+          fileFingerprint: scanFileFingerprint(fileStat),
           metadataParserVersion: getMetadataParserVersion(filePath),
           fileSize: fileStat.size,
           fileMtimeMs: fileStat.mtimeMs,
@@ -260,6 +278,7 @@ export class LibraryIncrementalImportService {
           discNo: normalized.discNo,
           durationSeconds: normalized.durationSeconds,
           bitrateBps: normalized.bitrateBps,
+          codec: normalized.codec,
           year: normalized.year,
           releaseDate: normalized.releaseDate,
           copyright: normalized.copyright,

@@ -8,6 +8,7 @@ export const ipcChannels = {
     setLocale: 'app:set-locale',
     claimCdStartupEntry: 'app:claim-cd-startup-entry',
     claimStartupAlbum: 'app:claim-startup-album',
+    drawStartupAlbum: 'app:draw-startup-album',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
     splashReady: 'app:splash-ready',
@@ -22,6 +23,7 @@ export const ipcChannels = {
     getTracks: 'library:get-tracks',
     getTrackPage: 'library:get-track-page',
     getAlbumDetail: 'library:get-album-detail',
+    revealInExplorer: 'library:reveal-in-explorer',
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },
@@ -52,6 +54,15 @@ export const ipcChannels = {
   },
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',
+    openEditor: 'lyrics:open-editor',
+    openLrcEditor: 'lyrics:open-lrc-editor',
+    saveLrcEditor: 'lyrics:save-lrc-editor',
+    closeLrcEditor: 'lyrics:close-lrc-editor',
+    assignEditorLines: 'lyrics:assign-editor-lines',
+    retimeEditorLines: 'lyrics:retime-editor-lines',
+    replaceEditorLineText: 'lyrics:replace-editor-line-text',
+    saveEditor: 'lyrics:save-editor',
+    closeEditor: 'lyrics:close-editor',
   },
   playback: {
     spectrumSubscribe: 'playback:spectrum-subscribe',
@@ -73,7 +84,9 @@ export const ipcChannels = {
   },
   archive: {
     getAnnualPlayCounts: 'archive:get-annual-play-counts',
+    getAnnualSummary: 'archive:get-annual-summary',
     getDayTopTracks: 'archive:get-day-top-tracks',
+    getDayTopAlbums: 'archive:get-day-top-albums',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {

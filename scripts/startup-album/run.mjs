@@ -40,6 +40,8 @@ const cases = process.argv.slice(2).length
       'play-reduced',
       'play-fallback',
       'controls',
+      'controls-timing',
+      'first-frame-cancel',
       'escape',
       'disabled',
       'empty',

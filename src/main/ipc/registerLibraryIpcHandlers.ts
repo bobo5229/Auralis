@@ -3,6 +3,10 @@ import type { LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import { LibraryCatalogExpiredError } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest } from '@shared/types/albumDetail'
 import type { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
+import {
+  revealLibraryInExplorer,
+  type RevealInExplorerDependencies,
+} from '@main/features/library/revealInExplorer'
 import type { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import type { LibraryService } from '@main/services/libraryService'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
@@ -21,13 +25,15 @@ export interface LibraryIpcDependencies {
   libraryService: LibraryQueries
   libraryScanService: LibraryScanCommands
   metadataWatchService: Pick<MetadataWatchService, 'syncRoots'>
+  revealInExplorer: RevealInExplorerDependencies
 }
 
 export function registerLibraryIpcHandlers(
   registrar: IpcHandlerRegistrar,
   dependencies: LibraryIpcDependencies,
 ): void {
-  const { libraryService, libraryScanService, metadataWatchService } = dependencies
+  const { libraryService, libraryScanService, metadataWatchService, revealInExplorer } =
+    dependencies
 
   registrar.handle(ipcChannels.library.getStats, () => libraryService.getStats())
 
@@ -65,6 +71,12 @@ export function registerLibraryIpcHandlers(
 
   registrar.handle(ipcChannels.library.getAlbumDetail, (_event, payload: AlbumDetailRequest) =>
     libraryService.getAlbumDetail(payload),
+  )
+
+  registrar.handle(
+    ipcChannels.library.revealInExplorer,
+    (_event, payload: { trackIds: number[] }) =>
+      revealLibraryInExplorer(payload.trackIds, revealInExplorer),
   )
 
   registrar.handle(ipcChannels.lyrics.getByTrackId, (_event, payload: { trackId: number }) =>

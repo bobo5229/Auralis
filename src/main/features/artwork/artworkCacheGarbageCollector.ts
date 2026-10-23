@@ -4,6 +4,7 @@ import { readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
 import { isCacheFileName } from './artworkCachePolicy'
+import { AlbumMaintenanceRepository } from '@main/repositories/albumMaintenanceRepository'
 
 export interface ArtworkCacheGarbageCollectionSummary {
   orphanFileCount: number
@@ -32,14 +33,21 @@ function isPathUnderCacheDir(filePath: string, cacheDir: string): boolean {
  */
 export class ArtworkCacheGarbageCollector {
   private running = false
+  private readonly albums: AlbumMaintenanceRepository
 
   constructor(
     private readonly db: Database.Database,
     private readonly cacheDir: string,
-  ) {}
+  ) {
+    this.albums = new AlbumMaintenanceRepository(db)
+  }
 
   isRunning(): boolean {
     return this.running
+  }
+
+  hasUnusedAlbums(): boolean {
+    return this.albums.hasUnusedAlbums()
   }
 
   collectReferencedKeys(): Set<string> {
@@ -79,7 +87,12 @@ export class ArtworkCacheGarbageCollector {
     const startedAt = Date.now()
 
     try {
-      const referenced = this.collectReferencedKeys()
+      const referenced = this.db
+        .transaction(() => {
+          if (canCollect()) this.albums.removeUnusedAlbums()
+          return this.collectReferencedKeys()
+        })
+        .immediate()
       const hasReference = this.db.prepare(`
         SELECT 1 FROM albums WHERE artwork_cache_key = ?
         UNION ALL SELECT 1 FROM track_metadata WHERE artwork_cache_key = ?

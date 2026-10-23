@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
+import { computed, readonly, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { AlbumDetailResult, AlbumDetailSummary } from '@shared/types/albumDetail'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -18,7 +18,10 @@ import { albumIdentityKey } from '../utils/albumIdentity'
 export type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
 export { selectAlbumTracks } from '../utils/albumGrouping'
 
-type AlbumDetailLibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
+type AlbumDetailLibraryClient = Pick<
+  AuralisApi['library'],
+  'getAlbumDetail' | 'getTracks' | 'onChanged'
+>
 
 interface UseAlbumDetailTracksOptions {
   albumArtist: Readonly<Ref<string>>
@@ -38,6 +41,8 @@ interface UseAlbumDetailTracksResult {
   initialize: () => Promise<void>
   reloadTracks: (options?: { background?: boolean }) => Promise<boolean>
   ensureCurrentAlbum: () => Promise<void>
+  ensurePlaybackCatalog: () => Promise<TrackListItem[] | null>
+  playbackCatalogRevision: Readonly<Ref<number>>
   syncLoadStateFromTracks: () => void
   dispose: () => void
 }
@@ -110,9 +115,39 @@ export function useAlbumDetailTracks({
   })
 
   let disposed = false
+  const playbackCatalogRevision = ref(0)
+  let playbackCatalogRequest: Promise<TrackListItem[] | null> | null = null
+
+  // Keep full-catalog loading out of the detail display query. Only sequential
+  // playback needs it; concurrent clicks reuse the same immutable snapshot.
+  async function ensurePlaybackCatalog(): Promise<TrackListItem[] | null> {
+    if (disposed) return null
+    if (hasCatalogSnapshot) return tracks.value
+    if (!playbackCatalogRequest) {
+      const revision = playbackCatalogRevision.value
+      const request = library.getTracks().then(
+        (catalog) => (disposed || revision !== playbackCatalogRevision.value ? null : catalog),
+        (error: unknown) => {
+          if (playbackCatalogRequest === request) playbackCatalogRequest = null
+          throw error
+        },
+      )
+      playbackCatalogRequest = request
+    }
+    return playbackCatalogRequest
+  }
+
   let loadGeneration = 0
+  let currentAlbumKey = albumIdentityKey(albumArtist.value, albumTitle.value)
   let playStatsReloadTimer: ReturnType<typeof setTimeout> | null = null
   let unsubscribeChanged: (() => void) | null = null
+
+  function invalidateChangedAlbumRequests(): void {
+    const key = albumIdentityKey(albumArtist.value, albumTitle.value)
+    if (key === currentAlbumKey) return
+    currentAlbumKey = key
+    loadGeneration += 1
+  }
 
   function syncLoadStateFromTracks(): void {
     loadState.value = albumTracks.value.length > 0 ? 'ready' : 'not-found'
@@ -217,16 +252,24 @@ export function useAlbumDetailTracks({
   }
 
   async function reloadTracks(options: { background?: boolean } = {}): Promise<boolean> {
+    invalidateChangedAlbumRequests()
+    const requestArtist = albumArtist.value
+    const requestTitle = albumTitle.value
     const requestGeneration = ++loadGeneration
+    const isRequestCurrent = () =>
+      !disposed &&
+      requestGeneration === loadGeneration &&
+      requestArtist === albumArtist.value &&
+      requestTitle === albumTitle.value
     const hasExistingSnapshot = albumTracks.value.length > 0
     if (!options.background && !hasExistingSnapshot) loadState.value = 'loading'
 
     try {
       const result = await library.getAlbumDetail({
-        albumArtist: albumArtist.value,
-        albumTitle: albumTitle.value,
+        albumArtist: requestArtist,
+        albumTitle: requestTitle,
       })
-      if (disposed || requestGeneration !== loadGeneration) return false
+      if (!isRequestCurrent()) return false
 
       mergeAlbumTracks(result.tracks)
       if (!hasCatalogSnapshot) storedMoreAlbums.value = result.moreAlbums.map(toAlbumSummary)
@@ -241,7 +284,7 @@ export function useAlbumDetailTracks({
       rememberSnapshot(result)
       return true
     } catch {
-      if (disposed || requestGeneration !== loadGeneration) return false
+      if (!isRequestCurrent()) return false
 
       if (hasExistingSnapshot || options.background) {
         if (hasExistingSnapshot) syncLoadStateFromTracks()
@@ -253,6 +296,8 @@ export function useAlbumDetailTracks({
   }
 
   async function ensureCurrentAlbum(): Promise<void> {
+    // A cached navigation must invalidate the old album's in-flight refresh too.
+    invalidateChangedAlbumRequests()
     if (syncToCurrentAlbum()) {
       const snapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
       const needsGenreAlbums =
@@ -274,9 +319,7 @@ export function useAlbumDetailTracks({
   }
 
   async function initialize(): Promise<void> {
-    await ensureCurrentAlbum()
     if (disposed) return
-
     unsubscribeChanged?.()
     unsubscribeChanged = library.onChanged((event) => {
       if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
@@ -284,16 +327,20 @@ export function useAlbumDetailTracks({
         return
       }
       hasCatalogSnapshot = false
+      playbackCatalogRevision.value += 1
+      playbackCatalogRequest = null
       storedMoreAlbums.value = []
       storedGenreAlbums.value = []
       invalidateAlbumDetailSnapshot()
       void reloadTracks({ background: true })
     })
+    await ensureCurrentAlbum()
   }
 
   function dispose(): void {
     if (disposed) return
     disposed = true
+    playbackCatalogRevision.value += 1
     loadGeneration += 1
 
     if (playStatsReloadTimer) {
@@ -316,6 +363,8 @@ export function useAlbumDetailTracks({
     initialize,
     reloadTracks,
     ensureCurrentAlbum,
+    ensurePlaybackCatalog,
+    playbackCatalogRevision: readonly(playbackCatalogRevision),
     syncLoadStateFromTracks,
     dispose,
   }

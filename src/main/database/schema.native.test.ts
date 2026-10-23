@@ -22,6 +22,83 @@ afterEach(() => {
 })
 
 describe('migrateDatabase', () => {
+  it('upgrades version 29 with indexed artwork lookups and preserves all existing rows', () => {
+    const db = createDatabase()
+    db.exec(
+      'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+    )
+    for (const migration of migrations.filter((item) => item.id <= 29)) {
+      db.exec(migration.sql)
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    db.exec(`
+      INSERT INTO tracks(id,file_path,title) VALUES(1,'one.flac','One'),(2,'two.flac','Two');
+      INSERT INTO albums(title,artist,artwork_cache_key) VALUES('One','Artist','shared.webp'),('Two','Artist','shared.webp'),('Empty',NULL,NULL);
+      INSERT INTO track_metadata(track_id,artwork_cache_key,source) VALUES(1,'shared.webp','user_edit'),(2,NULL,'file_tag');
+      INSERT INTO removed_track_history(id,artwork_cache_key,source_file_path,recovery_json) VALUES(3,'shared.webp','gone.flac','{}');
+      INSERT INTO track_play_stats(track_id,play_count) VALUES(1,7);
+      INSERT INTO playlists(id,name) VALUES(1,'Favorites');
+      INSERT INTO playlist_tracks(playlist_id,track_id,position) VALUES(1,1,0);
+    `)
+    const tables = [
+      'tracks',
+      'albums',
+      'track_metadata',
+      'removed_track_history',
+      'track_play_stats',
+      'playlists',
+      'playlist_tracks',
+      'library_catalog_revision',
+    ]
+    const snapshot = () => tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
+    const before = snapshot()
+    migrateDatabase(db)
+    migrateDatabase(db)
+    expect(snapshot()).toEqual(before)
+    for (const table of ['albums', 'track_metadata', 'removed_track_history']) {
+      const plan = db
+        .prepare(`EXPLAIN QUERY PLAN SELECT 1 FROM ${table} WHERE artwork_cache_key = ?`)
+        .all('unreferenced.webp') as { detail: string }[]
+      expect(plan.some(({ detail }) => detail.startsWith('SEARCH '))).toBe(true)
+      expect(plan.some(({ detail }) => detail.startsWith('SCAN '))).toBe(false)
+    }
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
+
+  it('upgrades version 28 without changing music, metadata, playlists or listening history', () => {
+    const db = createDatabase()
+    db.exec(
+      'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+    )
+    for (const migration of migrations.filter((item) => item.id <= 28)) {
+      db.exec(migration.sql)
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    db.exec(
+      "INSERT INTO tracks(id,file_path,title,file_size,file_mtime_ms) VALUES(1,'song.flac','Song',100,123); INSERT INTO track_metadata(track_id,title,source) VALUES(1,'Edited','user_edit'); INSERT INTO track_play_stats(track_id,play_count) VALUES(1,7); INSERT INTO playlists(id,name) VALUES(1,'Favorites'); INSERT INTO playlist_tracks(playlist_id,track_id,position) VALUES(1,1,0)",
+    )
+    const display = db.prepare('SELECT * FROM library_track_display').all()
+    const tables = [
+      'track_metadata',
+      'track_play_stats',
+      'playlists',
+      'playlist_tracks',
+      'library_catalog_revision',
+    ]
+    const snapshot = () => tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
+    const before = snapshot()
+    migrateDatabase(db)
+    expect(db.prepare('SELECT * FROM library_track_display').all()).toEqual(display)
+    expect(snapshot()).toEqual(before)
+    expect(db.prepare('SELECT file_stat_fingerprint FROM tracks').pluck().get()).toBeNull()
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
   it('adds history storage to migration 23 without changing existing music or statistics', () => {
     const db = createDatabase()
     db.exec(
@@ -64,9 +141,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 26 }, (_, index) => index + 1),
+      Array.from({ length: 30 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('add_metadata_parser_version')
+    expect(migrations.at(-1)?.name).toBe('index_artwork_references')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -82,6 +159,7 @@ describe('migrateDatabase', () => {
         'playlists',
         'playlist_tracks',
         'library_track_display',
+        'library_catalog_revision',
       ]),
     )
     expect(objects).not.toContain('file_tag_snapshots')
@@ -136,7 +214,7 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(26)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(30)
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
     ).toBeNull()

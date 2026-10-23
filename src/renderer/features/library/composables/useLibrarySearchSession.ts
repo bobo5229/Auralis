@@ -14,6 +14,7 @@ import { normalizeSearchText } from '../utils/normalizeSearchText'
 export function useLibrarySearchSession(options: {
   isDisposed: () => boolean
   isLibrarySurface: () => boolean
+  hasPageParameters?: () => boolean
   isInteractiveTarget: (target: EventTarget | null) => boolean
   scrollToTrackIndex: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
 }): {
@@ -43,6 +44,7 @@ export function useLibrarySearchSession(options: {
   const searchQuery = ref('')
   const isSearchFocused = ref(false)
   const isSearchZoneHovered = ref(false)
+  const isSearchAwaitingDismiss = ref(false)
   const searchInputRef = ref<HTMLElement | null>(null)
   const searchRootRef = ref<HTMLElement | null>(null)
   const searchZoneRef = ref<HTMLElement | null>(null)
@@ -64,6 +66,7 @@ export function useLibrarySearchSession(options: {
     searchQuery,
     () => {
       cancelPendingSearchScroll()
+      isSearchAwaitingDismiss.value = false
       searchOutcome.value = { kind: 'idle' }
       lastSearchQuery = ''
       lastMatchedTrackIndex = -1
@@ -73,7 +76,11 @@ export function useLibrarySearchSession(options: {
 
   const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
   const shouldRenderSearchBar = computed(
-    () => isSearchFocused.value || hasSearchQuery.value || isSearchZoneHovered.value,
+    () =>
+      isSearchFocused.value ||
+      hasSearchQuery.value ||
+      isSearchZoneHovered.value ||
+      isSearchAwaitingDismiss.value,
   )
 
   function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
@@ -174,6 +181,7 @@ export function useLibrarySearchSession(options: {
       event.clientY,
       zone.getBoundingClientRect(),
       bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
+      options.hasPageParameters?.(),
     )
     if (!hovered) isSearchHoverDismissed = false
     isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
@@ -191,17 +199,20 @@ export function useLibrarySearchSession(options: {
 
   function onSearchInputFocus(): void {
     isSearchHoverDismissed = false
+    isSearchAwaitingDismiss.value = false
     isSearchFocused.value = true
   }
 
   function onSearchBarFocusOut(event: FocusEvent): void {
     const target = event.relatedTarget
-    if (target && target instanceof Node && searchRootRef.value?.contains(target)) return
+    const bar = (event.currentTarget as HTMLElement | null) ?? searchRootRef.value
+    if (target && target instanceof Node && bar?.contains(target)) return
     isSearchFocused.value = false
   }
 
   function clearSearch(): void {
     cancelPendingSearchScroll()
+    isSearchAwaitingDismiss.value = false
     searchQuery.value = ''
     searchOutcome.value = { kind: 'idle' }
   }
@@ -229,6 +240,7 @@ export function useLibrarySearchSession(options: {
       void jumpToNextSearchMatch()
     } else if (event.key === 'Escape') {
       event.preventDefault()
+      if (event.repeat) return
       if (searchQuery.value !== '') {
         clearSearch()
       } else {
@@ -247,6 +259,7 @@ export function useLibrarySearchSession(options: {
       return
     }
 
+    isSearchAwaitingDismiss.value = false
     isSearchFocused.value = false
     if (!hasSearchQuery.value) {
       isSearchZoneHovered.value = false
@@ -272,7 +285,14 @@ export function useLibrarySearchSession(options: {
       canDismissPageSearch(event)
     ) {
       event.preventDefault()
-      dismissSearch()
+      if (event.repeat) return
+      if (searchQuery.value !== '') {
+        clearSearch()
+        // 失焦时清空后仍保留搜索栏，等待下一次 Esc 关闭。
+        isSearchAwaitingDismiss.value = true
+      } else {
+        dismissSearch()
+      }
       return
     }
     if (

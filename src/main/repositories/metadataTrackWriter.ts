@@ -6,13 +6,14 @@ import {
 } from '@shared/utils/delimitedValues'
 import type { RefreshedTrackMetadata } from './metadataRefreshRepositoryTypes'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
+import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
 
 export class MetadataTrackWriter {
   constructor(private readonly db: Database.Database) {}
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
     // These results do not carry a stable sidecar snapshot. Invalidate that
-    // derived scan fingerprint so the next scan verifies the current .lrc.
+    // derived scan fingerprint so the next scan verifies the current lyric sidecars.
     // Full file_tag write — skipped when user_edit must be preserved.
     const upsertTrackMetadata = this.db.prepare(`
       INSERT INTO track_metadata (
@@ -62,6 +63,7 @@ export class MetadataTrackWriter {
           disc_no = ?,
           duration_seconds = ?,
           bitrate_bps = ?,
+          codec = ?,
           copyright = ?,
           composer = ?,
           lyrics_text = ?,
@@ -88,6 +90,7 @@ export class MetadataTrackWriter {
           disc_no = ?,
           duration_seconds = ?,
           bitrate_bps = ?,
+          codec = ?,
           year = ?,
           release_date = ?,
           copyright = ?,
@@ -167,6 +170,13 @@ export class MetadataTrackWriter {
 
     const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
       this.assertTrackIdentity(metadata)
+      this.db
+        .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = ? AND file_path = ?')
+        .run(
+          encodeScanFileFingerprint(metadata.fileFingerprint),
+          metadata.trackId,
+          metadata.sourceFilePath,
+        )
       const existingSource = this.db
         .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
         .get(metadata.trackId) as { source: string } | undefined
@@ -204,6 +214,7 @@ export class MetadataTrackWriter {
           metadata.discNo,
           metadata.durationSeconds,
           metadata.bitrateBps,
+          metadata.codec ?? null,
           copyright,
           composer,
           metadata.lyricsText,
@@ -244,6 +255,7 @@ export class MetadataTrackWriter {
         metadata.discNo,
         metadata.durationSeconds,
         metadata.bitrateBps,
+        metadata.codec ?? null,
         metadata.year,
         metadata.releaseDate,
         copyright,

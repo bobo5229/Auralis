@@ -28,7 +28,7 @@ function select(row: (typeof rows)[number], value: ChineseScript): void {
 <template>
   <div class="settings-group chinese-text-settings">
     <div class="settings-group-header">
-      <h2 class="settings-group-title">{{ t('settings.appearance.textDisplay.title') }}</h2>
+      <h2 class="settings-group-title">{{ t('settings.appearance.groups.textDisplay') }}</h2>
     </div>
     <div class="settings-group-card">
       <div v-for="row in rows" :key="row.id" class="settings-row settings-row--with-desc">

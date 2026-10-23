@@ -64,6 +64,23 @@ describe('atomic playlist writes', () => {
     }
   }
 
+  it('creates both playlist kinds in cover view and preserves existing saved flat views', () => {
+    expect(repository.getById(1)?.viewMode).toBe('cover')
+    expect(smart.getById(1)?.viewMode).toBe('cover')
+    repository.updateViewMode(1, 'flat')
+    smart.updateViewMode(1, 'flat')
+    const regular = service.create('New regular')
+    const intelligent = smart.create('New smart', { conditions: [{ field: 'genre', value: 'Jazz' }] })
+    expect(regular.viewMode).toBe('cover')
+    expect(intelligent.viewMode).toBe('cover')
+    db.close()
+    open()
+    expect(repository.getById(regular.id)?.viewMode).toBe('cover')
+    expect(smart.getById(intelligent.id)?.viewMode).toBe('cover')
+    expect(repository.getById(1)?.viewMode).toBe('flat')
+    expect(smart.getById(1)?.viewMode).toBe('flat')
+  })
+
   it('persists mixed order across reopening while preserving same-ID identities and all other data', () => {
     service.addTracks(1, [3, 1, 2, 1])
     repository.updateViewMode(1, 'cover')

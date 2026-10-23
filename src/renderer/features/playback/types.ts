@@ -48,7 +48,7 @@ export interface PaletteColor {
 
 export interface ArtworkPalette {
   key: string
-  /** Original dominant artwork color before display tone mapping. */
+  /** Representative source color selected by area-led scoring, before display tone mapping. */
   dominant?: RgbColor
   background: RgbColor
   accents: PaletteColor[]

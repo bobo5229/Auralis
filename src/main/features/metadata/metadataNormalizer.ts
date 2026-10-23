@@ -1,6 +1,8 @@
 import type { IAudioMetadata } from 'music-metadata'
 import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
+import type { LyricsFormat } from '@shared/types/libraryScan'
+import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
 
 export interface NormalizedMetadata {
   title: string
@@ -16,6 +18,7 @@ export interface NormalizedMetadata {
   discNo: number | null
   durationSeconds: number | null
   bitrateBps: number | null
+  codec: string | null
   year: number | null
   releaseDate: string | null
   copyright: string | null
@@ -24,7 +27,7 @@ export interface NormalizedMetadata {
   genres: string[]
   genre: string | null
   lyricsText: string | null
-  lyricsFormat: 'lrc' | 'plain' | null
+  lyricsFormat: LyricsFormat | null
   isrc: string | null
 }
 
@@ -62,8 +65,6 @@ export function normalizeArtists(artists?: string[], artist?: string): string[] 
 // ---------------------------------------------------------------------------
 // Lyrics extraction (from scan worker — pure, no filesystem access)
 // ---------------------------------------------------------------------------
-
-const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
 
 const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYR', 'LYRI', 'LYRICS', 'UNSYNCEDLYRICS'])
 const NATIVE_GENRE_KEYS = new Set(['GEN', 'GNRE', 'GENRE', 'TCON', 'TCO', 'STYLE'])
@@ -159,33 +160,33 @@ export function resolveCopyright(metadata: MetadataTags): string[] {
   return native.length > 0 ? native : cleanDelimitedValues([metadata.common.copyright])
 }
 
-export function resolveLyrics(
-  metadata: IAudioMetadata,
-): { text: string; format: 'lrc' | 'plain' } | null {
-  const candidates: string[] = []
-
-  candidates.push(...getTextValuesFromUnknown(metadata.common.lyrics))
+export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
+  const nativeCandidates: string[] = []
 
   for (const tags of getNativeTagGroups(metadata)) {
     for (const tag of tags) {
       if (!isNativeLyricsTag(tag.id)) continue
 
-      candidates.push(...getTextValuesFromUnknown(tag.value))
+      nativeCandidates.push(...getTextValuesFromUnknown(tag.value))
     }
   }
 
-  const uniqueCandidates = [...new Set(candidates.map((candidate) => candidate.trim()))].filter(
-    Boolean,
+  // Common lyrics may already be trimmed or decoded from LRC by music-metadata.
+  // Raw editing and write verification need the original native field first.
+  const commonCandidates = getTextValuesFromUnknown(metadata.common.lyrics)
+  const candidates = preserveText
+    ? [...nativeCandidates, ...commonCandidates]
+    : [...commonCandidates, ...nativeCandidates]
+  const resolved = [...new Set(candidates)].flatMap((candidate) => {
+    const lyrics = classifyLyrics(candidate)
+    return lyrics ? [{ ...lyrics, text: preserveText ? candidate : lyrics.text }] : []
+  })
+  return (
+    resolved.find((lyrics) => lyrics.format === 'ttml') ??
+    resolved.find((lyrics) => lyrics.format === 'lrc') ??
+    resolved[0] ??
+    null
   )
-  const lrc = uniqueCandidates.find((candidate) => LRC_TIMESTAMP.test(candidate))
-
-  if (lrc) return { text: lrc, format: 'lrc' }
-
-  const plain = uniqueCandidates[0]
-
-  if (!plain) return null
-
-  return { text: plain, format: 'plain' }
 }
 
 export function resolveGenres(metadata: MetadataTags): string[] {
@@ -317,6 +318,7 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     trackNo: common.track.no ?? null,
     discNo: common.disk.no ?? null,
     durationSeconds: metadata.format.duration ?? null,
+    codec: metadata.format.codec?.trim() || null,
     bitrateBps:
       typeof metadata.format.bitrate === 'number' &&
       Number.isFinite(metadata.format.bitrate) &&

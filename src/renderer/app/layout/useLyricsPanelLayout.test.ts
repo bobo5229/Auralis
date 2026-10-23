@@ -60,6 +60,9 @@ describe('useLyricsPanelLayout', () => {
     // Archive uses the regular shell and keeps lyrics available.
     mockRoute.name = 'archive'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
+    mockRoute.name = 'archive-annual-summary'
+    expect(layout.canDisplayLyricsPanel.value).toBe(true)
+    expect(layout.canLayoutLyricsPanel.value).toBe(true)
     mockRoute.name = 'songs'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
 

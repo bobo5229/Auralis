@@ -66,7 +66,7 @@ export class GaplessAudioEngine {
   private muted = false
   private generation = 0
   private destroyed = false
-  private activePreparation = false
+  private activePreparation: number | null = null
   private reservedBytes = 0
   private activeDecodes = 0
 
@@ -88,7 +88,7 @@ export class GaplessAudioEngine {
   async prepare(trackId: number, url: string, probe?: AudioDecodeProbe | null): Promise<boolean> {
     this.abortController?.abort()
     const generation = ++this.generation
-    if (this.destroyed || this.activePreparation) {
+    if (this.destroyed || this.activePreparation !== null) {
       this.reportPrepareFallback(trackId, 'previous preparation is still in flight')
       return false
     }
@@ -112,7 +112,13 @@ export class GaplessAudioEngine {
         return false
       }
     }
-    this.activePreparation = true
+    // A newer request can begin while this request waits for the file lease.
+    // Such a late lease must not replace the newer request's budget or abort handle.
+    if (!this.isCurrent(generation) || this.activePreparation !== null) {
+      if (leaseId) this.options.releaseReadLease?.(leaseId)
+      return false
+    }
+    this.activePreparation = generation
     this.reservedBytes = budget.reservationBytes
     const controller = new AbortController()
     this.abortController = controller
@@ -165,8 +171,10 @@ export class GaplessAudioEngine {
       if (leaseId) {
         this.options.releaseReadLease?.(leaseId)
       }
-      this.activePreparation = false
-      this.reservedBytes = 0
+      if (this.activePreparation === generation) {
+        this.activePreparation = null
+        this.reservedBytes = 0
+      }
       if (this.abortController === controller) this.abortController = null
     }
   }

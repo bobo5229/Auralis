@@ -7,27 +7,24 @@ import { useChineseTextDisplay } from '@renderer/features/appearance/composables
 const props = defineProps<{
   headingId: string
   date: string
-  playCount: number
-  durationSeconds: number
   tracks: DailyTopTrack[]
   loading: boolean
   failed: boolean
 }>()
 const { t, locale } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
-const dateLabel = computed(() => {
-  const weekday = new Intl.DateTimeFormat(locale.value, {
+const weekdayLabel = computed(() =>
+  new Intl.DateTimeFormat(locale.value, {
     weekday: 'long',
     timeZone: 'UTC',
-  }).format(new Date(`${props.date}T00:00:00Z`))
-  return `${props.date} ${weekday}`
-})
+  }).format(new Date(`${props.date}T00:00:00Z`)),
+)
 </script>
 
 <template>
-  <p :id="headingId" class="archive-day-date auralis-type-control">{{ dateLabel }}</p>
-  <p class="archive-day-summary auralis-type-caption">
-    {{ t('archive.daySummary', { count: playCount, minutes: Math.round(durationSeconds / 60) }) }}
+  <p :id="headingId" class="archive-day-date auralis-type-control">
+    <span>{{ date }}</span>
+    <span class="archive-day-weekday">{{ weekdayLabel }}</span>
   </p>
   <div class="archive-day-track-content">
     <p v-if="loading" class="archive-day-message auralis-type-caption" role="status">
@@ -63,14 +60,18 @@ p {
   margin: 0;
 }
 .archive-day-date {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   font-weight: 600;
   white-space: nowrap;
+}
+.archive-day-weekday {
+  min-width: 0;
+  text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.archive-day-summary {
-  margin-top: 4px;
-  color: var(--auralis-text-muted);
 }
 .archive-day-track-content {
   margin-top: 12px;

@@ -1,14 +1,14 @@
 import type { LyricLine } from '../types'
+import { LRC_TIMESTAMP_SOURCE, readLrcOffsetMilliseconds } from '@shared/utils/lrcTiming'
 
-const LRC_LINE = /^\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\](.*)$/
-
-const META_TAGS = /^(ar|ti|al|by|offset|length)$/i
+const LRC_LINE = new RegExp(`^${LRC_TIMESTAMP_SOURCE}(.*)$`)
 
 export function parseLrc(raw: string): LyricLine[] {
   const lines: LyricLine[] = []
+  const offset = readLrcOffsetMilliseconds(raw)
   let id = 0
 
-  for (const line of raw.split('\n')) {
+  for (const line of raw.split(/\r?\n|\r/)) {
     const trimmed = line.trim()
 
     // Collect all timestamps on one line
@@ -27,18 +27,22 @@ export function parseLrc(raw: string): LyricLine[] {
       const minutes = Number.parseInt(min, 10)
       const seconds = Number.parseInt(sec, 10)
       const millis = ms ? Number.parseInt(ms.padEnd(3, '0'), 10) : 0
-      timestamps.push(minutes * 60 + seconds + millis / 1000)
+      const timeMs = (minutes * 60 + seconds) * 1000 + millis
+      if (!Number.isSafeInteger(timeMs)) {
+        timestamps.length = 0
+        break
+      }
+      timestamps.push(timeMs)
       remaining = match[4]
     }
 
-    // Skip metadata lines (ar, ti, al, etc.)
-    if (timestamps.length === 0 && META_TAGS.test(text)) continue
-
-    // Skip lines with no timestamps
+    // Skip metadata and plain text lines with no timestamps.
     if (timestamps.length === 0) continue
 
-    for (const timeSeconds of timestamps) {
-      lines.push({ id: String(id++), timeSeconds, text: text.trim() })
+    for (const timeMs of timestamps) {
+      const adjusted = Math.max(0, timeMs - offset)
+      if (!Number.isSafeInteger(adjusted)) continue
+      lines.push({ id: String(id++), timeSeconds: adjusted / 1000, text: text.trim() })
     }
   }
 

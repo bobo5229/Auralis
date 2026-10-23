@@ -1,9 +1,7 @@
 import { type MaybeRefOrGetter, type Ref } from 'vue'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { resolveRestorableFocusTarget } from './sidebarModalFocus'
-
-// Restore the original inert state after the last Sidebar dialog closes.
-const inertOwners = new Map<HTMLElement, { count: number; previous: boolean }>()
+import { acquireModalBackground } from '@renderer/shared/focus/modalBackground'
 
 export function useSidebarOwnedModal(options: {
   isOpen: MaybeRefOrGetter<boolean>
@@ -12,25 +10,15 @@ export function useSidebarOwnedModal(options: {
   onEscape: () => void
   canDismiss?: MaybeRefOrGetter<boolean>
 }): void {
-  let background: HTMLElement | null = null
+  let releaseBackground: (() => void) | undefined
   useOverlayFocusTrap({
     ...options,
     onActivate() {
-      background = document.querySelector<HTMLElement>('[data-app-shell-root]')
-      if (!background) return
-      const entry = inertOwners.get(background) ?? { count: 0, previous: background.inert }
-      entry.count++
-      inertOwners.set(background, entry)
-      background.inert = true
+      releaseBackground = acquireModalBackground()
     },
     onDeactivate() {
-      if (!background) return
-      const entry = inertOwners.get(background)!
-      if (--entry.count === 0) {
-        background.inert = entry.previous
-        inertOwners.delete(background)
-      }
-      background = null
+      releaseBackground?.()
+      releaseBackground = undefined
     },
     restoreFocus() {
       const fallback = document.querySelector<HTMLElement>(

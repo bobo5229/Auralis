@@ -80,7 +80,7 @@ describe('library page Escape', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('clears and closes after clicking outside, without stealing focus or completing an old search', async () => {
+  it('clears on first Escape and closes on second after clicking outside, without stealing focus or completing an old search', async () => {
     const { session, scrollToTrackIndex } = createSession()
     const focus = vi.fn()
     const blur = vi.fn()
@@ -97,11 +97,61 @@ describe('library page Escape', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(session.searchQuery.value).toBe('')
     expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    expect(session.isSearchFocused.value).toBe(false)
+    const secondEscape = createKeydown('Escape')
+    session.onWindowKeyDown(secondEscape)
+    expect(secondEscape.preventDefault).toHaveBeenCalledOnce()
     expect(session.shouldRenderSearchBar.value).toBe(false)
     expect(focus).not.toHaveBeenCalled()
     expect(blur).not.toHaveBeenCalled()
     expect(scrollToTrackIndex).not.toHaveBeenCalled()
   })
+
+  it.each([false, true])('does not close on a held Escape after clearing (focused=%s)', (focused) => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    if (focused) session.onSearchInputFocus()
+    const handleKeydown = focused ? session.onSearchKeydown : session.onWindowKeyDown
+    handleKeydown(createKeydown('Escape'))
+    const repeatedEscape = createKeydown('Escape')
+    Object.assign(repeatedEscape, { repeat: true })
+    handleKeydown(repeatedEscape)
+    expect(session.searchQuery.value).toBe('')
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    handleKeydown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('still yields to overlays and editors while waiting for the second Escape', () => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    session.onWindowKeyDown(createKeydown('Escape'))
+    querySelector.mockReturnValue({})
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    querySelector.mockReturnValue(null)
+    const editorEscape = createKeydown('Escape')
+    Object.assign(editorEscape, { target: new TestElement('input') })
+    session.onWindowKeyDown(editorEscape)
+    expect(editorEscape.preventDefault).not.toHaveBeenCalled()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it.each(['clear', 'outside-click'])(
+    'releases the retained empty search bar on %s',
+    (action) => {
+      const { session } = createSession()
+      session.searchQuery.value = 'al'
+      session.onWindowKeyDown(createKeydown('Escape'))
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+      if (action === 'clear') session.clearSearch()
+      else session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    },
+  )
 
   it.each([
     { defaultPrevented: true },

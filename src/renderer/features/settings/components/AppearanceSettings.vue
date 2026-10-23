@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { useStartupAlbumPreference } from '@renderer/features/startupAlbum/startupAlbumPreference'
+import { startupAlbumActionsKey } from '@renderer/features/startupAlbum/startupAlbumActions'
 import { useI18n } from 'vue-i18n'
 import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
@@ -16,31 +17,68 @@ import {
   usePlayingIconPreference,
   type PlayingIconPreset,
 } from '@renderer/features/appearance/composables/usePlayingIconPreference'
+import {
+  PLAYBAR_STYLES,
+  usePlaybarStyle,
+  type PlaybarStyle,
+} from '@renderer/features/appearance/composables/usePlaybarStyle'
+import {
+  PLAYBAR_LAYOUTS,
+  usePlaybarLayout,
+  type PlaybarLayout,
+} from '@renderer/features/appearance/composables/usePlaybarLayout'
 import SettingsSelect from './SettingsSelect.vue'
-import SongFontWeightSettings from './SongFontWeightSettings.vue'
-import AlbumListParameterSettings from './AlbumListParameterSettings.vue'
+import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
+import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
 import LyricsEffectsSettings from './LyricsEffectsSettings.vue'
+import LyricsCountdownSettings from './LyricsCountdownSettings.vue'
 import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
 import { useUiLocale } from '@renderer/i18n'
 import type { UiLocale } from '@shared/uiLocale'
+import { useSettingsDialog } from '../composables/useSettingsDialog'
 
 const {
   enabled: startupAlbumEnabled,
   persistFailed: startupAlbumPersistFailed,
   setEnabled: setStartupAlbumEnabled,
 } = useStartupAlbumPreference()
+const startupAlbumActions = inject(startupAlbumActionsKey, null)
+const { closeSettings } = useSettingsDialog()
+const startupAlbumDrawing = computed(() => startupAlbumActions?.busy.value ?? false)
+const startupAlbumDrawError = ref<'drawEmpty' | 'drawFailed' | null>(null)
+const startupAlbumDrawButton = ref<HTMLButtonElement | null>(null)
+let startupAlbumDrawRequest: AbortController | undefined
+
+async function drawStartupAlbum(): Promise<void> {
+  if (!startupAlbumActions || startupAlbumDrawing.value) return
+  const request = new AbortController()
+  startupAlbumDrawRequest = request
+  startupAlbumDrawError.value = null
+  try {
+    const result = await startupAlbumActions.draw(
+      request.signal,
+      startupAlbumDrawButton.value ?? undefined,
+    )
+    if (request.signal.aborted) return
+    if (result === 'shown') closeSettings()
+    else if (result === 'empty') startupAlbumDrawError.value = 'drawEmpty'
+    else if (result === 'failed') startupAlbumDrawError.value = 'drawFailed'
+  } finally {
+    if (startupAlbumDrawRequest === request) startupAlbumDrawRequest = undefined
+  }
+}
+
+onBeforeUnmount(() => startupAlbumDrawRequest?.abort())
 const { t } = useI18n()
 const { locale, persistFailed: localePersistFailed, nativeSyncFailed, setUiLocale } = useUiLocale()
 const localeOptions = [
-  { id: 'zh-Hans', label: '简体中文' },
-  { id: 'en', label: 'English' },
+  { value: 'zh-Hans', label: '简体中文', lang: 'zh-Hans' },
+  { value: 'en', label: 'English', lang: 'en' },
 ] as const
-const localeButtons = ref<HTMLButtonElement[]>([])
 function selectLocale(value: UiLocale): void {
   setUiLocale(value)
-  localeButtons.value[localeOptions.findIndex((option) => option.id === value)]?.focus()
 }
 const { theme, setTheme } = useTheme()
 const { sidebarFullHeight, setSidebarFullHeight } = useSidebarLayout()
@@ -58,6 +96,30 @@ const lyricsScrollOptions = computed(() =>
   LYRICS_SCROLL_PRESETS.map((value) => ({
     value,
     label: t(`settings.appearance.lyricsScroll.${value}`),
+  })),
+)
+const {
+  layout: playbarLayout,
+  persistFailed: playbarLayoutPersistFailed,
+  setLayout: setPlaybarLayout,
+} = usePlaybarLayout()
+
+const playbarLayoutOptions = computed(() =>
+  PLAYBAR_LAYOUTS.map((value) => ({
+    value,
+    label: t(`settings.appearance.playbarLayout.${value}`),
+  })),
+)
+const {
+  style: playbarStyle,
+  persistFailed: playbarStylePersistFailed,
+  setStyle: setPlaybarStyle,
+} = usePlaybarStyle()
+
+const playbarStyleOptions = computed(() =>
+  PLAYBAR_STYLES.map((value) => ({
+    value,
+    label: t(`settings.appearance.playbarStyle.${value}`),
   })),
 )
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
@@ -101,84 +163,35 @@ function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
   setLyricsScrollPreset(value)
 }
 
+function selectPlaybarLayout(value: PlaybarLayout): void {
+  setPlaybarLayout(value)
+}
+
+function selectPlaybarStyle(value: PlaybarStyle): void {
+  setPlaybarStyle(value)
+}
+
 function selectPlayingIconPreset(value: PlayingIconPreset): void {
   setPlayingIcon(value)
 }
 </script>
 
 <template>
-  <section class="settings-section">
+  <section class="settings-section appearance-settings">
     <div class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.appearance.interface') }}</h2>
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.themeColors') }}</h2>
       </div>
       <div class="settings-group-card">
-        <div class="settings-row settings-row--with-desc">
-          <div>
-            <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
-            <span id="startup-album-description">{{
-              t('settings.appearance.startupAlbum.description')
-            }}</span>
-            <span v-if="startupAlbumPersistFailed" role="status">{{
-              t('settings.appearance.startupAlbum.persistFailed')
-            }}</span>
-          </div>
-          <button
-            type="button"
-            class="settings-switch"
-            role="switch"
-            :aria-checked="startupAlbumEnabled"
-            :aria-label="t('settings.appearance.startupAlbum.title')"
-            aria-describedby="startup-album-description"
-            :class="{ 'is-enabled': startupAlbumEnabled }"
-            data-startup-setting
-            @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
-          >
-            <span class="settings-switch-thumb" aria-hidden="true" />
-          </button>
-        </div>
-        <div class="settings-row settings-row--with-desc">
-          <div>
-            <strong>{{ t('settings.appearance.language') }}</strong>
-            <span id="appearance-language-description">{{
-              t('settings.appearance.languageDescription')
-            }}</span>
-            <span v-if="localePersistFailed" role="status">{{
-              t('settings.appearance.languagePersistFailed')
-            }}</span>
-            <span v-if="nativeSyncFailed" role="status">{{
-              t('settings.appearance.languageSyncFailed')
-            }}</span>
-          </div>
-          <div
-            class="settings-segmented-control"
-            role="radiogroup"
-            :aria-label="t('settings.appearance.language')"
-            aria-describedby="appearance-language-description"
-          >
-            <button
-              v-for="option in localeOptions"
-              :key="option.id"
-              ref="localeButtons"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="locale === option.id"
-              :tabindex="locale === option.id ? 0 : -1"
-              :class="{ 'is-selected': locale === option.id }"
-              :lang="option.id"
-              @click="selectLocale(option.id)"
-              @keydown.left.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-              @keydown.right.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-              @keydown.up.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-              @keydown.down.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-              @keydown.home.prevent="selectLocale('zh-Hans')"
-              @keydown.end.prevent="selectLocale('en')"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
+        <ThemeAccentSettings />
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.interfaceStyles') }}</h2>
+      </div>
+      <div class="settings-group-card">
         <div class="settings-row">
           <div>
             <strong>{{ t('settings.appearance.theme') }}</strong>
@@ -223,100 +236,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               @keydown.end.prevent="selectTheme('dark')"
             >
               {{ t('settings.appearance.themeDark') }}
-            </button>
-          </div>
-        </div>
-        <ThemeAccentSettings />
-        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
-          <div>
-            <strong id="appearance-lyrics-scroll-label">{{
-              t('settings.appearance.lyricsScroll.title')
-            }}</strong>
-            <span id="appearance-lyrics-scroll-description">{{
-              t('settings.appearance.lyricsScroll.description')
-            }}</span>
-            <span v-if="lyricsScrollPersistFailed" role="status">{{
-              t('settings.appearance.lyricsScroll.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSelect
-            id="appearance-lyrics-scroll"
-            labelledby="appearance-lyrics-scroll-label"
-            describedby="appearance-lyrics-scroll-description"
-            :model-value="lyricsScrollPreset"
-            :options="lyricsScrollOptions"
-            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
-          />
-        </div>
-        <div class="settings-row settings-row--with-desc settings-row--playing-icon">
-          <div>
-            <strong id="appearance-playing-icon-label">{{
-              t('settings.appearance.playingIcon.title')
-            }}</strong>
-            <span id="appearance-playing-icon-description">{{
-              t('settings.appearance.playingIcon.description')
-            }}</span>
-          </div>
-          <SettingsSelect
-            id="appearance-playing-icon"
-            labelledby="appearance-playing-icon-label"
-            describedby="appearance-playing-icon-description"
-            :model-value="playingIcon"
-            :options="playingIconOptions"
-            @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
-          />
-        </div>
-        <div class="settings-row settings-row--with-desc">
-          <div>
-            <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
-            <span id="appearance-motion-description">{{
-              t('settings.appearance.reducedMotion.description')
-            }}</span>
-            <span v-if="motionPersistFailed" role="status">{{
-              t('settings.appearance.reducedMotion.persistFailed')
-            }}</span>
-          </div>
-          <div
-            class="settings-segmented-control"
-            role="radiogroup"
-            :aria-label="t('settings.appearance.reducedMotion.title')"
-            aria-describedby="appearance-motion-description"
-          >
-            <button
-              ref="systemMotionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="motionPreference === 'system'"
-              :tabindex="motionPreference === 'system' ? 0 : -1"
-              :class="{ 'is-selected': motionPreference === 'system' }"
-              @click="selectMotionPreference('system')"
-              @keydown.left.prevent="selectMotionPreference('reduce')"
-              @keydown.up.prevent="selectMotionPreference('reduce')"
-              @keydown.right.prevent="selectMotionPreference('reduce')"
-              @keydown.down.prevent="selectMotionPreference('reduce')"
-              @keydown.home.prevent="selectMotionPreference('system')"
-              @keydown.end.prevent="selectMotionPreference('reduce')"
-            >
-              {{ t('settings.appearance.reducedMotion.system') }}
-            </button>
-            <button
-              ref="reducedMotionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="motionPreference === 'reduce'"
-              :tabindex="motionPreference === 'reduce' ? 0 : -1"
-              :class="{ 'is-selected': motionPreference === 'reduce' }"
-              @click="selectMotionPreference('reduce')"
-              @keydown.right.prevent="selectMotionPreference('system')"
-              @keydown.down.prevent="selectMotionPreference('system')"
-              @keydown.left.prevent="selectMotionPreference('system')"
-              @keydown.up.prevent="selectMotionPreference('system')"
-              @keydown.home.prevent="selectMotionPreference('system')"
-              @keydown.end.prevent="selectMotionPreference('reduce')"
-            >
-              {{ t('settings.appearance.reducedMotion.enabled') }}
             </button>
           </div>
         </div>
@@ -371,13 +290,274 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             </button>
           </div>
         </div>
+        <div class="settings-row settings-row--with-desc settings-row--playbar-layout">
+          <div>
+            <strong id="appearance-playbar-layout-label">{{
+              t('settings.appearance.playbarLayout.title')
+            }}</strong>
+            <span id="appearance-playbar-layout-description">{{
+              t('settings.appearance.playbarLayout.description')
+            }}</span>
+            <span v-if="playbarLayoutPersistFailed" role="status">{{
+              t('settings.appearance.playbarLayout.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-playbar-layout"
+            labelledby="appearance-playbar-layout-label"
+            describedby="appearance-playbar-layout-description"
+            :model-value="playbarLayout"
+            :options="playbarLayoutOptions"
+            @update:model-value="selectPlaybarLayout($event as PlaybarLayout)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--playbar-style">
+          <div>
+            <strong id="appearance-playbar-style-label">{{
+              t('settings.appearance.playbarStyle.title')
+            }}</strong>
+            <span id="appearance-playbar-style-description">{{
+              t('settings.appearance.playbarStyle.description')
+            }}</span>
+            <span v-if="playbarStylePersistFailed" role="status">{{
+              t('settings.appearance.playbarStyle.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-playbar-style"
+            labelledby="appearance-playbar-style-label"
+            describedby="appearance-playbar-style-description"
+            :model-value="playbarStyle"
+            :options="playbarStyleOptions"
+            @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--playing-icon">
+          <div>
+            <strong id="appearance-playing-icon-label">{{
+              t('settings.appearance.playingIcon.title')
+            }}</strong>
+            <span id="appearance-playing-icon-description">{{
+              t('settings.appearance.playingIcon.description')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-playing-icon"
+            labelledby="appearance-playing-icon-label"
+            describedby="appearance-playing-icon-description"
+            :model-value="playingIcon"
+            :options="playingIconOptions"
+            @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
+          />
+        </div>
       </div>
     </div>
 
-    <LyricsEffectsSettings />
-    <WindowBehaviorSettings />
     <ChineseTextSettings />
-    <SongFontWeightSettings />
-    <AlbumListParameterSettings />
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.lyricsAndMotion') }}</h2>
+      </div>
+      <div class="settings-group-card">
+        <LyricsPanelLayoutSettings />
+        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
+          <div>
+            <strong id="appearance-lyrics-scroll-label">{{
+              t('settings.appearance.lyricsScroll.title')
+            }}</strong>
+            <span id="appearance-lyrics-scroll-description">{{
+              t('settings.appearance.lyricsScroll.description')
+            }}</span>
+            <span v-if="lyricsScrollPersistFailed" role="status">{{
+              t('settings.appearance.lyricsScroll.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-lyrics-scroll"
+            labelledby="appearance-lyrics-scroll-label"
+            describedby="appearance-lyrics-scroll-description"
+            :model-value="lyricsScrollPreset"
+            :options="lyricsScrollOptions"
+            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
+          />
+        </div>
+        <LyricsCountdownSettings />
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
+            <span id="appearance-motion-description">{{
+              t('settings.appearance.reducedMotion.description')
+            }}</span>
+            <span v-if="motionPersistFailed" role="status">{{
+              t('settings.appearance.reducedMotion.persistFailed')
+            }}</span>
+          </div>
+          <div
+            class="settings-segmented-control"
+            role="radiogroup"
+            :aria-label="t('settings.appearance.reducedMotion.title')"
+            aria-describedby="appearance-motion-description"
+          >
+            <button
+              ref="systemMotionRef"
+              type="button"
+              class="settings-segmented-option"
+              role="radio"
+              :aria-checked="motionPreference === 'system'"
+              :tabindex="motionPreference === 'system' ? 0 : -1"
+              :class="{ 'is-selected': motionPreference === 'system' }"
+              @click="selectMotionPreference('system')"
+              @keydown.left.prevent="selectMotionPreference('reduce')"
+              @keydown.up.prevent="selectMotionPreference('reduce')"
+              @keydown.right.prevent="selectMotionPreference('reduce')"
+              @keydown.down.prevent="selectMotionPreference('reduce')"
+              @keydown.home.prevent="selectMotionPreference('system')"
+              @keydown.end.prevent="selectMotionPreference('reduce')"
+            >
+              {{ t('settings.appearance.reducedMotion.system') }}
+            </button>
+            <button
+              ref="reducedMotionRef"
+              type="button"
+              class="settings-segmented-option"
+              role="radio"
+              :aria-checked="motionPreference === 'reduce'"
+              :tabindex="motionPreference === 'reduce' ? 0 : -1"
+              :class="{ 'is-selected': motionPreference === 'reduce' }"
+              @click="selectMotionPreference('reduce')"
+              @keydown.right.prevent="selectMotionPreference('system')"
+              @keydown.down.prevent="selectMotionPreference('system')"
+              @keydown.left.prevent="selectMotionPreference('system')"
+              @keydown.up.prevent="selectMotionPreference('system')"
+              @keydown.home.prevent="selectMotionPreference('system')"
+              @keydown.end.prevent="selectMotionPreference('reduce')"
+            >
+              {{ t('settings.appearance.reducedMotion.enabled') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">
+          {{ t('settings.appearance.groups.generalPreferences') }}
+        </h2>
+      </div>
+      <div class="settings-group-card">
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong id="appearance-language-label">{{ t('settings.appearance.language') }}</strong>
+            <span id="appearance-language-description">{{
+              t('settings.appearance.languageDescription')
+            }}</span>
+            <span v-if="localePersistFailed" role="status">{{
+              t('settings.appearance.languagePersistFailed')
+            }}</span>
+            <span v-if="nativeSyncFailed" role="status">{{
+              t('settings.appearance.languageSyncFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-language"
+            labelledby="appearance-language-label"
+            describedby="appearance-language-description"
+            :model-value="locale"
+            :options="localeOptions"
+            :show-value-title="false"
+            @update:model-value="selectLocale($event as UiLocale)"
+          />
+        </div>
+        <WindowBehaviorSettings />
+      </div>
+    </div>
+
+    <LyricsEffectsSettings>
+      <div class="settings-row settings-row--with-desc settings-row--startup-album">
+        <div>
+          <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
+          <span id="startup-album-description">{{
+            t('settings.appearance.startupAlbum.description')
+          }}</span>
+          <span v-if="startupAlbumPersistFailed" role="status">{{
+            t('settings.appearance.startupAlbum.persistFailed')
+          }}</span>
+          <span v-if="startupAlbumDrawError" role="status">{{
+            t(`settings.appearance.startupAlbum.${startupAlbumDrawError}`)
+          }}</span>
+        </div>
+        <div class="startup-album-actions">
+          <button
+            type="button"
+            class="settings-switch"
+            role="switch"
+            :aria-checked="startupAlbumEnabled"
+            :aria-label="t('settings.appearance.startupAlbum.title')"
+            aria-describedby="startup-album-description"
+            :class="{ 'is-enabled': startupAlbumEnabled }"
+            data-startup-setting
+            @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
+          >
+            <span class="settings-switch-thumb" aria-hidden="true" />
+          </button>
+          <button
+            ref="startupAlbumDrawButton"
+            type="button"
+            class="settings-text-button startup-album-draw"
+            :disabled="!startupAlbumActions || startupAlbumDrawing"
+            :aria-busy="startupAlbumDrawing"
+            data-startup-album-draw
+            @click="drawStartupAlbum"
+          >
+            {{
+              t(
+                startupAlbumDrawing
+                  ? 'settings.appearance.startupAlbum.drawing'
+                  : 'settings.appearance.startupAlbum.drawNow',
+              )
+            }}
+          </button>
+        </div>
+      </div>
+    </LyricsEffectsSettings>
   </section>
 </template>
+
+<style scoped>
+.appearance-settings :deep(.settings-row:has(> .settings-segmented-control)) {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.appearance-settings :deep(.settings-row:has(> .settings-segmented-control) > div:first-child) {
+  flex: 1 1 220px;
+}
+
+.appearance-settings :deep(.settings-row > .settings-segmented-control) {
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.settings-row--startup-album {
+  flex-wrap: wrap;
+}
+
+.settings-row--startup-album > div:first-child {
+  flex: 1 1 220px;
+}
+
+.settings-row > .startup-album-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.startup-album-actions .startup-album-draw {
+  white-space: nowrap;
+}
+</style>

@@ -6,6 +6,7 @@ import {
   resolveAlbumArtists,
   resolveComposers,
   resolveGenres,
+  resolveLyrics,
 } from './metadataNormalizer'
 
 function audio(
@@ -27,6 +28,20 @@ function audio(
     },
   }
 }
+
+describe('raw embedded lyrics', () => {
+  it.each(['\nPlain text  \r\n', '\n[00:01.20]你好  \r\nUntimed line\n'])(
+    'prefers the untouched native field when common lyrics have been normalized: %j',
+    (text) => {
+      const metadata = audio({}, { vorbis: [{ id: 'LYRICS', value: text }] })
+      metadata.common.lyrics = [
+        { text: 'Plain text', syncText: [], contentType: 1, timeStampFormat: 0 },
+      ]
+      expect(resolveLyrics(metadata, true)?.text).toBe(text)
+      expect(resolveLyrics(metadata)?.text).toBe(text.includes('[00:') ? text.trim() : 'Plain text')
+    },
+  )
+})
 
 describe('resolveGenres', () => {
   it('keeps a single genre unchanged', () => {
@@ -198,4 +213,27 @@ describe('normalize encoded bitrate', () => {
       expect(normalizeMetadata(metadata).bitrateBps).toBeNull()
     },
   )
+})
+
+describe('normalize audio codec', () => {
+  it.each(['MPEG 1 Layer 3', 'FLAC', 'AAC', 'ALAC', 'Vorbis I', 'Opus', 'PCM'])(
+    'keeps the detected codec %s',
+    (codec) => {
+      const metadata = audio()
+      metadata.format = { ...metadata.format, codec }
+      expect(normalizeMetadata(metadata).codec).toBe(codec)
+    },
+  )
+
+  it('trims codec names without replacing them with container or encoder names', () => {
+    const metadata = audio()
+    metadata.format = { ...metadata.format, container: 'M4A', codec: ' ALAC ', tool: 'Lavf' }
+    expect(normalizeMetadata(metadata, 'song.m4a').codec).toBe('ALAC')
+  })
+
+  it.each([undefined, '', '   '])('stores an unknown codec as null: %s', (codec) => {
+    const metadata = audio()
+    metadata.format = { ...metadata.format, container: 'M4A', codec }
+    expect(normalizeMetadata(metadata, 'song.m4a').codec).toBeNull()
+  })
 })

@@ -4,24 +4,37 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 export interface SettingsSelectOption {
   value: string
   label: string
+  lang?: string
   disabled?: boolean
 }
 
-const props = defineProps<{
-  id: string
-  labelledby: string
-  describedby?: string
-  modelValue: string
-  options: readonly SettingsSelectOption[]
-  disabled?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    id: string
+    labelledby: string
+    describedby?: string
+    modelValue: string
+    options: readonly SettingsSelectOption[]
+    disabled?: boolean
+    showValueTitle?: boolean
+    teleportTo?: string | HTMLElement
+  }>(),
+  { showValueTitle: true },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLDivElement | null>(null)
 const open = ref(false)
 const pointerFocus = ref(false)
 const activeIndex = ref(0)
-const position = ref({ left: '0px', top: '0px', width: '148px', maxHeight: '240px' })
+const position = ref({
+  left: '0px',
+  top: '0px',
+  width: '0px',
+  minWidth: '0px',
+  maxWidth: 'none',
+  maxHeight: '240px',
+})
 const selectedIndex = computed(() =>
   props.options.findIndex((item) => item.value === props.modelValue),
 )
@@ -44,23 +57,25 @@ async function show(): Promise<void> {
       : firstEnabled()
   if (activeIndex.value < 0) return
   const rect = trigger.value.getBoundingClientRect()
-  const width = Math.min(Math.max(148, rect.width), window.innerWidth - 16)
   position.value = {
-    left: `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`,
+    left: `${Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8))}px`,
     top: `${rect.bottom + 6}px`,
-    width: `${width}px`,
+    width: 'max-content',
+    minWidth: `${Math.min(rect.width, Math.max(0, window.innerWidth - 16))}px`,
+    maxWidth: `${Math.max(0, window.innerWidth - 16)}px`,
     maxHeight: `${Math.max(0, window.innerHeight - 16)}px`,
   }
   open.value = true
   await nextTick()
   if (!open.value || !menu.value) return
-  const height = menu.value.getBoundingClientRect().height
+  const { width, height } = menu.value.getBoundingClientRect()
   const below = Math.max(0, window.innerHeight - rect.bottom - 14)
   const above = Math.max(0, rect.top - 14)
   const upwards = height > below && above > below
   const available = upwards ? above : below
   position.value = {
     ...position.value,
+    left: `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`,
     top: `${upwards ? rect.top - 6 - Math.min(height, available) : rect.bottom + 6}px`,
     maxHeight: `${available}px`,
   }
@@ -206,10 +221,19 @@ watch(
     @click="open ? close() : show()"
     @keydown="onKeydown"
   >
-    <span :id="`${id}-value`">{{ options[selectedIndex]?.label }}</span>
-    <span class="i-lucide-chevron-down h-3.5 w-3.5" aria-hidden="true"></span>
+    <span
+      :id="`${id}-value`"
+      class="settings-select-value"
+      :lang="options[selectedIndex]?.lang"
+      :title="showValueTitle ? options[selectedIndex]?.label : undefined"
+      >{{ options[selectedIndex]?.label }}</span
+    >
+    <span
+      class="settings-select-chevron i-lucide-chevron-down h-3.5 w-3.5"
+      aria-hidden="true"
+    ></span>
   </button>
-  <Teleport to="body">
+  <Teleport :to="teleportTo ?? 'body'">
     <div
       v-if="open"
       :id="`${id}-menu`"
@@ -233,10 +257,10 @@ watch(
         @pointermove="!option.disabled && (activeIndex = index)"
         @click="select(index)"
       >
-        <span>{{ option.label }}</span>
+        <span :lang="option.lang">{{ option.label }}</span>
         <span
-          v-if="modelValue === option.value"
-          class="i-lucide-check h-3.5 w-3.5"
+          class="settings-select-check i-lucide-check h-3.5 w-3.5"
+          :class="{ 'is-hidden': modelValue !== option.value }"
           aria-hidden="true"
         ></span>
       </div>
@@ -248,10 +272,12 @@ watch(
 .settings-select {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 8px;
   box-sizing: border-box;
-  min-width: 148px;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 0;
   max-width: 100%;
   height: 30px;
   padding: 0 10px;
@@ -266,6 +292,15 @@ watch(
 }
 .settings-select:hover {
   border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+}
+.settings-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-select-chevron {
+  flex-shrink: 0;
 }
 .settings-select:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
@@ -295,17 +330,29 @@ watch(
 }
 .settings-select-option {
   display: flex;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   min-height: 32px;
-  padding: 0 8px;
+  padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
+}
+.settings-select-option > span:first-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .settings-select-option[aria-selected='true'] {
   color: var(--auralis-sidebar-active-indicator);
   font-weight: 600;
+}
+.settings-select-check {
+  flex-shrink: 0;
+}
+.settings-select-check.is-hidden {
+  visibility: hidden;
 }
 .settings-select-option.is-active {
   background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);

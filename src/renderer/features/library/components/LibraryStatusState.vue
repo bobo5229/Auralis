@@ -12,6 +12,7 @@ const props = withDefaults(
     errorMessage?: string
     isPlaylist?: boolean
     isSmartPlaylist?: boolean
+    isRecentAdded?: boolean
   }>(),
   {
     query: '',
@@ -19,6 +20,7 @@ const props = withDefaults(
     errorMessage: '',
     isPlaylist: false,
     isSmartPlaylist: false,
+    isRecentAdded: false,
   },
 )
 
@@ -37,6 +39,7 @@ const title = computed(() => {
   if (statusKind.value === 'loading') return t('library.status.loading')
   if (props.kind === 'error') return props.errorMessage || t('library.status.loadError')
   if (props.kind === 'no-search-match') return t('library.search.notFound')
+  if (props.kind === 'empty' && props.isRecentAdded) return t('library.recentAdded.empty')
   return t(
     props.isSmartPlaylist
       ? 'library.status.emptySmartPlaylist'
@@ -48,7 +51,12 @@ const title = computed(() => {
 const actionLabel = computed(() => {
   if (props.kind === 'error') return t('library.status.retry')
   if (props.kind === 'no-search-match') return t('library.search.clearSearch')
-  if (props.kind === 'empty' && !props.isPlaylist && !props.isSmartPlaylist) {
+  if (
+    props.kind === 'empty' &&
+    !props.isPlaylist &&
+    !props.isSmartPlaylist &&
+    !props.isRecentAdded
+  ) {
     return t('settings.musicLibrary.addFolder')
   }
   return ''

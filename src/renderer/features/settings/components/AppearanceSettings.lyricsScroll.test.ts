@@ -13,6 +13,7 @@ const windowApi = vi.hoisted(() => ({
   getCloseBehavior: vi.fn(async () => ({ behavior: 'quit', trayAvailable: true })),
   setCloseBehavior: vi.fn(async (behavior: string) => ({ behavior, trayAvailable: true })),
 }))
+const localeApi = vi.hoisted(() => ({ setUiLocale: vi.fn() }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { window: windowApi } }))
 vi.mock('@renderer/features/startupAlbum/startupAlbumPreference', () => ({
   useStartupAlbumPreference: () => ({
@@ -22,12 +23,18 @@ vi.mock('@renderer/features/startupAlbum/startupAlbumPreference', () => ({
   }),
 }))
 vi.mock('@renderer/i18n', () => ({
-  useUiLocale: () => ({
-    locale: ref('zh-Hans'),
-    persistFailed: ref(false),
-    nativeSyncFailed: ref(false),
-    setUiLocale: vi.fn(),
-  }),
+  useUiLocale: () => {
+    const locale = ref('zh-Hans')
+    localeApi.setUiLocale.mockImplementation((value: string) => {
+      locale.value = value
+    })
+    return {
+      locale,
+      persistFailed: ref(false),
+      nativeSyncFailed: ref(false),
+      setUiLocale: localeApi.setUiLocale,
+    }
+  },
 }))
 vi.mock('@renderer/composables/useTheme', () => ({
   useTheme: () => ({ theme: ref('light'), setTheme: vi.fn() }),
@@ -44,8 +51,6 @@ vi.mock('@renderer/features/appearance/composables/useMotionPreference', () => (
 }))
 vi.mock('./ThemeAccentSettings.vue', () => ({ default: { render: () => null } }))
 vi.mock('./ChineseTextSettings.vue', () => ({ default: { render: () => null } }))
-vi.mock('./SongFontWeightSettings.vue', () => ({ default: { render: () => null } }))
-vi.mock('./AlbumListParameterSettings.vue', () => ({ default: { render: () => null } }))
 
 class TestNode {
   parent: TestNode | null = null
@@ -206,28 +211,30 @@ it('skips an unavailable tray option for keyboard and pointer selection and save
   await nextTick()
   ;(trigger.props.onClick as () => void)()
   await nextTick()
-  const tray = find(body, (node) => node.props.id === 'window-close-behavior-option-2')!
+  const tray = find(body, (node) => node.props.id === 'window-close-behavior-option-1')!
+  const listbox = find(body, (node) => node.props.role === 'listbox')!
+  expect(listbox.children.filter((node) => node.props.role === 'option')).toHaveLength(2)
   expect(tray.props['aria-disabled']).toBe(true)
   ;(tray.props.onClick as () => void)()
   expect(windowApi.setCloseBehavior).not.toHaveBeenCalled()
   const key = trigger.props.onKeydown as (event: unknown) => void
   key({ key: 'End', preventDefault: vi.fn() })
   await nextTick()
-  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-1')
+  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-0')
   key({ key: 'ArrowDown', preventDefault: vi.fn() })
   await nextTick()
-  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-1')
+  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-0')
   key({ key: 'Enter', preventDefault: vi.fn() })
   await Promise.resolve()
   await nextTick()
-  expect(windowApi.setCloseBehavior).toHaveBeenCalledWith('minimize')
+  expect(windowApi.setCloseBehavior).toHaveBeenCalledWith('quit')
   expect(find(root, (node) => node.props.id === 'window-close-behavior-value')?.text).toBe(
-    'settings.appearance.windowBehavior.minimize',
+    'settings.appearance.windowBehavior.quit',
   )
   app.unmount()
 })
 
-it('opens the existing settings listbox and persists a keyboard selection', async () => {
+it('shows scroll presets and preserves keyboard navigation, persistence and failure feedback', async () => {
   const setItem = vi.fn()
   vi.stubGlobal('localStorage', { setItem })
   body = new TestNode('body')
@@ -244,75 +251,89 @@ it('opens the existing settings listbox and persists a keyboard selection', asyn
   const row = find(root, (node) =>
     String(node.props.class).includes('settings-row--lyrics-scroll'),
   )!
-  const trigger = find(row, (node) => node.props.role === 'combobox')!
-  expect(trigger.props['aria-expanded']).toBe(false)
-  expect(trigger.props['aria-describedby']).toBe('appearance-lyrics-scroll-description')
-  expect(find(trigger, (node) => node.props.id === 'appearance-lyrics-scroll-value')?.text).toBe(
-    'settings.appearance.lyricsScroll.standard',
-  )
-
-  const preventDefault = vi.fn()
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'ArrowDown', preventDefault })
-  await nextTick()
-  await nextTick()
-  const listbox = find(body, (node) => node.props.role === 'listbox')!
-  const options = listbox.children.filter((node) => node.props.role === 'option')
-  expect(options).toHaveLength(4)
-  expect(options.map((node) => find(node, (child) => child.type === 'span')?.text)).toEqual([
+  const group = find(row, (node) => node.props.role === 'radiogroup')!
+  expect(group.props['aria-labelledby']).toBe('appearance-lyrics-scroll-label')
+  expect(group.props['aria-describedby']).toBe('appearance-lyrics-scroll-description')
+  const options = group.children.filter((node) => node.props.role === 'radio')
+  expect(options.map((node) => node.text)).toEqual([
     'settings.appearance.lyricsScroll.standard',
     'settings.appearance.lyricsScroll.quick',
     'settings.appearance.lyricsScroll.soft',
     'settings.appearance.lyricsScroll.emphasized',
   ])
-  expect(trigger.props['aria-expanded']).toBe(true)
-  expect(options[0].props['aria-selected']).toBe(true)
-  expect(listbox.props.style).toMatchObject({ left: '144px', width: '148px' })
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'ArrowDown', preventDefault })
+  expect(options[0].props['aria-checked']).toBe(true)
+  expect(options[0].props.tabindex).toBe(0)
+
+  const preventDefault = vi.fn()
+  ;(options[0].props.onKeydown as (event: unknown) => void)({ key: 'ArrowRight', preventDefault })
   await nextTick()
-  expect(trigger.props['aria-activedescendant']).toBe('appearance-lyrics-scroll-option-1')
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'Enter', preventDefault })
-  await nextTick()
-  expect(preventDefault).toHaveBeenCalledTimes(3)
-  expect(trigger.props['aria-expanded']).toBe(false)
-  expect(trigger.focused).toBe(true)
   expect(getLyricsScrollPreset()).toBe('quick')
   expect(setItem).toHaveBeenCalledWith('auralis-lyrics-scroll-preset', 'quick')
-  expect(find(trigger, (node) => node.props.id === 'appearance-lyrics-scroll-value')?.text).toBe(
-    'settings.appearance.lyricsScroll.quick',
-  )
-  ;(trigger.props.onClick as () => void)()
+  expect(options[1].props['aria-checked']).toBe(true)
+  expect(options[1].props.tabindex).toBe(0)
+  expect(options[1].focused).toBe(true)
+
+  ;(options[1].props.onKeydown as (event: unknown) => void)({ key: 'End', preventDefault })
   await nextTick()
-  expect(trigger.props['aria-expanded']).toBe(true)
-  ;(trigger.props.onKeydown as (event: unknown) => void)({
-    key: 'Escape',
-    preventDefault,
-    stopPropagation: vi.fn(),
-  })
+  expect(getLyricsScrollPreset()).toBe('emphasized')
+  expect(options[3].focused).toBe(true)
+  ;(options[3].props.onKeydown as (event: unknown) => void)({ key: 'Home', preventDefault })
   await nextTick()
-  expect(trigger.props['aria-expanded']).toBe(false)
-  expect(getLyricsScrollPreset()).toBe('quick')
+  expect(getLyricsScrollPreset()).toBe('standard')
+  expect(options[0].focused).toBe(true)
+  expect(preventDefault).toHaveBeenCalledTimes(3)
 
   setItem.mockImplementation(() => {
     throw new Error('storage unavailable')
   })
-  ;(trigger.props.onClick as () => void)()
-  await nextTick()
-  const soft = find(body, (node) => node.props.id === 'appearance-lyrics-scroll-option-2')!
-  ;(soft.props.onClick as () => void)()
+  ;(options[2].props.onClick as () => void)()
   await nextTick()
   expect(getLyricsScrollPreset()).toBe('soft')
   expect(find(row, (node) => node.props.role === 'status')?.text).toBe(
     'settings.appearance.lyricsScroll.persistFailed',
   )
+  expect(options[0].props['aria-checked']).toBe(false)
+  expect(String(options[0].props.class)).not.toContain('is-selected')
+  expect(options[2].props['aria-checked']).toBe(true)
+  expect(String(options[2].props.class)).toContain('is-selected')
+  app.unmount()
+})
+
+it('uses the existing locale setter from the language dropdown and retains stored scroll settings', async () => {
+  vi.stubGlobal('localStorage', { setItem: vi.fn() })
+  setLyricsScrollPreset('emphasized')
+  body = new TestNode('body')
+  vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  vi.stubGlobal('window', {
+    innerWidth: 600,
+    innerHeight: 600,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+  const root = new TestNode('root')
+  const app = renderer.createApp({ render: () => h(AppearanceSettings) })
+  app.mount(root)
+  expect(getLyricsScrollPreset()).toBe('emphasized')
+  const scrollGroup = find(root, (node) => node.props.id === 'appearance-lyrics-scroll')!
+  const scrollOptions = scrollGroup.children.filter((node) => node.props.role === 'radio')
+  expect(scrollOptions[3].props['aria-checked']).toBe(true)
+
+  const trigger = find(root, (node) => node.props.id === 'appearance-language')!
+  expect(trigger.props.role).toBe('combobox')
+  expect(find(trigger, (node) => node.props.id === 'appearance-language-value')?.text).toBe(
+    '简体中文',
+  )
   ;(trigger.props.onClick as () => void)()
   await nextTick()
-  const standard = find(body, (node) => node.props.id === 'appearance-lyrics-scroll-option-0')!
-  const selectedSoft = find(body, (node) => node.props.id === 'appearance-lyrics-scroll-option-2')!
-  expect(String(standard.props.class)).not.toContain('is-default')
-  expect(String(standard.props.class)).not.toContain('is-active')
-  expect(standard.props['aria-selected']).toBe(false)
-  expect(String(selectedSoft.props.class)).toContain('is-active')
-  expect(selectedSoft.props['aria-selected']).toBe(true)
+  const english = find(body, (node) => node.props.id === 'appearance-language-option-1')!
+  ;(english.props.onClick as () => void)()
+  await nextTick()
+  expect(localeApi.setUiLocale).toHaveBeenLastCalledWith('en')
+  const value = find(trigger, (node) => node.props.id === 'appearance-language-value')!
+  expect(value.text).toBe('English')
+  expect(value.props.lang).toBe('en')
+  expect(trigger.focused).toBe(true)
+  expect(trigger.props['aria-expanded']).toBe(false)
   app.unmount()
 })
 

@@ -80,27 +80,34 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* Layout dimensions (theme-independent) */
-  --auralis-playbar-safe-area: calc(64px + var(--auralis-player-bottom-gap));
+  --auralis-playbar-height: 64px;
+  --auralis-full-playbar-height: 88px;
+  --auralis-playbar-max-width: 760px;
+  --auralis-playbar-safe-area: calc(
+    var(--auralis-playbar-height) + var(--auralis-player-bottom-gap)
+  );
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 40px;
   --auralis-frosted-surface-filter: blur(24px) saturate(1.08);
+  --auralis-frosted-surface-tint-opacity: 40%;
   --auralis-app-background: var(--auralis-app-bg);
   --auralis-window-chrome-bg: var(--auralis-bg);
   --auralis-window-chrome-border: var(--auralis-border-strong);
+
+  /* Warm white for the annual summary caption in either application theme. */
+  --auralis-archive-summary-text: #f5f2ec;
 
   /* Player slider tokens */
   /* Fullscreen sliders use a neutral fill on their immersive dark surface. */
   --auralis-fullscreen-slider-fill: #e1e1e1;
   --auralis-fullscreen-pause-fill: #f6f2ea;
-  --auralis-fullscreen-metal-pause-fill: #fafafb;
   /* Resolve at the theme root before the immersive player overrides text colors. */
   --auralis-fullscreen-controls-bg: var(--auralis-surface-floating);
   --auralis-fullscreen-controls-text: var(--auralis-text);
   --auralis-fullscreen-controls-muted: var(--auralis-text-muted);
   --auralis-fullscreen-controls-border: var(--auralis-border-subtle);
   --auralis-player-slider-thumb: #ffffff;
-  --auralis-player-progress-thumb-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   --auralis-player-volume-thumb-shadow:
     0 0 5px rgba(255, 255, 255, 0.45), 0 1px 3px rgba(0, 0, 0, 0.25);
   --auralis-player-volume-thumb-active-shadow:
@@ -157,10 +164,10 @@
   /* Playbar Island */
   --auralis-playbar-bg: #1a1a1a;
   --auralis-frosted-surface-bg: #1a1a1a;
-  --auralis-playbar-border: rgba(255, 255, 255, 0.08);
-  --auralis-playbar-control-fg: #e1ddd6;
-  --auralis-playbar-control-strong-fg: #f3eee6;
-  --auralis-playbar-transport-fg: var(--auralis-playbar-control-fg);
+  --auralis-playbar-border: rgba(255, 255, 255, 0.16);
+  --auralis-playbar-control-fg: #dddcd9;
+  --auralis-playbar-control-strong-fg: #f4f3f0;
+  --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-transport-hover-fg: var(--auralis-playbar-control-hover-fg);
   --auralis-playbar-control-hover-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-hover-fg);
@@ -169,9 +176,7 @@
   --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1;
-  --auralis-playbar-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    0 20px 48px rgba(0, 0, 0, 0.32);
+  --auralis-playbar-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.12);
   --auralis-playbar-reduced-transparency-bg: #1a1a1a;
 
   /* Song list tokens */
@@ -233,10 +238,10 @@
 
   /* Foundation & Shell */
   --auralis-bg: #f0f1f2;
-  --auralis-main-bg: #f0f1f2;
+  --auralis-main-bg: #ffffff;
   --auralis-dialog-bg: #f8f9fa;
-  --auralis-sidebar-bg: #e7e9eb;
-  --auralis-now-playing-bg: #e7e9eb;
+  --auralis-sidebar-bg: #f9f9fb;
+  --auralis-now-playing-bg: #f9f9fb;
   --auralis-surface-raised: #e7e9eb;
   --auralis-surface-floating: #f8f9fa;
   --auralis-border-subtle: rgba(41, 43, 45, 0.06);
@@ -269,9 +274,9 @@
   --auralis-artwork-placeholder-bg: rgba(41, 43, 45, 0.08);
 
   /* Playbar Island */
-  --auralis-playbar-bg: rgba(248, 249, 250, 0.94);
+  --auralis-playbar-bg: var(--auralis-now-playing-bg);
   --auralis-frosted-surface-bg: rgba(248, 249, 250, 0.94);
-  --auralis-playbar-border: rgba(41, 43, 45, 0.1);
+  --auralis-playbar-border: rgba(41, 43, 45, 0.12);
   --auralis-playbar-control-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-control-strong-fg: #292b2d;
   --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
@@ -283,8 +288,8 @@
   --auralis-playbar-highlight-soft: transparent;
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1.08;
-  --auralis-playbar-shadow: 0 12px 32px rgba(41, 43, 45, 0.08), 0 2px 6px rgba(41, 43, 45, 0.04);
-  --auralis-playbar-reduced-transparency-bg: #f8f9fa;
+  --auralis-playbar-shadow: 0 8px 24px rgba(41, 43, 45, 0.06), 0 2px 6px rgba(41, 43, 45, 0.03);
+  --auralis-playbar-reduced-transparency-bg: var(--auralis-playbar-bg);
 
   /* Song list tokens */
   --auralis-track-selected-bg: var(--auralis-theme-accent);
@@ -318,7 +323,7 @@
 
   /* App environment */
   --auralis-app-bg: #f0f1f2;
-  --auralis-album-detail-more-bg: #e7e9eb;
+  --auralis-album-detail-more-bg: var(--auralis-surface-floating);
 
   /* Scrollbar & Selection */
   --auralis-scrollbar-thumb: rgba(41, 43, 45, 0.2);
@@ -411,6 +416,15 @@
   height: 34px;
 }
 
+/* Leave the sidebar's resize hit area outside Electron's native window drag region. */
+.app-shell:not(.is-cd-albums):not(.is-sidebar-collapsed) > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 120px));
+}
+
+.app-window.is-sidebar-floating .app-shell > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 136px));
+}
+
 /* 收起态在窗口按钮下方留出整条可拖拽区域；品牌区自 54px 起。 */
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums) > .shell-drag-region {
   top: 0;
@@ -481,7 +495,7 @@ input {
 }
 
 :is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar)
-  :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
+  .player-bar-overflow-panel {
   --player-surface-bg: #262626;
   --player-surface-tint: transparent;
 }
@@ -525,7 +539,7 @@ input {
   bottom: var(--auralis-player-bottom-gap);
   width: auto;
   min-width: 0;
-  height: 64px;
+  height: var(--auralis-playbar-height);
   transform: none;
   display: flex;
   justify-content: center;
@@ -542,8 +556,8 @@ input {
 .app-shell {
   --auralis-lyrics-progress: 1;
   --auralis-lyrics-column-width: calc(20% * var(--auralis-lyrics-progress, 1));
-  /* 左列宽度由全高收起态统一驱动：网格列、播放栏左边界与背景裁切共用。 */
-  --auralis-sidebar-width: 260px;
+  /* 网格列、播放栏左边界与背景裁切共用展开宽度，收起态独立覆盖。 */
+  --auralis-sidebar-width: var(--auralis-sidebar-expanded-width, 260px);
   transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -551,13 +565,36 @@ input {
   --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 60px);
 }
 
+/* Keep page backdrops behind the full-width glass; scroll padding protects the last item. */
+.app-shell:has(> .player-bar[data-playbar-layout='full']) {
+  --auralis-playbar-safe-area: calc(var(--auralis-full-playbar-height) + 16px);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-shell:has(> .player-bar[data-playbar-layout='full']) > .app-sidebar {
+  padding-bottom: var(--auralis-full-playbar-height);
+}
+
+.app-shell:has(> .player-bar[data-playbar-layout='full']) > .now-playing-panel {
+  padding-bottom: calc(var(--auralis-full-playbar-height) + 16px);
+}
+
 /* 歌词动效自行协调布局终点，避免叠加侧边栏的列宽过渡。 */
-.app-shell.is-lyrics-resizing {
+.app-shell.is-lyrics-resizing,
+.app-shell.is-sidebar-resizing,
+.app-shell.is-lyrics-width-resizing {
   transition: none;
 }
 
-.app-shell.is-lyrics-resizing > .player-bar {
+.app-shell.is-lyrics-resizing > .player-bar,
+.app-shell.is-sidebar-resizing > .player-bar,
+.app-shell.is-lyrics-width-resizing > .player-bar {
   transition: none !important;
+}
+
+body.is-column-resizing,
+body.is-column-resizing * {
+  cursor: col-resize !important;
 }
 
 .lyrics-layout-playerbar-snapshot {
@@ -573,7 +610,7 @@ input {
   }
 
   .player-bar {
-    right: var(--auralis-lyrics-column-width, calc(20% * var(--auralis-lyrics-progress, 1)));
+    right: var(--auralis-player-lyrics-inset, var(--auralis-lyrics-column-width, 20%));
   }
 }
 
@@ -602,17 +639,49 @@ input {
   will-change: opacity;
 }
 
+/* Overlay the full main grid area; the playbar independently leaves room on its right. */
+.app-shell.is-lyrics-floating:not(.is-cd-albums) > .app-main {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  z-index: 20;
+  width: min(var(--auralis-lyrics-target-width, 20vw), 100%);
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  pointer-events: auto;
+  background: var(--auralis-now-playing-bg);
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel > .now-playing-panel-content {
+  max-width: 100%;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell.is-lyrics-floating > .now-playing-panel {
+    background: color-mix(in srgb, var(--auralis-now-playing-bg) 40%, transparent);
+    -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+    backdrop-filter: var(--auralis-frosted-surface-filter);
+  }
+}
+
 .player-bar .player-bar-island {
   pointer-events: auto;
   position: relative;
   isolation: isolate;
   display: flex;
   align-items: stretch;
-  width: min(700px, calc(100% - 64px));
-  height: 64px;
+  width: min(var(--auralis-playbar-max-width), calc(100% - 64px));
+  height: var(--auralis-playbar-height);
   min-width: 0;
-  border-radius: 32px;
-  border: none;
+  border-radius: 999px;
+  border: 1px solid var(--auralis-playbar-border);
   box-shadow: var(--auralis-playbar-shadow);
   overflow: visible;
   container-type: inline-size;
@@ -623,19 +692,16 @@ input {
   content: none;
 }
 
-:is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar)
-  .player-bar-island {
-  border: 1px solid var(--auralis-playbar-border);
-}
-
 .player-bar .player-bar-island {
-  --volume-growth: min(130px, max(16px, calc(50% - 366px)));
-  width: calc(min(700px, calc(100% - 64px)) + var(--volume-growth) * var(--volume-reveal, 0));
+  --volume-growth: min(
+    130px,
+    max(16px, calc((100% - var(--auralis-playbar-max-width) - 32px) / 2))
+  );
+  width: calc(
+    min(var(--auralis-playbar-max-width), calc(100% - 64px)) + var(--volume-growth) *
+      var(--volume-reveal, 0)
+  );
   margin-right: calc(-1 * var(--volume-growth) * var(--volume-reveal, 0));
-}
-
-.player-bar .volume-control-group {
-  gap: 0;
 }
 
 .player-bar .volume-inline-reveal {
@@ -651,7 +717,7 @@ input {
   width: 130px;
   height: 48px;
   /* 分别为 0% / 100% 留出半个标签的空间，数值仍与填充末端居中对齐。 */
-  padding-inline: 10px 18px;
+  padding-inline: 6px 18px;
   flex-shrink: 0;
 }
 
@@ -665,7 +731,6 @@ input {
   display: block;
 }
 
-.player-bar .player-bar-surface,
 .player-bar .player-bar-album-tint {
   border-radius: inherit;
 }
@@ -676,10 +741,10 @@ input {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 20px;
   width: 100%;
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 20px;
 }
 
 .player-bar .track-info-card {
@@ -688,7 +753,7 @@ input {
 }
 
 .player-bar .transport-controls {
-  gap: 6px;
+  gap: 2px;
 }
 
 .player-bar .player-bar-progress-clock {
@@ -705,18 +770,56 @@ input {
   justify-self: end;
   min-width: 0;
   z-index: 4;
-  gap: 6px;
+  gap: 4px;
 }
 
 .player-bar .track-info-row {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   min-width: 0;
   gap: 10px;
 }
 
+.player-bar .track-info-row::after {
+  content: '';
+  position: absolute;
+  /* Feather outside the cover; the lower 4px fade fits above the progress row. */
+  inset: -8px -8px -4px;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+  mask-image:
+    linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent),
+    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 4px), transparent);
+  mask-composite: intersect;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease,
+    visibility 160ms;
+}
+
+.player-bar
+  .track-info-card:has(.track-progress:not(.track-progress--idle):hover)
+  .track-info-row::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-info-row::after {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar .track-info-row::after {
+    transition: none;
+  }
+}
+
 .player-bar .track-cover {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
 }
 
@@ -756,7 +859,7 @@ input {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 8px;
-  margin-top: 4px;
+  margin-top: 6px;
   min-width: 0;
 }
 
@@ -789,10 +892,6 @@ input {
   height: 3px;
 }
 
-.player-bar .track-progress--idle::after {
-  display: none;
-}
-
 .player-bar .track-progress--idle .track-progress-fill::after {
   display: none;
   animation: none;
@@ -815,11 +914,6 @@ input {
   min-width: 176px;
   padding: 8px;
   border-radius: 16px;
-  border: 1px solid var(--auralis-playbar-border);
-  background: var(--auralis-playbar-bg);
-  box-shadow: var(--auralis-playbar-shadow);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
 }
 
 .player-bar .player-bar-overflow-item {
@@ -838,8 +932,274 @@ input {
 }
 
 @container modern-player-bar (max-width: 640px) {
+  .player-bar .player-bar-row {
+    column-gap: 12px;
+    padding-inline: 12px;
+  }
+
+  .player-bar .transport-controls .transport-control-primary {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player-bar .transport-control-primary > span {
+    width: 24px;
+    height: 24px;
+  }
+
+  .player-bar .transport-control > svg {
+    width: 20px;
+    height: 16px;
+  }
+
+  .player-bar .track-cover {
+    width: 32px;
+    height: 32px;
+  }
+
   .player-bar-overflow {
     display: inline-flex;
+  }
+}
+
+/* Full-width playbar layout: one row, with the seek rail on the bottom edge. */
+.player-bar[data-playbar-layout='full'] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--auralis-full-playbar-height);
+  justify-content: stretch;
+}
+
+.player-bar .player-bar-island--full {
+  --volume-growth: 0px;
+  width: 100%;
+  height: 100%;
+  margin-right: 0;
+  border: 0;
+  border-top: 1px solid var(--auralis-playbar-border);
+  border-radius: 0;
+  box-shadow: 0 -12px 35px rgba(0, 0, 0, 0.04);
+}
+
+.player-bar .player-bar-island--full .player-bar-row {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: 'now transport actions';
+  column-gap: 20px;
+  padding: 8px 24px 12px;
+}
+
+.player-bar .player-bar-island--full .transport-controls {
+  position: relative;
+  display: grid;
+  grid-area: transport;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0 12px;
+}
+
+.player-bar .player-bar-island--full .transport-controls > button {
+  grid-row: 1;
+}
+
+.player-bar .player-bar-full-mode {
+  position: absolute;
+  display: flex;
+  top: 4px;
+  left: calc(100% + 12px);
+  z-index: 5;
+}
+
+.player-bar .player-bar-mode-trigger {
+  height: 32px;
+  gap: 3px;
+  padding: 6px 4px;
+}
+
+.player-bar .player-bar-full-mode .playback-mode-menu {
+  left: calc(100% + 8px);
+  right: auto;
+  bottom: 0;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-time {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--auralis-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-time-divider {
+  opacity: 0.55;
+}
+
+.player-bar .player-bar-island--full .track-info-card {
+  grid-area: now;
+}
+
+.player-bar .player-bar-island--full .track-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+}
+
+.player-bar .player-bar-island--full .track-text {
+  height: auto;
+}
+
+.player-bar .player-bar-island--full .track-title {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.player-bar .player-bar-island--full .track-subtitle {
+  margin-top: 2px;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.player-bar .player-bar-island--full .playback-actions {
+  grid-area: actions;
+  gap: 8px;
+}
+
+.player-bar .player-bar-island--full .volume-inline-reveal {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 72;
+  width: 180px;
+  height: 56px;
+  overflow: visible;
+}
+
+.player-bar
+  .player-bar-island--full
+  .volume-control-group[data-volume-open='false']
+  .volume-inline-reveal {
+  visibility: hidden;
+}
+
+.player-bar .player-bar-island--full .volume-inline-panel {
+  --auralis-volume-fill: var(--auralis-theme-accent);
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--auralis-playbar-border);
+  border-radius: 10px;
+  background: var(--auralis-parameter-surface-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
+  backdrop-filter: var(--auralis-parameter-surface-filter);
+}
+
+.player-bar .player-bar-island--full .volume-slider-field {
+  display: grid;
+  grid-template-rows: 14px 24px;
+}
+
+.player-bar .player-bar-island--full .volume-slider {
+  grid-area: 2 / 1;
+}
+
+.player-bar .player-bar-island--full .volume-overlay-value {
+  position: static;
+  grid-area: 1 / 1;
+  justify-self: end;
+  transform: none;
+  text-align: right;
+  color: var(--auralis-text-muted);
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress {
+  --auralis-playbar-slider-fill: var(--auralis-theme-accent);
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  height: 10px;
+  align-items: flex-end;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress {
+  width: 100%;
+  height: 10px;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 0;
+  background: var(--auralis-progress-track);
+  pointer-events: none;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress:hover::before {
+  height: 6px;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 0;
+  pointer-events: none;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.player-bar
+  .player-bar-island--full
+  .player-bar-full-progress
+  .track-progress:hover
+  .track-progress-fill {
+  height: 6px;
+}
+
+@container modern-player-bar (max-width: 700px) {
+  .player-bar .player-bar-island--full .player-bar-row {
+    column-gap: 12px;
+    padding: 8px 16px 12px;
+  }
+
+  .player-bar .player-bar-island--full .transport-controls {
+    gap: 0 6px;
+  }
+
+  .player-bar .player-bar-island--full .track-cover {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-bar .player-bar-island--full .track-subtitle {
+    display: none;
+  }
+
+  .player-bar .player-bar-island--full .player-bar-full-time {
+    font-size: 9px;
   }
 }
 
@@ -874,19 +1234,17 @@ input {
   transition: none;
 }
 
-.player-bar-surface {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  background: var(--player-surface-bg);
-  pointer-events: none;
-  transition: background-color 0.3s ease;
+/* Page parameter panel material, also used by both frosted Playbar layouts. */
+:is(.page-parameter-panel, .player-bar, .frosted-surface) {
+  --auralis-parameter-surface-alpha: 0.76;
+  --auralis-parameter-surface-bg: rgb(
+    from var(--auralis-frosted-surface-bg) r g b / var(--auralis-parameter-surface-alpha)
+  );
+  --auralis-parameter-surface-filter: blur(18px) saturate(1.15);
 }
 
-:where([data-theme='light']) .player-bar .player-bar-surface {
-  background: var(--auralis-playbar-reduced-transparency-bg);
+:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+  --auralis-parameter-surface-alpha: 0.72;
 }
 
 .player-bar > :not(.player-bar-album-tint, .player-bar-surface) {
@@ -894,25 +1252,14 @@ input {
   z-index: 4;
 }
 
-.playback-mode-menu {
+/* Fullscreen keeps its menu material; Playbar supplies a shared FrostedSurface layer. */
+.playback-mode-menu:not(.playback-mode-menu--playbar) {
   -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
   backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
 }
 
-.player-bar .queue-popover {
-  border: 1px solid var(--auralis-playbar-border);
-  background: color-mix(
-    in srgb,
-    var(--auralis-playbar-bg) 50%,
-    var(--auralis-playbar-highlight-soft)
-  );
-  box-shadow: var(--auralis-playbar-shadow);
-  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
-  backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
-}
-
-.player-bar .queue-popover > *,
-.playback-mode-menu > * {
+.player-bar .queue-popover > :not(.frosted-surface),
+.playback-mode-menu > :not(.frosted-surface) {
   position: relative;
   z-index: 2;
 }
@@ -978,7 +1325,8 @@ input {
   animation: playbar-album-tint-fade-out 420ms ease forwards;
 }
 
-.player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
+/* The overflow panel keeps its own material; queue and mode menus use FrostedSurface. */
+.player-bar .player-bar-overflow-panel {
   border: none;
   background:
     linear-gradient(var(--player-surface-tint), var(--player-surface-tint)),
@@ -989,6 +1337,11 @@ input {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+    --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
+    --auralis-parameter-surface-filter: none;
+  }
+
   .player-bar {
     --player-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
     --player-surface-tint: transparent;
@@ -996,7 +1349,7 @@ input {
     --playbar-album-layer-opacity: 0;
   }
 
-  .player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
+  .player-bar .player-bar-overflow-panel {
     background: var(--player-surface-bg);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1004,6 +1357,11 @@ input {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+    --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
+    --auralis-parameter-surface-filter: none;
+  }
+
   .player-bar {
     --player-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
     --player-surface-tint: transparent;
@@ -1011,7 +1369,7 @@ input {
     --playbar-album-layer-opacity: 0;
   }
 
-  .player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
+  .player-bar .player-bar-overflow-panel {
     background: var(--player-surface-bg);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1130,8 +1488,7 @@ input {
 
 .player-bar .track-cover,
 .player-bar .track-cover:hover,
-.player-bar .track-progress-fill,
-.player-bar .track-progress::after {
+.player-bar .track-progress-fill {
   border: none;
   box-shadow: none;
 }
@@ -1173,8 +1530,8 @@ input {
 
 .player-bar .transport-control-primary {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   border-radius: 8px;
   display: inline-flex;
@@ -1287,26 +1644,6 @@ input {
 :where([data-theme='light']) .player-bar {
   --auralis-playbar-slider-fill: var(--auralis-text);
   --auralis-volume-fill: var(--auralis-playbar-slider-fill);
-}
-
-.track-progress::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: calc(var(--auralis-progress-value, 0) * 100%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--auralis-player-slider-thumb);
-  border: 2px solid var(--auralis-active-album-accent);
-  box-shadow: var(--auralis-player-progress-thumb-shadow);
-  transform: translate(-50%, -50%) scale(0);
-  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-}
-
-.track-progress:hover::after {
-  transform: translate(-50%, -50%) scale(1);
 }
 
 .volume-control-group {
@@ -1490,6 +1827,12 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
 }
 
+.app-window.is-sidebar-floating:not(.is-cd-albums) {
+  background: var(--auralis-main-bg);
+  /* Match the main panel's immediate token update to keep the surrounding surface continuous. */
+  transition: box-shadow 280ms ease;
+}
+
 .app-shell:not(.is-cd-albums) > .app-main {
   --main-page-inset-start: 32px;
   --main-page-inset-end: 8px;
@@ -1516,6 +1859,9 @@ input[type='range'].volume-overlay-slider {
   --sidebar-icon-size: 18px;
   position: relative;
   isolation: isolate;
+  min-width: 0;
+  /* Preserve the floating card's original 12px leading / 16px trailing gutters. */
+  width: calc(100% - var(--auralis-shell-edge-gap) - 16px);
   padding-bottom: 0;
   background: var(--auralis-sidebar-bg) !important;
   border-right: 1px solid var(--auralis-border-subtle);
@@ -1532,6 +1878,66 @@ input[type='range'].volume-overlay-slider {
   margin-block: 0;
   margin-left: 0;
   border-radius: 0;
+}
+
+/* A wider invisible hit area keeps the visible divider quiet and easy to grab. */
+.sidebar-resize-handle,
+.lyrics-resize-handle {
+  position: absolute;
+  z-index: 5;
+  inset: 8px 0 8px auto;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.app-sidebar--full-height > .sidebar-resize-handle {
+  inset-block: 0;
+}
+
+.lyrics-resize-handle {
+  inset: 0 auto 0 0;
+}
+
+.sidebar-resize-handle::after,
+.lyrics-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.lyrics-resize-handle::after {
+  inset-inline: 0 auto;
+}
+
+.sidebar-resize-handle:not([aria-disabled='true']):hover::after,
+.sidebar-resize-handle:focus-visible::after,
+.sidebar-resize-handle.is-resizing::after,
+.lyrics-resize-handle:not([aria-disabled='true']):hover::after,
+.lyrics-resize-handle:focus-visible::after,
+.lyrics-resize-handle.is-resizing::after {
+  opacity: 1;
+}
+
+.sidebar-resize-handle:focus-visible,
+.lyrics-resize-handle:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-resize-handle[aria-disabled='true'],
+.lyrics-resize-handle[aria-disabled='true'] {
+  pointer-events: none;
+}
+
+:where([data-reduced-motion='true']) .sidebar-resize-handle::after,
+:where([data-reduced-motion='true']) .lyrics-resize-handle::after {
+  transition: none;
 }
 
 /* 全高布局下品牌区为收起/展开切换按钮；悬浮布局保持纯展示。 */
@@ -1590,7 +1996,11 @@ input[type='range'].volume-overlay-slider {
   transform: none;
 }
 
+.app-sidebar.app-sidebar--collapsed .sidebar-footer,
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card,
+.app-sidebar.app-sidebar--collapsed .sidebar-actions-row,
 .app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
@@ -1600,6 +2010,44 @@ input[type='range'].volume-overlay-slider {
   width: 38px;
   height: 38px;
   flex-basis: 38px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-actions-row {
+  width: 100%;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card {
+  flex: none;
+  width: 38px;
+  height: 24px;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  border-color: transparent;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card-main {
+  justify-content: center;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
+  width: auto;
+  padding: 0;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-label,
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-label,
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-shortcut {
+  display: none;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-button {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  justify-content: center;
+  padding: 0;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-section-label {
@@ -1737,28 +2185,204 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   flex-shrink: 0;
-  padding: 12px 10px;
+  padding: 10px;
   border-top: 1px solid var(--auralis-border-subtle);
   background: transparent;
 }
 
-/* 展开时均匀横排，收起时按相同顺序纵排。 */
-.sidebar-tools-grid {
+/* Layer 1: Self-contained library status capsule card */
+.sidebar-status-card {
   display: flex;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-text-main) 3.5%, transparent);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text-muted);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.sidebar-status-card:hover {
+  background: color-mix(in srgb, var(--auralis-text-main) 6%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-indicator) 30%,
+    var(--auralis-border-subtle)
+  );
+}
+
+.sidebar-status-card:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-status-card-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-status-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+/* Reuse the shell's green and existing warning/error palette. */
+.sidebar-status-card[data-tone='success'] .sidebar-status-dot {
+  background: #28c840;
+  box-shadow: 0 0 0 2px rgba(40, 200, 64, 0.2);
+}
+
+.sidebar-status-card[data-tone='warning'] .sidebar-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.sidebar-status-card[data-tone='error'] .sidebar-status-dot {
+  background: var(--auralis-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-danger) 25%, transparent);
+}
+
+.sidebar-status-label {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 溢出时右侧带有柔和透明渐变淡出，提示后面还有文字 */
+.sidebar-status-label--marquee {
+  mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+}
+
+.sidebar-flavor-text {
+  display: inline-block;
+  white-space: nowrap;
+  flex-shrink: 0;
+  will-change: transform;
+}
+
+/* 溢出时启动平滑匀速巡航跑马灯 */
+.sidebar-status-label--marquee .sidebar-flavor-text {
+  animation: sidebar-flavor-marquee var(--flavor-scroll-duration, 8s) cubic-bezier(0.37, 0, 0.63, 1)
+    infinite;
+}
+
+/* 鼠标悬停在卡片上时：保持滚动以供持续阅读 */
+.sidebar-status-card:hover .sidebar-status-label--marquee .sidebar-flavor-text {
+  animation-play-state: running;
+}
+
+@keyframes sidebar-flavor-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  65%,
+  82% {
+    transform: translateX(calc(-1 * var(--flavor-scroll-distance, 0px)));
+  }
+  94%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* 尊重系统减少动态效果偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-status-label--marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .sidebar-status-label--marquee .sidebar-flavor-text {
+    animation: none !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.sidebar-status-refresh-button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.sidebar-status-refresh-button:hover {
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+}
+
+.sidebar-status-refresh-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-status-refresh-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sidebar-status-refresh-button > .sidebar-symbol {
+  width: 13px;
+  height: 13px;
+}
+
+/* Layer 2: Actions row (settings button on left, compact tools on right) */
+.sidebar-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
+}
+
+.sidebar-tools-grid {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
 }
 
 .sidebar-tool-button {
   display: inline-flex;
-  width: 32px;
-  flex: 0 0 32px;
-  height: 32px;
+  width: 30px;
+  flex: 0 0 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--auralis-text-faint);
   background: transparent;
   transition:
@@ -1788,9 +2412,76 @@ input[type='range'].volume-overlay-slider {
   transform: none;
 }
 
-.sidebar-tools-grid .sidebar-tool-button > span {
+.sidebar-tool-button[aria-disabled='true'] {
+  opacity: 0.5;
+  transform: none;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  cursor: default;
+}
+
+.sidebar-footer .sidebar-tool-button > .sidebar-symbol,
+.sidebar-footer .sidebar-settings-icon > .sidebar-symbol {
   width: var(--sidebar-icon-size);
   height: var(--sidebar-icon-size);
+}
+
+.sidebar-settings-button {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  flex-basis: auto;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  text-align: left;
+  color: var(--auralis-text-muted);
+}
+
+.sidebar-settings-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-settings-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar-settings-shortcut {
+  display: inline-flex;
+  min-width: 28px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0 4px;
+  flex-shrink: 0;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 4px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text-muted);
+  font-family: 'Segoe UI Symbol', var(--auralis-font-ui);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.sidebar-tool-button-active .sidebar-settings-shortcut {
+  border-color: color-mix(in srgb, currentColor 25%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
 }
 
 .sidebar-tool-button-active,
@@ -1800,6 +2491,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-navigation {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -1818,6 +2511,7 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-primary-section {
+  flex-shrink: 0;
   padding-bottom: 12px;
 }
 
@@ -1827,6 +2521,12 @@ input[type='range'].volume-overlay-slider {
   flex: 1;
   flex-direction: column;
   overflow-y: auto;
+}
+
+.sidebar-playlist-section > .sidebar-link,
+.sidebar-playlist-section > .smart-playlist-section-header,
+.sidebar-playlist-section > .smart-playlist-empty {
+  flex-shrink: 0;
 }
 
 .sidebar-playlist-section::-webkit-scrollbar {
@@ -2228,12 +2928,13 @@ input[type='range'].volume-overlay-slider {
   pointer-events: none;
 }
 
-.search-overlay-enter-from .library-search-bar,
-.search-overlay-leave-to .library-search-bar {
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
   opacity: 0;
 }
 
-.library-search-bar {
+.page-search-tools {
+  --page-search-tools-width: 360px;
   position: absolute;
   z-index: 1;
   top: 8px;
@@ -2242,16 +2943,61 @@ input[type='range'].volume-overlay-slider {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 360px;
-  max-width: min(360px, calc(100% - 48px));
+  width: var(--page-search-tools-width);
+  max-width: calc(100% - 48px);
+  height: 38px;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.page-search-tools--parameters {
+  --page-search-tools-width: 406px;
+}
+
+.library-search-bar {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
   height: 38px;
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--auralis-search-border);
   background: var(--auralis-search-bg);
   box-shadow: var(--auralis-search-shadow);
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
+}
+
+.page-parameter-trigger {
+  display: inline-flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid var(--auralis-search-border);
+  background: var(--auralis-search-bg);
+  box-shadow: var(--auralis-search-shadow);
+  color: var(--auralis-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.page-parameter-trigger:hover,
+.page-parameter-trigger--active {
+  color: var(--auralis-theme-accent);
+}
+
+.page-parameter-trigger:focus-visible {
+  outline: 2px solid var(--auralis-theme-accent);
+  outline-offset: 2px;
+}
+
+.page-parameter-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .library-search-input {
@@ -2268,24 +3014,24 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text-faint);
 }
 
-.search-overlay-enter-active .library-search-bar,
-.search-overlay-leave-active .library-search-bar {
+.search-overlay-enter-active .page-search-tools,
+.search-overlay-leave-active .page-search-tools {
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
-.search-overlay-leave-active .library-search-bar {
+.search-overlay-leave-active .page-search-tools {
   pointer-events: none;
 }
 
-.search-overlay-enter-from .library-search-bar,
-.search-overlay-leave-to .library-search-bar {
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
   transform: translateX(-50%) translateY(-4px);
 }
 
-.search-overlay-enter-to .library-search-bar,
-.search-overlay-leave-from .library-search-bar {
+.search-overlay-enter-to .page-search-tools,
+.search-overlay-leave-from .page-search-tools {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -2325,6 +3071,11 @@ input[type='range'].volume-overlay-slider {
 
 .library-context-menu-item:disabled {
   cursor: default;
+}
+
+.library-context-menu-item--insert:disabled > span,
+.library-context-menu-item.library-context-menu-item--view-switch:disabled > span {
+  color: var(--auralis-text-disabled);
 }
 
 .library-context-menu-item span:first-child {
@@ -2418,7 +3169,8 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-border-subtle);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu {
   padding: 4px;
   border: none;
   border-radius: 16px;
@@ -2479,7 +3231,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
     background: var(--auralis-dialog-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -2487,7 +3240,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
     background: var(--auralis-dialog-bg);
   }
 }
@@ -2506,6 +3260,20 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-context-menu-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* 歌单、曲目（含子菜单）和专辑右键菜单共用填充色与轻阴影。 */
+:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #303030;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+:where([data-theme='light'])
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(41, 43, 45, 0.12);
 }
 
 .sidebar-overlay .sidebar-create-menu.frosted-context-menu {
@@ -2680,15 +3448,15 @@ input[type='range'].volume-overlay-slider {
 
 /* Library 搜索层：减少动态效果时瞬时切换 */
 
-:where([data-reduced-motion='true']) .search-overlay-enter-active .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-active .library-search-bar {
+:where([data-reduced-motion='true']) .search-overlay-enter-active .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .page-search-tools {
   transition-duration: 0ms !important;
 }
 
-:where([data-reduced-motion='true']) .search-overlay-enter-from .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-to .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-enter-to .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-from .library-search-bar {
+:where([data-reduced-motion='true']) .search-overlay-enter-from .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-enter-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-from .page-search-tools {
   transform: translateX(-50%);
 }
 

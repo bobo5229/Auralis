@@ -505,27 +505,6 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           throw new Error('Color picker Escape closed the parent dialog')
         }
 
-        const details = document.querySelector('.song-font-weight-details')
-        if (!details) throw new Error('Song typography disclosure is missing')
-        details.open = true
-        await wait()
-        const weight = document.querySelector('.song-font-weight-select')
-        weight.focus()
-        weight.click()
-        await wait()
-        escape(weight)
-        await wait()
-        if (!document.querySelector('[data-settings-dialog]') || document.querySelector('.song-font-weight-menu')) {
-          throw new Error('Font menu Escape closed the parent dialog or left its menu open')
-        }
-        weight.click()
-        await wait()
-        document.querySelector('.song-font-weight-option').click()
-        await wait()
-        if (document.querySelector('.song-font-weight-menu') || !document.querySelector('[data-settings-dialog]')) {
-          throw new Error('Teleported font menu could not select an option inside the modal')
-        }
-
         document.querySelector('[data-settings-section="about"]').click()
         await wait()
         document.querySelector('.settings-dialog-backdrop').click()
@@ -547,6 +526,122 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         await waitForClosed()
         if (document.querySelector('[data-settings-dialog]') || document.querySelector('.library-page') !== page) {
           throw new Error('Escape did not return to the original library page')
+        }
+      })()`,
+          true,
+        )
+      },
+    )
+
+    await record(
+      'page parameters preserve font menu Escape, selection and return focus',
+      async () => {
+        await mainWindow.webContents.executeJavaScript(
+          `(async () => {
+        const waitFor = async (description, predicate) => {
+          const deadline = Date.now() + 2000
+          while (Date.now() < deadline) {
+            if (predicate()) return
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          }
+          throw new Error('Timed out waiting for ' + description)
+        }
+        const keydown = (target, key) => target.dispatchEvent(new KeyboardEvent('keydown', {
+          key, bubbles: true, cancelable: true,
+        }))
+        const page = document.querySelector('.library-page')
+        const zone = page?.querySelector('.library-search-zone')
+        if (zone) {
+          const rect = zone.getBoundingClientRect()
+          page.dispatchEvent(new MouseEvent('mousemove', {
+            bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + 20,
+          }))
+        }
+        await waitFor('search tools parameter entry', () =>
+          Boolean(page?.querySelector('.page-search-tools [data-page-parameters-trigger]')))
+        const trigger = page.querySelector('.page-search-tools [data-page-parameters-trigger]')
+        const panel = document.getElementById('page-parameter-panel')
+        if (!page || !trigger || !panel || trigger.disabled) {
+          throw new Error('Song page parameters entry is unavailable')
+        }
+        const beforeHash = window.location.hash
+        const panelIsOpen = () => trigger.getAttribute('aria-expanded') === 'true' &&
+          getComputedStyle(panel).display !== 'none' && !panel.inert
+        const assertClosed = async () => {
+          await waitFor('page parameters close and return focus', () =>
+            trigger.getAttribute('aria-expanded') === 'false' &&
+            getComputedStyle(panel).display === 'none' && document.activeElement === trigger)
+          if (document.querySelector('[role="listbox"]') || document.querySelector('[data-app-shell-root]').inert) {
+            throw new Error('Closing page parameters left a menu or inert background')
+          }
+        }
+        trigger.focus()
+        trigger.click()
+        await waitFor('song page parameters open', () => panelIsOpen() &&
+          document.activeElement === panel.querySelector('.parameter-panel-close'))
+        if (panel.getAttribute('role') !== 'dialog' || panel.getAttribute('aria-modal') !== 'false' ||
+            document.querySelector('[data-app-shell-root]').inert ||
+            window.location.hash !== beforeHash || document.querySelector('.library-page') !== page) {
+          throw new Error('Page parameters did not preserve the interactive library')
+        }
+
+        let weight = panel.querySelector('#song-font-weight-list-title[role="combobox"]')
+        if (!weight || weight.disabled) throw new Error('Song title font weight control is unavailable')
+        const menu = () => document.getElementById(weight.getAttribute('aria-controls'))
+        const openMenu = async () => {
+          weight.focus()
+          weight.click()
+          await waitFor('font weight listbox', () => weight.getAttribute('aria-expanded') === 'true' &&
+            menu()?.getAttribute('role') === 'listbox')
+        }
+        await openMenu()
+        keydown(weight, 'Escape')
+        await waitFor('font menu Escape', () => weight.getAttribute('aria-expanded') === 'false' &&
+          !document.querySelector('[role="listbox"]'))
+        if (!panelIsOpen() || document.activeElement !== weight) {
+          throw new Error('Font menu Escape closed the page parameters or lost focus')
+        }
+
+        await openMenu()
+        keydown(weight, 'Home')
+        keydown(weight, 'ArrowDown')
+        await waitFor('font menu keyboard navigation', () => {
+          const active = document.getElementById(weight.getAttribute('aria-activedescendant'))
+          return active?.getAttribute('role') === 'option' && active.textContent.includes('400')
+        })
+        const option = document.getElementById(weight.getAttribute('aria-activedescendant'))
+        if (option.getAttribute('aria-selected') !== 'false') {
+          throw new Error('Expected a different font weight option to select')
+        }
+        const selectedLabel = option.textContent.trim()
+        option.click()
+        await waitFor('font weight selection applies and persists', () =>
+          weight.getAttribute('aria-expanded') === 'false' &&
+          document.getElementById(weight.id + '-value').textContent.trim() === selectedLabel &&
+          JSON.parse(localStorage.getItem('auralis-song-font-weights') ?? 'null')?.list?.title === 400 &&
+          getComputedStyle(page).getPropertyValue('--auralis-song-list-title-weight').trim() === '400')
+        if (!panelIsOpen() || document.querySelector('[role="listbox"]') || document.activeElement !== weight) {
+          throw new Error('Teleported font option did not close its menu and return focus inside page parameters')
+        }
+
+        keydown(weight, 'Escape')
+        await assertClosed()
+        trigger.click()
+        await waitFor('page parameters reopen', () => panelIsOpen() &&
+          document.activeElement === panel.querySelector('.parameter-panel-close'))
+        weight = panel.querySelector('#song-font-weight-list-title[role="combobox"]')
+        if (!weight || weight.disabled) throw new Error('Font weight control did not remount')
+        await openMenu()
+        if (menu().querySelector('[role="option"][aria-selected="true"]')?.textContent.trim() !== selectedLabel ||
+            document.getElementById(weight.getAttribute('aria-activedescendant'))?.textContent.trim() !== selectedLabel) {
+          throw new Error('Page parameters did not retain the selected font weight')
+        }
+        keydown(weight, 'Escape')
+        await waitFor('reopened font menu close', () => weight.getAttribute('aria-expanded') === 'false')
+        panel.querySelector('.parameter-panel-close').click()
+        await assertClosed()
+        if (window.location.hash !== beforeHash || document.querySelector('.library-page') !== page) {
+          throw new Error('Page parameters changed the current library page')
         }
       })()`,
           true,
@@ -654,19 +749,35 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     })
 
     await record('registered main window retains library IPC and four sidebar tools', async () => {
-      const valid = await mainWindow.webContents.executeJavaScript(`(async () => {
+      const probe = await mainWindow.webContents.executeJavaScript(`(async () => {
         const roots = await window.auralis.library.getRoots()
         const tracks = await window.auralis.library.getTracks()
+        const rail = document.querySelector('.app-sidebar')?.classList.contains('app-sidebar--collapsed') === true
         const toolbar = document.querySelector('.sidebar-tools-grid')
-        const tools = toolbar ? [...toolbar.children] : []
-        return Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
+        const tools = [...document.querySelectorAll('.sidebar-footer button')]
+        const settings = document.querySelector('.sidebar-footer [data-settings-trigger]')
+        const themeToggle = toolbar?.querySelector('[data-theme-toggle]')
+        const groupedTools = toolbar ? [...toolbar.querySelectorAll('button.sidebar-tool-button')] : []
+        const refresh = tools.find((el) => el.hasAttribute('aria-busy') &&
+          ['刷新曲库', '正在刷新曲库', 'Refresh library', 'Refreshing library'].includes(el.getAttribute('aria-label')))
+        const filters = groupedTools.find((el) =>
+          ['筛选面板', 'Filter panel'].includes(el.getAttribute('aria-label')))
+        const valid = Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
+          groupedTools.length === (rail ? 3 : 2) && Boolean(refresh) && Boolean(filters) &&
+          toolbar.contains(refresh) === rail &&
+          Boolean(settings) && !toolbar.contains(settings) && Boolean(themeToggle) &&
+          !document.querySelector('.sidebar-footer [data-page-parameters-trigger]') &&
           tools.every((el) => {
             const rect = el.getBoundingClientRect()
             return rect.width > 0 && rect.height > 0 && rect.left >= 0 &&
               rect.right <= window.innerWidth
           })
+        return { valid, rail, toolCount: tools.length, groupedCount: groupedTools.length,
+          refresh: Boolean(refresh), filters: Boolean(filters), settings: Boolean(settings),
+          themeToggle: Boolean(themeToggle) }
       })()`)
-      if (!valid) throw new Error('Library IPC or sidebar tools are unavailable')
+      if (!probe.valid)
+        throw new Error(`Library IPC or sidebar tools are unavailable: ${JSON.stringify(probe)}`)
     })
 
     await record('playerbar layout contract holds after window operations', async () => {

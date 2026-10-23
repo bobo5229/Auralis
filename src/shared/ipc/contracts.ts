@@ -37,7 +37,24 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
-import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import type {
+  AnnualSummary,
+  DailyPlayCount,
+  DailyTopAlbum,
+  DailyTopTrack,
+} from '@shared/types/listeningArchive'
+import type {
+  AssignLyricsEditorLines,
+  RetimeLyricsEditorLines,
+  ReplaceLyricsEditorLineText,
+  LyricsEditorResult,
+  LyricsEditorSaved,
+  LyricsEditorState,
+  SaveLyricsEditor,
+  LrcEditorState,
+  SaveLrcEditor,
+  LrcEditorSaved,
+} from '@shared/types/lyricsEditor'
 
 export type LibraryChangedReason =
   | 'track-added'
@@ -53,6 +70,8 @@ export interface LibraryChangedEvent {
   reason: LibraryChangedReason
   trackIds: number[]
   filePaths: string[]
+  /** Public catalog version after a verified metadata commit; not a write transaction token. */
+  libraryRevision?: string
 }
 
 export interface MetadataRefreshProgressEvent {
@@ -135,7 +154,7 @@ export interface TrackEditStateChangedEvent {
 }
 
 export type UpdateTrackMetadataResult =
-  | { ok: true }
+  | { ok: true; libraryRevision?: string }
   | {
       ok: false
       reason:
@@ -145,12 +164,28 @@ export type UpdateTrackMetadataResult =
         | 'file-in-use'
         | 'playback-restore-failed'
         | 'playback-changed'
+        | 'tag-preservation-failed'
+        | 'tag-verification-failed'
+        | 'tag-write-failed'
+        | 'file-changed'
+        | 'disk-full'
+        | 'permission-denied'
+        | 'file-not-found'
+        | 'save-failed'
     }
 
 export type IpcEventChannel = keyof IpcEventContract
 export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
 export type IpcSendChannel = keyof IpcSendContract
 export type IpcSendPayload<C extends IpcSendChannel> = IpcSendContract[C]
+
+export type RevealInExplorerReason =
+  | 'not-found'
+  | 'outside-library'
+  | 'unavailable'
+  | 'reveal-failed'
+
+export type RevealInExplorerResult = { ok: true } | { ok: false; reason: RevealInExplorerReason }
 
 export interface DatabaseExportBackupResult {
   status: 'saved' | 'cancelled' | 'failed'
@@ -204,6 +239,10 @@ export interface IpcInvokeContract {
     request: void
     response: { firstEntry: boolean }
   }
+  'app:draw-startup-album': {
+    request: { recentAlbums: StartupAlbumHistory }
+    response: { album: RandomAlbumTracksResult | null }
+  }
   'app:export-diagnostics': {
     request: void
     response: { status: 'saved' | 'cancelled' | 'failed' }
@@ -243,6 +282,10 @@ export interface IpcInvokeContract {
   'library:get-album-detail': {
     request: AlbumDetailRequest
     response: AlbumDetailResult
+  }
+  'library:reveal-in-explorer': {
+    request: { trackIds: number[] }
+    response: RevealInExplorerResult
   }
   'smart-playlists:list': {
     request: void
@@ -332,6 +375,42 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: TrackLyrics | null
   }
+  'lyrics:open-editor': {
+    request: { trackId: number }
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:open-lrc-editor': {
+    request: { trackId: number }
+    response: LyricsEditorResult<LrcEditorState>
+  }
+  'lyrics:save-lrc-editor': {
+    request: SaveLrcEditor
+    response: LyricsEditorResult<LrcEditorSaved>
+  }
+  'lyrics:close-lrc-editor': {
+    request: { sessionId: string }
+    response: LyricsEditorResult<null>
+  }
+  'lyrics:assign-editor-lines': {
+    request: AssignLyricsEditorLines
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:retime-editor-lines': {
+    request: RetimeLyricsEditorLines
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:replace-editor-line-text': {
+    request: ReplaceLyricsEditorLineText
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:save-editor': {
+    request: SaveLyricsEditor
+    response: LyricsEditorResult<LyricsEditorSaved>
+  }
+  'lyrics:close-editor': {
+    request: { sessionId: string }
+    response: LyricsEditorResult<null>
+  }
   'playback:get-audio-url': {
     request: { trackId: number }
     response: AudioResource | null
@@ -364,6 +443,10 @@ export interface IpcInvokeContract {
     request: { year: number }
     response: DailyPlayCount[]
   }
+  'archive:get-annual-summary': {
+    request: { year: number }
+    response: AnnualSummary
+  }
   'archive:reset-play-stats': {
     request: void
     response: { ok: true }
@@ -371,6 +454,10 @@ export interface IpcInvokeContract {
   'archive:get-day-top-tracks': {
     request: { date: string }
     response: DailyTopTrack[]
+  }
+  'archive:get-day-top-albums': {
+    request: { date: string }
+    response: DailyTopAlbum[]
   }
   'metadata:refresh-track': {
     request: { trackId: number }

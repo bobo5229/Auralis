@@ -55,6 +55,9 @@ describe('metadata watcher shutdown', () => {
       { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
       {
         getExistingFilePaths,
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
         getFileFingerprintsByFilePaths: () => new Map(),
         markAvailableByFilePaths: markAvailable,
       } as unknown as TrackRepository,
@@ -106,6 +109,9 @@ describe('metadata watcher shutdown', () => {
       { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
       {
         getExistingFilePaths: () => new Set(),
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
         getFileFingerprintsByFilePaths: () => new Map(),
         markMissingByFilePaths,
       } as unknown as TrackRepository,
@@ -153,6 +159,9 @@ describe('metadata watcher shutdown', () => {
       { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
       {
         getExistingFilePaths: () => new Set(),
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
         getFileFingerprintsByFilePaths: () => new Map(),
       } as unknown as TrackRepository,
       {} as MetadataRefreshService,

@@ -1,38 +1,22 @@
 import { readFile, stat } from 'node:fs/promises'
+import { statSync, type Stats } from 'node:fs'
 import { extname } from 'node:path'
 import type { IAudioMetadata } from 'music-metadata'
 import { resolveLyrics } from './metadataNormalizer'
+import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
+import { lyricSidecarCandidates } from './lyricSidecarPaths'
 
-const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
-
-type ResolvedLyrics = { text: string; format: 'lrc' | 'plain' }
-
-function classifyLyrics(text: string): ResolvedLyrics | null {
-  const normalized = text.replace(/^\uFEFF/, '').trim()
-
-  if (!normalized) {
-    return null
-  }
-
-  return {
-    text: normalized,
-    format: LRC_TIMESTAMP.test(normalized) ? 'lrc' : 'plain',
-  }
-}
-
-function sidecarCandidates(filePath: string): string[] {
-  const extension = extname(filePath)
-  const basePath = extension ? filePath.slice(0, -extension.length) : filePath
-  return [`${basePath}.lrc`, `${basePath}.LRC`]
+function sidecarFingerprint(file: Stats): number[] {
+  return [file.size, file.mtimeMs, file.ctimeMs, file.dev, file.ino]
 }
 
 /** Includes absence, so adding or removing a sidecar invalidates the scan cache. */
 export async function getLyricsSidecarFingerprint(filePath: string): Promise<string> {
   const fingerprints = await Promise.all(
-    sidecarCandidates(filePath).map(async (candidate) => {
+    lyricSidecarCandidates(filePath).map(async (candidate) => {
       try {
         const file = await stat(candidate)
-        return [file.size, file.mtimeMs]
+        return sidecarFingerprint(file)
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
         throw error
@@ -40,6 +24,21 @@ export async function getLyricsSidecarFingerprint(filePath: string): Promise<str
     }),
   )
   return JSON.stringify(fingerprints)
+}
+
+/** Synchronous counterpart for the scan's final database write boundary. */
+export function getLyricsSidecarFingerprintSync(filePath: string): string {
+  return JSON.stringify(
+    lyricSidecarCandidates(filePath).map((candidate) => {
+      try {
+        const file = statSync(candidate)
+        return sidecarFingerprint(file)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw error
+      }
+    }),
+  )
 }
 
 export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetadata) {
@@ -51,15 +50,22 @@ export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetad
   return { lyrics, lyricsSidecarFingerprint }
 }
 
-async function readLocalLyrics(filePath: string): Promise<ResolvedLyrics | null> {
-  const candidates = sidecarCandidates(filePath)
+async function readLocalLyrics(
+  filePath: string,
+  format: 'lrc' | 'ttml',
+  preserveText = false,
+): Promise<ResolvedLyrics | null> {
+  const candidates = lyricSidecarCandidates(filePath).filter(
+    (candidate) => extname(candidate).toLowerCase() === `.${format}`,
+  )
 
   for (const candidate of candidates) {
     try {
-      const lyrics = classifyLyrics(await readFile(candidate, 'utf8'))
+      const text = await readFile(candidate, 'utf8')
+      const lyrics = classifyLyrics(text, format === 'ttml')
 
       if (lyrics) {
-        return lyrics
+        return preserveText ? { ...lyrics, text } : lyrics
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -74,12 +80,16 @@ async function readLocalLyrics(filePath: string): Promise<ResolvedLyrics | null>
 export async function resolveLyricsForFile(
   filePath: string,
   metadata: IAudioMetadata,
+  preserveText = false,
 ): Promise<ResolvedLyrics | null> {
-  const embeddedLyrics = resolveLyrics(metadata)
+  const localTtml = await readLocalLyrics(filePath, 'ttml', preserveText)
+  if (localTtml) return localTtml
 
-  if (embeddedLyrics?.format === 'lrc') {
+  const embeddedLyrics = resolveLyrics(metadata, preserveText)
+
+  if (embeddedLyrics?.format === 'ttml' || embeddedLyrics?.format === 'lrc') {
     return embeddedLyrics
   }
 
-  return (await readLocalLyrics(filePath)) ?? embeddedLyrics
+  return (await readLocalLyrics(filePath, 'lrc', preserveText)) ?? embeddedLyrics
 }

@@ -126,7 +126,6 @@ button:focus-visible {
   outline-offset: -2px;
 }
 .cd-track-panel {
-  height: 100%;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -173,7 +172,7 @@ h2 {
   color: var(--cd-text, #292929);
 }
 .cd-track-scroll {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-height: 0;
   min-width: 0;
   overflow-y: auto;

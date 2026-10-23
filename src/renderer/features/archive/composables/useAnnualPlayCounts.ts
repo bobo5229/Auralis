@@ -21,7 +21,19 @@ export function useAnnualPlayCounts(
     hasError.value = false
     try {
       const result = await archive.getAnnualPlayCounts(toValue(year))
-      if (!disposed && revision === requestRevision) days.value = result
+      if (!disposed && revision === requestRevision) {
+        const unchanged =
+          result.length === days.value.length &&
+          result.every((day, index) => {
+            const previous = days.value[index]
+            return (
+              day.date === previous.date &&
+              day.playCount === previous.playCount &&
+              day.durationSeconds === previous.durationSeconds
+            )
+          })
+        if (!unchanged) days.value = result
+      }
     } catch (cause) {
       if (!disposed && revision === requestRevision) {
         hasError.value = true

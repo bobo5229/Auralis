@@ -14,7 +14,9 @@ vi.mock('./resolveLyricsForFile', () => ({
 }))
 
 const info = (size: number) =>
-  ({ size, mtimeMs: size + 0.25, isFile: () => true }) as Awaited<ReturnType<typeof stat>>
+  ({ size, mtimeMs: size + 0.25, ctimeMs: 1, dev: 1, ino: 1, isFile: () => true }) as Awaited<
+    ReturnType<typeof stat>
+  >
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(stat).mockReset().mockResolvedValue(info(20))
@@ -79,6 +81,7 @@ describe('stable metadata reading', () => {
       sourceFilePath: 'isolated.flac',
       fileSize: 20,
       fileMtimeMs: 20.25,
+      fileFingerprint: { size: 20, mtimeMs: 20.25, ctimeMs: 1, dev: 1, ino: 1 },
       title: 'Title',
       lyricsText: 'lyrics',
     })
@@ -91,6 +94,18 @@ describe('stable metadata reading', () => {
     expect(parseFile).toHaveBeenCalledTimes(2)
     expect(writeArtworkToCache).toHaveBeenCalledOnce()
   })
+  it.each(['ctimeMs', 'dev', 'ino'] as const)(
+    'retries a replaced source with unchanged size and mtime: %s',
+    async (field) => {
+      vi.mocked(stat)
+        .mockResolvedValue({ ...info(20), [field]: 2 })
+        .mockResolvedValueOnce(info(20))
+      const result = await readStableMetadata(1, 'isolated.flac', 'cache')
+      expect(result.fileFingerprint).toMatchObject({ size: 20, mtimeMs: 20.25, [field]: 2 })
+      expect(parseFile).toHaveBeenCalledTimes(2)
+      expect(writeArtworkToCache).toHaveBeenCalledOnce()
+    },
+  )
   it('fails after two unstable reads without generating a commit result', async () => {
     let counter = 0
     vi.mocked(stat).mockImplementation(async () => info(++counter))

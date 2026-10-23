@@ -8,9 +8,13 @@ import {
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
+import type { PlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
+import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 
 const props = defineProps<{
   currentMode: PlaybackMode
+  material?: PlaybarStyle
 }>()
 const emit = defineEmits<{
   select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
@@ -83,10 +87,16 @@ onMounted(() => {
   <div
     ref="element"
     class="player-overlay playback-mode-menu"
+    :class="{ 'playback-mode-menu--playbar': material !== undefined }"
     role="menu"
     :aria-label="t('player.mode')"
     @keydown="handleKeydown"
   >
+    <FrostedSurface
+      v-if="material !== undefined"
+      :frosted="material === 'frosted'"
+      plain-background="var(--auralis-playbar-bg)"
+    />
     <template v-for="(mode, index) in modes" :key="mode.id">
       <button
         v-tooltip="mode.description"
@@ -105,15 +115,22 @@ onMounted(() => {
         @focus="focusedIndex = index"
         @click="handleSelect(mode.id)"
       >
-        <span class="h-4 w-4" :class="mode.icon" aria-hidden="true" />
+        <PlayerBarActionIcon :icon="mode.icon" size="playback-mode" />
         <span>{{ mode.label }}</span>
-        <span
-          v-if="currentMode === mode.id"
-          class="playback-mode-check i-ph-check"
-          aria-hidden="true"
-        />
+        <span v-if="currentMode === mode.id" class="playback-mode-check" aria-hidden="true">
+          <PlayerBarActionIcon icon="i-ph-check" size="compact" />
+        </span>
       </button>
       <div v-if="index < modes.length - 1" class="playback-mode-divider" role="separator" />
     </template>
   </div>
 </template>
+
+<style scoped>
+.playback-mode-menu--playbar {
+  isolation: isolate;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+</style>

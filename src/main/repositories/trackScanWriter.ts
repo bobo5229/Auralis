@@ -1,6 +1,16 @@
-import type { ScannedTrack, AlbumArtworkPatch, TrackLyricsPatch } from '@shared/types/libraryScan'
+import type {
+  ScannedTrack,
+  AlbumArtworkPatch,
+  TrackLyricsPatch,
+  TrackTagPatch,
+} from '@shared/types/libraryScan'
+import { isCurrentArtworkCacheKey } from '@main/features/artwork/artworkCachePolicy'
+import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
 import { BaseRepository } from './baseRepository'
-import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
+import {
+  prepareScannedMetadataDisplayUpdate,
+  prepareScannedTagDisplayUpdate,
+} from './scannedMetadataDisplay'
 
 export class TrackScanWriter extends BaseRepository {
   upsertMany(tracks: ScannedTrack[]): void {
@@ -22,6 +32,7 @@ export class TrackScanWriter extends BaseRepository {
         disc_no,
         duration_seconds,
         bitrate_bps,
+        codec,
         year,
         release_date,
         copyright,
@@ -39,7 +50,7 @@ export class TrackScanWriter extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -51,6 +62,7 @@ export class TrackScanWriter extends BaseRepository {
         disc_no = excluded.disc_no,
         duration_seconds = excluded.duration_seconds,
         bitrate_bps = excluded.bitrate_bps,
+        codec = excluded.codec,
         year = excluded.year,
         release_date = excluded.release_date,
         copyright = excluded.copyright,
@@ -70,6 +82,9 @@ export class TrackScanWriter extends BaseRepository {
     `)
 
     const syncFileMetadata = prepareScannedMetadataDisplayUpdate(this.db)
+    const updateFingerprint = this.db.prepare(
+      'UPDATE tracks SET file_stat_fingerprint = ? WHERE file_path = ?',
+    )
 
     const upsertAlbum = this.db.prepare(`
       INSERT INTO albums (title, artist, artwork_cache_key)
@@ -97,6 +112,7 @@ export class TrackScanWriter extends BaseRepository {
           track.discNo,
           track.durationSeconds,
           track.bitrateBps,
+          track.codec ?? null,
           track.year,
           track.releaseDate,
           track.copyright,
@@ -111,6 +127,7 @@ export class TrackScanWriter extends BaseRepository {
           track.isrc,
           track.metadataSignature,
         )
+        updateFingerprint.run(encodeScanFileFingerprint(track.fileFingerprint), track.filePath)
         syncFileMetadata(track)
         upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
       }
@@ -180,6 +197,78 @@ export class TrackScanWriter extends BaseRepository {
         )
         // Display metadata can also hold lyrics; clearing a sidecar must clear both.
         updateDisplay.run(patch.lyricsText, patch.lyricsFormat, patch.filePath)
+      }
+    })
+
+    for (let index = 0; index < items.length; index += 300) {
+      batch(items.slice(index, index + 300))
+    }
+  }
+
+  /** Update text tags and the parser fingerprint without rewriting duration, bitrate, codec or lyrics. */
+  patchTrackTags(items: TrackTagPatch[]): void {
+    if (items.length === 0) return
+
+    const update = this.db.prepare(`
+      UPDATE tracks
+      SET title = ?,
+          artist = ?,
+          album = ?,
+          album_artist = ?,
+          track_no = ?,
+          disc_no = ?,
+          year = ?,
+          release_date = ?,
+          copyright = ?,
+          composer = ?,
+          genre = ?,
+          isrc = ?,
+          metadata_signature = ?,
+          metadata_checked_mtime_ms = ?,
+          metadata_parser_version = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE file_path = ?
+    `)
+    const syncFileMetadata = prepareScannedTagDisplayUpdate(this.db)
+    const updateFingerprint = this.db.prepare(
+      'UPDATE tracks SET file_stat_fingerprint = ? WHERE file_path = ?',
+    )
+    const upsertAlbum = this.db.prepare(`
+      INSERT INTO albums (title, artist, artwork_cache_key)
+      VALUES (?, ?, ?)
+      ON CONFLICT(title, artist) DO UPDATE SET
+        artwork_cache_key = excluded.artwork_cache_key
+        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+          AND (
+            albums.artwork_cache_key IS NULL
+            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+          )
+    `)
+    const batch = this.db.transaction((patches: TrackTagPatch[]) => {
+      for (const patch of patches) {
+        update.run(
+          patch.title,
+          patch.artist,
+          patch.album,
+          patch.albumArtist,
+          patch.trackNo,
+          patch.discNo,
+          patch.year,
+          patch.releaseDate,
+          patch.copyright,
+          patch.composer,
+          patch.genre,
+          patch.isrc,
+          patch.metadataSignature,
+          patch.fileMtimeMs,
+          patch.metadataParserVersion ?? '',
+          patch.filePath,
+        )
+        updateFingerprint.run(encodeScanFileFingerprint(patch.fileFingerprint), patch.filePath)
+        syncFileMetadata(patch)
+        if (isCurrentArtworkCacheKey(patch.artworkCacheKey)) {
+          upsertAlbum.run(patch.album, patch.albumArtist || patch.artist, patch.artworkCacheKey)
+        }
       }
     })
 

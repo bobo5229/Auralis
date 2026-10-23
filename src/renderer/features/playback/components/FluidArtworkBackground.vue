@@ -11,11 +11,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { createArtworkBackgroundSession } from './artworkBackgroundSession'
 import FluidArtworkBackgroundEffects from './FluidArtworkBackgroundEffects.vue'
-import {
-  createFrameCapturingMeshRenderer,
-  type FluidBackgroundFrame,
-} from '../runtime/fluidBackgroundFrameCapture'
-import { FLUID_BACKGROUND_FEATHER_PX, FLUID_BACKGROUND_SCALE } from '../runtime/backgroundMorph'
+import { createReadinessTrackingMeshRenderer } from '../runtime/fluidBackgroundReadiness'
 
 const props = withDefaults(
   defineProps<{
@@ -26,26 +22,17 @@ const props = withDefaults(
     enabled: boolean
     visible: boolean
     motionPaused?: boolean
-    captureFrames?: boolean
-    effects?: boolean
     windowVisible?: boolean
     deferInitialization?: boolean
   }>(),
   {
     motionPaused: false,
-    captureFrames: false,
-    effects: true,
     windowVisible: true,
     deferInitialization: false,
   },
 )
 const emit = defineEmits<{
-  frame: [frame: FluidBackgroundFrame]
-  ready: [artworkUrl: string | null]
-  invalidated: []
   unavailable: []
-  lost: []
-  'capture-unavailable': []
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -54,7 +41,7 @@ let session: ReturnType<typeof createArtworkBackgroundSession> | null = null
 let reducedMotionQuery: MotionQuery | null = null
 let albumRequestToken = 0
 let disposed = false
-let contextLost = false
+const contextLost = ref(false)
 let initializationPending = false
 let reinitializeAfterPending = false
 let cancelInitialization: (() => void) | null = null
@@ -62,7 +49,10 @@ let priming = false
 let primeTimeout: ReturnType<typeof setTimeout> | undefined
 let committedArtworkUrl: string | null | undefined
 let readyArtworkUrl: string | null | undefined
-let captureSupported = true
+let readinessSupported = true
+
+const FLUID_BACKGROUND_FEATHER_PX = 12
+const FLUID_BACKGROUND_SCALE = 1.08
 
 const FALLBACK_ALBUM =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%230e1117'/%3E%3C/svg%3E"
@@ -89,15 +79,15 @@ function syncRendererState(): void {
 
   background.setStaticMode(props.motionPaused || reducedMotionQuery?.matches === true)
   background.setFlowSpeed(props.playing ? 1.6 : 0.6)
-  background.setFPS(props.playing || props.captureFrames ? 60 : 12)
+  background.setFPS(props.playing ? 60 : 12)
 
   if (
-    !contextLost &&
+    !contextLost.value &&
     props.enabled &&
     props.windowVisible &&
     props.active &&
     (!props.deferInitialization || readyArtworkUrl === props.artworkUrl) &&
-    (props.visible || props.captureFrames) &&
+    props.visible &&
     document.visibilityState === 'visible'
   ) {
     background.resume()
@@ -115,7 +105,7 @@ function primeBackground(): void {
     props.deferInitialization ||
     props.active ||
     !props.windowVisible ||
-    contextLost ||
+    contextLost.value ||
     document.visibilityState !== 'visible'
   )
     return
@@ -137,36 +127,23 @@ function primeBackground(): void {
 function handleFrame(canvas: HTMLCanvasElement, settled: boolean): void {
   if (
     disposed ||
-    contextLost ||
+    contextLost.value ||
     background?.getElement() !== canvas ||
     committedArtworkUrl !== props.artworkUrl
   )
     return
   if (settled && readyArtworkUrl !== committedArtworkUrl) {
     readyArtworkUrl = committedArtworkUrl
-    emit('ready', committedArtworkUrl)
   }
-  if (props.captureFrames) emit('frame', { canvas, artworkUrl: props.artworkUrl, settled })
   if (priming && settled) {
     cancelPrime()
     background.pause()
   }
 }
 
-function requestFrame(): void {
-  if (!background || contextLost || !props.enabled || !props.windowVisible || document.hidden)
-    return
-  // setStaticMode requests a draw even after a previously settled static frame.
-  background.setStaticMode(
-    props.motionPaused || reducedMotionQuery?.matches === true || !props.active,
-  )
-  background.resume()
-}
-defineExpose({ requestFrame })
-
 async function syncAlbum(): Promise<void> {
   const currentSession = session
-  if (!currentSession || !props.enabled || contextLost || disposed) return
+  if (!currentSession || !props.enabled || contextLost.value || disposed) return
   const artworkUrl = props.artworkUrl
   if (committedArtworkUrl === artworkUrl) return
 
@@ -178,9 +155,8 @@ async function syncAlbum(): Promise<void> {
     await currentSession.setAlbum(image)
     if (token === albumRequestToken) {
       committedArtworkUrl = artworkUrl
-      if (!captureSupported) {
+      if (!readinessSupported) {
         readyArtworkUrl = artworkUrl
-        emit('ready', artworkUrl)
       }
       primeBackground()
     }
@@ -197,9 +173,8 @@ async function syncAlbum(): Promise<void> {
         await currentSession.setAlbum(fallbackImage)
         if (token === albumRequestToken) {
           committedArtworkUrl = artworkUrl
-          if (!captureSupported) {
+          if (!readinessSupported) {
             readyArtworkUrl = artworkUrl
-            emit('ready', artworkUrl)
           }
           primeBackground()
         }
@@ -221,10 +196,9 @@ function handleReducedMotionChange(): void {
 function handleContextLost(event: Event): void {
   // 允许浏览器恢复上下文；AMLL 自身不会暂停或重建失效的 GPU 资源。
   event.preventDefault()
-  contextLost = true
+  contextLost.value = true
   cancelPrime()
   readyArtworkUrl = undefined
-  emit('lost')
   albumRequestToken += 1
   session?.cancelPendingAlbum()
   background?.pause()
@@ -248,7 +222,7 @@ function releaseBackground(): void {
 function handleContextRestored(): void {
   if (disposed) return
   releaseBackground()
-  contextLost = false
+  contextLost.value = false
   if (initializationPending) reinitializeAfterPending = true
   else void initializeBackground()
 }
@@ -279,9 +253,8 @@ function createMeshGradientBackground(
 
   try {
     return BackgroundRender.new(
-      createFrameCapturingMeshRenderer(MeshGradientRenderer, handleFrame, () => {
-        captureSupported = false
-        emit('capture-unavailable')
+      createReadinessTrackingMeshRenderer(MeshGradientRenderer, handleFrame, () => {
+        readinessSupported = false
       }),
     )
   } finally {
@@ -359,7 +332,7 @@ function scheduleInitialization(): void {
     cancelInitialization = null
     if (props.enabled && !disposed) void initializeBackground()
   }
-  // Prepare the selected mode while the player is parked, outside the opening click task.
+  // Prepare the background while the player is parked, outside the opening click task.
   if (typeof requestIdleCallback === 'function') {
     const id = requestIdleCallback(prepare, { timeout: 1000 })
     cancelInitialization = () => cancelIdleCallback(id)
@@ -373,7 +346,6 @@ watch(
   () => props.artworkUrl,
   () => {
     readyArtworkUrl = undefined
-    emit('invalidated')
     void syncAlbum()
   },
 )
@@ -396,7 +368,6 @@ watch(
     props.visible,
     props.target,
     props.motionPaused,
-    props.captureFrames,
     props.windowVisible,
     props.deferInitialization,
   ],
@@ -428,10 +399,10 @@ onBeforeUnmount(() => {
       ref="containerRef"
       class="fluid-artwork-background"
       :class="{ 'fluid-artwork-background--parked': target === null }"
-      :style="{ visibility: visible ? 'visible' : 'hidden' }"
+      :style="{ visibility: visible && !contextLost ? 'visible' : 'hidden' }"
       aria-hidden="true"
     >
-      <FluidArtworkBackgroundEffects v-if="effects" />
+      <FluidArtworkBackgroundEffects />
     </div>
   </Teleport>
 </template>

@@ -1,3 +1,8 @@
+.app-main {
+  --cd-view-switch-duration: 420ms;
+  --cd-view-switch-easing: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .cd-canvas-fade-enter-active {
   transition: opacity 240ms ease-out;
 }
@@ -13,7 +18,7 @@
 .cd-index-slide-enter-active,
 .app-main > .cd-index-page.cd-index-slide-return-leave-active {
   z-index: 2;
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--cd-view-switch-duration) var(--cd-view-switch-easing);
   will-change: transform;
 }
 .cd-index-slide-enter-from,
@@ -42,7 +47,7 @@
 }
 .cd-index-slide-leave-active,
 .cd-index-slide-return-enter-active {
-  animation: cd-index-slide-hold 420ms;
+  animation: cd-index-slide-hold var(--cd-view-switch-duration);
 }
 @keyframes cd-index-slide-hold {
   from,

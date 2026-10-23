@@ -1,0 +1,14 @@
+
+
+ RUN  v3.2.4 D:/VSCode/Auralis
+
+ ✓ src/main/features/metadata/m4aPlaybackWrite.native.test.ts (4 tests) 49709ms
+   ✓ M4A publication through native playback, metadata service and real Electron SQLite > preserves every sample of a aac queue while saving current and preloaded next tags  24233ms
+   ✓ M4A publication through native playback, metadata service and real Electron SQLite > preserves every sample of a alac queue while saving current and preloaded next tags  24203ms
+   ✓ M4A publication through native playback, metadata service and real Electron SQLite > keeps old bytes and playback on publication failure, releases the write gate, and allows retry  663ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  02:00:22
+   Duration  52.38s (transform 588ms, setup 0ms, collect 2.13s, tests 49.71s, environment 0ms, prepare 110ms)
+

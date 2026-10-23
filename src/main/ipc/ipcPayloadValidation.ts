@@ -1,11 +1,13 @@
 import * as v from 'valibot'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
+import { WINDOW_CLOSE_BEHAVIORS } from '@shared/types/windowBehavior'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
 import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
 import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
+import { MAX_LRC_EDITOR_CHARACTERS, MAX_TTML_LINE_CHARACTERS } from '@shared/types/lyricsEditor'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -102,6 +104,11 @@ function stringValue(options: { max: number; min?: number } = { max: MAX_TEXT_LE
       fail(path, 'exceeds the aggregate string size limit')
     }
   }
+}
+
+const listeningArchiveDateValue: Validator = (value, path, context) => {
+  stringValue({ min: 10, max: 10 })(value, path, context)
+  if (!isListeningArchiveDate(value as string)) fail(path, 'must be a valid local calendar date')
 }
 
 function finiteNumber(options: { min?: number; max?: number; integer?: boolean } = {}): Validator {
@@ -380,6 +387,11 @@ export const domainIpcPayloadPolicies = {
     }),
   ),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
+  [ipcChannels.app.drawStartupAlbum]: required(
+    objectShape({
+      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT })),
+    }),
+  ),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
   [ipcChannels.library.getRoots]: voidPayload(),
@@ -401,6 +413,11 @@ export const domainIpcPayloadPolicies = {
     objectShape({
       albumArtist: field(stringValue({ max: MAX_TEXT_LENGTH })),
       albumTitle: field(stringValue({ max: MAX_TEXT_LENGTH })),
+    }),
+  ),
+  [ipcChannels.library.revealInExplorer]: required(
+    objectShape({
+      trackIds: field(arrayOf(positiveId, { min: 1, max: MAX_ID_LIST_LENGTH })),
     }),
   ),
   [ipcChannels.smartPlaylists.list]: voidPayload(),
@@ -455,6 +472,65 @@ export const domainIpcPayloadPolicies = {
     }),
   ),
   [ipcChannels.lyrics.getByTrackId]: required(idPayload('trackId')),
+  [ipcChannels.lyrics.openEditor]: required(idPayload('trackId')),
+  [ipcChannels.lyrics.openLrcEditor]: required(idPayload('trackId')),
+  [ipcChannels.lyrics.saveLrcEditor]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+      text: field(stringValue({ max: MAX_LRC_EDITOR_CHARACTERS })),
+      target: field(enumValue(['tag', 'file', 'ttml'])),
+    }),
+  ),
+  [ipcChannels.lyrics.closeLrcEditor]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+    }),
+  ),
+  [ipcChannels.lyrics.assignEditorLines]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+      lineIds: field(arrayOf(stringValue({ min: 1, max: 32 }), { max: MAX_ID_LIST_LENGTH })),
+      assignment: field(enumValue(['unassigned', 'performer-1', 'performer-2', 'together'])),
+    }),
+  ),
+  [ipcChannels.lyrics.saveEditor]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+    }),
+  ),
+  [ipcChannels.lyrics.retimeEditorLines]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+      lineIds: field(
+        arrayOf(stringValue({ min: 1, max: 32 }), { min: 1, max: MAX_ID_LIST_LENGTH }),
+      ),
+      mode: field(enumValue(['set', 'set-end', 'shift'])),
+      valueMs: field(
+        finiteNumber({
+          integer: true,
+          min: -Number.MAX_SAFE_INTEGER,
+          max: Number.MAX_SAFE_INTEGER,
+        }),
+      ),
+    }),
+  ),
+  [ipcChannels.lyrics.replaceEditorLineText]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+      lineId: field(stringValue({ min: 1, max: 32 })),
+      text: field(stringValue({ max: MAX_TTML_LINE_CHARACTERS })),
+    }),
+  ),
+  [ipcChannels.lyrics.closeEditor]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+    }),
+  ),
   [ipcChannels.playback.getAudioUrl]: required(idPayload('trackId')),
   [ipcChannels.playback.nativeAvailability]: voidPayload(),
   [ipcChannels.playback.spectrumSubscribe]: required(
@@ -489,14 +565,14 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.archive.getAnnualPlayCounts]: required(
     objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
   ),
+  [ipcChannels.archive.getAnnualSummary]: required(
+    objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
+  ),
   [ipcChannels.archive.getDayTopTracks]: required(
-    objectShape({
-      date: field((value, path, context) => {
-        stringValue({ min: 10, max: 10 })(value, path, context)
-        if (!isListeningArchiveDate(value as string))
-          fail(path, 'must be a valid local calendar date')
-      }),
-    }),
+    objectShape({ date: field(listeningArchiveDateValue) }),
+  ),
+  [ipcChannels.archive.getDayTopAlbums]: required(
+    objectShape({ date: field(listeningArchiveDateValue) }),
   ),
   [ipcChannels.archive.resetPlayStats]: voidPayload(),
   [ipcChannels.metadata.refreshTrack]: required(idPayload('trackId')),
@@ -521,7 +597,7 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.window.getVisibility]: voidPayload(),
   [ipcChannels.window.getCloseBehavior]: voidPayload(),
   [ipcChannels.window.setCloseBehavior]: required(
-    objectShape({ behavior: field(enumValue(['quit', 'minimize', 'tray'])) }),
+    objectShape({ behavior: field(enumValue(WINDOW_CLOSE_BEHAVIORS)) }),
   ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 

@@ -1,12 +1,18 @@
-import type { LibraryScanWorkerMessage } from './libraryScanTypes'
+import type {
+  LibraryScanWorkerMessage,
+  ScannedTrackFile,
+  ScannedTagPatch,
+  ScannedLyricsPatch,
+} from './libraryScanTypes'
 import type { ReadTrackResult } from './libraryScanTrackReader'
-import type { AlbumArtworkPatch, ScannedTrack, TrackLyricsPatch } from '@shared/types/libraryScan'
+import type { AlbumArtworkPatch } from '@shared/types/libraryScan'
 
 /** Owns outgoing batches, counters and the complete inventory for one scan. */
 export class LibraryScanReporter {
-  private readonly trackBatch: ScannedTrack[] = []
+  private readonly trackBatch: ScannedTrackFile[] = []
+  private readonly tagBatch: ScannedTagPatch[] = []
   private readonly artworkBatch: AlbumArtworkPatch[] = []
-  private readonly lyricsBatch: TrackLyricsPatch[] = []
+  private readonly lyricsBatch: ScannedLyricsPatch[] = []
   private readonly foundFilePaths: string[] = []
   private readonly unreadableDirectoryPaths: string[] = []
   private totalFiles = 0
@@ -44,6 +50,7 @@ export class LibraryScanReporter {
 
   complete(): void {
     this.flushTrackBatch()
+    this.flushTagBatch()
     this.flushArtworkBatch()
     this.flushLyricsBatch()
     this.postProgress(null, 'Scan complete', true)
@@ -84,6 +91,11 @@ export class LibraryScanReporter {
       if (this.trackBatch.length >= 300) {
         this.flushTrackBatch()
       }
+    } else if (result.kind === 'tags') {
+      this.tagBatch.push(result.patch)
+      if (result.lyricsPatch) this.lyricsBatch.push(result.lyricsPatch)
+      if (this.tagBatch.length >= 300) this.flushTagBatch()
+      if (this.lyricsBatch.length >= 300) this.flushLyricsBatch()
     } else if (result.kind === 'artwork') {
       this.artworkBatch.push(result.patch)
 
@@ -117,6 +129,11 @@ export class LibraryScanReporter {
     }
 
     this.postMessage({ type: 'tracks', payload: this.trackBatch.splice(0, this.trackBatch.length) })
+  }
+
+  private flushTagBatch(): void {
+    if (this.tagBatch.length === 0) return
+    this.postMessage({ type: 'trackTags', payload: this.tagBatch.splice(0, this.tagBatch.length) })
   }
 
   private flushArtworkBatch(): void {

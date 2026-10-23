@@ -1,0 +1,799 @@
+@import '../../../src/renderer/app/styles/typography.css';
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../../../src/renderer/assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+    format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: url('../../../src/renderer/assets/fonts/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Regular.ttf')
+    format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Auralis Season Serif';
+  src: url('../../../src/renderer/assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2')
+    format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --page: #121212;
+  --sidebar: #191919;
+  --surface: #1c1c1c;
+  --text: #e9e9e9;
+  --secondary: #a1a1a1;
+  --line: #ffffff12;
+  --hover: #ffffff06;
+  --accent: #14cc60;
+  --accent-ink: #082811;
+  --season-accent: #e0b185;
+  --turn-duration: 940ms;
+  --turn-ease: cubic-bezier(0.22, 1.12, 0.36, 1);
+  --muted-arc: 0.28;
+  --player-shadow: 0 12px 36px #0003;
+  --dial-turn: -180deg;
+}
+[data-theme='light'] {
+  color-scheme: light;
+  --page: #f4f3f0;
+  --sidebar: #eae9e5;
+  --surface: #e7e6e1;
+  --text: #252826;
+  --secondary: #686a65;
+  --line: #25282617;
+  --hover: #25282606;
+  --accent: #42765b;
+  --accent-ink: #fff;
+  --muted-arc: 0.44;
+  --player-shadow: 0 12px 32px #34352e12;
+}
+[data-season='spring'] {
+  --season-accent: #a5cbae;
+}
+[data-season='summer'] {
+  --season-accent: #94cbd0;
+}
+[data-season='winter'] {
+  --season-accent: #b7bdd6;
+}
+[data-theme='light'][data-season='spring'] {
+  --season-accent: #436751;
+}
+[data-theme='light'][data-season='summer'] {
+  --season-accent: #2d6e77;
+}
+[data-theme='light'][data-season='autumn'] {
+  --season-accent: #885337;
+}
+[data-theme='light'][data-season='winter'] {
+  --season-accent: #596783;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font-family: var(--auralis-font-ui);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  color: var(--text);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  border: 0;
+  background: none;
+}
+button:focus-visible,
+[tabindex='0']:focus-visible {
+  outline: 2px solid var(--season-accent);
+  outline-offset: 5px;
+}
+::selection {
+  background: color-mix(in srgb, var(--season-accent) 32%, transparent);
+}
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--secondary) 28%, transparent);
+  border-radius: 8px;
+}
+p,
+h1,
+h2 {
+  margin: 0;
+}
+.icon-definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon .solid {
+  fill: currentColor;
+  stroke: none;
+}
+/* Symbols inherit these rules through use, including in file:// previews. */
+.solid {
+  fill: currentColor;
+  stroke: none;
+}
+.pause-stroke {
+  stroke-width: 4;
+}
+.reverse {
+  transform: rotate(180deg);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.app-shell {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  height: 100dvh;
+  min-height: 460px;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: 44px 12px 20px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  padding: 0 12px 46px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.brand-mark {
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 600;
+}
+.brand > span:last-child {
+  font-weight: 500;
+}
+.sidebar-section {
+  padding: 0 14px;
+  margin-bottom: 12px;
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.nav-item {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-height: 43px;
+  margin-bottom: 4px;
+  padding: 0 14px;
+  color: var(--secondary);
+  border-radius: 9px;
+}
+.nav-item.selected {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.playlist-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 34px;
+}
+.playlist-label .icon {
+  width: 16px;
+  height: 16px;
+}
+.sidebar-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding: 14px 14px 0;
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+}
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.page-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  height: 86px;
+  padding: 0 36px;
+}
+.breadcrumb {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.breadcrumb > span:first-child {
+  color: var(--secondary);
+}
+.breadcrumb .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--secondary);
+}
+.preview-tools {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.prototype-label {
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--secondary);
+}
+.icon-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.season-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.95fr) minmax(280px, 1.15fr);
+  gap: clamp(28px, 4.5vw, 80px);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1330px;
+  margin: 0 auto;
+  padding: 24px 36px 112px;
+}
+.dial-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding-bottom: 18px;
+}
+.dial {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 456px;
+  aspect-ratio: 1;
+}
+.dial-rotor {
+  position: absolute;
+  inset: 0;
+  transform: rotate(var(--dial-turn));
+  transition: transform var(--turn-duration) var(--turn-ease);
+}
+.dial-art {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.season-arc {
+  opacity: var(--muted-arc);
+  cursor: pointer;
+  transition: opacity 540ms ease;
+}
+.season-arc:hover {
+  opacity: 0.8;
+}
+.season-arc.is-selected {
+  opacity: 1;
+}
+.dial-tick {
+  stroke: var(--secondary);
+  stroke-width: 0.8;
+  opacity: 0.42;
+}
+.inner-guide {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.season-position {
+  position: absolute;
+  inset: 0;
+  transform: rotate(var(--base-angle));
+  pointer-events: none;
+}
+.season-button {
+  position: absolute;
+  top: 4.6%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  pointer-events: auto;
+  font-family: 'Auralis Season Serif', 'SimSun', serif;
+  font-size: 21px;
+  line-height: 1;
+  color: var(--secondary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(calc(0deg - var(--base-angle) - var(--dial-turn)));
+  transition:
+    transform var(--turn-duration) var(--turn-ease),
+    color 380ms ease;
+}
+.season-button:hover {
+  color: var(--text);
+}
+.season-button[aria-selected='true'] {
+  color: var(--season-accent);
+}
+.dial-pointer {
+  position: absolute;
+  pointer-events: none;
+  top: 9.5%;
+  left: 50%;
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--season-accent);
+  transform: translateX(-50%);
+  transition: background 540ms ease;
+}
+.dial-center {
+  position: absolute;
+  inset: 23%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.dial-year {
+  margin-bottom: 16px;
+  color: var(--secondary);
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.season-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* The season glyph is artwork lettering rather than an ordinary page heading. */
+.season-character {
+  font-family: 'Auralis Season Serif', 'SimSun', serif;
+  font-size: clamp(64px, 23cqw, 96px);
+  line-height: 1.14;
+  color: var(--season-accent);
+  transition: color 540ms ease;
+}
+.season-months {
+  margin-top: 20px;
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dial-navigation {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  margin-top: 13px;
+}
+.dial-navigation .icon {
+  width: 14px;
+  height: 14px;
+}
+.season-english {
+  min-width: 90px;
+  text-align: center;
+  color: var(--secondary);
+  font-size: var(--auralis-type-overline-size);
+  line-height: var(--auralis-type-overline-line-height);
+  letter-spacing: 0.17em;
+}
+.season-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 4px;
+  outline-offset: 10px;
+}
+.tracks-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  margin-bottom: 14px;
+}
+.tracks-heading-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.tracks-heading h2 {
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+  font-weight: 500;
+}
+.tracks-heading-title > span {
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+}
+.play-all {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--season-accent) 12%, transparent);
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.play-all:hover {
+  background: color-mix(in srgb, var(--season-accent) 20%, transparent);
+}
+.play-all .icon {
+  width: 16px;
+  height: 16px;
+}
+.list-columns {
+  display: flex;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 0 12px 11px 33px;
+  color: var(--secondary);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.track-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.track-list {
+  list-style: none;
+  padding: 8px 0 24px;
+  margin: 0;
+}
+.track-row {
+  display: grid;
+  grid-template-columns: 22px 38px minmax(0, 1fr) 42px;
+  gap: 11px;
+  align-items: center;
+  width: 100%;
+  min-height: 66px;
+  padding: 8px 10px 8px 0;
+  text-align: left;
+  border-radius: 7px;
+}
+.track-row:hover {
+  background: var(--hover);
+}
+.track-row.is-playing {
+  background: color-mix(in srgb, var(--season-accent) 8%, transparent);
+}
+.track-rank {
+  color: var(--secondary);
+  text-align: center;
+  font-size: var(--auralis-type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.track-rank .icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: auto;
+  color: var(--season-accent);
+}
+.track-cover {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--cover-art);
+}
+.track-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #fff1, transparent 60%, #0001);
+}
+.track-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.track-title {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-artist {
+  overflow: hidden;
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-count {
+  color: var(--secondary);
+  text-align: right;
+  font-size: var(--auralis-type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.player {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: min(680px, calc(100% - 72px));
+  height: 66px;
+  padding: 0 23px 0 18px;
+  border-radius: 34px;
+  background: var(--surface);
+  box-shadow: var(--player-shadow);
+  transform: translateX(-50%);
+}
+.player-track {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  width: 36%;
+  min-width: 0;
+}
+.player-cover {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+}
+.player-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.player-title,
+.player-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-title {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.player-artist {
+  color: var(--secondary);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.transport {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.transport-play {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--surface);
+}
+.transport-play .icon {
+  width: 18px;
+  height: 18px;
+}
+.transport-play:hover {
+  opacity: 0.85;
+}
+.transport .icon-button .icon {
+  width: 17px;
+  height: 17px;
+}
+.player-trailing {
+  display: flex;
+  gap: 22px;
+  justify-content: flex-end;
+  width: 25%;
+  color: var(--secondary);
+}
+.player-trailing .icon {
+  width: 18px;
+  height: 18px;
+}
+
+@media (min-width: 1450px) {
+  .app-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .season-layout {
+    padding-top: 48px;
+    padding-bottom: 148px;
+  }
+  .track-row {
+    min-height: 72px;
+  }
+}
+@media (max-width: 1060px) {
+  .app-shell {
+    grid-template-columns: 184px minmax(0, 1fr);
+  }
+  .brand {
+    font-size: 16px;
+    padding-left: 10px;
+  }
+  .page-header {
+    padding-inline: 24px;
+    height: 72px;
+  }
+  .season-layout {
+    padding: 12px 24px 108px;
+    gap: 26px;
+  }
+  .dial-year {
+    margin-bottom: 8px;
+    font-size: var(--auralis-type-control-size);
+  }
+  .season-months {
+    margin-top: 12px;
+  }
+  .season-button {
+    font-size: 18px;
+  }
+  .tracks-heading {
+    margin-bottom: 6px;
+  }
+  .tracks-heading-title {
+    gap: 8px;
+  }
+  .tracks-heading h2 {
+    font-size: var(--auralis-type-section-size);
+    line-height: var(--auralis-type-section-line-height);
+  }
+  .track-row {
+    grid-template-columns: 20px 34px minmax(0, 1fr) 32px;
+    gap: 9px;
+    min-height: 62px;
+  }
+  .track-cover {
+    width: 34px;
+    height: 34px;
+  }
+  .player {
+    width: calc(100% - 48px);
+    bottom: 22px;
+  }
+}
+@media (max-width: 780px) {
+  .app-shell {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .sidebar {
+    padding-inline: 10px;
+  }
+  .brand {
+    font-size: 0;
+    padding: 0 12px 40px;
+  }
+  .brand > span:last-child {
+    display: none;
+  }
+  .sidebar-section,
+  .sidebar-bottom {
+    display: none;
+  }
+  .nav-item {
+    gap: 0;
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+  .nav-item:nth-of-type(6) {
+    margin-top: 30px;
+  }
+  .season-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    overflow-y: auto;
+    padding-bottom: 110px;
+  }
+  .dial-column {
+    padding: 0;
+  }
+  .dial {
+    max-width: 310px;
+  }
+  .dial-navigation {
+    margin-top: 0;
+  }
+  .season-panel {
+    min-height: 350px;
+  }
+  .track-scroll {
+    overflow: visible;
+  }
+  .player-track {
+    width: 45%;
+  }
+  .player-trailing {
+    display: none;
+  }
+  .prototype-label {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -21,6 +21,7 @@ export interface AuralisApi {
     claimStartupAlbum: (
       request?: Exclude<IpcRequest<'app:claim-startup-album'>, void>,
     ) => Result<'app:claim-startup-album'>
+    drawStartupAlbum: (request: Req<'app:draw-startup-album'>) => Result<'app:draw-startup-album'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
     splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
@@ -37,6 +38,9 @@ export interface AuralisApi {
     getTracks: () => Result<'library:get-tracks'>
     getTrackPage: (request: Req<'library:get-track-page'>) => Result<'library:get-track-page'>
     getAlbumDetail: (request: Req<'library:get-album-detail'>) => Result<'library:get-album-detail'>
+    revealInExplorer: (
+      request: Req<'library:reveal-in-explorer'>,
+    ) => Result<'library:reveal-in-explorer'>
     onScanProgress: (
       callback: (progress: IpcEventPayload<'library:scan-progress'>) => void,
     ) => () => void
@@ -98,6 +102,23 @@ export interface AuralisApi {
     getByTrackId: (
       trackId: Req<'lyrics:get-by-track-id'>['trackId'],
     ) => Result<'lyrics:get-by-track-id'>
+    openEditor: (trackId: Req<'lyrics:open-editor'>['trackId']) => Result<'lyrics:open-editor'>
+    openLrcEditor: (trackId: number) => Result<'lyrics:open-lrc-editor'>
+    saveLrcEditor: (request: Req<'lyrics:save-lrc-editor'>) => Result<'lyrics:save-lrc-editor'>
+    closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
+    assignEditorLines: (
+      request: Req<'lyrics:assign-editor-lines'>,
+    ) => Result<'lyrics:assign-editor-lines'>
+    retimeEditorLines: (
+      request: Req<'lyrics:retime-editor-lines'>,
+    ) => Result<'lyrics:retime-editor-lines'>
+    replaceEditorLineText: (
+      request: Req<'lyrics:replace-editor-line-text'>,
+    ) => Result<'lyrics:replace-editor-line-text'>
+    saveEditor: (request: Req<'lyrics:save-editor'>) => Result<'lyrics:save-editor'>
+    closeEditor: (
+      sessionId: Req<'lyrics:close-editor'>['sessionId'],
+    ) => Result<'lyrics:close-editor'>
   }
   playback: {
     subscribeSpectrum: (
@@ -138,6 +159,9 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
+    getAnnualSummary: (
+      year: Req<'archive:get-annual-summary'>['year'],
+    ) => Result<'archive:get-annual-summary'>
     getAnnualPlayCounts: (
       year: Req<'archive:get-annual-play-counts'>['year'],
     ) => Result<'archive:get-annual-play-counts'>
@@ -145,6 +169,9 @@ export interface AuralisApi {
     getDayTopTracks: (
       date: Req<'archive:get-day-top-tracks'>['date'],
     ) => Result<'archive:get-day-top-tracks'>
+    getDayTopAlbums: (
+      date: Req<'archive:get-day-top-albums'>['date'],
+    ) => Result<'archive:get-day-top-albums'>
   }
   metadata: {
     refreshTrack: (

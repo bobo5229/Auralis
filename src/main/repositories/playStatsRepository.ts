@@ -1,6 +1,26 @@
 import type Database from 'better-sqlite3'
-import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import { BaseRepository } from './baseRepository'
+import { buildAnnualSummary, type AnnualListeningRow } from '../services/annualSummary'
+import type { AnnualSummary } from '@shared/types/listeningArchive'
+
+// Join each history source by the day's track IDs before combining them. Joining
+// both UNION views materializes the entire library display on every daily query.
+const dailyListeningTracks = `
+  SELECT stats.track_id, stats.play_count, stats.duration_seconds,
+         display.title, display.artist, display.album, display.album_artist,
+         display.artwork_cache_key
+  FROM daily_track_play_stats AS stats
+  JOIN library_track_display AS display ON display.id = stats.track_id
+  WHERE stats.play_date = @date AND stats.play_count > 0
+  UNION ALL
+  SELECT stats.track_id, stats.play_count, stats.duration_seconds,
+         display.title, display.artist, display.album, display.album_artist,
+         display.artwork_cache_key
+  FROM removed_daily_track_play_stats AS stats
+  JOIN removed_track_history AS display ON display.id = stats.track_id
+  WHERE stats.play_date = @date AND stats.play_count > 0
+`
 
 function latestPlayedAt(previous: string | null | undefined, incoming: Date): string {
   const previousTime = previous ? Date.parse(previous) : NaN
@@ -99,15 +119,86 @@ export class PlayStatsRepository extends BaseRepository {
     return this.db
       .prepare(
         `
-      SELECT stats.track_id AS trackId, display.title, display.artist, stats.play_count AS playCount
-      FROM listening_daily_track_play_stats AS stats
-      JOIN listening_track_display AS display ON display.id = stats.track_id
-      WHERE stats.play_date = ? AND stats.play_count > 0
-      ORDER BY stats.play_count DESC, stats.duration_seconds DESC, stats.track_id ASC
+      WITH day_tracks AS (${dailyListeningTracks})
+      SELECT track_id AS trackId, title, artist, play_count AS playCount
+      FROM day_tracks
+      ORDER BY play_count DESC, duration_seconds DESC, track_id ASC
       LIMIT 3
     `,
       )
-      .all(date) as DailyTopTrack[]
+      .all({ date }) as DailyTopTrack[]
+  }
+
+  getAnnualSummary(year: number): AnnualSummary {
+    // Read the summary in one snapshot. Date predicates constrain both history sources
+    // before joining display metadata; no catalog-wide renderer query is needed.
+    return this.db.transaction(() => {
+      const rows = this.db
+        .prepare(
+          `
+        WITH history AS (
+          SELECT 'library' AS source, stats.track_id, stats.play_date, stats.play_count,
+                 stats.duration_seconds AS recorded_duration, display.title, display.artist,
+                 display.album, display.album_artist, display.artwork_cache_key,
+                 display.duration_seconds, display.availability = 'available' AS available
+          FROM daily_track_play_stats stats
+          JOIN library_track_display display ON display.id = stats.track_id
+          WHERE stats.play_date BETWEEN @start AND @end AND stats.play_count > 0
+          UNION ALL
+          SELECT 'removed', stats.track_id, stats.play_date, stats.play_count,
+                 stats.duration_seconds, display.title, display.artist, display.album,
+                 display.album_artist, display.artwork_cache_key, NULL, 0
+          FROM removed_daily_track_play_stats stats
+          JOIN removed_track_history display ON display.id = stats.track_id
+          WHERE stats.play_date BETWEEN @start AND @end AND stats.play_count > 0
+        )
+        SELECT source, track_id AS trackId, CAST(substr(play_date, 6, 2) AS INTEGER) AS month,
+               MIN(play_date) AS firstPlayedDate, title, artist, album, album_artist AS albumArtist,
+               artwork_cache_key AS artworkCacheKey, duration_seconds AS durationSeconds,
+               available, SUM(play_count) AS playCount, SUM(recorded_duration) AS recordedDuration
+        FROM history GROUP BY source, track_id, month ORDER BY source, track_id, month
+      `,
+        )
+        .iterate({
+          start: `${year}-01-01`,
+          end: `${year}-12-31`,
+        }) as IterableIterator<AnnualListeningRow>
+      const summary = buildAnnualSummary(year, this.getAnnualPlayCounts(year), rows)
+      if (summary.peakDay)
+        summary.peakDay.album = this.getDayTopAlbums(summary.peakDay.date)[0] ?? null
+      return summary
+    })()
+  }
+
+  getDayTopAlbums(date: string): DailyTopAlbum[] {
+    return this.db
+      .prepare(
+        `
+      WITH day_tracks AS (${dailyListeningTracks})
+      SELECT
+        album,
+        COALESCE(
+          NULLIF(TRIM(album_artist), ''),
+          NULLIF(TRIM(artist), '')
+        ) AS albumArtist,
+        MAX(artwork_cache_key) AS artworkCacheKey,
+        SUM(play_count) AS playCount,
+        SUM(duration_seconds) AS durationSeconds,
+        COUNT(*) AS trackCount
+      FROM day_tracks
+      WHERE album IS NOT NULL
+        AND TRIM(album) <> ''
+      GROUP BY
+        album,
+        COALESCE(
+          NULLIF(TRIM(album_artist), ''),
+          NULLIF(TRIM(artist), '')
+        )
+      ORDER BY durationSeconds DESC, playCount DESC, album COLLATE NOCASE ASC
+      LIMIT 10
+    `,
+      )
+      .all({ date }) as DailyTopAlbum[]
   }
 
   resetAll(): void {

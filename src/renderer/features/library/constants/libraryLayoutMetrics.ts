@@ -14,9 +14,12 @@ export const LIBRARY_LAYOUT_METRICS = {
   flatBottomInset: 28,
   coverArtworkSize: 280,
   coverTrackRowHeight: 48,
-  coverDiscHeadingHeight: 24,
+  /** 后续碟片标题：24px 行高 + 上下各 8px 留白；首个标题仍为 24px。 */
+  coverDiscHeadingHeight: 40,
   coverMetaGap: 12,
   coverMetaLineHeight: 20,
+  coverMetaAlbumArtistGap: 0,
+  coverMetaArtistDateGap: 0,
   /** 封面视图的虚拟内容起始间距；滚动偏移与吸顶间距独立。 */
   coverContentTopInset: 16,
   /** 封面信息吸顶后的顶部间距，不参与分组高度与滚动偏移 */
@@ -35,14 +38,42 @@ export const LIBRARY_LAYOUT_METRICS = {
 
 export type LibraryLayoutMetrics = typeof LIBRARY_LAYOUT_METRICS
 
-export function getAlbumCoverColumnHeight(hasReleaseDate: boolean): number {
+export interface CoverMetadataLayout {
+  artworkGap: number
+  albumArtistGap: number
+  artistDateGap: number
+  albumLineHeight: number
+  artistLineHeight: number
+  dateLineHeight: number
+}
+
+export const DEFAULT_COVER_METADATA_LAYOUT: Readonly<CoverMetadataLayout> = {
+  artworkGap: LIBRARY_LAYOUT_METRICS.coverMetaGap,
+  albumArtistGap: LIBRARY_LAYOUT_METRICS.coverMetaAlbumArtistGap,
+  artistDateGap: LIBRARY_LAYOUT_METRICS.coverMetaArtistDateGap,
+  albumLineHeight: LIBRARY_LAYOUT_METRICS.coverMetaLineHeight,
+  artistLineHeight: LIBRARY_LAYOUT_METRICS.coverMetaLineHeight,
+  dateLineHeight: LIBRARY_LAYOUT_METRICS.coverMetaLineHeight,
+}
+
+export function getAlbumCoverColumnHeight(
+  hasReleaseDate: boolean,
+  layout: Readonly<CoverMetadataLayout> = DEFAULT_COVER_METADATA_LAYOUT,
+): number {
   const m = LIBRARY_LAYOUT_METRICS
-  return m.coverArtworkSize + m.coverMetaGap + m.coverMetaLineHeight * (hasReleaseDate ? 3 : 2)
+  return (
+    m.coverArtworkSize +
+    layout.artworkGap +
+    layout.albumLineHeight +
+    layout.artistLineHeight +
+    layout.albumArtistGap +
+    (hasReleaseDate ? layout.dateLineHeight + layout.artistDateGap : 0)
+  )
 }
 
 /**
  * 封面分组虚拟项高度。
- * 封面列 = artwork + metaGap + lineHeight × (2|3)
+ * 封面列 = artwork + artworkGap + 名称与艺术家行高及间距 + (有年份时的年份行高及间距)
  * 首个 Disc 标题位于组顶部留白，不占正常布局高度。
  * 曲目列 = rowHeight × N + discHeadingHeight × max(标题数 - 1, 0) + panelPad×2 + panelBorder×2
  * 组高 = max(封面列, 曲目列) + groupPad×2 + groupBorder
@@ -51,9 +82,10 @@ export function getAlbumGroupEstimatedHeight(
   trackCount: number,
   hasReleaseDate: boolean,
   discHeadingCount = 0,
+  metadataLayout: Readonly<CoverMetadataLayout> = DEFAULT_COVER_METADATA_LAYOUT,
 ): number {
   const m = LIBRARY_LAYOUT_METRICS
-  const coverColumnHeight = getAlbumCoverColumnHeight(hasReleaseDate)
+  const coverColumnHeight = getAlbumCoverColumnHeight(hasReleaseDate, metadataLayout)
   const panelPadBlock = m.coverPanelPaddingBlockSide * 2
   const panelBorderBlock = m.coverPanelBorderWidth * 2
   const tracksPanelHeight =
@@ -76,6 +108,8 @@ export const LIBRARY_LAYOUT_CSS_VARS: Readonly<Record<string, string>> = {
   '--library-cover-disc-heading-height': `${LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight}px`,
   '--library-cover-meta-gap': `${LIBRARY_LAYOUT_METRICS.coverMetaGap}px`,
   '--library-cover-meta-line-height': `${LIBRARY_LAYOUT_METRICS.coverMetaLineHeight}px`,
+  '--library-cover-meta-album-artist-gap': `${LIBRARY_LAYOUT_METRICS.coverMetaAlbumArtistGap}px`,
+  '--library-cover-meta-artist-date-gap': `${LIBRARY_LAYOUT_METRICS.coverMetaArtistDateGap}px`,
   '--library-cover-sticky-top-inset': `${LIBRARY_LAYOUT_METRICS.coverStickyTopInset}px`,
   '--library-cover-panel-padding-block-side': `${LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide}px`,
   '--library-cover-panel-padding-inline-side': `${LIBRARY_LAYOUT_METRICS.coverPanelPaddingInlineSide}px`,

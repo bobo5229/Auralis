@@ -1,0 +1,34 @@
+{
+  "recordedAt": "2026-10-13T01:26:29.4805006+08:00",
+  "system": "Microsoft Windows 11 家庭版 中文版",
+  "build": "26200",
+  "fixtureVolume": "NTFS",
+  "node": "v24.13.0",
+  "pythonNumpy": [
+    "3.13.11 (tags/v3.13.11:6278944, Dec  5 2025, 16:26:58) [MSC v.1944 64 bit (AMD64)]",
+    "numpy 2.4.0"
+  ],
+  "packages": {
+    "music-metadata": "11.13.0",
+    "node-taglib-sharp": "6.0.3",
+    "esbuild": "0.25.12"
+  },
+  "sha256": {
+    "src/main/features/metadata/parseAudioMetadata.ts": "5294bd305ab8f430063f09a4855e48ce51c52fe94225e19391b1b36083c66e19",
+    "src/main/features/metadata/verifyPreservedAudioTags.ts": "d19bbcb508355b66821708503e09bd0f64827fb17806aeada1ee3bc76c5ecd63",
+    "scripts/mpv-m4a-write-probe/probe.ts": "b3ef650bf3c69bf0b529b3dd1a297c9c9a3ac45b0f46692c6d3f31d8f846a7cc",
+    "scripts/mpv-m4a-write-probe/process-loopback.cpp": "667043ab8c3a4dd9a200c8bbfd5723621e2b20c3fc50490b896477ddce4f51a9",
+    "src/main/features/metadata/m4aTagWriter.ts": "fbc9fc2cf13b40b34c2f45b4353b793da2b1afe55d3feb74db27ecef2c3b4b95",
+    "resources/audio/ffmpeg.exe": "74db6c184a03dba2bdfe23e1a1f41cf5a8385bc1de6a7a1b26db1dc541abef93",
+    "scripts/mpv-m4a-write-probe/handle.py": "2249865e31176cba22b3823046d402a3ed867ad8a2d773436223a8fa4da86b16",
+    "scripts/mpv-m4a-write-probe/calibrate-loopback.py": "274c59f18222c8c51898e20b757a2309674590827947bef5f63300cd0631948c",
+    "src/main/features/metadata/audioTagWriteService.ts": "6e630f52bbd62591da2f952a27d306cc2e4a5574b2b83765bfcad807a45b96be",
+    ".electron-home/mpv-m4a-write-probe/process-loopback.exe": "8e15ddb3ac64074261f5ad4e452ac645fedf86abaac25236345bb7a1fb780af9",
+    "resources/audio/mpv.exe": "acabdf60eee6d3bf92b5dddde2f1371774e1ef1fceab3e674cf7a7f594ddc060",
+    "scripts/mpv-m4a-write-probe/loopback.py": "4586fdb2174d81794529d402bb8744baa90f93160c5ba8f783a33cf667d8b1ec",
+    "src/main/features/audio/mpvClient.ts": "bced03896577aa51b974f35c61b482098718a2dafd22ecf991d095732fa37455",
+    "scripts/mpv-m4a-write-probe/capture.vcxproj": "fff296e4f03e8f1c164e28bf8145eaac9ef4759c8cc11df23856088769afcf35",
+    "scripts/mpv-m4a-write-probe/run.mjs": "3b0ceffbf88295a0e137fe685496e1eea0226bdba0d0261642113bf44d3a114d"
+  },
+  "note": "Final probe source formatted and typed after matrix/device/controls/queue runs. Quick mode rerun passed; changes do not alter tested publication mechanism."
+}

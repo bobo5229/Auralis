@@ -30,6 +30,44 @@ function gate() {
 }
 
 describe('shared catalog execution', () => {
+  it('shares in-flight and completed snapshots for the same committed library revision', async () => {
+    const wait = gate()
+    const store = new LibraryCatalogSnapshotStore(() => tracks(2))
+    const fetch = vi.fn(async (request) => {
+      const page = store.getPage(request)
+      await wait.promise
+      return page
+    })
+    const client = new SharedLibraryCatalogLoad(fetch)
+    client.invalidateForLibraryRevision('12:1')
+    const notification = client.load(() => true, 'snapshot', '12:1')
+    client.invalidateForLibraryRevision('12:1')
+    const save = client.load(() => true, 'fresh', '12:1')
+    wait.release()
+    const [first, second] = await Promise.all([notification, save])
+    expect(second).toBe(first)
+    client.invalidateForLibraryRevision('12:1')
+    expect(await client.load(() => true, 'fresh', '12:1')).toBe(first)
+    expect(fetch).toHaveBeenCalledOnce()
+    // An ordinary fresh load still queries again without a versioned reuse request.
+    await client.load(() => true)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('never reuses a completed revision across a different commit or unversioned change', async () => {
+    const store = new LibraryCatalogSnapshotStore(() => tracks(2))
+    const fetch = vi.fn(async (request) => store.getPage(request))
+    const client = new SharedLibraryCatalogLoad(fetch)
+    client.invalidateForLibraryRevision('12:1')
+    await client.load(() => true, 'fresh', '12:1')
+    client.invalidateForLibraryRevision('13:1')
+    await client.load(() => true, 'fresh', '13:1')
+    client.invalidate()
+    client.invalidateForLibraryRevision('13:1')
+    await client.load(() => true, 'fresh', '13:1')
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
   it.each([0, 5000, 5001])('loads %i ordered tracks once for two consumers', async (n) => {
     const build = vi.fn(() => tracks(n))
     const store = new LibraryCatalogSnapshotStore(build)

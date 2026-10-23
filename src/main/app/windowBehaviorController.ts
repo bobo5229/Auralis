@@ -9,7 +9,6 @@ type ManagedWindow = Pick<
   | 'show'
   | 'focus'
   | 'hide'
-  | 'minimize'
   | 'on'
   | 'removeListener'
 >
@@ -81,10 +80,7 @@ export function createWindowBehaviorController(options: {
             break
           case 'tray':
             if (options.trayAvailable()) window.hide()
-            else window.minimize()
-            break
-          case 'minimize':
-            window.minimize()
+            else restoreWindow()
             break
         }
       }

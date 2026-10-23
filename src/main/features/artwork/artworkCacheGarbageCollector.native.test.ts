@@ -86,7 +86,11 @@ describe('ArtworkCacheGarbageCollector', () => {
       'Artist',
       albumKey,
     )
-    db.prepare('INSERT INTO tracks (id, file_path) VALUES (1, ?)').run('C:\\music\\a.mp3')
+    db.prepare('INSERT INTO tracks (id, file_path, album, album_artist) VALUES (1, ?, ?, ?)').run(
+      'C:\\music\\a.mp3',
+      'Album',
+      'Artist',
+    )
     db.prepare(
       `INSERT INTO track_metadata (track_id, artwork_cache_key, source)
        VALUES (1, ?, 'file_tag')`,
@@ -116,6 +120,11 @@ describe('ArtworkCacheGarbageCollector', () => {
       'Album',
       'Artist',
       kept,
+    )
+    db.prepare('INSERT INTO tracks(file_path, album, album_artist) VALUES(?,?,?)').run(
+      'C:\\music\\kept.mp3',
+      'Album',
+      'Artist',
     )
 
     const collector = new ArtworkCacheGarbageCollector(db, dir)

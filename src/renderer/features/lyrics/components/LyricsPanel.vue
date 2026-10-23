@@ -13,17 +13,33 @@ import LyricsEmptyState from './LyricsEmptyState.vue'
 
 const { t } = useI18n()
 const { effects } = useLyricsEffectsPreference()
-const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+const props = withDefaults(defineProps<{ active?: boolean; interactive?: boolean }>(), {
+  active: true,
+  interactive: true,
+})
+const emit = defineEmits<{
+  editLyrics: [trigger: HTMLElement | null]
+}>()
 const { displayMode } = usePlayerDisplayMode()
 const { lyricsScript, setLyricsScript, lyricsPersistFailed } = useChineseTextDisplay()
-const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
-  useDisplayedTrackLyrics()
+const {
+  status,
+  rawLyrics,
+  parsedLines,
+  activeIndex,
+  isPrelude,
+  showPrelude,
+  preludeLitDotCount,
+  preludeElapsed,
+} = useDisplayedTrackLyrics()
 const panelRef = ref<HTMLElement | null>(null)
+const syncedLyricsRef = ref<InstanceType<typeof SyncedLyricsView> | null>(null)
 const menuOpen = ref(false)
 const anchor = ref({ clientX: 0, clientY: 0 })
 const enabled = computed(
   () =>
     props.active &&
+    props.interactive &&
     displayMode.value === 'normal' &&
     ((status.value === 'lrc' && parsedLines.value.length > 0) ||
       (status.value === 'plain' && !!rawLyrics.value?.trim())),
@@ -48,6 +64,12 @@ function onMenuClose(reason: string): void {
 function selectScript(script: ChineseScript): void {
   setLyricsScript(script)
   closeMenu(true)
+}
+
+function onEditLyrics(): void {
+  const trigger = scrollElement()
+  closeMenu()
+  emit('editLyrics', trigger)
 }
 
 function openMenu(clientX?: number, clientY?: number): void {
@@ -88,6 +110,13 @@ watch(
   () => closeMenu(),
   { flush: 'sync' },
 )
+
+async function prepareForDisplay(): Promise<void> {
+  await nextTick()
+  await syncedLyricsRef.value?.prepareForDisplay()
+}
+
+defineExpose({ prepareForDisplay })
 </script>
 
 <template>
@@ -130,11 +159,15 @@ watch(
 
       <SyncedLyricsView
         v-else-if="status === 'lrc'"
+        ref="syncedLyricsRef"
+        :active="active"
+        :interactive="interactive"
         :lines="parsedLines"
         :active-index="activeIndex"
         :is-prelude="isPrelude"
         :show-prelude="showPrelude"
         :prelude-lit-dot-count="preludeLitDotCount"
+        :prelude-elapsed="preludeElapsed"
         :aria-haspopup="enabled ? 'menu' : undefined"
         :aria-expanded="menuOpen"
         :aria-controls="menuOpen ? 'normal-lyrics-context-menu' : undefined"
@@ -150,7 +183,9 @@ watch(
           :open="menuOpen"
           :anchor="anchor"
           :current-script="lyricsScript"
+          :show-edit-lyrics="true"
           @select="selectScript"
+          @edit-lyrics="onEditLyrics"
           @close="onMenuClose"
         />
       </div>

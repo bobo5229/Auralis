@@ -18,8 +18,8 @@ describe('archive preload capabilities', () => {
   it('exposes only the typed close preference query and update', async () => {
     await auralisApi.window.getCloseBehavior()
     expect(invoke).toHaveBeenLastCalledWith('window:get-close-behavior')
-    await auralisApi.window.setCloseBehavior('minimize')
-    expect(invoke).toHaveBeenLastCalledWith('window:set-close-behavior', { behavior: 'minimize' })
+    await auralisApi.window.setCloseBehavior('tray')
+    expect(invoke).toHaveBeenLastCalledWith('window:set-close-behavior', { behavior: 'tray' })
   })
 
   it('claims a startup album through an explicit capability with presentation history', async () => {
@@ -29,11 +29,24 @@ describe('archive preload capabilities', () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith('app:claim-startup-album', request)
   })
 
+  it('draws fresh albums repeatedly through a separate explicit capability', async () => {
+    const request = { recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }] }
+    invoke.mockResolvedValueOnce({ album: null }).mockResolvedValueOnce({ album: null })
+    await expect(auralisApi.app.drawStartupAlbum(request)).resolves.toEqual({ album: null })
+    await expect(auralisApi.app.drawStartupAlbum(request)).resolves.toEqual({ album: null })
+    expect(invoke.mock.calls).toEqual([
+      ['app:draw-startup-album', request],
+      ['app:draw-startup-album', request],
+    ])
+  })
+
   it('exposes annual counts and reset without reviving retired queries', () => {
     expect(exposeInMainWorld).toHaveBeenCalledExactlyOnceWith('auralis', auralisApi)
     expect(Object.keys(auralisApi.archive)).toEqual([
       'getAnnualPlayCounts',
+      'getAnnualSummary',
       'getDayTopTracks',
+      'getDayTopAlbums',
       'resetPlayStats',
     ])
   })
@@ -50,10 +63,23 @@ describe('archive preload capabilities', () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:reset-play-stats')
   })
 
+  it('routes annual summaries through an explicit year-only capability', async () => {
+    await auralisApi.archive.getAnnualSummary(2026)
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-annual-summary', { year: 2026 })
+  })
+
   it('routes only the selected local date through the explicit daily top tracks channel', async () => {
     invoke.mockResolvedValueOnce([])
     await expect(auralisApi.archive.getDayTopTracks('2026-10-09')).resolves.toEqual([])
     expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-day-top-tracks', {
+      date: '2026-10-09',
+    })
+  })
+
+  it('routes only the selected local date through the explicit daily top albums channel', async () => {
+    invoke.mockResolvedValueOnce([])
+    await expect(auralisApi.archive.getDayTopAlbums('2026-10-09')).resolves.toEqual([])
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-day-top-albums', {
       date: '2026-10-09',
     })
   })

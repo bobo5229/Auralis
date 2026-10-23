@@ -1,7 +1,8 @@
-import { createApp, h } from 'vue'
+import { createApp, h, ref } from 'vue'
 import { createI18n } from 'vue-i18n'
 import MetadataEditDialog from '../../src/renderer/features/library/components/MetadataEditDialog.vue'
 import { useLibraryMetadataEditor } from '../../src/renderer/features/library/composables/useLibraryMetadataEditor'
+import { metadataSaveFailureMessageKey } from '../../src/renderer/features/library/utils/metadataSaveFailure'
 import zh from '../../src/renderer/locales/zh-Hans.json'
 import en from '../../src/renderer/locales/en.json'
 import '../../src/renderer/app/styles/main.css'
@@ -12,6 +13,7 @@ import type {
   UpdateTrackMetadataResult,
 } from '../../src/shared/ipc/contracts'
 
+const metadataDialogRef = ref<InstanceType<typeof MetadataEditDialog> | null>(null)
 let status: ((event: TrackEditStateChangedEvent) => void) | null = null
 let finish: ((result: UpdateTrackMetadataResult) => void) | null = null
 let version = 1,
@@ -37,12 +39,15 @@ const editor = useLibraryMetadataEditor({
   },
   captureRouteScope: () => ({ kind: 'library' }),
   refreshLibrary: async () => 'committed',
+  showSaveSuccess: async (signal) => {
+    await metadataDialogRef.value?.showSaveSuccess(signal)
+  },
   restoreFocus: async () => {
     document.getElementById('return-target')?.focus()
   },
   isDisposed: () => false,
   getSaveErrorMessage: () => zh.library.metadataEditor.errors.saveFailed,
-  getSaveFailureMessage: () => zh.library.metadataEditor.errors.bufferPreparationFailed,
+  getSaveFailureMessage: (reason) => i18n.global.t(metadataSaveFailureMessageKey(reason)),
   getTrackEditState: async () => ({ trackId: 1, status: 'playback-editable', version }),
   onTrackEditStateChanged: (callback) => {
     status = callback
@@ -56,6 +61,7 @@ createApp({
     h('main', { style: { padding: '28px' } }, [
       h('button', { id: 'return-target' }, '返回曲库'),
       h(MetadataEditDialog, {
+        ref: metadataDialogRef,
         metadata: editor.editingMetadata.value,
         open: editor.isMetadataEditorOpen.value,
         loading: editor.isLoadingMetadata.value,
@@ -79,9 +85,10 @@ Object.assign(window, {
       saves,
       error: editor.metadataEditError.value,
     }),
+    open: () => editor.open(1),
     fail: () => {
       status?.({ trackId: 1, status: 'playback-editable', version: ++version })
-      finish?.({ ok: false, reason: 'buffer-preparation-failed' })
+      finish?.({ ok: false, reason: 'tag-preservation-failed' })
     },
   },
 })

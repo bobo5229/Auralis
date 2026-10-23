@@ -52,7 +52,18 @@ export interface LibraryScanProgress {
   message: string | null
 }
 
+export interface TrackFileFingerprint {
+  size: number
+  mtimeMs: number
+  ctimeMs: number
+  dev: number
+  ino: number
+}
+
 export interface ScannedTrack {
+  fileFingerprint?: TrackFileFingerprint
+  /** Actual audio codec; older internal worker payloads may omit it. */
+  codec?: string | null
   /** Version used by the worker, committed only with successful full metadata writes. */
   metadataParserVersion?: string
   filePath: string
@@ -119,15 +130,40 @@ export interface TrackLyricsPatch {
   lyricsSidecarFingerprint?: string | null
 }
 
+/** Text-tag refresh for an unchanged file. Duration, bitrate, codec, lyrics and artwork bytes stay stored. */
+export interface TrackTagPatch {
+  fileFingerprint?: TrackFileFingerprint
+  filePath: string
+  fileMtimeMs: number
+  title: string
+  artist: string
+  album: string
+  albumArtist: string
+  trackNo: number | null
+  discNo: number | null
+  year: number | null
+  releaseDate: string | null
+  copyright: string | null
+  composer: string | null
+  genre: string | null
+  isrc: string | null
+  metadataSignature: string
+  metadataParserVersion?: string
+  /** Existing current v2 key to carry onto the album row. Null leaves artwork untouched. */
+  artworkCacheKey: string | null
+}
+
 export interface SelectLibraryRootResult {
   canceled: boolean
   root?: LibraryRoot
 }
 
-export type LyricsFormat = 'lrc' | 'plain'
+export type LyricsFormat = 'lrc' | 'ttml' | 'plain'
 
 export interface TrackLyrics {
   trackId: number
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
+  /** Present for TTML only. Raw XML stays unchanged; the renderer consumes this projection. */
+  ttmlPlayback?: import('./lyricsEditor').TtmlPlaybackLyrics
 }

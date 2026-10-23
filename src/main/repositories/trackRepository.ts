@@ -4,6 +4,7 @@ import type {
   ScannedTrack,
   TrackListItem,
   TrackLyricsPatch,
+  TrackTagPatch,
   TrackLyrics,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
@@ -38,6 +39,10 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getFilePathById(trackId)
   }
 
+  adoptPlaybackPath(trackId: number, expectedPath: string, nextPath: string): boolean {
+    return this.queries.adoptPlaybackPath(trackId, expectedPath, nextPath)
+  }
+
   getTrackIdsByFilePaths(filePaths: string[]): number[] {
     return this.queries.getTrackIdsByFilePaths(filePaths)
   }
@@ -50,6 +55,12 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getExistingFilePaths(filePaths)
   }
 
+  getWatchRecoveryTracks(
+    rootPath: string,
+  ): ReturnType<TrackQueryRepository['getWatchRecoveryTracks']> {
+    return this.queries.getWatchRecoveryTracks(rootPath)
+  }
+
   /**
    * Read the persisted scan fingerprint (file_size + file_mtime_ms) for the
    * given paths. Paths absent from the table are simply not present in the
@@ -58,7 +69,7 @@ export class TrackRepository extends BaseRepository {
    */
   getFileFingerprintsByFilePaths(
     filePaths: string[],
-  ): Map<string, { fileSize: number; fileMtimeMs: number }> {
+  ): ReturnType<TrackQueryRepository['getFileFingerprintsByFilePaths']> {
     return this.queries.getFileFingerprintsByFilePaths(filePaths)
   }
 
@@ -79,11 +90,11 @@ export class TrackRepository extends BaseRepository {
   }
 
   getGenreAlbumSummaries(
-    genres: string[],
+    genre: string,
     excludeArtist: string,
     excludeTitle: string,
   ): AlbumDetailSummary[] {
-    return this.queries.getGenreAlbumSummaries(genres, excludeArtist, excludeTitle)
+    return this.queries.getGenreAlbumSummaries(genre, excludeArtist, excludeTitle)
   }
 
   getKnownFiles(): KnownTrackFile[] {
@@ -100,6 +111,10 @@ export class TrackRepository extends BaseRepository {
 
   patchLyrics(items: TrackLyricsPatch[]): void {
     return this.writer.patchLyrics(items)
+  }
+
+  patchTrackTags(items: TrackTagPatch[]): void {
+    return this.writer.patchTrackTags(items)
   }
 
   markMissingByFilePaths(filePaths: string[]): number[] {

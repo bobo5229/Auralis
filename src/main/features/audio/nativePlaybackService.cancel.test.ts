@@ -129,8 +129,8 @@ function pendingNames(handle: FakeClient): string[] {
 
 function beginTagRecovery(service: NativePlaybackService, handle: OpenHandle): void {
   // Keep real event routing and command serialization; inject only the already-prepared window.
-  const state = service as unknown as { tags: { tagWindow: unknown } }
-  state.tags.tagWindow = {
+  const state = service as unknown as { tags: { state: { tagWindow: unknown } } }
+  state.tags.state.tagWindow = {
     phase: 'resume',
     source: { path: 'recovery.flac', dispose: async () => {} },
     resumePath: 'replacement.flac',

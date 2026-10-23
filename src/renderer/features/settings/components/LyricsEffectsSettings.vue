@@ -10,7 +10,7 @@ const rows = ['edgeFade', 'blur'] as const
 <template>
   <div class="settings-group lyrics-effects-settings">
     <div class="settings-group-header">
-      <h2 class="settings-group-title">{{ t('settings.appearance.lyricsEffects.title') }}</h2>
+      <h2 class="settings-group-title">{{ t('settings.appearance.groups.featureSwitches') }}</h2>
     </div>
     <div class="settings-group-card">
       <div v-for="effect in rows" :key="effect" class="settings-row settings-row--with-desc">
@@ -37,6 +37,7 @@ const rows = ['edgeFade', 'blur'] as const
           <span class="settings-switch-thumb" aria-hidden="true" />
         </button>
       </div>
+      <slot />
     </div>
   </div>
 </template>

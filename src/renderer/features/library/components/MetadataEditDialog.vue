@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
+import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
+import SaveProgressIcon from '@renderer/shared/feedback/SaveProgressIcon.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor'
 
@@ -30,9 +31,35 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const dialogRef = ref<HTMLFormElement | null>(null)
+const dialog = ref<InstanceType<typeof AppDialog> | null>(null)
+const dialogRef = computed(() => (dialog.value?.panel as HTMLFormElement | null) ?? null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
+const saveProgress = ref<InstanceType<typeof SaveProgressIcon> | null>(null)
+const saveSucceeded = ref(false)
+const saveButtonLabel = computed(() =>
+  saveSucceeded.value
+    ? t('library.metadataEditor.actions.saved')
+    : props.saving
+      ? t('library.metadataEditor.actions.saving')
+      : t('library.metadataEditor.actions.save'),
+)
+
+watch(
+  () => props.saving,
+  (saving) => {
+    if (!saving) saveSucceeded.value = false
+  },
+)
+
+async function showSaveSuccess(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return
+  saveSucceeded.value = true
+  await nextTick()
+  if (!signal.aborted) await saveProgress.value?.complete(signal)
+}
+
+defineExpose({ showSaveSuccess })
 
 const isOpen = computed(() => props.open || props.metadata !== null)
 const isEditingDisabled = computed(
@@ -50,13 +77,10 @@ interface StatusBannerConfig {
 }
 
 const statusBanner = computed<StatusBannerConfig | null>(() => {
+  // The current save is represented by the submit button. Keep the warning
+  // for a write owned by another operation when this editor is not saving.
+  if (props.saving && props.editStatus === 'write-in-progress') return null
   switch (props.editStatus) {
-    case 'playback-editable':
-      return {
-        message: t('library.metadataEditor.status.playbackEditable'),
-        classes: 'metadata-dialog-status-banner--info',
-        icon: 'i-lucide-music text-[var(--auralis-text-muted)]',
-      }
     case 'checking':
       return {
         message: t('library.metadataEditor.status.checking'),
@@ -189,222 +213,218 @@ function onClose(): void {
   if (props.saving) return
   emit('close')
 }
-
-useOverlayFocusTrap({
-  isOpen,
-  container: dialogRef,
-  initialFocus: () =>
-    !isEditingDisabled.value ? (titleInputRef.value ?? undefined) : (dialogRef.value ?? undefined),
-  canDismiss: () => !props.saving,
-  onEscape: onClose,
-})
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="isOpen" class="library-overlay" data-library-overlay="metadata-dialog">
-      <div class="fixed inset-0 z-[70] flex items-center justify-center p-4 library-dialog-scrim">
-        <form
-          ref="dialogRef"
-          class="metadata-dialog-panel w-full max-w-xl rounded-lg p-5 shadow-xl select-none"
-          role="dialog"
-          tabindex="-1"
-          aria-modal="true"
-          :aria-busy="loading || saving"
-          aria-labelledby="metadata-dialog-title"
-          :aria-describedby="localError || errorMessage ? 'metadata-dialog-error' : undefined"
-          @submit.prevent="onSave"
-        >
-          <div class="mb-4 flex items-center justify-between">
-            <h2
-              id="metadata-dialog-title"
-              class="metadata-dialog-header auralis-type-section font-semibold"
-            >
-              {{ t('library.metadataEditor.title') }}
-            </h2>
-            <button
-              class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] disabled:opacity-40"
-              type="button"
-              :aria-label="t('facets.close')"
-              :disabled="saving"
-              @click="onClose"
-            >
-              <span class="i-lucide-x text-sm"></span>
-            </button>
-          </div>
+  <AppDialog
+    ref="dialog"
+    :open="isOpen"
+    :title="t('library.metadataEditor.title')"
+    title-id="metadata-dialog-title"
+    :close-label="t('facets.close')"
+    as="form"
+    size="medium"
+    panel-class="metadata-dialog-panel"
+    backdrop-class="library-overlay"
+    data-library-overlay="metadata-dialog"
+    :busy="loading || saving"
+    :dismissible="!saving"
+    :close-on-backdrop="false"
+    :described-by="localError || errorMessage ? 'metadata-dialog-error' : undefined"
+    :initial-focus="
+      () =>
+        !isEditingDisabled ? (titleInputRef ?? dialogRef ?? undefined) : (dialogRef ?? undefined)
+    "
+    @close="onClose"
+    @submit="onSave"
+  >
+    <p
+      v-if="metadata && ['playback-in-use', 'preload-in-use'].includes(editStatus)"
+      class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
+      role="status"
+      aria-live="polite"
+    >
+      {{
+        t(
+          editStatus === 'preload-in-use'
+            ? 'library.metadataEditor.status.preloadInUse'
+            : 'library.metadataEditor.status.playbackInUse',
+        )
+      }}
+    </p>
 
-          <p
-            v-if="metadata && ['playback-in-use', 'preload-in-use'].includes(editStatus)"
-            class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
-            role="status"
-            aria-live="polite"
-          >
-            {{
-              t(
-                editStatus === 'preload-in-use'
-                  ? 'library.metadataEditor.status.preloadInUse'
-                  : 'library.metadataEditor.status.playbackInUse',
-              )
-            }}
-          </p>
-
-          <div
-            v-else-if="metadata && statusBanner"
-            class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
-            :class="statusBanner.classes"
-            role="status"
-            aria-live="polite"
-          >
-            <div class="flex items-center gap-2 min-w-0">
-              <span
-                v-if="statusBanner.icon"
-                :class="statusBanner.icon"
-                class="text-sm shrink-0"
-              ></span>
-              <span>{{ statusBanner.message }}</span>
-            </div>
-            <button
-              v-if="editStatus === 'query-failed'"
-              type="button"
-              class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
-              @click="emit('retryStatus')"
-            >
-              {{ t('library.metadataEditor.status.retry') }}
-            </button>
-          </div>
-
-          <p v-if="loading" class="auralis-type-control" role="status">
-            {{ t('library.metadataEditor.status.loading') }}
-          </p>
-
-          <div v-if="metadata" class="grid gap-3">
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.title') }}
-              <input
-                ref="titleInputRef"
-                v-model="form.title"
-                class="metadata-dialog-input metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.title')"
-                :disabled="isEditingDisabled"
-              />
-            </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.artist') }}
-              <input
-                v-model="form.artistDisplay"
-                class="metadata-dialog-input metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.artist')"
-                :disabled="isEditingDisabled"
-              />
-            </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.album') }}
-              <input
-                v-model="form.albumTitle"
-                class="metadata-dialog-input metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.album')"
-                :disabled="isEditingDisabled"
-              />
-            </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.albumArtist') }}
-              <input
-                v-model="form.albumArtistDisplay"
-                class="metadata-dialog-input metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
-                :disabled="isEditingDisabled"
-              />
-            </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.genre') }}
-              <input
-                v-model="form.genreDisplay"
-                class="metadata-dialog-input metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.genre')"
-                :disabled="isEditingDisabled"
-              />
-            </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-              {{ t('library.metadataEditor.fields.releaseDate') }}
-              <input
-                v-model="form.releaseDate"
-                class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
-                :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
-                :disabled="isEditingDisabled"
-                :aria-invalid="releaseDateHasError ? 'true' : undefined"
-                :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
-              />
-            </label>
-          </div>
-
-          <p
-            v-if="localError || errorMessage"
-            id="metadata-dialog-error"
-            class="mt-3 auralis-type-caption text-red-600 font-medium"
-            role="alert"
-          >
-            {{ localError ? t(localError) : errorMessage }}
-          </p>
-
-          <div class="mt-5 flex justify-end gap-2">
-            <button
-              class="metadata-dialog-btn-secondary player-control px-4 py-1.5 auralis-type-control font-semibold"
-              type="button"
-              :disabled="saving"
-              @click="onClose"
-            >
-              {{ t('library.metadataEditor.actions.cancel') }}
-            </button>
-            <button
-              v-if="!metadata && !loading && errorMessage"
-              class="metadata-dialog-btn-retry rounded px-2.5 py-1 auralis-type-control font-semibold"
-              type="button"
-              @click="emit('retryLoad')"
-            >
-              {{ t('library.metadataEditor.status.retry') }}
-            </button>
-            <button
-              v-if="metadata"
-              class="metadata-dialog-btn-primary player-control-primary px-4 py-1.5 auralis-type-control font-semibold"
-              type="submit"
-              :disabled="isEditingDisabled"
-            >
-              {{
-                saving
-                  ? t('library.metadataEditor.actions.saving')
-                  : t('library.metadataEditor.actions.save')
-              }}
-            </button>
-          </div>
-        </form>
+    <div
+      v-else-if="metadata && statusBanner"
+      class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
+      :class="statusBanner.classes"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span v-if="statusBanner.icon" :class="statusBanner.icon" class="text-sm shrink-0"></span>
+        <span>{{ statusBanner.message }}</span>
       </div>
+      <button
+        v-if="editStatus === 'query-failed'"
+        type="button"
+        class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
+        @click="emit('retryStatus')"
+      >
+        {{ t('library.metadataEditor.status.retry') }}
+      </button>
     </div>
-  </Teleport>
+
+    <p v-if="loading" class="auralis-type-control" role="status">
+      {{ t('library.metadataEditor.status.loading') }}
+    </p>
+
+    <div v-if="metadata" class="grid gap-3">
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.title') }}
+        <input
+          ref="titleInputRef"
+          v-model="form.title"
+          class="metadata-dialog-input metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.title')"
+          :disabled="isEditingDisabled"
+        />
+      </label>
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.artist') }}
+        <input
+          v-model="form.artistDisplay"
+          class="metadata-dialog-input metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.artist')"
+          :disabled="isEditingDisabled"
+        />
+      </label>
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.album') }}
+        <input
+          v-model="form.albumTitle"
+          class="metadata-dialog-input metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.album')"
+          :disabled="isEditingDisabled"
+        />
+      </label>
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.albumArtist') }}
+        <input
+          v-model="form.albumArtistDisplay"
+          class="metadata-dialog-input metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
+          :disabled="isEditingDisabled"
+        />
+      </label>
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.genre') }}
+        <input
+          v-model="form.genreDisplay"
+          class="metadata-dialog-input metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.genre')"
+          :disabled="isEditingDisabled"
+        />
+      </label>
+      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        {{ t('library.metadataEditor.fields.releaseDate') }}
+        <input
+          v-model="form.releaseDate"
+          class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
+          :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
+          :disabled="isEditingDisabled"
+          :aria-invalid="releaseDateHasError ? 'true' : undefined"
+          :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
+        />
+      </label>
+    </div>
+
+    <p
+      v-if="localError || errorMessage"
+      id="metadata-dialog-error"
+      class="mt-3 auralis-type-caption text-red-600 font-medium"
+      role="alert"
+    >
+      {{ localError ? t(localError) : errorMessage }}
+    </p>
+
+    <template #footer>
+      <span class="sr-only" role="status" aria-live="polite">
+        {{ saving ? saveButtonLabel : '' }}
+      </span>
+      <div class="flex justify-end gap-2">
+        <button
+          class="metadata-dialog-btn-secondary auralis-dialog-action"
+          type="button"
+          :disabled="saving"
+          @click="onClose"
+        >
+          {{ t('library.metadataEditor.actions.cancel') }}
+        </button>
+        <button
+          v-if="!metadata && !loading && errorMessage"
+          class="metadata-dialog-btn-retry auralis-dialog-action"
+          type="button"
+          @click="emit('retryLoad')"
+        >
+          {{ t('library.metadataEditor.status.retry') }}
+        </button>
+        <button
+          v-if="metadata"
+          class="metadata-dialog-btn-primary metadata-dialog-btn-save auralis-dialog-action auralis-dialog-action--primary"
+          :class="{ 'metadata-dialog-btn-save--busy': saving }"
+          type="submit"
+          :disabled="isEditingDisabled"
+          :aria-busy="saving && !saveSucceeded"
+          :aria-label="saveButtonLabel"
+        >
+          <span
+            class="metadata-dialog-save-content"
+            :class="{ 'metadata-dialog-save-content--hidden': saving }"
+            :aria-hidden="saving"
+          >
+            {{ t('library.metadataEditor.actions.save') }}
+          </span>
+          <span
+            class="metadata-dialog-save-content metadata-dialog-save-feedback"
+            :class="{ 'metadata-dialog-save-content--hidden': !saving }"
+            aria-hidden="true"
+          >
+            <SaveProgressIcon v-if="saving" ref="saveProgress" />
+          </span>
+        </button>
+      </div>
+    </template>
+  </AppDialog>
 </template>
 
 <style scoped>
-.library-dialog-scrim {
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.metadata-dialog-panel {
-  box-sizing: border-box;
-  background: var(--auralis-dialog-bg);
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 12px;
-  box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.4),
-    0 8px 24px rgba(0, 0, 0, 0.25);
-}
-
-.metadata-dialog-header {
-  color: var(--auralis-text);
-}
-
 .metadata-dialog-playback-notice {
   color: var(--auralis-danger);
+}
+
+.metadata-dialog-btn-save {
+  display: inline-grid;
+}
+
+.metadata-dialog-btn-save--busy:disabled {
+  opacity: 1;
+}
+
+.metadata-dialog-save-feedback {
+  min-width: 20px;
+  height: 20px;
+}
+
+.metadata-dialog-save-content {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.metadata-dialog-save-content--hidden {
+  visibility: hidden;
 }
 
 .metadata-dialog-status-banner {
@@ -480,48 +500,5 @@ useOverlayFocusTrap({
 
 .metadata-dialog-input[aria-invalid='true'] {
   border-color: var(--auralis-danger);
-}
-
-.metadata-dialog-btn-secondary {
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid var(--auralis-border-subtle);
-  color: var(--auralis-text-muted);
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    border-color 150ms ease;
-}
-
-.metadata-dialog-btn-secondary:hover:not(:disabled) {
-  background: var(--auralis-control-hover-bg);
-  color: var(--auralis-text);
-  border-color: var(--auralis-text-muted);
-}
-
-.metadata-dialog-btn-secondary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.metadata-dialog-btn-primary {
-  border-radius: 6px;
-  background: var(--auralis-control-primary-bg, var(--auralis-sidebar-active-indicator));
-  color: var(--auralis-control-primary-text, #ffffff);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition:
-    opacity 150ms ease,
-    background-color 150ms ease;
-}
-
-.metadata-dialog-btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.metadata-dialog-btn-primary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 </style>

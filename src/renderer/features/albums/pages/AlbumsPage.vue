@@ -29,19 +29,17 @@ import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
 import AlbumDropTransitionLayer from '../components/AlbumDropTransitionLayer.vue'
-import type {
-  AlbumTransitionRect,
-  AlbumTransitionTarget,
-  AlbumTransitionVisual,
-} from '../utils/albumGridTransitionController'
 import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
+import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
+import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
+import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
+import PageParameterTrigger from '@renderer/app/layout/PageParameterTrigger.vue'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
-import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
-import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
+import { useAlbumLayoutTransition } from '../composables/useAlbumLayoutTransition'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
 
 const ALBUMS_SCROLL_TOP_KEY = 'auralis-albums-scroll-top'
@@ -61,8 +59,15 @@ const props = withDefaults(
   },
 )
 const route = useRoute()
+usePageParameterSource('albums')
 const router = useRouter()
 const { t } = useI18n()
+const {
+  hasParameters: hasPageParameters,
+  keepVisible: keepSearchToolsVisible,
+  onFocusIn: onSearchToolsFocusIn,
+  onFocusOut: onSearchToolsFocusOut,
+} = usePageSearchTools('albums')
 const { songText } = useChineseTextDisplay()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
@@ -87,6 +92,9 @@ const loadError = computed(() => (catalogError.value ? t('albums.status.loadErro
 const scrollRef = ref<HTMLElement | null>(null)
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
+const revealFeedback = ref<string | null>(null)
+let revealInFlight = false
+let revealGeneration = 0
 let contextMenuTrigger: HTMLElement | null = null
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
@@ -167,15 +175,7 @@ const albumSearchKeys = computed(
     ),
 )
 const { metadataOccupancy } = useAlbumListParameters()
-const {
-  gridWidth,
-  columnCount,
-  rowHeight,
-  update: updateAdaptiveGrid,
-  beginTransition: beginGridTransition,
-  commitTransitionTarget: commitGridTransitionTarget,
-  endTransition: endGridTransition,
-} = useAlbumGridLayout({
+const gridLayout = useAlbumGridLayout({
   container: scrollRef,
   isResizing: toRef(props, 'isLayoutResizing'),
   isActive: isPageActive,
@@ -183,13 +183,27 @@ const {
   measure: () => rowVirtualizer.value.measure(),
   metadataOccupancy,
 })
+const { gridWidth, columnCount, rowHeight, update: updateAdaptiveGrid } = gridLayout
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
-const isLayoutTransitionActive = ref(false)
+const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
+const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
+const {
+  isLayoutTransitionActive,
+  participant: layoutTransition,
+  cancelCurrentTransition,
+} = useAlbumLayoutTransition({
+  container: scrollRef,
+  layer: transitionLayerRef,
+  isPageActive,
+  grid: gridLayout,
+  getVirtualRows: () => virtualRows.value,
+  cancelDrop: () => dropLayerRef.value?.cancel(),
+  requestCancel: () => emit('cancel-layout-transition'),
+})
 watch(metadataOccupancy, () => {
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
 })
-const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
 const isDropActive = ref(false)
 const canDropAlbum = computed(
   () =>
@@ -207,10 +221,6 @@ watch(
   },
   { flush: 'sync' },
 )
-const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
-let layoutTransitionRevision = 0
-let savedFocus: { albumKey: string; selector: string } | null = null
-let allowProgrammaticScrollUntil = 0
 
 let idlePalettePrefetchHandle: number | null = null
 let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
@@ -249,7 +259,6 @@ function scheduleIdlePalettePrefetch(): void {
 }
 
 function seedAlbumDetailSnapshot(album: AlbumSummary): void {
-  prefetchArtworkPalette(album.artworkCacheKey)
   writeAlbumDetailSnapshot({
     albumArtist: album.albumArtist,
     albumTitle: album.title,
@@ -291,278 +300,6 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
-
-function toTransitionRect(rect: DOMRect): AlbumTransitionRect {
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
-}
-
-function measureScrollViewport(container: HTMLElement): DOMRect {
-  const rect = container.getBoundingClientRect()
-  return DOMRect.fromRect({
-    x: rect.left + container.clientLeft,
-    y: rect.top + container.clientTop,
-    width: container.clientWidth,
-    height: container.clientHeight,
-  })
-}
-
-function isInsideViewport(rect: DOMRect, viewport: DOMRect): boolean {
-  return (
-    rect.width > 0 &&
-    rect.height > 0 &&
-    rect.right > viewport.left &&
-    rect.left < viewport.right &&
-    rect.bottom > viewport.top &&
-    rect.top < viewport.bottom
-  )
-}
-
-function collectVisibleTransitionVisuals(
-  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
-): AlbumTransitionVisual[] {
-  const container = scrollRef.value
-  if (!container || !viewport) return []
-  return Array.from(container.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).flatMap(
-    (card) => {
-      const rect = card.getBoundingClientRect()
-      if (!isInsideViewport(rect, viewport)) return []
-      const key = card.dataset.albumKey
-      if (!key) return []
-      const opacity = Number.parseFloat(getComputedStyle(card).opacity)
-      return [
-        {
-          key,
-          node: card,
-          rect: toTransitionRect(rect),
-          opacity: Number.isFinite(opacity) ? opacity : 1,
-        },
-      ]
-    },
-  )
-}
-
-function collectVisibleTransitionTargets(
-  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
-): AlbumTransitionTarget[] {
-  const container = scrollRef.value
-  if (!container || !viewport) return []
-  const paddingTop = Number.parseFloat(getComputedStyle(container).paddingTop) || 0
-  const scrollTop = container.scrollTop
-  const rowsByIndex = new Map(virtualRows.value.map((row) => [row.index, row]))
-  const targets: AlbumTransitionTarget[] = []
-  for (const rowElement of container.querySelectorAll<HTMLElement>('.albums-grid-row')) {
-    const row = rowsByIndex.get(Number(rowElement.dataset.rowIndex))
-    if (!row) continue
-    Array.from(rowElement.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).forEach(
-      (card, columnIndex) => {
-        const key = card.dataset.albumKey
-        if (!key) return
-        const rect = calculateAlbumTransitionRect({
-          viewport,
-          gridWidth: gridWidth.value ?? viewport.width,
-          columnCount: columnCount.value,
-          columnIndex,
-          rowStart: row.start,
-          rowHeight: row.size,
-          paddingTop,
-          scrollTop,
-        })
-        if (
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.left < viewport.right &&
-          rect.left + rect.width > viewport.left &&
-          rect.top < viewport.bottom &&
-          rect.top + rect.height > viewport.top
-        )
-          targets.push({ key, node: card, rect })
-      },
-    )
-  }
-  return targets
-}
-
-function removeTransitionInputListeners(): void {
-  document.removeEventListener('keydown', onTransitionKeydown, true)
-  scrollRef.value?.removeEventListener('wheel', onTransitionWheel)
-  scrollRef.value?.removeEventListener('touchstart', onTransitionTouchStart)
-  scrollRef.value?.removeEventListener('scroll', onTransitionScroll)
-}
-
-function onTransitionKeydown(event: KeyboardEvent): void {
-  const target = event.target
-  if (
-    (event.key === 'Enter' || event.key === ' ') &&
-    target instanceof Element &&
-    target.closest('[data-lyrics-toggle], [data-sidebar-toggle]')
-  )
-    return
-  if (
-    [
-      'ArrowUp',
-      'ArrowDown',
-      'ArrowLeft',
-      'ArrowRight',
-      'Home',
-      'End',
-      'PageUp',
-      'PageDown',
-      'Tab',
-      'Enter',
-      ' ',
-    ].includes(event.key)
-  ) {
-    emit('cancel-layout-transition')
-  }
-}
-
-function onTransitionWheel(): void {
-  emit('cancel-layout-transition')
-}
-
-function onTransitionTouchStart(): void {
-  emit('cancel-layout-transition')
-}
-
-function onTransitionScroll(): void {
-  if (Date.now() < allowProgrammaticScrollUntil) return
-  emit('cancel-layout-transition')
-}
-
-function prepareLyricsLayoutTransition(revision: number): boolean {
-  dropLayerRef.value?.cancel()
-  const container = scrollRef.value
-  const layer = transitionLayerRef.value
-  if (!isPageActive.value || !container?.isConnected || !layer) return false
-  const reversing = isLayoutTransitionActive.value
-  let gridTransitionBegun = false
-  try {
-    const viewport = measureScrollViewport(container)
-    let fromViewport = toTransitionRect(viewport)
-    let sources: AlbumTransitionVisual[]
-    if (reversing) {
-      fromViewport = layer.captureViewport()
-      sources = layer.captureVisuals()
-    } else {
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) {
-        const card = activeElement.closest<HTMLElement>('.album-card[data-album-key]')
-        if (card?.dataset.albumKey) {
-          savedFocus = {
-            albumKey: card.dataset.albumKey,
-            selector: activeElement.classList.contains('cover-stage')
-              ? '.cover-stage'
-              : activeElement.classList.contains('album-card-play')
-                ? '.album-card-play'
-                : '.cover-stage',
-          }
-        }
-      }
-      sources = collectVisibleTransitionVisuals(viewport)
-      beginGridTransition()
-      gridTransitionBegun = true
-    }
-
-    layoutTransitionRevision = revision
-    isLayoutTransitionActive.value = true
-    layer.prepareSources(fromViewport, sources)
-  } catch (error) {
-    layer.clear()
-    isLayoutTransitionActive.value = false
-    savedFocus = null
-    removeTransitionInputListeners()
-    if (reversing || gridTransitionBegun) endGridTransition()
-    rendererDiagnostics.error({
-      scope: 'albums.transition',
-      message: 'Failed to prepare album layout transition',
-      cause: error,
-    })
-    return false
-  }
-  document.addEventListener('keydown', onTransitionKeydown, true)
-  container.addEventListener('wheel', onTransitionWheel, { passive: true })
-  container.addEventListener('touchstart', onTransitionTouchStart, { passive: true })
-  container.addEventListener('scroll', onTransitionScroll, { passive: true })
-  return true
-}
-
-async function commitLyricsLayoutTransition(revision: number): Promise<boolean> {
-  const container = scrollRef.value
-  const layer = transitionLayerRef.value
-  if (
-    revision !== layoutTransitionRevision ||
-    !isLayoutTransitionActive.value ||
-    !isPageActive.value ||
-    !container?.isConnected ||
-    !layer
-  )
-    return false
-
-  try {
-    commitGridTransitionTarget()
-    allowProgrammaticScrollUntil = Date.now() + 100
-    await nextTick()
-    if (
-      revision !== layoutTransitionRevision ||
-      !isLayoutTransitionActive.value ||
-      !isPageActive.value ||
-      scrollRef.value !== container ||
-      !container.isConnected ||
-      transitionLayerRef.value !== layer
-    )
-      return false
-
-    await nextTick()
-    if (
-      revision !== layoutTransitionRevision ||
-      !container.isConnected ||
-      transitionLayerRef.value !== layer
-    )
-      return false
-    const viewport = measureScrollViewport(container)
-    layer.commitTargets(toTransitionRect(viewport), collectVisibleTransitionTargets(viewport))
-    return true
-  } catch (error) {
-    layer.clear()
-    rendererDiagnostics.error({
-      scope: 'albums.transition',
-      message: 'Failed to commit album layout transition',
-      cause: error,
-    })
-    return false
-  }
-}
-
-async function animateLyricsLayoutTransition(revision: number, duration: number): Promise<void> {
-  if (revision === layoutTransitionRevision) await transitionLayerRef.value?.animate(duration)
-}
-
-async function finishLyricsLayoutTransition(revision: number): Promise<void> {
-  if (revision !== layoutTransitionRevision) return
-  const container = scrollRef.value
-  transitionLayerRef.value?.clear()
-  isLayoutTransitionActive.value = false
-  removeTransitionInputListeners()
-  endGridTransition()
-  const focus = savedFocus
-  savedFocus = null
-  await nextTick()
-  if (!focus || !isPageActive.value || !container?.isConnected) return
-  findAlbumTransitionFocusTarget(
-    container.querySelectorAll<HTMLElement>('.album-card[data-album-key]'),
-    focus.albumKey,
-    focus.selector,
-  )?.focus()
-}
-
-function cancelLyricsLayoutTransition(revision: number): void {
-  if (revision !== layoutTransitionRevision) return
-  transitionLayerRef.value?.clear()
-  savedFocus = null
-  isLayoutTransitionActive.value = false
-  removeTransitionInputListeners()
-  endGridTransition()
-}
 
 async function connectGrid(): Promise<void> {
   const revision = ++gridConnectionRevision
@@ -772,6 +509,7 @@ function onAlbumsMouseMove(event: MouseEvent): void {
     event.clientY,
     currentTarget.getBoundingClientRect(),
     bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
+    hasPageParameters.value,
   )
   if (!hovered) isSearchHoverDismissed = false
   isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
@@ -799,7 +537,22 @@ function closeContextMenu(): void {
   if (contextMenuRef.value?.contains(document.activeElement) && contextMenuTrigger?.isConnected) {
     contextMenuTrigger.focus({ preventScroll: true })
   }
+  cancelAlbumReveal()
   contextMenu.value = null
+}
+
+function cancelAlbumReveal(): void {
+  revealGeneration++
+  revealFeedback.value = null
+  revealInFlight = false
+}
+
+function clampContextMenu(menu: AlbumContextMenuState): void {
+  const element = contextMenuRef.value
+  if (!element || contextMenu.value !== menu) return
+  const bounds = element.getBoundingClientRect()
+  menu.x = Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))
+  menu.y = Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))
 }
 
 watch(hasCurrentTrack, async (available) => {
@@ -812,13 +565,12 @@ watch(hasCurrentTrack, async (available) => {
       : undefined
   const restoreFocus = !available && (focusedAction === 'locate' || focusedAction === 'insert')
   await nextTick()
-  const element = contextMenuRef.value
-  if (!element || contextMenu.value !== menu || hasCurrentTrack.value !== available) return
-  const bounds = element.getBoundingClientRect()
-  menu.x = Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))
-  menu.y = Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))
+  if (contextMenu.value !== menu || hasCurrentTrack.value !== available) return
+  clampContextMenu(menu)
   if (restoreFocus) {
-    element.querySelector<HTMLButtonElement>('[data-album-menu-action="play"]')?.focus()
+    contextMenuRef.value
+      ?.querySelector<HTMLButtonElement>('[data-album-menu-action="play"]')
+      ?.focus()
   }
 })
 
@@ -856,6 +608,7 @@ function onContextMenuKeydown(event: KeyboardEvent): void {
 
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   contextMenuTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  cancelAlbumReveal()
 
   contextMenu.value = {
     album,
@@ -866,11 +619,45 @@ function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   void nextTick(() => {
     const element = contextMenuRef.value
     if (!element || contextMenu.value !== menu) return
-    const bounds = element.getBoundingClientRect()
-    menu.x = Math.max(8, Math.min(event.clientX, window.innerWidth - bounds.width - 8))
-    menu.y = Math.max(8, Math.min(event.clientY, window.innerHeight - bounds.height - 8))
+    clampContextMenu(menu)
     element.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
   })
+}
+
+async function revealContextAlbumInExplorer(): Promise<void> {
+  const menu = contextMenu.value
+  if (!menu || revealInFlight) return
+  const generation = ++revealGeneration
+  const trackIds = menu.album.tracks.map((track) => track.id)
+  revealFeedback.value = null
+  revealInFlight = true
+  try {
+    if (trackIds.length === 0) {
+      if (generation !== revealGeneration || contextMenu.value !== menu) return
+      revealFeedback.value = t('library.contextMenu.reveal.not-found')
+    } else {
+      const result = await auralis.library.revealInExplorer({ trackIds })
+      if (generation !== revealGeneration || contextMenu.value !== menu) return
+      if (result.ok) {
+        closeContextMenu()
+        return
+      }
+      revealFeedback.value = t(`library.contextMenu.reveal.${result.reason}`)
+    }
+  } catch (error) {
+    rendererDiagnostics.error({
+      scope: 'albums.context-menu',
+      message: 'Failed to reveal album in Explorer',
+      cause: error,
+    })
+    if (generation !== revealGeneration || contextMenu.value !== menu) return
+    revealFeedback.value = t('library.contextMenu.reveal.reveal-failed')
+  } finally {
+    if (generation === revealGeneration) revealInFlight = false
+  }
+  await nextTick()
+  if (generation !== revealGeneration || contextMenu.value !== menu) return
+  clampContextMenu(menu)
 }
 
 function locateCurrentAlbum(): void {
@@ -897,46 +684,40 @@ function selectAlbumPlaybackTracks(album: AlbumSummary): TrackListItem[] {
   return catalogIndex.value.selectTracks(album.albumArtist, album.title)
 }
 
-function buildAlbumPlaybackQueue(album: AlbumSummary): TrackListItem[] {
-  if (playback.state.playbackMode !== 'sequential') {
-    return selectAlbumPlaybackTracks(album)
-  }
+function playAlbum(album: AlbumSummary): void {
+  const firstTrack = selectAlbumPlaybackTracks(album)[0]
+  if (!firstTrack) return
 
-  const albumIndex = albums.value.findIndex((candidate) => candidate.key === album.key)
-  if (albumIndex < 0) return selectAlbumPlaybackTracks(album)
-
-  return albums.value.slice(albumIndex).flatMap(selectAlbumPlaybackTracks)
+  void playback.playTrackFromQueue(
+    buildAlbumPlaybackQueue(
+      tracks.value,
+      album.albumArtist,
+      album.title,
+      playback.state.playbackMode,
+    ),
+    firstTrack.id,
+  )
 }
 
 function playContextAlbum(): void {
   const album = contextMenu.value?.album
   closeContextMenu()
-  if (!album) return
-  const firstTrack = selectAlbumPlaybackTracks(album)[0]
-  if (!firstTrack) return
-
-  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), firstTrack.id)
-}
-
-function playGridAlbum(album: AlbumSummary): void {
-  const albumTracks = selectAlbumPlaybackTracks(album)
-  const firstTrack = albumTracks[0]
-  if (!firstTrack) return
-  void playback.playTrackFromQueue(albumTracks, firstTrack.id, { playbackMode: 'sequential' })
+  if (album) playAlbum(album)
 }
 
 function playCoverAlbum(album: AlbumSummary): void {
   dropLayerRef.value?.cancel()
-  playGridAlbum(album)
+  playAlbum(album)
 }
 
 function dropAlbum(album: AlbumSummary, cover: HTMLElement): void {
   if (!canDropAlbum.value || isDropActive.value || !album.tracks.length) return
   closeContextMenu()
-  dropLayerRef.value?.play({ album, cover, onLand: () => playGridAlbum(album) })
+  dropLayerRef.value?.play({ album, cover, onLand: () => playAlbum(album) })
 }
 
 function insertContextAlbum(): void {
+  if (!hasCurrentTrack.value) return
   const album = contextMenu.value?.album
   closeContextMenu()
   if (!album) return
@@ -1001,7 +782,7 @@ function disconnectPage(): void {
 }
 
 onDeactivated(() => {
-  cancelLyricsLayoutTransition(layoutTransitionRevision)
+  cancelCurrentTransition()
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
 })
@@ -1009,7 +790,7 @@ onDeactivated(() => {
 onBeforeUnmount(() => {
   isPageUnmounted = true
   if (isPageActive.value && scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
-  cancelLyricsLayoutTransition(layoutTransitionRevision)
+  cancelCurrentTransition()
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
   if (searchHighlightTimeout) {
@@ -1017,13 +798,7 @@ onBeforeUnmount(() => {
   }
 })
 
-defineExpose<AlbumLayoutTransitionParticipant>({
-  prepareLyricsLayoutTransition,
-  commitLyricsLayoutTransition,
-  animateLyricsLayoutTransition,
-  finishLyricsLayoutTransition,
-  cancelLyricsLayoutTransition,
-})
+defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 </script>
 
 <template>
@@ -1034,38 +809,47 @@ defineExpose<AlbumLayoutTransitionParticipant>({
   >
     <div class="library-search-zone">
       <Transition name="search-overlay" :duration="160">
-        <div v-if="shouldRenderSearchBar" class="library-search-overlay">
+        <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
           <div
             ref="searchRootRef"
-            class="library-search-bar"
-            @pointerdown="searchInputRef?.focus()"
+            class="page-search-tools"
+            :class="{ 'page-search-tools--parameters': hasPageParameters }"
+            @focusin="onSearchToolsFocusIn"
+            @focusout="onSearchToolsFocusOut"
           >
-            <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              class="library-search-input"
-              :placeholder="t('albums.search.placeholder')"
-              :aria-label="t('albums.search.ariaLabel')"
-              spellcheck="false"
-              @focus="onSearchFocus"
-              @blur="onSearchBlur"
-              @keydown="onSearchKeydown"
-            />
-            <span
-              v-if="searchOutcome !== 'idle'"
-              class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
-              :class="
-                searchOutcome === 'not-found'
-                  ? 'text-[var(--auralis-danger)] font-medium'
-                  : 'text-[var(--auralis-text-muted)]'
-              "
-              role="status"
-              aria-live="polite"
+            <div
+              class="library-search-bar"
+              @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
             >
-              {{ searchFeedback }}
-            </span>
+              <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="library-search-input"
+                :disabled="isLoading || albums.length === 0"
+                :placeholder="t('albums.search.placeholder')"
+                :aria-label="t('albums.search.ariaLabel')"
+                spellcheck="false"
+                @focus="onSearchFocus"
+                @blur="onSearchBlur"
+                @keydown="onSearchKeydown"
+              />
+              <span
+                v-if="searchOutcome !== 'idle'"
+                class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
+                :class="
+                  searchOutcome === 'not-found'
+                    ? 'text-[var(--auralis-danger)] font-medium'
+                    : 'text-[var(--auralis-text-muted)]'
+                "
+                role="status"
+                aria-live="polite"
+              >
+                {{ searchFeedback }}
+              </span>
+            </div>
+            <PageParameterTrigger v-if="hasPageParameters" />
           </div>
         </div>
       </Transition>
@@ -1139,7 +923,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
         <div
           ref="contextMenuRef"
-          class="library-context-menu frosted-context-menu fixed w-55"
+          class="collection-context-menu library-context-menu frosted-context-menu fixed w-55"
           role="menu"
           :aria-label="t('nav.albums')"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
@@ -1172,21 +956,20 @@ defineExpose<AlbumLayoutTransitionParticipant>({
             }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
-          <template v-if="hasCurrentTrack">
-            <button
-              class="library-context-menu-item"
-              type="button"
-              role="menuitem"
-              data-album-menu-action="insert"
-              @click="insertContextAlbum"
-            >
-              <span class="i-lucide-list-plus"></span>
-              <span>{{
-                t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
-              }}</span>
-            </button>
-            <div class="library-context-menu-separator"></div>
-          </template>
+          <button
+            class="library-context-menu-item library-context-menu-item--insert"
+            type="button"
+            role="menuitem"
+            data-album-menu-action="insert"
+            :disabled="!hasCurrentTrack"
+            @click="insertContextAlbum"
+          >
+            <span class="i-lucide-list-plus"></span>
+            <span>{{
+              t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
+            }}</span>
+          </button>
+          <div class="library-context-menu-separator"></div>
           <button
             class="library-context-menu-item"
             role="menuitem"
@@ -1197,6 +980,28 @@ defineExpose<AlbumLayoutTransitionParticipant>({
             <span class="i-lucide-disc"></span>
             <span>{{ t('albums.contextMenu.openInCd') }}</span>
           </button>
+          <div class="library-context-menu-separator"></div>
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            data-album-menu-action="open-in-explorer"
+            @click="revealContextAlbumInExplorer"
+          >
+            <span class="i-lucide-folder-open"></span>
+            <span>{{ t('albums.contextMenu.openInExplorer') }}</span>
+          </button>
+          <template v-if="revealFeedback">
+            <div class="library-context-menu-separator"></div>
+            <div
+              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption font-medium text-red-500 select-none"
+              role="alert"
+              aria-live="polite"
+            >
+              <span class="i-lucide-circle-alert text-sm shrink-0"></span>
+              <span>{{ revealFeedback }}</span>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>

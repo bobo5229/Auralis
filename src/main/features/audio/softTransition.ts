@@ -5,52 +5,9 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { parseFile } from 'music-metadata'
 import { DigitalZeroCounter, isConsecutiveAlbumPair } from './digitalSilence'
-import { openMpvClient } from './mpvClient'
+import { parseFirstPcmTimestamp, readMpvTimestampOrigin } from './audioTimestamp'
 
-/** mpv rebases some containers (e.g. MP3) but retains MP4's zero origin.
- * Query the actual demuxer instead of inferring behavior from an extension/tag.
- */
-export async function readMpvTimestampOrigin(
-  executable: string,
-  path: string,
-  signal: AbortSignal,
-): Promise<number> {
-  const lifetime = AbortSignal.any([signal, AbortSignal.timeout(10000)])
-  let loaded!: () => void
-  let failed!: (error: Error) => void
-  const ready = new Promise<void>((resolve, reject) => {
-    loaded = resolve
-    failed = reject
-  })
-  // Avoid an unhandled rejection if startup fails before awaiting the load.
-  void ready.catch(() => undefined)
-  const abort = () => failed(new Error('Transition timestamp query cancelled or timed out'))
-  lifetime.addEventListener('abort', abort, { once: true })
-  let client: Awaited<ReturnType<typeof openMpvClient>> | undefined
-  try {
-    lifetime.throwIfAborted()
-    client = await openMpvClient(
-      executable,
-      (event) => {
-        if (event.event === 'file-loaded') loaded()
-        if (event.event === 'end-file' && event.reason === 'error')
-          failed(new Error('Transition timestamp query failed'))
-      },
-      failed,
-      lifetime,
-      ['--ao=null', '--pause=yes'],
-    )
-    await client.command('loadfile', path, 'replace')
-    await ready
-    const origin = await client.command('get_property', 'demuxer-start-time')
-    if (typeof origin !== 'number' || !Number.isFinite(origin))
-      throw new Error('Invalid demuxer timestamp origin')
-    return origin
-  } finally {
-    lifetime.removeEventListener('abort', abort)
-    await client?.close()
-  }
-}
+export { readMpvTimestampOrigin } from './audioTimestamp'
 
 export interface TransitionAudio {
   frames: number
@@ -87,8 +44,11 @@ export async function scanTransitionAudio(
   signal.throwIfAborted()
   const counter = new DigitalZeroCounter(channels)
   const limit = Math.ceil(rate * 2.1) * channels * 4
-  let head = Buffer.alloc(0)
-  let tail = Buffer.alloc(0)
+  const head = Buffer.allocUnsafe(limit)
+  const tail = Buffer.allocUnsafe(limit)
+  let headLength = 0
+  let tailLength = 0
+  let tailOffset = 0
   let origin: number | undefined
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
@@ -133,22 +93,33 @@ export async function scanTransitionAudio(
     child.stderr.on('data', (chunk: Buffer) => {
       const text = diagnostics + chunk.toString('utf8')
       if (origin === undefined) {
-        const match =
-          /\[Parsed_ashowinfo_\d+ @ [^\]]+\] n:0 pts:(-?\d+) pts_time:[^\s]+ .*?channels:(\d+).*?rate:(\d+)/.exec(
-            text,
-          )
-        if (match) {
-          if (Number(match[2]) !== channels || Number(match[3]) !== rate)
-            stop(new Error('Unexpected transition decode format'))
-          else origin = Number(match[1]) / rate
+        try {
+          origin = parseFirstPcmTimestamp(text, rate, channels)
+        } catch (error) {
+          stop(error as Error)
         }
       }
       diagnostics = text.slice(-8192)
     })
     child.stdout.on('data', (chunk: Buffer) => {
       counter.push(chunk)
-      if (head.length < limit) head = Buffer.concat([head, chunk.subarray(0, limit - head.length)])
-      tail = Buffer.concat([tail, chunk]).subarray(-limit)
+      const headBytes = Math.min(chunk.length, limit - headLength)
+      chunk.copy(head, headLength, 0, headBytes)
+      headLength += headBytes
+
+      // Keep the tail in a ring: each incoming byte is copied at most once,
+      // instead of copying the full 2.1-second window on every decoder chunk.
+      if (chunk.length >= limit) {
+        chunk.copy(tail, 0, chunk.length - limit)
+        tailLength = limit
+        tailOffset = 0
+      } else {
+        const firstBytes = Math.min(chunk.length, limit - tailOffset)
+        chunk.copy(tail, tailOffset, 0, firstBytes)
+        chunk.copy(tail, 0, firstBytes)
+        tailOffset = (tailOffset + chunk.length) % limit
+        tailLength = Math.min(limit, tailLength + chunk.length)
+      }
     })
     child.on('close', (code) => {
       clearTimeout(timeout)
@@ -162,6 +133,11 @@ export async function scanTransitionAudio(
   counter.finish()
   if (origin === undefined || !Number.isFinite(origin) || origin < 0)
     throw new Error('Unsupported audio timestamp origin')
+  const orderedTail = Buffer.allocUnsafe(tailLength)
+  const tailStart = tailLength === limit ? tailOffset : 0
+  const firstBytes = Math.min(tailLength, limit - tailStart)
+  tail.copy(orderedTail, 0, tailStart, tailStart + firstBytes)
+  tail.copy(orderedTail, firstBytes, 0, tailLength - firstBytes)
   return {
     frames: counter.frames,
     leading: counter.leading,
@@ -169,8 +145,8 @@ export async function scanTransitionAudio(
     origin,
     rate,
     channels,
-    head,
-    tail: Buffer.from(tail),
+    head: headLength === limit ? head : Buffer.from(head.subarray(0, headLength)),
+    tail: orderedTail,
   }
 }
 

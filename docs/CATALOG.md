@@ -31,6 +31,7 @@
 - [Renderer 视觉与交互](rules/renderer.md)
 - [风险分级验收](rules/validation.md)
 - [施工提示词写法](rules/handoff-prompts.md)
+- [6LunaMax 施工提示词撰写规则](rules/6lunamax-construction-prompts.md)
 
 ## 主题方案
 
@@ -368,6 +369,8 @@
 
 ## 审查记录
 
+- [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — P1 已完成；保留原审计排序、指标与后续拆分边界。
+- [2026-10-20 工作区清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md) — 本地方案及本轮记录；演示整理部分完成，候选删除受阻，浏览器验证待完成。
 - [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
 - [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
 - [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。
@@ -385,6 +388,7 @@
 
 - [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912修复1.md)
 - [Auralis 剩余优化工作交付文档](handoffs/HANDOFF-remaining-work-2026-08-28.md)
+- [标签写回、播放租约与退出对账施工提示词](handoffs/2026-10-15-tag-write-lease-shutdown-construction.md)
 
 交接记录保留中断位置与当时待办，不构成继续执行授权。
 

@@ -14,6 +14,11 @@
   --auralis-type-section-line-height: 26px;
   --auralis-type-page-size: 24px;
   --auralis-type-page-line-height: 32px;
+  /* 展示标题沿用专辑详情标题规格。 */
+  --auralis-type-hero-title-size: clamp(24px, 2.8vw, 38px);
+  --auralis-type-hero-title-line-height: 1.22;
+  --auralis-type-hero-title-weight: 800;
+  --auralis-type-hero-title-letter-spacing: -0.02em;
   --auralis-type-overline-size: 10px;
   --auralis-type-overline-line-height: 16px;
 

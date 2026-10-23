@@ -106,7 +106,7 @@ describe('buffered file and database commit with real Electron, mpv and isolated
       ffmpeg,
       coordinator,
     )
-    metadata.setBufferedTagWriteHandler((...args) => player.writeMetadata(...args))
+    metadata.setPlaybackTagWriteHandler((...args) => player.writeMetadata(...args))
   })
   afterAll(async () => {
     await Promise.all([metadata?.shutdown(), player?.dispose()])
@@ -144,6 +144,17 @@ describe('buffered file and database commit with real Electron, mpv and isolated
       )
       .get() as Record<string, unknown>
     const fingerprint = await stat(source)
+    expect(
+      JSON.parse(
+        db.prepare('SELECT file_stat_fingerprint FROM tracks WHERE id=1').pluck().get() as string,
+      ),
+    ).toEqual([
+      fingerprint.size,
+      fingerprint.mtimeMs,
+      fingerprint.ctimeMs,
+      fingerprint.dev,
+      fingerprint.ino,
+    ])
     expect(row).toMatchObject({
       title: 'After',
       artist: 'Artist',

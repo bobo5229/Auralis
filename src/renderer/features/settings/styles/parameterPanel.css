@@ -1,125 +1,9 @@
-.song-font-weight-details {
-  min-width: 0;
-  overflow: clip;
-  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 50%, transparent);
-  interpolate-size: allow-keywords;
-}
-
-.song-font-weight-details::details-content {
-  block-size: 0;
-  overflow: clip;
-  opacity: 0;
-  transition:
-    block-size 280ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 180ms ease,
-    content-visibility 280ms;
-  transition-behavior: allow-discrete;
-}
-
-.song-font-weight-details[open]::details-content {
-  block-size: auto;
-  opacity: 1;
-}
-
-.song-font-weight-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 48px;
-  padding: 9px 16px;
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-}
-
-.song-font-weight-summary::-webkit-details-marker {
-  display: none;
-}
-
-.song-font-weight-summary::marker {
-  content: '';
-}
-
-.song-font-weight-summary:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: -2px;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary {
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-}
-
-.song-font-weight-chevron {
-  flex: 0 0 auto;
-  color: var(--auralis-text-muted);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.song-font-weight-summary-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.song-font-weight-collapse-label,
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-expand-label {
-  display: none;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-collapse-label {
-  display: inline;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-chevron {
-  transform: rotate(180deg);
-}
-
-.song-font-weight-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  padding: 10px 16px 2px;
-}
-
-.song-font-weight-reset {
-  min-height: 30px;
-  padding: 0 0 0 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--auralis-text-muted);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.song-font-weight-reset-group {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
-  margin-left: auto;
-}
-
 .song-font-weight-reset-notice {
   color: var(--auralis-danger);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.35;
-  text-align: right;
+  text-align: left;
 }
 
 .song-font-weight-reset-notice-enter-active {
@@ -141,16 +25,6 @@
   opacity: 0;
 }
 
-:where([data-reduced-motion='true']) .song-font-weight-details::details-content {
-  transition:
-    opacity 120ms ease,
-    content-visibility 120ms;
-}
-
-:where([data-reduced-motion='true']) .song-font-weight-chevron {
-  transition: none;
-}
-
 :where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-active,
 :where([data-reduced-motion='true']) .song-font-weight-reset-notice-leave-active {
   transition: opacity 120ms ease;
@@ -158,15 +32,6 @@
 
 :where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-from {
   transform: none;
-}
-
-.song-font-weight-reset:hover {
-  color: var(--auralis-text);
-}
-
-.song-font-weight-reset:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 2px;
 }
 
 .song-font-weight-status {
@@ -194,11 +59,69 @@
   padding: 12px 16px 4px;
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
   color: var(--auralis-text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
-.song-cover-options + .song-parameters-heading {
-  margin-top: 0;
+.page-parameter-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.page-parameter-sidebar {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 16px;
+}
+
+.page-parameter-module,
+.song-font-column {
+  min-width: 0;
+}
+
+.song-font-weight-content {
+  container: page-parameters / inline-size;
+  min-width: 0;
+}
+
+.song-font-options {
+  container: parameter-fonts / inline-size;
+}
+
+.song-font-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.song-font-column + .song-font-column .song-font-column-labels {
+  display: none;
+}
+
+.song-font-column + .song-font-column {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+@container page-parameters (min-width: 656px) {
+  .page-parameter-sections:not(.page-parameter-sections--typography-only) {
+    grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr);
+  }
+}
+
+@container parameter-fonts (min-width: 656px) {
+  .song-font-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .song-font-column + .song-font-column {
+    border-top: 0;
+  }
+
+  .song-font-column + .song-font-column .song-font-column-labels {
+    display: grid;
+  }
 }
 
 .song-cover-radius-reveal {
@@ -248,8 +171,7 @@
   color: var(--auralis-text-muted);
 }
 .song-font-controls :deep(.settings-select) {
-  width: 148px;
-  min-width: 0;
+  justify-self: end;
 }
 
 .song-font-weight-row {
@@ -258,26 +180,6 @@
   cursor: default;
 }
 
-/* Keep the sticky preview bounded by the expanded panel without another scroll container. */
-.song-font-weight-content {
-  position: relative;
-  isolation: isolate;
-}
-
-.song-font-weight-preview-block {
-  position: sticky;
-  /* Offset the scroll container's padding so scrolled controls cannot peek above the preview. */
-  top: calc(-1 * var(--settings-content-padding-top, 0px));
-  z-index: 1;
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-  background: var(--auralis-surface-raised);
-  padding: 12px 16px 16px;
-}
-
-.song-font-weight-preview-heading {
-  margin: 0 0 8px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
+.song-font-weight-status.song-font-weight-reset-notice {
+  color: var(--auralis-danger);
 }

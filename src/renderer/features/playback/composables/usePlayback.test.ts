@@ -185,6 +185,7 @@ function createApi(): AuralisApi {
     app: {
       setLocale: vi.fn(async () => undefined),
       claimStartupAlbum: vi.fn(async () => ({ album: null })),
+      drawStartupAlbum: vi.fn(async () => ({ album: null })),
       claimCdStartupEntry: vi.fn(async () => ({ firstEntry: true })),
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),
@@ -201,6 +202,7 @@ function createApi(): AuralisApi {
       getTracks: vi.fn(),
       getTrackPage: vi.fn(),
       getAlbumDetail: vi.fn(),
+      revealInExplorer: vi.fn(async () => ({ ok: true as const })),
       onScanProgress: vi.fn(),
       onChanged: vi.fn((listener) => {
         libraryChangedListener = listener
@@ -236,6 +238,15 @@ function createApi(): AuralisApi {
     },
     lyrics: {
       getByTrackId: vi.fn(),
+      openEditor: vi.fn(),
+      openLrcEditor: vi.fn(),
+      saveLrcEditor: vi.fn(),
+      closeLrcEditor: vi.fn(),
+      assignEditorLines: vi.fn(),
+      retimeEditorLines: vi.fn(),
+      replaceEditorLineText: vi.fn(),
+      saveEditor: vi.fn(),
+      closeEditor: vi.fn(),
     },
     playback: {
       subscribeSpectrum: vi.fn(async () => ({ accepted: true })),
@@ -257,7 +268,11 @@ function createApi(): AuralisApi {
     },
     archive: {
       getAnnualPlayCounts: vi.fn(async () => []),
+      getAnnualSummary: vi.fn(async () => {
+        throw new Error('Annual summary is unused in playback tests')
+      }),
       getDayTopTracks: vi.fn(async () => []),
+      getDayTopAlbums: vi.fn(async () => []),
       resetPlayStats: vi.fn(),
     },
     metadata: {

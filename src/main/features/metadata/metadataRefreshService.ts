@@ -4,10 +4,11 @@ import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import type { MetadataRefreshWorkerInput } from './metadataRefreshTypes'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
 import { MetadataRefreshWorkerHost } from './metadataRefreshWorkerHost'
+import { ipcChannels } from '@shared/ipc/channels'
 import {
   MetadataTagWriteCoordinator,
   type MetadataWriteCoordinator,
-  type BufferedMetadataTagWrite,
+  type PlaybackMetadataTagWrite,
 } from './metadataTagWriteCoordinator'
 
 export type { MetadataWriteCoordinator } from './metadataTagWriteCoordinator'
@@ -24,6 +25,7 @@ export class MetadataRefreshService {
     sendToRenderer: RendererEventSender,
     ffmpegPath: string,
     coordinator?: MetadataWriteCoordinator,
+    readLibraryRevision?: () => string,
   ) {
     this.tagWrites = new MetadataTagWriteCoordinator(
       repository,
@@ -33,6 +35,16 @@ export class MetadataRefreshService {
         isStopping: () => this.stopping,
         hasActiveJob: () => this.hasActiveJob(),
         refreshTracksFromFileChanges: (ids) => this.refreshTracksFromFileChanges(ids),
+        onUserEditCommitted: (trackId, filePath) => {
+          const libraryRevision = readLibraryRevision?.()
+          sendToRenderer(ipcChannels.library.changed, {
+            reason: 'metadata-refresh',
+            trackIds: [trackId],
+            filePaths: [filePath],
+            ...(libraryRevision ? { libraryRevision } : {}),
+          })
+          return libraryRevision
+        },
       },
       coordinator,
     )
@@ -49,12 +61,16 @@ export class MetadataRefreshService {
     this.tagWrites.setTagWriteSuccessHandler(handler)
   }
 
-  setBufferedTagWriteHandler(handler: BufferedMetadataTagWrite): void {
-    this.tagWrites.setBufferedTagWriteHandler(handler)
+  setPlaybackTagWriteHandler(handler: PlaybackMetadataTagWrite): void {
+    this.tagWrites.setPlaybackTagWriteHandler(handler)
   }
 
   hasActiveArtworkWrites(): boolean {
     return this.hasActiveJob() || this.tagWrites.hasActiveWrites()
+  }
+
+  isWritingFile(filePath: string): boolean {
+    return this.tagWrites.isWritingFile(filePath)
   }
 
   hasActiveJob(): boolean {
@@ -65,6 +81,7 @@ export class MetadataRefreshService {
     this.stopping = true
     await this.tagWrites.drain()
     await this.workerHost.shutdown()
+    await this.tagWrites.awaitReconciliation()
   }
 
   private assertRunning(): void {
@@ -149,5 +166,20 @@ export class MetadataRefreshService {
 
   updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {
     return this.tagWrites.updateTrackMetadata(metadata)
+  }
+
+  updateTrackLyrics(
+    trackId: number,
+    lyricsText: string,
+    beforeCommit: () => Promise<void>,
+    onDiskCommit: () => void,
+  ): Promise<UpdateTrackMetadataResult> {
+    const metadata = this.repository.getEditableTrackMetadata(trackId)
+    if (!metadata) return Promise.resolve({ ok: false, reason: 'file-not-found' })
+    return this.tagWrites.updateTrackMetadata(
+      { ...metadata, lyricsText },
+      beforeCommit,
+      onDiskCommit,
+    )
   }
 }

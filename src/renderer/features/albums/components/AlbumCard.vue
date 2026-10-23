@@ -16,7 +16,6 @@ const props = defineProps<{
   album: AlbumSummary
   highlighted?: boolean
   longPressEnabled?: boolean
-  artworkUrl?: string
 }>()
 
 const { t } = useI18n()
@@ -30,7 +29,6 @@ const displayAlbumArtist = computed(() =>
     : songValues(props.album.albumArtist),
 )
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
-const artworkUrl = computed(() => props.artworkUrl ?? getArtworkUrl(props.album.artworkCacheKey))
 const { palette } = useArtworkPalette(artworkCacheKey)
 const playButtonStyle = computed(() => {
   const color =
@@ -173,8 +171,8 @@ function onContextMenu(event: MouseEvent): void {
       >
         <div class="cover-frame">
           <img
-            v-if="artworkUrl && !imageFailed"
-            :src="artworkUrl"
+            v-if="album.artworkCacheKey && !imageFailed"
+            :src="getArtworkUrl(album.artworkCacheKey) ?? undefined"
             :alt="t('albums.a11y.coverAlt', { title: displayAlbumTitle })"
             class="cover-img"
             loading="lazy"
@@ -260,11 +258,12 @@ function onContextMenu(event: MouseEvent): void {
   border-radius: 50%;
   background-color: color-mix(
     in srgb,
-    var(--album-card-play-bg, var(--auralis-control-primary-bg)) 80%,
+    var(--album-card-play-bg, var(--auralis-control-primary-bg))
+      var(--auralis-frosted-surface-tint-opacity),
     transparent
   );
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  backdrop-filter: var(--auralis-frosted-surface-filter);
+  -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
   color: var(--album-card-play-fg, var(--auralis-control-primary-text));
   opacity: 0;
   pointer-events: none;
@@ -293,7 +292,8 @@ function onContextMenu(event: MouseEvent): void {
 .album-card-play:is(:hover, :focus-visible) {
   background-color: color-mix(
     in srgb,
-    color-mix(in srgb, var(--album-card-play-bg, var(--auralis-control-primary-bg)) 88%, white) 92%,
+    color-mix(in srgb, var(--album-card-play-bg, var(--auralis-control-primary-bg)) 88%, white)
+      var(--auralis-frosted-surface-tint-opacity),
     transparent
   );
 }

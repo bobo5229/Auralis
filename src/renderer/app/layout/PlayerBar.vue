@@ -11,10 +11,12 @@ import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTi
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
 import TrackProgressInfo from './TrackProgressInfo.vue'
+import PlayerBarProgress from './PlayerBarProgress.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
 import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
@@ -29,12 +31,21 @@ import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolveP
 import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
+import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
+import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
+import {
+  formatPlaybackClock,
+  PLAYBACK_CLOCK_EMPTY,
+} from '@renderer/features/playback/utils/formatPlaybackClock'
 import { useLyricsPanelLayout } from './useLyricsPanelLayout'
 
 const playback = usePlayback()
 const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
+const { style: playbarMaterialStyle } = usePlaybarStyle()
+const { layout: playbarLayout } = usePlaybarLayout()
+const isFullLayout = computed(() => playbarLayout.value === 'full')
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
 // must not decode artwork, paint canvases, or start palette work.
@@ -88,6 +99,10 @@ const primaryPlaybackLabel = computed(() => {
   if (isPrimaryPlaybackPending.value) return t('player.playbackLoading')
   return playback.state.isPlaying ? t('player.pause') : t('player.play')
 })
+const elapsedClock = computed(() => formatPlaybackClock(playback.state.currentTime))
+const durationClock = computed(() =>
+  playback.state.duration > 0 ? formatPlaybackClock(playback.state.duration) : PLAYBACK_CLOCK_EMPTY,
+)
 const playerBarStyle = computed(
   () =>
     ({
@@ -169,7 +184,9 @@ const { islandInlineSize } = usePlayerBarIslandMetrics({
   enabled: isNormalPlayerDisplay,
 })
 
-const isUtilitiesOverflow = computed(() => shouldOverflowModernUtilities(islandInlineSize.value))
+const isUtilitiesOverflow = computed(
+  () => !isFullLayout.value && shouldOverflowModernUtilities(islandInlineSize.value),
+)
 
 function toggleQueue(): void {
   overlayController.toggle('queue')
@@ -263,11 +280,8 @@ usePlayerBarResponsiveFocus({
   closeOverflowPanels: () => overlayController.closeMany(['overflow', 'mode']),
 })
 
-watch(
-  () => isNormalPlayerDisplay.value,
-  (shouldObserveIsland) => {
-    if (!shouldObserveIsland) closeOverflow()
-  },
+watch([isNormalPlayerDisplay, playbarLayout], () =>
+  overlayController.closeMany(['mode', 'overflow']),
 )
 
 onMounted(() => {
@@ -305,6 +319,8 @@ function handleNext(): void {
   <footer
     ref="playerBarHostRef"
     class="player-bar"
+    :data-playbar-style="playbarMaterialStyle"
+    :data-playbar-layout="playbarLayout"
     :data-volume-expanded="volumeControlRef?.open ? 'true' : 'false'"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
@@ -312,8 +328,17 @@ function handleNext(): void {
     :style="playerBarStyle"
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
-    <div ref="islandRef" class="player-bar-island" data-playbar-drop-target>
-      <div class="player-bar-surface" aria-hidden="true"></div>
+    <div
+      ref="islandRef"
+      class="player-bar-island"
+      :class="{ 'player-bar-island--full': isFullLayout }"
+      data-playbar-drop-target
+    >
+      <FrostedSurface
+        class="player-bar-surface"
+        :frosted="playbarMaterialStyle === 'frosted'"
+        plain-background="var(--auralis-playbar-bg)"
+      />
       <div
         v-if="paletteEnabled && previousAlbumTint"
         class="player-bar-album-tint player-bar-album-tint-previous"
@@ -338,7 +363,7 @@ function handleNext(): void {
             :aria-label="t('player.previous')"
             @click="handlePrev"
           >
-            <svg class="h-4 w-5" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"
               />
@@ -353,10 +378,8 @@ function handleNext(): void {
             :aria-busy="isPrimaryPlaybackPending ? 'true' : undefined"
             @click="handlePlayPause"
           >
-            <span v-if="isPrimaryPlaybackPending" class="h-6 w-6 i-ph-spinner-gap" />
             <span
-              v-else
-              class="h-6 w-6"
+              class="h-7 w-7"
               :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
               aria-hidden="true"
             />
@@ -367,20 +390,51 @@ function handleNext(): void {
             :aria-label="t('player.next')"
             @click="handleNext"
           >
-            <svg class="h-4 w-5" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 transform="translate(32 0) scale(-1 1)"
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"
               />
             </svg>
           </button>
+          <div v-if="isFullLayout" class="player-bar-full-mode">
+            <button
+              ref="modeButtonRef"
+              v-tooltip="playbackModeTooltip"
+              class="player-bar-control player-bar-mode-trigger"
+              :class="{ 'player-bar-control-active': isModeMenuOpen }"
+              data-testid="player-mode-button"
+              type="button"
+              :aria-label="playbackModeLabel"
+              aria-haspopup="menu"
+              :aria-expanded="isModeMenuOpen"
+              @click="toggleModeMenu"
+            >
+              <PlayerBarActionIcon :icon="playbackModeIconClass" size="compact" />
+              <span class="i-ph-caret-down h-2.5 w-2.5" aria-hidden="true" />
+            </button>
+            <div ref="modeMenuRef" class="contents">
+              <PlaybackModeMenu
+                v-if="isModeMenuOpen"
+                :current-mode="playback.state.playbackMode"
+                :material="playbarMaterialStyle"
+                @select="handleSelectMode"
+                @close="handleModeMenuClose"
+              />
+            </div>
+          </div>
+          <div v-if="isFullLayout" class="player-bar-full-time" aria-hidden="true">
+            <span>{{ elapsedClock }}</span>
+            <span class="player-bar-full-time-divider">/</span>
+            <span>{{ durationClock }}</span>
+          </div>
         </div>
 
-        <TrackProgressInfo show-split-clocks />
+        <TrackProgressInfo :show-progress="!isFullLayout" :show-split-clocks="!isFullLayout" />
 
         <div class="playback-actions">
           <button
-            v-if="!isUtilitiesOverflow"
+            v-if="!isFullLayout && !isUtilitiesOverflow"
             ref="modeButtonRef"
             v-tooltip="playbackModeTooltip"
             class="player-bar-control"
@@ -391,7 +445,7 @@ function handleNext(): void {
             :aria-expanded="isModeMenuOpen"
             @click="toggleModeMenu"
           >
-            <PlayerBarActionIcon :icon="playbackModeIconClass" />
+            <PlayerBarActionIcon :icon="playbackModeIconClass" size="playback-mode" />
           </button>
 
           <button
@@ -404,11 +458,15 @@ function handleNext(): void {
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <PlayerBarActionIcon icon="i-ph-queue" />
+            <PlayerBarActionIcon icon="i-ph-list" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
-            <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
+            <PlaybackQueuePopover
+              v-if="isQueueOpen"
+              :material="playbarMaterialStyle"
+              @close="handleQueueClose"
+            />
           </div>
 
           <button
@@ -439,7 +497,7 @@ function handleNext(): void {
               :aria-expanded="isOverflowOpen"
               @click="toggleOverflow"
             >
-              <span class="playbar-action-icon h-4 w-4 i-ph-dots-three" />
+              <PlayerBarActionIcon icon="i-ph-dots-three" size="compact" />
             </button>
 
             <div
@@ -462,7 +520,7 @@ function handleNext(): void {
                 :aria-expanded="isModeMenuOpen"
                 @click="toggleModeMenu"
               >
-                <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
+                <PlayerBarActionIcon :icon="playbackModeIconClass" size="playback-mode" />
                 <span class="player-bar-overflow-label">{{ t('player.mode') }}</span>
               </button>
 
@@ -480,23 +538,26 @@ function handleNext(): void {
                 "
                 @click="handleOverflowToggleLyrics"
               >
-                <span class="playbar-action-icon h-4 w-4 i-ph-subtitles" aria-hidden="true" />
+                <PlayerBarActionIcon icon="i-ph-subtitles" size="compact" />
                 <span class="player-bar-overflow-label">{{
                   lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
                 }}</span>
                 <span
                   v-if="lyricsPanelExpanded"
-                  class="ml-auto h-4 w-4 i-ph-check"
+                  class="ml-auto flex h-4 w-4 items-center justify-center"
                   aria-hidden="true"
-                />
+                >
+                  <PlayerBarActionIcon icon="i-ph-check" size="compact" />
+                </span>
               </button>
             </div>
           </div>
 
-          <div ref="modeMenuRef" class="contents">
+          <div v-if="!isFullLayout" ref="modeMenuRef" class="contents">
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
+              :material="playbarMaterialStyle"
               @select="handleSelectMode"
               @close="handleModeMenuClose"
             />
@@ -507,6 +568,10 @@ function handleNext(): void {
             @activate="overlayController.activateVolume()"
           />
         </div>
+      </div>
+
+      <div v-if="isFullLayout" class="player-bar-full-progress">
+        <PlayerBarProgress />
       </div>
     </div>
   </footer>

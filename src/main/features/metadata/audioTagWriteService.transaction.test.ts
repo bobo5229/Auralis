@@ -1,19 +1,33 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { copyFile, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { existsSync, utimesSync, writeFileSync } from 'node:fs'
+import {
+  copyFile,
+  link,
+  mkdtemp,
+  open,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
 import { prepareAudioTagWrite, writeAudioTags } from './audioTagWriteService'
 import * as metadataParser from './parseAudioMetadata'
 import { MetadataTagWriteCoordinator } from './metadataTagWriteCoordinator'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
+import { resolveLyrics } from './metadataNormalizer'
 
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>()
   return {
     ...actual,
     rename: vi.fn(actual.rename),
+    link: vi.fn(actual.link),
     copyFile: vi.fn(actual.copyFile),
     rm: vi.fn(actual.rm),
   }
@@ -121,6 +135,11 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     file = join(directory, `${Date.now()}-${Math.random()}.flac`)
     await copyFile(template, file)
     vi.mocked(copyFile).mockClear()
+    vi.mocked(link)
+      .mockReset()
+      .mockImplementation(
+        (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')).link,
+      )
     vi.mocked(rm).mockClear()
   })
   afterAll(async () => {
@@ -148,6 +167,54 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     }
     expect((await readdir(directory)).some((name) => name.includes('auralis-'))).toBe(false)
   })
+  it('writes raw timed lyrics to FLAC without changing unrelated metadata or the original before commit', async () => {
+    const before = await readFile(file)
+    const lyrics = '\n [ar:Artist]\n[00:01.20]Line one\nUntimed line  \n\n'
+    const transaction = await prepareAudioTagWrite(file, { ...edit, lyricsText: lyrics }, ffmpeg)
+    try {
+      expect(await readFile(file)).toEqual(before)
+      const staged = await metadataParser.parseAudioMetadata(transaction.stagingPath)
+      expect(staged.common.title).toBe('Before')
+      expect(staged.common.composer).toEqual(['Composer'])
+      expect(JSON.stringify(staged.common.lyrics)).toContain('Line one')
+      expect(resolveLyrics(staged, true)?.text).toBe(lyrics)
+      await transaction.commit()
+      const saved = await metadataParser.parseAudioMetadata(file)
+      expect(saved.common.title).toBe('Before')
+      expect(resolveLyrics(saved, true)?.text).toBe(lyrics)
+    } finally {
+      await transaction.dispose()
+    }
+  })
+  it.each([
+    ['flac', 'flac'],
+    ['mp3', 'libmp3lame'],
+    ['m4a', 'aac'],
+    ['ogg', 'libvorbis'],
+    ['opus', 'libopus'],
+  ])('retains raw lyric whitespace and supports clearing %s tags', async (extension, codec) => {
+    const target = join(directory, `lyrics.${extension}`)
+    execFileSync(ffmpeg, ['-nostdin', '-v', 'error', '-y', '-i', file, '-c:a', codec, target], {
+      windowsHide: true,
+    })
+    for (const lyricsText of ['\n[00:01.20]你好  \r\nUntimed line\n\n', 'Plain text  \n', '']) {
+      const before = await readFile(target)
+      const transaction = await prepareAudioTagWrite(target, { ...edit, lyricsText }, ffmpeg)
+      try {
+        expect(await readFile(target)).toEqual(before)
+        const staged = await metadataParser.parseAudioMetadata(transaction.stagingPath)
+        expect(resolveLyrics(staged, true)?.text ?? '').toBe(lyricsText)
+        expect(staged.common.title).toBe('Before')
+        expect(staged.common.composer).toEqual(['Composer'])
+        await transaction.commit()
+        expect(
+          resolveLyrics(await metadataParser.parseAudioMetadata(target), true)?.text ?? '',
+        ).toBe(lyricsText)
+      } finally {
+        await transaction.dispose()
+      }
+    }
+  })
   const expectFailedPreparationCleaned = async (before: Buffer) => {
     expect((await readFile(file)).equals(before)).toBe(true)
     expect(rename).not.toHaveBeenCalled()
@@ -164,7 +231,11 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
       'Composer Two',
     ])
     const before = await readFile(file)
-    const repository = { getTrackFilePath: () => file, commitVerifiedUserEdit: vi.fn() }
+    const repository = {
+      getTrackFilePath: () => file,
+      getEditableTrackMetadata: () => null,
+      commitVerifiedUserEdit: vi.fn(),
+    }
     const coordinator = {
       tryAcquireWriteLease: () => ({ ok: true as const, leaseId: 'write' }),
       releaseWriteLease: vi.fn(),
@@ -199,6 +270,54 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     )
     await expectFailedPreparationCleaned(before)
   })
+  it('reconciles a published edit even when removing its backup fails', async () => {
+    const before = await readFile(file)
+    const actualRm = (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'))
+      .rm
+    const repository = {
+      getTrackFilePath: () => file,
+      getEditableTrackMetadata: () => null,
+      commitVerifiedUserEdit: vi.fn(),
+    }
+    const refreshTracksFromFileChanges = vi.fn(() => ({ jobId: 1 }))
+    const onDiskCommit = vi.fn()
+    const writer = new MetadataTagWriteCoordinator(
+      repository as unknown as MetadataRefreshRepository,
+      join(directory, 'artwork'),
+      ffmpeg,
+      {
+        isStopping: () => false,
+        hasActiveJob: () => false,
+        refreshTracksFromFileChanges,
+      },
+    )
+    vi.mocked(rm).mockImplementation(async (path, options) => {
+      if (String(path).startsWith(file + '.auralis-backup-'))
+        throw Object.assign(new Error('isolated backup cleanup failure'), { code: 'EACCES' })
+      await actualRm(path, options)
+    })
+    try {
+      await expect(writer.updateTrackMetadata(edit, undefined, onDiskCommit)).resolves.toEqual({
+        ok: true,
+      })
+      expect(onDiskCommit).toHaveBeenCalledOnce()
+      expect(repository.commitVerifiedUserEdit).toHaveBeenCalledWith(
+        edit,
+        expect.objectContaining({ title: 'After' }),
+      )
+      expect(refreshTracksFromFileChanges).not.toHaveBeenCalled()
+      expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('After')
+      const backup = (await readdir(directory)).find((name) =>
+        name.startsWith(basename(file) + '.auralis-backup-'),
+      )
+      expect(backup).toBeDefined()
+      expect(await readFile(join(directory, backup!))).toEqual(before)
+      await actualRm(join(directory, backup!))
+    } finally {
+      vi.mocked(rm).mockImplementation(actualRm)
+    }
+  })
+
   it.each([
     ['mp3', 'libmp3lame'],
     ['m4a', 'aac'],
@@ -252,6 +371,205 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     expect(rename).not.toHaveBeenCalled()
     expect((await readFile(file)).equals(changed)).toBe(true)
   })
+  it.each([
+    ['flac', 'flac'],
+    ['m4a', 'aac'],
+  ])(
+    'rejects a same-size external %s edit even when its modification time is preserved',
+    async (extension, codec) => {
+      file = join(directory, `external-same-mtime.${extension}`)
+      execFileSync(ffmpeg, ['-nostdin', '-v', 'error', '-i', template, '-c:a', codec, file], {
+        windowsHide: true,
+      })
+      const time = 1_600_000_000
+      await utimes(file, time, time)
+      const expected = await stat(file, { bigint: true })
+      const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+      try {
+        const bytes = await readFile(file)
+        const offset = bytes.indexOf(Buffer.from('Composer'))
+        expect(offset).toBeGreaterThan(-1)
+        const handle = await open(file, 'r+')
+        try {
+          await handle.write(Buffer.from('Changed!'), 0, 8, offset)
+          await handle.sync()
+        } finally {
+          await handle.close()
+        }
+        await utimes(file, time, time)
+        const changed = await stat(file, { bigint: true })
+        expect([changed.size, changed.mtimeNs, changed.ino, changed.dev]).toEqual([
+          expected.size,
+          expected.mtimeNs,
+          expected.ino,
+          expected.dev,
+        ])
+        expect(changed.ctimeNs).not.toBe(expected.ctimeNs)
+        await expect(transaction.commit()).rejects.toMatchObject({ reason: 'file-changed' })
+        expect((await metadataParser.parseAudioMetadata(file)).common.composer).toEqual([
+          'Changed!',
+        ])
+      } finally {
+        await transaction.dispose()
+      }
+    },
+  )
+  it('rejects an M4A edit made after the JavaScript guard at the native publication boundary', async () => {
+    file = join(directory, 'native-ctime-guard.m4a')
+    execFileSync(ffmpeg, ['-nostdin', '-v', 'error', '-i', template, '-c:a', 'aac', file], {
+      windowsHide: true,
+    })
+    const time = 1_600_000_000
+    await utimes(file, time, time)
+    const expected = await stat(file, { bigint: true })
+    const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+    const external = await readFile(file)
+    const offset = external.indexOf(Buffer.from('Composer'))
+    expect(offset).toBeGreaterThan(-1)
+    Buffer.from('Changed!').copy(external, offset)
+    try {
+      await expect(
+        transaction.commit(() => {
+          writeFileSync(file, external)
+          utimesSync(file, time, time)
+        }),
+      ).rejects.toMatchObject({ reason: 'file-changed' })
+      const changed = await stat(file, { bigint: true })
+      expect([changed.size, changed.mtimeNs, changed.ino, changed.dev]).toEqual([
+        expected.size,
+        expected.mtimeNs,
+        expected.ino,
+        expected.dev,
+      ])
+      expect(changed.ctimeNs).not.toBe(expected.ctimeNs)
+      expect(await readFile(file)).toEqual(external)
+    } finally {
+      await transaction.dispose()
+    }
+  })
+  it('preserves a same-size/mtime edit in the final source rename window', async () => {
+    const time = 1_600_000_000
+    await utimes(file, time, time)
+    const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+    const external = await readFile(file)
+    const offset = external.indexOf(Buffer.from('Composer'))
+    expect(offset).toBeGreaterThan(-1)
+    Buffer.from('Changed!').copy(external, offset)
+    try {
+      await expect(
+        transaction.commit(() => {
+          writeFileSync(file, external)
+          utimesSync(file, time, time)
+        }),
+      ).rejects.toMatchObject({ reason: 'file-changed' })
+      expect(await readFile(file)).toEqual(external)
+      expect(
+        (await readdir(directory)).some((name) =>
+          name.startsWith(basename(file) + '.auralis-backup-'),
+        ),
+      ).toBe(false)
+    } finally {
+      await transaction.dispose()
+    }
+  })
+  it('refuses a retained external write handle and allows a new save after it closes', async () => {
+    const before = await readFile(file)
+    const retained = await open(file, 'r+')
+    const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+    try {
+      await expect(transaction.commit()).rejects.toMatchObject({ reason: 'file-in-use' })
+      expect(rename).not.toHaveBeenCalled()
+      expect(await readFile(file)).toEqual(before)
+    } finally {
+      await retained.close()
+      await transaction.dispose()
+    }
+    await writeAudioTags(file, edit, ffmpeg)
+    expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('After')
+  })
+  it('blocks writers through an old hard-link alias until publication and cleanup finish', async () => {
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    const alias = file + '.external-alias'
+    await actual.link(file, alias)
+    const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+    let checked = false
+    vi.mocked(link).mockImplementation(async (from, to) => {
+      if (from === transaction.stagingPath && to === file) {
+        const reader = await open(alias, 'r')
+        await reader.close()
+        await expect(open(alias, 'r+')).rejects.toThrow()
+        checked = true
+      }
+      await actual.link(from, to)
+    })
+    try {
+      await transaction.commit()
+      expect(checked).toBe(true)
+      const writer = await open(alias, 'r+')
+      await writer.close()
+      expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('After')
+    } finally {
+      await transaction.dispose()
+      await rm(alias)
+    }
+  })
+  it.each(['publish', 'rollback'] as const)(
+    'preserves a file recreated at the original path during %s and retains the recovery copy',
+    async (mode) => {
+      const before = await readFile(file)
+      const external = Buffer.from(before)
+      const offset = external.indexOf(Buffer.from('Composer'))
+      expect(offset).toBeGreaterThan(-1)
+      Buffer.from('Changed!').copy(external, offset)
+      const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+      const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+      let backupPath: string | undefined
+      vi.mocked(rename).mockImplementation(async (from, to) => {
+        await actual.rename(from, to)
+        if (from === file) {
+          backupPath = String(to)
+          await writeFile(file, external, { flag: 'wx' })
+        }
+      })
+      if (mode === 'rollback')
+        vi.mocked(link).mockImplementation(async (from, to) => {
+          if (from === transaction.stagingPath && to === file)
+            throw new Error('isolated publication failure')
+          await actual.link(from, to)
+        })
+      try {
+        if (mode === 'publish')
+          await expect(transaction.commit()).rejects.toMatchObject({ reason: 'file-changed' })
+        else await expect(transaction.commit()).rejects.toThrow('isolated publication failure')
+        expect(await readFile(file)).toEqual(external)
+        expect(backupPath).toBeDefined()
+        expect(await readFile(backupPath!)).toEqual(before)
+        expect((await metadataParser.parseAudioMetadata(file)).common.composer).toEqual([
+          'Changed!',
+        ])
+        await rm(backupPath!)
+      } finally {
+        await transaction.dispose()
+      }
+    },
+  )
+  it('leaves the original intact when the filesystem cannot publish without overwriting', async () => {
+    const before = await readFile(file)
+    const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
+    vi.mocked(link).mockRejectedValueOnce(
+      Object.assign(new Error('links unsupported'), { code: 'EOPNOTSUPP' }),
+    )
+    try {
+      await expect(transaction.commit()).rejects.toThrow('links unsupported')
+    } finally {
+      await transaction.dispose()
+    }
+    expect(rename).not.toHaveBeenCalled()
+    expect(await readFile(file)).toEqual(before)
+    expect(
+      (await readdir(directory)).some((name) => name.startsWith(basename(file) + '.auralis-')),
+    ).toBe(false)
+  })
   it.each(['valid', 'invalid'] as const)(
     'rejects an external %s source replacement during tag verification',
     async (format) => {
@@ -297,15 +615,13 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     async (rollbackFails) => {
       const before = await readFile(file)
       const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)
-      const actualRename = (
+      const actualLink = (
         await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
-      ).rename
-      let calls = 0
-      vi.mocked(rename).mockImplementation(async (from, to) => {
-        calls++
-        if (calls === 2 || (rollbackFails && calls === 3))
+      ).link
+      vi.mocked(link).mockImplementation(async (from, to) => {
+        if (to === file && (from === transaction.stagingPath || rollbackFails))
           throw new Error('isolated replacement failure')
-        await actualRename(from, to)
+        await actualLink(from, to)
       })
       try {
         await expect(transaction.commit()).rejects.toThrow('isolated replacement failure')

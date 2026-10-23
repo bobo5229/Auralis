@@ -109,7 +109,7 @@ function verifyArtifacts(targetDir) {
 
   // 3. 校验 resources 目录及 app.asar
   const resourcesDir = path.join(resolvedDir, 'resources')
-  for (const executable of ['mpv.exe', 'ffmpeg.exe']) {
+  for (const executable of ['mpv.exe', 'ffmpeg.exe', 'auralis-file-replace.exe']) {
     const runtimePath = path.join(resourcesDir, 'audio', executable)
     const available =
       fs.existsSync(runtimePath) &&

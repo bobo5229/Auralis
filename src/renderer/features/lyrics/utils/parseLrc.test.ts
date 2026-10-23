@@ -31,7 +31,7 @@ describe('parseLrc', () => {
       '[00:01]keep',
     ].join('\n')
 
-    expect(parseLrc(raw)).toEqual([{ id: '0', timeSeconds: 1, text: 'keep' }])
+    expect(parseLrc(raw)).toEqual([{ id: '0', timeSeconds: 0.5, text: 'keep' }])
   })
 
   it('parses [mm:ss] lines', () => {
@@ -82,6 +82,37 @@ describe('parseLrc', () => {
   it('does not treat bracketed metadata like [ar:artist] as timestamps', () => {
     expect(parseLrc('[ar:artist]\n[ti:song]\n[00:01]lyric')).toEqual([
       { id: '0', timeSeconds: 1, text: 'lyric' },
+    ])
+  })
+
+  it.each([1000, -1000, 12000])(
+    'applies the global offset %s after reading every line',
+    (offset) => {
+      const lines = parseLrc(`[00:10.00]first\n[00:20.00]second\n[OFFSET:${offset}]`)
+      expect(lines.map((line) => line.timeSeconds)).toEqual([
+        Math.max(0, 10 - offset / 1000),
+        Math.max(0, 20 - offset / 1000),
+      ])
+    },
+  )
+
+  it('uses the last valid offset and ignores malformed offsets without corrupting playback', () => {
+    expect(
+      parseLrc('[offset:1000]\n[00:10]hello\n[offset: -500 ]\n[offset:bad]\n[offset:1.5]'),
+    ).toEqual([{ id: '0', timeSeconds: 10.5, text: 'hello' }])
+  })
+
+  it('keeps long-track timestamps and handles CR-only line endings', () => {
+    expect(parseLrc('[99:59.99]before\r[100:00.00]boundary\r[120:00:123]later')).toEqual([
+      { id: '0', timeSeconds: 5999.99, text: 'before' },
+      { id: '1', timeSeconds: 6000, text: 'boundary' },
+      { id: '2', timeSeconds: 7200.123, text: 'later' },
+    ])
+  })
+
+  it('does not create invalid playback times from malformed or overflowing timestamps', () => {
+    expect(parseLrc(`[00:60]bad\n[${'9'.repeat(310)}:00]bad\n[00:01]keep`)).toEqual([
+      { id: '0', timeSeconds: 1, text: 'keep' },
     ])
   })
 })

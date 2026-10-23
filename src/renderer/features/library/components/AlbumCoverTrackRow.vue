@@ -110,7 +110,7 @@ function onKeyDown(event: KeyboardEvent): void {
     </div>
     <span
       v-tooltip.overflow="songValues(track.genre)"
-      class="cover-track-genre truncate text-right text-xs text-[var(--auralis-text-muted)] min-w-0"
+      class="cover-track-genre truncate text-left text-xs text-[var(--auralis-text-muted)] min-w-0"
       >{{ songValues(track.genre) }}</span
     >
     <div class="cover-track-technical min-w-0 flex flex-col text-right tabular-nums">

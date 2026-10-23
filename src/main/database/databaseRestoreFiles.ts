@@ -16,7 +16,7 @@ interface RestoreFile {
 
 type RestorePhase = 'capturing' | 'replacing' | 'restored' | 'verified'
 interface RestoreState {
-  version: 1
+  version: 2
   phase: RestorePhase
   originalExists: boolean[]
 }
@@ -30,6 +30,7 @@ export class DatabaseRestoreFiles {
   readonly stagedPath: string
   private readonly statePath: string
   private readonly database: RestoreFile
+  private readonly journal: RestoreFile
   private readonly sidecars: RestoreFile[]
   private readonly files: RestoreFile[]
   private state: RestoreState | undefined
@@ -38,7 +39,12 @@ export class DatabaseRestoreFiles {
     this.stagedPath = `${databasePath}.restore_staged`
     this.statePath = `${databasePath}.restore_state`
     this.database = restoreFile(databasePath)
-    this.sidecars = [restoreFile(`${databasePath}-wal`), restoreFile(`${databasePath}-shm`)]
+    this.journal = restoreFile(`${databasePath}-journal`)
+    this.sidecars = [
+      restoreFile(`${databasePath}-wal`),
+      restoreFile(`${databasePath}-shm`),
+      this.journal,
+    ]
     this.files = [this.database, ...this.sidecars]
   }
 
@@ -58,17 +64,37 @@ export class DatabaseRestoreFiles {
       typeof state !== 'object' ||
       state === null ||
       !('version' in state) ||
-      state.version !== 1 ||
+      (state.version !== 1 && state.version !== 2) ||
       !('phase' in state) ||
       typeof state.phase !== 'string' ||
       !['capturing', 'replacing', 'restored', 'verified'].includes(state.phase) ||
       !('originalExists' in state) ||
       !Array.isArray(state.originalExists) ||
-      state.originalExists.length !== this.files.length ||
+      state.originalExists.length !== (state.version === 1 ? 3 : this.files.length) ||
       !state.originalExists.every((value) => typeof value === 'boolean')
     )
       throw new Error('Invalid database restore state; preserve recovery files')
-    this.state = state as RestoreState
+    const legacy = state.version === 1
+    if (
+      legacy &&
+      (existsSync(this.journal.rollbackPath) ||
+        ((state.phase === 'replacing' || state.phase === 'restored') &&
+          existsSync(this.journal.path)))
+    )
+      // Version 1 did not capture journals. After replacement starts, the visible
+      // journal may belong to either database; do not discard or replay it blindly.
+      throw new Error('Legacy database restore has an untracked journal; preserve recovery files')
+    this.state = {
+      version: 2,
+      phase: state.phase as RestorePhase,
+      originalExists: legacy ? [...state.originalExists, false] : state.originalExists,
+    }
+    if (
+      this.files.some(
+        (file, index) => !this.state!.originalExists[index] && existsSync(file.rollbackPath),
+      )
+    )
+      throw new Error('Unexpected database rollback file; preserve recovery files')
     if (this.state.phase === 'verified') {
       this.cleanupRollbackFiles(onCleanupError)
       // A new staged restore must not reuse paths whose cleanup is still denied.
@@ -86,7 +112,7 @@ export class DatabaseRestoreFiles {
 
   captureOriginal(): void {
     this.setState({
-      version: 1,
+      version: 2,
       phase: 'capturing',
       originalExists: this.files.map((file) => existsSync(file.path)),
     })

@@ -4,8 +4,27 @@ import type {
   ScanFailure,
   ScannedTrack,
   TrackLyricsPatch,
+  TrackTagPatch,
 } from '@shared/types/libraryScan'
 import type { KnownTrackFile } from '@main/repositories/trackRepository'
+import type { TrackFileFingerprint } from '@shared/types/libraryScan'
+
+export type ScanFileFingerprint = TrackFileFingerprint
+
+export interface ScanFileSnapshot {
+  filePath: string
+  fileFingerprint: ScanFileFingerprint
+}
+
+export interface ScannedTrackFile extends Omit<ScannedTrack, 'fileFingerprint'>, ScanFileSnapshot {
+  lyricsSidecarFingerprint: string
+}
+
+export interface ScannedTagPatch extends Omit<TrackTagPatch, 'fileFingerprint'>, ScanFileSnapshot {}
+
+export interface ScannedLyricsPatch extends TrackLyricsPatch, ScanFileSnapshot {
+  lyricsSidecarFingerprint: string
+}
 
 export interface LibraryScanWorkerInput {
   jobId: number
@@ -16,9 +35,10 @@ export interface LibraryScanWorkerInput {
 
 export type LibraryScanWorkerMessage =
   | { type: 'progress'; payload: LibraryScanProgress }
-  | { type: 'tracks'; payload: ScannedTrack[] }
+  | { type: 'tracks'; payload: ScannedTrackFile[] }
+  | { type: 'trackTags'; payload: ScannedTagPatch[] }
   | { type: 'albumArtwork'; payload: AlbumArtworkPatch[] }
-  | { type: 'trackLyrics'; payload: TrackLyricsPatch[] }
+  | { type: 'trackLyrics'; payload: ScannedLyricsPatch[] }
   | { type: 'failure'; payload: ScanFailure }
   | { type: 'fatal'; payload: { jobId: number; reason: string } }
   | {

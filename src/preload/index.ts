@@ -63,6 +63,7 @@ export const auralisApi: AuralisApi = {
     getInfo: () => invoke(ipcChannels.app.getInfo),
     claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),
     claimStartupAlbum: (request) => invoke(ipcChannels.app.claimStartupAlbum, request),
+    drawStartupAlbum: (request) => invoke(ipcChannels.app.drawStartupAlbum, request),
     exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => send(ipcChannels.app.rendererReady),
     splashReady: (payload) => send(ipcChannels.app.splashReady, payload),
@@ -78,6 +79,7 @@ export const auralisApi: AuralisApi = {
     getTracks: () => invoke(ipcChannels.library.getTracks),
     getTrackPage: (request) => invoke(ipcChannels.library.getTrackPage, request),
     getAlbumDetail: (request) => invoke(ipcChannels.library.getAlbumDetail, request),
+    revealInExplorer: (request) => invoke(ipcChannels.library.revealInExplorer, request),
     onScanProgress: (callback) => on(ipcChannels.library.scanProgress, callback),
     onChanged: (callback) => on(ipcChannels.library.changed, callback),
   },
@@ -111,6 +113,15 @@ export const auralisApi: AuralisApi = {
   },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
+    openEditor: (trackId) => invoke(ipcChannels.lyrics.openEditor, { trackId }),
+    openLrcEditor: (trackId) => invoke(ipcChannels.lyrics.openLrcEditor, { trackId }),
+    saveLrcEditor: (request) => invoke(ipcChannels.lyrics.saveLrcEditor, request),
+    closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
+    assignEditorLines: (request) => invoke(ipcChannels.lyrics.assignEditorLines, request),
+    retimeEditorLines: (request) => invoke(ipcChannels.lyrics.retimeEditorLines, request),
+    replaceEditorLineText: (request) => invoke(ipcChannels.lyrics.replaceEditorLineText, request),
+    saveEditor: (request) => invoke(ipcChannels.lyrics.saveEditor, request),
+    closeEditor: (sessionId) => invoke(ipcChannels.lyrics.closeEditor, { sessionId }),
   },
   playback: {
     subscribeSpectrum: (request) => invoke(ipcChannels.playback.spectrumSubscribe, request),
@@ -137,7 +148,9 @@ export const auralisApi: AuralisApi = {
   },
   archive: {
     getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
+    getAnnualSummary: (year) => invoke(ipcChannels.archive.getAnnualSummary, { year }),
     getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
+    getDayTopAlbums: (date) => invoke(ipcChannels.archive.getDayTopAlbums, { date }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {

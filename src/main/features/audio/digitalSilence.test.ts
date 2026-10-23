@@ -19,11 +19,35 @@ describe('strict digital silence', () => {
     counter.push(Buffer.alloc(80))
     expect(() => counter.finish()).toThrow()
     expect(
-      chooseDigitalBoundary({ frames: 480000, trailing: 2400 }, { leading: 2401 }, 48000),
+      chooseDigitalBoundary(
+        { frames: 480000, trailing: 2400, origin: 0 },
+        { leading: 2401, origin: 0 },
+        48000,
+      ),
     ).toBeNull()
     expect(
-      chooseDigitalBoundary({ frames: 480000, trailing: 2400 }, { leading: 2400 }, 48000),
+      chooseDigitalBoundary(
+        { frames: 480000, trailing: 2400, origin: 0 },
+        { leading: 2400, origin: 0 },
+        48000,
+      ),
     ).toEqual({ start: (2400 + 0.25) / 48000, end: (477600 + 0.25) / 48000 })
+  })
+  it('uses each mpv PCM origin only at an edge with verified silence', () => {
+    const left = { frames: 192000, trailing: 1920, origin: 0.5 }
+    const right = { leading: 1920, origin: 0.75 }
+    expect(chooseDigitalBoundary(left, right, 48000)).toEqual({
+      start: 0.75 + 1920.25 / 48000,
+      end: 0.5 + 190080.25 / 48000,
+    })
+    expect(chooseDigitalBoundary(left, { ...right, leading: 0 }, 48000)).toEqual({
+      start: 0,
+      end: 0.5 + 190080.25 / 48000,
+    })
+    expect(chooseDigitalBoundary({ ...left, trailing: 0 }, right, 48000)).toEqual({
+      start: 0.75 + 1920.25 / 48000,
+      end: null,
+    })
   })
   it('requires known same-disc consecutive metadata, not filename order', () => {
     const track = { album: 'Live', artist: 'Artist', track: { no: 1 }, disk: { no: 1 } }

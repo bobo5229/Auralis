@@ -51,18 +51,42 @@ export class PlaybackHistory {
     this.entries = []
   }
 
+  visitTracks(
+    visit: (track: PlaybackTrack) => void,
+    visitQueue: (queue: PlaybackTrack[]) => void,
+  ): void {
+    for (const entry of this.entries) {
+      visit(entry.track)
+      visitQueue(entry.queue)
+      if (entry.shuffleTrackPool) visitQueue(entry.shuffleTrackPool)
+      if (entry.albumShuffleContext) visitQueue(entry.albumShuffleContext.tracks)
+    }
+  }
+
   removeTracks(trackIds: ReadonlySet<number>): void {
+    if (trackIds.size === 0) return
+    // Many history entries share the same catalog queue. Filter each source
+    // once and retain that sharing across every nested playback context.
+    const filteredQueues = new Map<PlaybackTrack[], PlaybackTrack[]>()
+    const removeMissing = (queue: PlaybackTrack[]): PlaybackTrack[] => {
+      const cached = filteredQueues.get(queue)
+      if (cached) return cached
+      const filtered = queue.some((track) => trackIds.has(track.id))
+        ? queue.filter((track) => !trackIds.has(track.id))
+        : queue
+      filteredQueues.set(queue, filtered)
+      return filtered
+    }
     this.entries = this.entries
       .filter((entry) => !trackIds.has(entry.track.id))
       .map((entry) => ({
         ...entry,
-        queue: entry.queue.filter((track) => !trackIds.has(track.id)),
-        shuffleTrackPool:
-          entry.shuffleTrackPool?.filter((track) => !trackIds.has(track.id)) ?? null,
+        queue: removeMissing(entry.queue),
+        shuffleTrackPool: entry.shuffleTrackPool ? removeMissing(entry.shuffleTrackPool) : null,
         albumShuffleContext: entry.albumShuffleContext
           ? {
               ...entry.albumShuffleContext,
-              tracks: entry.albumShuffleContext.tracks.filter((track) => !trackIds.has(track.id)),
+              tracks: removeMissing(entry.albumShuffleContext.tracks),
             }
           : null,
       }))
@@ -106,7 +130,9 @@ export function insertTracksAfterCurrent(
   const currentIndex = withoutInserted.findIndex((track) => track.id === currentTrackId)
   if (currentIndex < 0) return null
 
-  const nextQueue = [...withoutInserted]
-  nextQueue.splice(currentIndex + 1, 0, ...filtered)
+  // Keep batch size independent of the runtime's function argument limit.
+  const nextQueue = withoutInserted
+    .slice(0, currentIndex + 1)
+    .concat(filtered, withoutInserted.slice(currentIndex + 1))
   return { queue: nextQueue, currentIndex, queuedTrackId: filtered[0].id }
 }

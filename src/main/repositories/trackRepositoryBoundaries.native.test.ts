@@ -49,6 +49,28 @@ afterEach(() => {
 })
 
 describe('track repository component boundaries', () => {
+  it('limits recovery reads to the exact root, including missing tracks and escaped path characters', () => {
+    const { db, repository } = setup()
+    const root = 'C:\\isolated%_~'
+    const kept = `${root}\\available.flac`
+    const missing = `${root}/nested/missing.flac`
+    const adjacent = `${root}-adjacent\\other.flac`
+    const wildcard = 'C:\\isolatedXY~\\other.flac'
+    repository.upsertMany([kept, missing, adjacent, wildcard].map((path) => track(path)))
+    repository.markMissingByFilePaths([missing])
+    db.prepare('UPDATE tracks SET lyrics_sidecar_fingerprint = ? WHERE file_path = ?').run(
+      'lyrics',
+      kept,
+    )
+    expect(repository.getWatchRecoveryTracks(root)).toEqual(
+      expect.arrayContaining([
+        { filePath: kept, lyricsSidecarFingerprint: 'lyrics' },
+        { filePath: missing, lyricsSidecarFingerprint: null },
+      ]),
+    )
+    expect(repository.getWatchRecoveryTracks(root)).toHaveLength(2)
+  })
+
   it.each(['direct', 'outer transaction'] as const)(
     'preserves 300-row batch commit behavior in %s',
     (mode) => {

@@ -7,12 +7,16 @@ import {
 } from '@renderer/features/appearance/constants/songFontWeights'
 import SettingsSelect from './SettingsSelect.vue'
 
-const props = defineProps<{
-  id: string
-  labelledby: string
-  modelValue: SongFontWeightChoice
-  defaultWeight: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    id: string
+    labelledby: string
+    modelValue: SongFontWeightChoice
+    defaultWeight: number
+    disabled?: boolean
+  }>(),
+  { disabled: false },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: SongFontWeightChoice] }>()
 const { t } = useI18n()
 const options = computed(() => [
@@ -40,6 +44,8 @@ function select(value: string): void {
     :labelledby="labelledby"
     :model-value="String(modelValue)"
     :options="options"
+    :disabled="disabled"
+    :show-value-title="false"
     @update:model-value="select"
   />
 </template>

@@ -9,6 +9,7 @@ import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
 import { PlaybackFileCoordinator } from './playbackFileCoordinator'
 import { createTagAudioSnapshot, prepareTagAudioBuffer } from './tagAudioBuffer'
+import * as mpvTransport from './mpvClient'
 
 const mpvPath = resolve('resources/audio/mpv.exe')
 const ffmpegPath = resolve('resources/audio/ffmpeg.exe')
@@ -120,6 +121,7 @@ describe.skipIf(!available)('buffered tag writes with real mpv and isolated musi
       onBoundaryStatus: (event) => boundaries.push(event.status),
     })
     coordinator.setBufferedWriteCapability((path) => service.canWriteMetadata(path))
+    coordinator.setFileReplacementCapability((path) => service.canReplaceMetadata(path))
     services.push(service)
     return { service, coordinator, events, warnings, boundaries }
   }
@@ -147,7 +149,7 @@ describe.skipIf(!available)('buffered tag writes with real mpv and isolated musi
     },
     15000,
   )
-  it.each(['mp3', 'm4a', 'opus'])(
+  it.each(['mp3', 'opus'])(
     'keeps %s occupied because its EDL seam has not met the sample standard',
     async (extension) => {
       const file = join(directory, `source.${extension}`)
@@ -162,6 +164,46 @@ describe.skipIf(!available)('buffered tag writes with real mpv and isolated musi
       expect((await readFile(file)).equals(before)).toBe(true)
     },
   )
+  it('saves M4A while paused without loading a PCM bridge or changing the playback lease', async () => {
+    const openClient = mpvTransport.openMpvClient
+    let client: Awaited<ReturnType<typeof openClient>> | undefined
+    let playbackRestarts = 0
+    vi.spyOn(mpvTransport, 'openMpvClient').mockImplementation(async (path, onEvent, ...rest) => {
+      client = await openClient(
+        path,
+        (event) => {
+          onEvent(event)
+          if (event.event === 'playback-restart') playbackRestarts++
+        },
+        ...rest,
+      )
+      return client
+    })
+    const file = join(directory, 'source.m4a')
+    const { service, coordinator, events, warnings } = setup(file)
+    await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+    await service.command({ action: 'pause', session: 1 })
+    const restartsBeforeSeek = playbackRestarts
+    await service.command({ action: 'seek', session: 1, time: 2 })
+    // Observe the real decoder, not an optimistic/in-flight position notification.
+    // AAC output latency can make the settled position differ from the requested time.
+    await vi.waitFor(async () => {
+      expect(playbackRestarts).toBeGreaterThan(restartsBeforeSeek)
+      expect(await client!.command('get_property', 'seeking')).toBe(false)
+      const position = await client!.command('get_property', 'time-pos')
+      expect(position).toBeGreaterThan(1)
+      expect(events.at(-1)?.currentTime).toBe(position)
+      expect(events.at(-1)?.isPlaying).toBe(false)
+    })
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    const before = service.getSpectrumSource()!
+    const result = await service.writeMetadata(file, edit, (commit) => commit())
+    expect(result, warnings.map(String).join('\n')).toEqual({ ok: true })
+    expect(service.getSpectrumSource()).toEqual(before)
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    expect((await parseAudioMetadata(file)).common.title).toBe('Edited')
+    expect(events.filter((e) => ['boundary', 'ended', 'error'].includes(e.kind))).toEqual([])
+  })
   it('saves while paused, retains non-edited tags, and restores the same position without unpausing', async () => {
     const { service, coordinator, events, warnings } = setup()
     await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })

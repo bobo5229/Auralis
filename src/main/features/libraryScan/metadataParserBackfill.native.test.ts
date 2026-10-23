@@ -11,7 +11,8 @@ import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRep
 import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 import { readStableMetadata } from '../metadata/readStableMetadata'
 import { LibraryScanArtwork } from './libraryScanArtwork'
-import { LibraryScanTrackReader } from './libraryScanTrackReader'
+import { LibraryScanTrackReader, type ReadTrackResult } from './libraryScanTrackReader'
+import { encodeScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
@@ -91,6 +92,9 @@ async function setup(date: string | null = '2012-09-30') {
   )
   db.exec("INSERT INTO track_metadata(track_id,title,source) VALUES(1,'Old file title','file_tag')")
   migrateDatabase(db)
+  db.prepare('UPDATE tracks SET file_stat_fingerprint=? WHERE id=1').run(
+    encodeScanFileFingerprint(scanFileFingerprint(fingerprint)),
+  )
   const tracks = new TrackRepository(db)
   const failures: string[] = []
   const read = () =>
@@ -100,6 +104,12 @@ async function setup(date: string | null = '2012-09-30') {
       (_path, reason) => failures.push(reason),
     ).read(path)
   return { db, tracks, path, root, fingerprint, read, failures }
+}
+
+function commitTags(tracks: TrackRepository, result: ReadTrackResult): void {
+  if (result.kind !== 'tags') throw new Error('Expected tag backfill')
+  tracks.patchTrackTags([result.patch])
+  if (result.lyricsPatch) tracks.patchLyrics([result.lyricsPatch])
 }
 
 describe('parser version migration and automatic backfill', () => {
@@ -117,12 +127,17 @@ describe('parser version migration and automatic backfill', () => {
     expect(after).toEqual(
       before.map((rows, i) =>
         i === 0
-          ? rows.map((row) => ({ ...(row as object), metadata_parser_version: 'metadata:1' }))
+          ? rows.map((row) => ({
+              ...(row as object),
+              metadata_parser_version: 'metadata:1',
+              codec: null,
+              file_stat_fingerprint: null,
+            }))
           : rows,
       ),
     )
     expect(getMetadataParserVersion('song.mp3')).not.toBe('metadata:1')
-    expect(getMetadataParserVersion('song.flac')).toBe('metadata:1')
+    expect(getMetadataParserVersion('song.flac')).not.toBe('metadata:1')
     db.exec("UPDATE tracks SET metadata_parser_version='completed'")
     migrateDatabase(db)
     expect(db.prepare('SELECT metadata_parser_version FROM tracks').pluck().get()).toBe('completed')
@@ -132,16 +147,19 @@ describe('parser version migration and automatic backfill', () => {
   it.each(['2012-09-30', null])(
     'backfills unchanged MP3 dates %s once through the real parser and database',
     async (date) => {
-      const { tracks, read, path, failures } = await setup(date)
+      const { db, tracks, read, path, failures } = await setup(date)
       const result = await read()
-      expect(result.kind).toBe('track')
-      if (result.kind !== 'track') throw new Error('Expected backfill')
-      expect(result.track.releaseDate).toBe(date)
+      expect(result.kind).toBe('tags')
+      if (result.kind !== 'tags') throw new Error('Expected tag backfill')
+      expect(result.patch.releaseDate).toBe(date)
       // Reading without committing (e.g. cancellation) leaves the old version retryable.
       expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe('metadata:1')
-      tracks.upsertMany([result.track])
+      commitTags(tracks, result)
       expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
       expect(tracks.getAll()[0]).toMatchObject({ id: 1, title: 'Song', releaseDate: date })
+      expect(
+        db.prepare('SELECT duration_seconds, bitrate_bps, codec FROM tracks WHERE id=1').get(),
+      ).toEqual({ duration_seconds: null, bitrate_bps: null, codec: null })
       expect((await read()).kind).toBe('skip')
       expect(failures).toEqual([])
     },
@@ -154,14 +172,14 @@ describe('parser version migration and automatic backfill', () => {
     )
     const before = db.prepare('SELECT * FROM track_metadata').get()
     const result = await read()
-    if (result.kind !== 'track') throw new Error('Expected backfill')
-    tracks.upsertMany([result.track])
+    if (result.kind !== 'tags') throw new Error('Expected tag backfill')
+    tracks.patchTrackTags([result.patch])
     expect(db.prepare('SELECT * FROM track_metadata').get()).toEqual(before)
     expect(tracks.getAll()[0]).toMatchObject({ title: 'My title', releaseDate: '2000-01-02' })
     expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
   })
 
-  it('keeps unchanged formats at the migration baseline on the fast path', async () => {
+  it('keeps unchanged files at the current parser version on the fast path', async () => {
     const { db, tracks, root } = await setup()
     const path = join(root, 'unchanged.flac')
     // Deliberately unparseable: the current fingerprint/version must skip decoding.
@@ -169,9 +187,20 @@ describe('parser version migration and automatic backfill', () => {
     const fingerprint = await stat(path)
     db.prepare(
       `INSERT INTO tracks(file_path,file_size,file_mtime_ms,metadata_checked_mtime_ms,
-      lyrics_checked_mtime_ms,lyrics_sidecar_fingerprint,album,album_artist)
-      VALUES(?,?,?,?,?,'[null,null]','Album','Artist')`,
-    ).run(path, fingerprint.size, fingerprint.mtimeMs, fingerprint.mtimeMs, fingerprint.mtimeMs)
+      lyrics_checked_mtime_ms,lyrics_sidecar_fingerprint,album,album_artist,metadata_parser_version)
+      VALUES(?,?,?,?,?,'[null,null,null,null]','Album','Artist',?)`,
+    ).run(
+      path,
+      fingerprint.size,
+      fingerprint.mtimeMs,
+      fingerprint.mtimeMs,
+      fingerprint.mtimeMs,
+      getMetadataParserVersion(path),
+    )
+    db.prepare('UPDATE tracks SET file_stat_fingerprint=? WHERE file_path=?').run(
+      encodeScanFileFingerprint(scanFileFingerprint(fingerprint)),
+      path,
+    )
     const failures: string[] = []
     const reader = new LibraryScanTrackReader(
       tracks.getKnownFiles(),
@@ -182,33 +211,47 @@ describe('parser version migration and automatic backfill', () => {
     expect(failures).toEqual([])
   })
 
+  it('backfills a legacy LRC-only sidecar fingerprint once before taking the fast path', async () => {
+    const { db, tracks, path, read, failures } = await setup()
+    db.prepare('UPDATE tracks SET metadata_parser_version=? WHERE id=1').run(
+      getMetadataParserVersion(path),
+    )
+    const result = await read()
+    expect(result.kind).toBe('patches')
+    if (result.kind !== 'patches' || !result.lyricsPatch) throw new Error('Expected lyrics patch')
+    expect(result.lyricsPatch.lyricsSidecarFingerprint).toBe('[null,null,null,null]')
+    tracks.patchLyrics([result.lyricsPatch])
+    expect((await read()).kind).toBe('skip')
+    expect(failures).toEqual([])
+  })
+
   it.each([undefined, 'outdated'])(
     'does not stamp unversioned or stale worker output as current: %s',
     async (version) => {
       const { tracks, read, path } = await setup()
       const result = await read()
-      if (result.kind !== 'track') throw new Error('Expected backfill')
-      tracks.upsertMany([{ ...result.track, metadataParserVersion: version }])
+      if (result.kind !== 'tags') throw new Error('Expected tag backfill')
+      tracks.patchTrackTags([{ ...result.patch, metadataParserVersion: version }])
       expect(tracks.getKnownFiles()[0].metadataParserVersion).not.toBe(
         getMetadataParserVersion(path),
       )
-      expect((await read()).kind).toBe('track')
+      expect((await read()).kind).toBe('tags')
     },
   )
 
   it('rolls back the version and dates together on a late display write failure, then retries', async () => {
     const { db, tracks, read } = await setup()
     const result = await read()
-    if (result.kind !== 'track') throw new Error('Expected backfill')
+    if (result.kind !== 'tags') throw new Error('Expected tag backfill')
     db.exec(`CREATE TRIGGER reject_display BEFORE UPDATE ON track_metadata
       BEGIN SELECT RAISE(ABORT, 'display failure'); END`)
-    expect(() => tracks.upsertMany([result.track])).toThrow('display failure')
+    expect(() => tracks.patchTrackTags([result.patch])).toThrow('display failure')
     expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe('metadata:1')
     expect(tracks.getAll()[0].releaseDate).toBeNull()
     db.exec('DROP TRIGGER reject_display')
     const retry = await read()
-    if (retry.kind !== 'track') throw new Error('Expected retry')
-    tracks.upsertMany([retry.track])
+    if (retry.kind !== 'tags') throw new Error('Expected retry')
+    commitTags(tracks, retry)
     expect(tracks.getAll()[0].releaseDate).toBe('2012-09-30')
     expect((await read()).kind).toBe('skip')
   })
@@ -223,9 +266,41 @@ describe('parser version migration and automatic backfill', () => {
     expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
     db.exec("UPDATE tracks SET metadata_parser_version='old'")
     const result = await read()
-    if (result.kind !== 'track') throw new Error('Expected backfill')
+    if (result.kind !== 'tags') throw new Error('Expected tag backfill')
+    commitTags(tracks, result)
+    expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
     const newPath = join(root, 'moved.mp3')
-    expect(tracks.relocateTrack(1, { ...result.track, filePath: newPath }, path)).toBe(true)
+    expect(
+      tracks.relocateTrack(
+        1,
+        {
+          filePath: newPath,
+          fileSize: refreshed.fileSize,
+          fileMtimeMs: refreshed.fileMtimeMs,
+          title: refreshed.title,
+          artist: refreshed.artist,
+          album: refreshed.album,
+          albumArtist: refreshed.albumArtist,
+          trackNo: refreshed.trackNo,
+          discNo: refreshed.discNo,
+          durationSeconds: refreshed.durationSeconds,
+          bitrateBps: refreshed.bitrateBps,
+          codec: refreshed.codec ?? null,
+          year: refreshed.year,
+          releaseDate: refreshed.releaseDate,
+          copyright: refreshed.copyright,
+          composer: refreshed.composer,
+          genre: refreshed.genre,
+          artworkCacheKey: refreshed.artworkCacheKey,
+          lyricsText: refreshed.lyricsText,
+          lyricsFormat: null,
+          isrc: refreshed.isrc,
+          metadataSignature: refreshed.metadataSignature,
+          metadataParserVersion: refreshed.metadataParserVersion,
+        },
+        path,
+      ),
+    ).toBe(true)
     expect(tracks.getKnownFiles()[0]).toMatchObject({
       filePath: newPath,
       metadataParserVersion: getMetadataParserVersion(newPath),

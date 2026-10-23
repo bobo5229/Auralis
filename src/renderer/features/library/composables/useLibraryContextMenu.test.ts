@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AddPlaylistTracksResult, SidebarPlaylistItem } from '@shared/types/playlist'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
+import type { LibraryRevealRequest } from '../types/libraryInteraction'
 import { useLibraryContextMenu } from './useLibraryContextMenu'
 
 function createTrack(id: number, title = `Track ${id}`): TrackListItem {
@@ -79,6 +80,7 @@ function createMenu() {
       playlistExists: true,
     }),
   )
+  const revealInExplorer = vi.fn<LibraryRevealRequest>(async () => ({ ok: true }))
   const dispatchEvent = vi.fn()
 
   vi.stubGlobal(
@@ -118,6 +120,7 @@ function createMenu() {
     listSidebarItems,
     createPlaylist: createPlaylistApi,
     addTracksToPlaylist,
+    revealInExplorer,
   })
 
   return {
@@ -136,6 +139,7 @@ function createMenu() {
     onTrackActivated,
     listSidebarItems,
     addTracksToPlaylist,
+    revealInExplorer,
     createPlaylistApi,
     dispatchEvent,
   }
@@ -344,6 +348,45 @@ describe('useLibraryContextMenu', () => {
     expect(menu.highlightedTrackId.value).toBeNull()
   })
 
+  it.each(['pointer', 'keyboard'] as const)(
+    'highlights the artwork instead of its first track for a %s menu',
+    (openReason) => {
+      const { menu, group, selectedTrackId, restoreFocus } = createMenu()
+      selectedTrackId.value = 3
+      menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent(), openReason)
+      expect(menu.contextSelectedAlbumKey.value).toBe(group.key)
+      expect(menu.contextSelectedTrackId.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(3)
+      expect(selectedTrackId.value).toBe(3)
+
+      menu.closeContextMenu()
+      expect(menu.contextSelectedAlbumKey.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(3)
+      expect(restoreFocus).toHaveBeenCalledWith(
+        { trackId: 1, source: 'album-artwork', openReason },
+        openReason === 'keyboard',
+      )
+    },
+  )
+
+  it('moves temporary highlighting between artwork and track menus and clears it on disposal', () => {
+    const { menu, group } = createMenu()
+    menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent())
+    expect(menu.contextSelectedAlbumKey.value).toBe(group.key)
+    expect(menu.highlightedTrackId.value).toBeNull()
+
+    menu.onOpenContextMenu(2, createMouseEvent())
+    expect(menu.contextSelectedAlbumKey.value).toBeNull()
+    expect(menu.contextSelectedTrackId.value).toBe(2)
+    expect(menu.highlightedTrackId.value).toBe(2)
+
+    menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent())
+    menu.dispose()
+    expect(menu.contextSelectedAlbumKey.value).toBeNull()
+    expect(menu.contextSelectedTrackId.value).toBeNull()
+    expect(menu.highlightedTrackId.value).toBeNull()
+  })
+
   it('preserves explicit selection while menu highlights follow their own lifecycle', () => {
     const { menu, selectedTrackId } = createMenu()
     selectedTrackId.value = 2
@@ -355,6 +398,28 @@ describe('useLibraryContextMenu', () => {
 
     menu.onOpenContextMenu(3, createMouseEvent())
     menu.closeContextMenu('metadata-dialog')
+    expect(menu.highlightedTrackId.value).toBe(2)
+  })
+
+  it('keeps an explicitly selected track selected when its context menu is reopened', () => {
+    const { menu, selectedTrackId } = createMenu()
+    selectedTrackId.value = 2
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      menu.onOpenContextMenu(2, createMouseEvent())
+      expect(menu.contextMenu.value?.trackId).toBe(2)
+      expect(menu.contextSelectedTrackId.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(2)
+      expect(selectedTrackId.value).toBe(2)
+      menu.closeContextMenu()
+      expect(menu.highlightedTrackId.value).toBe(2)
+    }
+
+    menu.onOpenContextMenu(1, createMouseEvent())
+    expect(menu.contextSelectedTrackId.value).toBe(1)
+    expect(menu.highlightedTrackId.value).toBe(1)
+    expect(selectedTrackId.value).toBe(2)
+    menu.closeContextMenu()
     expect(menu.highlightedTrackId.value).toBe(2)
   })
 
@@ -399,5 +464,68 @@ describe('useLibraryContextMenu', () => {
 
     vi.advanceTimersByTime(1200)
     expect(menu.contextMenu.value).toBeNull()
+  })
+
+  it('reveals the selected track and closes the menu', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(2, createMouseEvent(), 'track')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).toHaveBeenCalledExactlyOnceWith([2])
+    expect(menu.contextMenu.value).toBeNull()
+    expect(menu.revealFeedback.value).toBeNull()
+  })
+
+  it('shows a not-found notice when album artwork has no tracks', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(3, createMouseEvent(), 'album-artwork')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).not.toHaveBeenCalled()
+    expect(menu.contextMenu.value?.trackId).toBe(3)
+    expect(menu.revealFeedback.value).toEqual({
+      kind: 'error',
+      message: 'library.contextMenu.reveal.not-found',
+    })
+  })
+
+  it('reveals album artwork tracks in their existing order', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).toHaveBeenCalledExactlyOnceWith([1, 2])
+    expect(menu.contextMenu.value).toBeNull()
+  })
+
+  it('keeps the menu open and shows a failure when Explorer cannot open the file', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    revealInExplorer.mockResolvedValueOnce({ ok: false, reason: 'unavailable' })
+    menu.onOpenContextMenu(1, createMouseEvent(), 'track')
+    await menu.onRevealInExplorer()
+
+    expect(menu.contextMenu.value?.trackId).toBe(1)
+    expect(menu.revealFeedback.value).toEqual({
+      kind: 'error',
+      message: 'library.contextMenu.reveal.unavailable',
+    })
+  })
+
+  it('ignores a reveal result after the menu has closed', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    let finish!: (result: { ok: true }) => void
+    revealInExplorer.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    menu.onOpenContextMenu(1, createMouseEvent(), 'track')
+    const pending = menu.onRevealInExplorer()
+    menu.closeContextMenu()
+    finish({ ok: true })
+    await pending
+
+    expect(menu.contextMenu.value).toBeNull()
+    expect(menu.revealFeedback.value).toBeNull()
   })
 })

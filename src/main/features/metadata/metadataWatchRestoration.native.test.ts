@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { mkdtemp, rename, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -13,6 +14,10 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import { MetadataWatchService } from './metadataWatchService'
+import {
+  encodeScanFileFingerprint,
+  scanFileFingerprint,
+} from '../libraryScan/libraryScanFileFingerprint'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
@@ -46,6 +51,9 @@ it.each([false, true])(
       db.prepare(
         'INSERT INTO tracks(id,file_path,title,file_size,file_mtime_ms) VALUES(1,?,?,?,?)',
       ).run(filePath, 'Song', originalStat.size, originalStat.mtimeMs)
+      db.prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = 1').run(
+        encodeScanFileFingerprint(scanFileFingerprint(originalStat)),
+      )
       db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(1,7)').run()
       db.prepare(
         "INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES('2026-10-03',1,7,70)",
@@ -72,7 +80,13 @@ it.each([false, true])(
       roots.upsertByPath(root)
       const repo = new TrackRepository(db)
       const markAvailable = vi.spyOn(repo, 'markAvailableByFilePaths')
-      const refresh = vi.fn()
+      // Model successful refresh bookkeeping; actual tag/database commits are
+      // covered by metadataFingerprint.native.test.ts. Renames change ctime.
+      const refresh = vi.fn(() => {
+        db!
+          .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = 1')
+          .run(encodeScanFileFingerprint(scanFileFingerprint(statSync(filePath))))
+      })
       const importFiles = vi.fn()
       const send = vi.fn()
       watcher = new MetadataWatchService(
@@ -110,14 +124,18 @@ it.each([false, true])(
         filePaths: [filePath],
       })
 
-      // A second watch batch sees the same available file and must remain quiet.
+      if (!suppressRefresh) expect(refresh).toHaveBeenCalledOnce()
+      const refreshCount = refresh.mock.calls.length
+      // Deliver a duplicate notification without changing the file again.
+      // A second rename would create a different ctime and require another read.
       const priorStatBatches = markAvailable.mock.calls.length
-      await rename(filePath, parkedPath)
-      await rename(parkedPath, filePath)
+      ;(watcher as unknown as { enqueueChangedPath(path: string): void }).enqueueChangedPath(
+        filePath,
+      )
       await waitFor(() => markAvailable.mock.calls.length > priorStatBatches)
       await watcher.pauseFlush()
       expect(send).toHaveBeenCalledTimes(2)
-      expect(refresh).not.toHaveBeenCalled()
+      expect(refresh).toHaveBeenCalledTimes(refreshCount)
       expect(importFiles).not.toHaveBeenCalled()
       expect(snapshot()).toEqual(before)
       expect(db.prepare('SELECT COUNT(*) FROM tracks').pluck().get()).toBe(1)

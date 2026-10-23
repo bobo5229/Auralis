@@ -9,6 +9,21 @@ import {
 describe('isSameLibraryRouteScope', () => {
   it('matches route kinds and scoped ids', () => {
     expect(isSameLibraryRouteScope({ kind: 'library' }, { kind: 'library' })).toBe(true)
+    expect(
+      isSameLibraryRouteScope(
+        { kind: 'recent-added', range: 7 },
+        { kind: 'recent-added', range: 7 },
+      ),
+    ).toBe(true)
+    expect(
+      isSameLibraryRouteScope(
+        { kind: 'recent-added', range: 7 },
+        { kind: 'recent-added', range: 30 },
+      ),
+    ).toBe(false)
+    expect(isSameLibraryRouteScope({ kind: 'recent-added', range: 'all' }, { kind: 'library' })).toBe(
+      false,
+    )
     expect(isSameLibraryRouteScope({ kind: 'playlist', id: 7 }, { kind: 'playlist', id: 7 })).toBe(
       true,
     )
@@ -53,6 +68,12 @@ describe('shouldRefreshLibraryForExternalPlaylistEvent', () => {
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'smart-playlist', id: 3 },
+        LIBRARY_PLAYLISTS_CHANGED_EVENT,
+      ),
+    ).toBe(false)
+    expect(
+      shouldRefreshLibraryForExternalPlaylistEvent(
+        { kind: 'recent-added', range: 7 },
         LIBRARY_PLAYLISTS_CHANGED_EVENT,
       ),
     ).toBe(false)

@@ -1,4 +1,9 @@
 import type { RefreshedTrackMetadata } from '../../repositories/metadataRefreshRepository'
+import type { ScanFileFingerprint } from '../libraryScan/libraryScanTypes'
+
+export interface StableTrackMetadata extends RefreshedTrackMetadata {
+  fileFingerprint: ScanFileFingerprint
+}
 
 export interface MetadataRefreshWorkerInput {
   jobId: number
@@ -7,7 +12,7 @@ export interface MetadataRefreshWorkerInput {
   writeMode?: 'metadata' | 'lyrics'
 }
 
-export interface MetadataRefreshWorkerResult extends RefreshedTrackMetadata {
+export interface MetadataRefreshWorkerResult extends StableTrackMetadata {
   jobId: number
   generation: number
 }

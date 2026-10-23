@@ -38,7 +38,7 @@ interface FileAccessEntry {
 interface LeaseMetadata {
   leaseId: string
   normalizedPath: string
-  kind: 'read' | 'write' | 'intent'
+  kind: 'read' | 'write' | 'intent' | 'replacement-intent'
   sourceId: string
 }
 
@@ -50,6 +50,8 @@ export interface PlaybackFileCoordinatorDependencies {
 
 export class PlaybackFileCoordinator {
   private bufferedWriteCapability: ((filePath: string) => boolean) | null = null
+  private fileReplacementCapability: ((filePath: string) => boolean) | null = null
+  private metadataWriteActive: (normalizedPath: string) => boolean = () => false
   private readonly entries = new Map<string, FileAccessEntry>()
   private readonly leases = new Map<string, LeaseMetadata>()
   private nextLeaseSequence = 0
@@ -59,6 +61,60 @@ export class PlaybackFileCoordinator {
 
   setBufferedWriteCapability(capability: (filePath: string) => boolean): void {
     this.bufferedWriteCapability = capability
+  }
+
+  setFileReplacementCapability(capability: (filePath: string) => boolean): void {
+    this.fileReplacementCapability = capability
+  }
+
+  setMetadataWriteActivity(isActive: (normalizedPath: string) => boolean): void {
+    this.metadataWriteActive = isActive
+  }
+
+  private isPlaybackSource(sourceId: string): boolean {
+    return sourceId === 'mpv-current' || sourceId === 'mpv-next'
+  }
+
+  private canReplace(entry: FileAccessEntry): boolean {
+    return (
+      !!this.fileReplacementCapability?.([...entry.filePaths][0]) &&
+      [...entry.readers].every((id) =>
+        ['mpv-current', 'mpv-next', 'spectrum-analysis'].includes(
+          this.leases.get(id)?.sourceId ?? '',
+        ),
+      )
+    )
+  }
+
+  /** Existing mpv handles keep their file version; all new opens wait for publication. */
+  reserveFileReplacement(filePath: string): string | null {
+    const entry = this.getOrCreateEntry(normalizeAudioFilePath(filePath), filePath)
+    if (entry.writer !== null || !this.canReplace(entry)) return null
+    const leaseId = `lease_replacement_${++this.nextLeaseSequence}`
+    entry.writer = leaseId
+    this.leases.set(leaseId, {
+      leaseId,
+      normalizedPath: entry.normalizedPath,
+      kind: 'replacement-intent',
+      sourceId: 'metadata-writer',
+    })
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
+    return leaseId
+  }
+
+  promoteFileReplacement(leaseId: string): void {
+    const lease = this.leases.get(leaseId)
+    const entry = lease && this.entries.get(lease.normalizedPath)
+    if (!lease || lease.kind !== 'replacement-intent' || !entry || entry.writer !== leaseId)
+      throw new Error('File replacement intent expired')
+    if (
+      [...entry.readers].some(
+        (id) => !['mpv-current', 'mpv-next'].includes(this.leases.get(id)?.sourceId ?? ''),
+      )
+    )
+      throw new Error('Non-mpv audio readers have not released the file')
+    lease.kind = 'write'
   }
 
   refreshPlaybackCapability(filePath: string): void {
@@ -130,10 +186,37 @@ export class PlaybackFileCoordinator {
     }
   }
 
+  private grantReadWaiters(entry: FileAccessEntry): void {
+    const pendingWaiters = [...entry.writeWaiters]
+    entry.writeWaiters = []
+    const blocked: WriteWaiter[] = []
+    for (const waiter of pendingWaiters) {
+      if (waiter.signal?.aborted) continue
+      if (
+        this.metadataWriteActive(entry.normalizedPath) &&
+        !this.isPlaybackSource(waiter.sourceId)
+      ) {
+        blocked.push(waiter)
+        continue
+      }
+      const nextReadLeaseId = `lease_read_${++this.nextLeaseSequence}`
+      entry.readers.add(nextReadLeaseId)
+      this.leases.set(nextReadLeaseId, {
+        leaseId: nextReadLeaseId,
+        normalizedPath: entry.normalizedPath,
+        kind: 'read',
+        sourceId: waiter.sourceId,
+      })
+      waiter.resolve({ leaseId: nextReadLeaseId, version: entry.version })
+    }
+    entry.writeWaiters = blocked
+  }
+
   private computeStatus(entry: FileAccessEntry): TrackEditStatus {
-    if (entry.writer !== null) return 'write-in-progress'
+    if (entry.writer !== null || this.metadataWriteActive(entry.normalizedPath))
+      return 'write-in-progress'
     if (entry.readers.size > 0) {
-      if (this.canBuffer(entry)) return 'playback-editable'
+      if (this.canBuffer(entry) || this.canReplace(entry)) return 'playback-editable'
       const isPreload = [...entry.readers].every(
         (id) => this.leases.get(id)?.sourceId === 'mpv-next',
       )
@@ -174,7 +257,10 @@ export class PlaybackFileCoordinator {
     const normalizedPath = normalizeAudioFilePath(filePath)
     const entry = this.getOrCreateEntry(normalizedPath, filePath)
 
-    if (entry.writer === null) {
+    const waitForWriter = entry.writer !== null
+    const waitForActivity =
+      this.metadataWriteActive(normalizedPath) && !this.isPlaybackSource(sourceId)
+    if (!waitForWriter && !waitForActivity) {
       const leaseId = `lease_read_${++this.nextLeaseSequence}`
       entry.readers.add(leaseId)
       entry.version = ++this.stateVersion
@@ -215,6 +301,19 @@ export class PlaybackFileCoordinator {
     })
   }
 
+  isReadLeaseForTrack(leaseId: string, trackId: number, filePath: string): boolean {
+    const lease = this.leases.get(leaseId)
+    if (!lease || lease.kind !== 'read') return false
+    const path = this.dependencies.getTrackFilePath(trackId)
+    // A root junction may move while its original spelling is reused. Check the
+    // submitted spelling too, even when the new catalog alias retains the lease key.
+    return (
+      path !== null &&
+      normalizeAudioFilePath(path) === lease.normalizedPath &&
+      normalizeAudioFilePath(filePath) === lease.normalizedPath
+    )
+  }
+
   markReadLeaseCurrent(leaseId: string): void {
     const lease = this.leases.get(leaseId)
     if (!lease || lease.kind !== 'read' || lease.sourceId !== 'mpv-next') return
@@ -246,7 +345,7 @@ export class PlaybackFileCoordinator {
     const normalizedPath = normalizeAudioFilePath(filePath)
     const entry = this.getOrCreateEntry(normalizedPath, filePath)
 
-    if (entry.writer !== null) {
+    if (entry.writer !== null || this.metadataWriteActive(normalizedPath)) {
       return { ok: false, reason: 'write-in-progress' }
     }
 
@@ -265,7 +364,7 @@ export class PlaybackFileCoordinator {
 
   releaseWriteLease(leaseId: string): void {
     const lease = this.leases.get(leaseId)
-    if (!lease || (lease.kind !== 'write' && lease.kind !== 'intent')) return
+    if (!lease || !['write', 'intent', 'replacement-intent'].includes(lease.kind)) return
     this.leases.delete(leaseId)
 
     const entry = this.entries.get(lease.normalizedPath)
@@ -274,23 +373,47 @@ export class PlaybackFileCoordinator {
     entry.writer = null
     entry.version = ++this.stateVersion
 
-    // Drain all active waiters
-    const pendingWaiters = [...entry.writeWaiters]
-    entry.writeWaiters = []
+    this.grantReadWaiters(entry)
+    this.broadcastStatusIfChanged(entry)
+    this.cleanEntryIfIdle(entry)
+  }
 
-    for (const waiter of pendingWaiters) {
-      if (waiter.signal?.aborted) continue
-      const nextReadLeaseId = `lease_read_${++this.nextLeaseSequence}`
-      entry.readers.add(nextReadLeaseId)
-      this.leases.set(nextReadLeaseId, {
-        leaseId: nextReadLeaseId,
-        normalizedPath: entry.normalizedPath,
-        kind: 'read',
-        sourceId: waiter.sourceId,
-      })
-      waiter.resolve({ leaseId: nextReadLeaseId, version: entry.version })
+  handoffWriteLeaseToRead(leaseId: string, sourceId: string): { leaseId: string; version: number } {
+    const lease = this.leases.get(leaseId)
+    const entry = lease && this.entries.get(lease.normalizedPath)
+    if (
+      !lease ||
+      !entry ||
+      entry.writer !== leaseId ||
+      !['write', 'intent', 'replacement-intent'].includes(lease.kind)
+    ) {
+      throw new Error('File write handoff lease expired')
     }
+    this.leases.delete(leaseId)
+    entry.writer = null
+    const readLeaseId = `lease_read_${++this.nextLeaseSequence}`
+    entry.readers.add(readLeaseId)
+    this.leases.set(readLeaseId, {
+      leaseId: readLeaseId,
+      normalizedPath: entry.normalizedPath,
+      kind: 'read',
+      sourceId,
+    })
+    entry.version = ++this.stateVersion
+    this.grantReadWaiters(entry)
+    this.broadcastStatusIfChanged(entry)
+    return { leaseId: readLeaseId, version: entry.version }
+  }
 
+  finishMetadataWrite(filePath: string): void {
+    const entry = this.entries.get(normalizeAudioFilePath(filePath))
+    if (!entry) return
+    entry.version = ++this.stateVersion
+    if (entry.writer !== null) {
+      this.broadcastStatusIfChanged(entry)
+      return
+    }
+    this.grantReadWaiters(entry)
     this.broadcastStatusIfChanged(entry)
     this.cleanEntryIfIdle(entry)
   }

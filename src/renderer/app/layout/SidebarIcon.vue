@@ -14,6 +14,7 @@ export type SidebarIconKind =
   | 'sun'
   | 'moon'
   | 'settings'
+  | 'parameters'
 
 defineProps<{ kind: SidebarIconKind }>()
 </script>
@@ -58,16 +59,16 @@ defineProps<{ kind: SidebarIconKind }>()
         <path d="M3 21h18M4 21v-9h4v9M10 21V4h4v17M16 21V9h4v12" />
       </template>
       <template v-else-if="kind === 'recentAdded'">
-        <path d="M3 5h18M3 10h10M3 15h8M3 20h8M17 13v8M13 17h8" />
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
       </template>
       <template v-else-if="kind === 'custom'">
         <path d="M3 5h18M3 10h10M3 15h8M3 20h8" />
         <path d="m17 12 1.2 3.8L22 17l-3.8 1.2L17 22l-1.2-3.8L12 17l3.8-1.2L17 12Z" />
       </template>
       <template v-else-if="kind === 'filters'">
-        <path d="M3 6h2M9 6h12M3 18h12M19 18h2" />
-        <circle cx="7" cy="6" r="2" />
-        <circle cx="17" cy="18" r="2" />
+        <path d="M9 3h10a2 2 0 0 1 2 2v10M6 6h10a2 2 0 0 1 2 2v10" />
+        <rect x="3" y="9" width="12" height="12" rx="2" />
       </template>
       <template v-else-if="kind === 'refresh'">
         <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8.5M21 3v5.5h-5.5" />
@@ -81,6 +82,9 @@ defineProps<{ kind: SidebarIconKind }>()
       </template>
       <template v-else-if="kind === 'moon'">
         <path d="M20.9 13.2A9 9 0 1 1 10.8 3.1a7 7 0 0 0 10.1 10.1Z" />
+      </template>
+      <template v-else-if="kind === 'parameters'">
+        <path d="M4 3v6m0 4v8M12 3v10m0 4v4M20 3v2m0 4v12M1 9h6m2 8h6m2-12h6" />
       </template>
       <template v-else-if="kind === 'settings'">
         <path

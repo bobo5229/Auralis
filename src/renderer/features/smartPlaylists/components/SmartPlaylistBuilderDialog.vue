@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDefaultPlaylistName } from '../utils/useDefaultPlaylistName'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -7,7 +7,8 @@ import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
+import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
+import { resolveRestorableFocusTarget } from '@renderer/app/utils/sidebarModalFocus'
 import { libraryCatalogClient } from '@renderer/features/library/utils/libraryCatalogClient'
 import {
   buildPlaylistRule,
@@ -41,7 +42,6 @@ const loading = ref(false)
 const saving = ref(false)
 const loadError = ref('')
 const saveError = ref('')
-const container = ref<HTMLElement | null>(null)
 const restoreTrigger = ref<HTMLElement | null>(null)
 const activeSingleField = computed(() =>
   fields.find((field) => state.value.groups[field].values.length > 0),
@@ -100,40 +100,33 @@ const filtered = computed(
 function label(field: BuilderField, value: string): string {
   return options.value[field].find((option) => option.value === value)?.label ?? value
 }
-const notice = computed(() => {
-  if (!result.value.withinLimits)
-    return t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS })
-  if (!result.value.complete)
-    return t(mode.value === 'single' ? 'smartBuilder.chooseSingle' : 'smartBuilder.chooseGroups')
-  if (result.value.ids.size) return ''
-  return result.value.groups.some((group) => group.ids.size === 0)
-    ? t('smartBuilder.groupEmpty')
-    : t('smartBuilder.noIntersection')
-})
 function groupCount(field: BuilderField): number {
   return result.value.groups.find((group) => group.field === field)?.ids.size ?? 0
 }
 function close(): void {
   if (!saving.value) emit('close')
 }
-useSidebarOwnedModal({
-  isOpen: () => props.open,
-  container,
-  trigger: restoreTrigger,
-  canDismiss: () => !saving.value,
-  onEscape: close,
-})
+function restoreBuilderFocus(): void {
+  const fallback = document.querySelector<HTMLElement>('.app-sidebar .smart-playlist-add-button')
+  const target =
+    resolveRestorableFocusTarget(restoreTrigger.value) ?? resolveRestorableFocusTarget(fallback)
+  restoreTrigger.value = null
+  target?.focus({ preventScroll: true })
+}
 
 let disposed = false
 let generation = 0
 let pending = false
+let pendingLibraryRevision: string | undefined
 let running = false
 let unsubscribe: (() => void) | undefined
 async function load(
   freshness: 'fresh' | 'snapshot' = 'snapshot',
   supersede = true,
+  libraryRevision?: string,
 ): Promise<boolean> {
   pending = true
+  pendingLibraryRevision = libraryRevision
   // Import notifications queue another complete preview without invalidating
   // the current preview or a create request's freshness boundary.
   if (supersede) generation++
@@ -147,6 +140,7 @@ async function load(
     const snapshot = await libraryCatalogClient.load(
       () => !disposed && props.open && token === generation,
       freshness,
+      libraryRevision,
     )
     if (disposed || !props.open || token !== generation) return false
     if (!libraryCatalogClient.isSnapshotCurrent(snapshot)) return false
@@ -166,12 +160,12 @@ async function load(
     loading.value = false
     // Keep follow-up previews independent: create waits for its own fresh
     // snapshot, rather than waiting for a continuous import stream to stop.
-    if (pending && props.open && !disposed) void load('snapshot', false)
+    if (pending && props.open && !disposed) void load('snapshot', false, pendingLibraryRevision)
   }
 }
 watch(
   () => props.open,
-  async (open) => {
+  (open) => {
     if (!open) {
       generation++
       pending = false
@@ -187,8 +181,6 @@ watch(
     limits.value = { genre: 100, artist: 100 }
     saveError.value = ''
     void load()
-    await nextTick()
-    container.value?.querySelector<HTMLButtonElement>('.close')?.focus()
   },
 )
 watch(
@@ -262,8 +254,10 @@ onMounted(() => {
       void load('snapshot', false)
       return
     }
-    libraryCatalogClient.invalidate()
-    void load()
+    if (event.libraryRevision)
+      libraryCatalogClient.invalidateForLibraryRevision(event.libraryRevision)
+    else libraryCatalogClient.invalidate()
+    void load('snapshot', true, event.libraryRevision)
   })
 })
 onBeforeUnmount(() => {
@@ -275,728 +269,794 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="sidebar-overlay builder-backdrop" @click.self="close">
-      <section
-        ref="container"
-        class="playlist-builder"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="playlist-builder-title"
-        :aria-busy="saving"
-      >
-        <header>
-          <div class="title-lockup">
-            <h1 id="playlist-builder-title">{{ t('smartBuilder.title') }}</h1>
-          </div>
-          <button class="close" :aria-label="t('facets.close')" :disabled="saving" @click="close">
-            <span class="i-lucide-x" />
-          </button>
-        </header>
-        <div class="stage">
-          <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
-          <p v-if="loadError" class="notice" role="alert">
-            {{ t(loadError) }}
-            <button :disabled="loading || saving" @click="load()">
-              {{ t('albums.status.retry') }}
+  <AppDialog
+    :open="open"
+    :title="t('smartBuilder.title')"
+    title-id="playlist-builder-title"
+    :busy="saving"
+    :dismissible="!saving"
+    :return-focus-to="restoreTrigger"
+    :restore-focus="restoreBuilderFocus"
+    fill
+    :padded="false"
+    :scroll="false"
+    @close="close"
+  >
+    <div class="stage">
+      <p v-if="loading" class="notice neutral load-notice" role="status">
+        <span class="i-lucide-library" aria-hidden="true" />
+        {{ t('smartBuilder.loading') }}
+      </p>
+      <p v-if="loadError" class="notice load-notice" role="alert">
+        {{ t(loadError) }}
+        <button type="button" class="retry" :disabled="loading || saving" @click="load()">
+          {{ t('albums.status.retry') }}
+        </button>
+      </p>
+      <div class="name-row">
+        <label for="smart-playlist-name" class="label">{{ t('sidebar.playlistName') }}</label>
+        <input
+          id="smart-playlist-name"
+          v-model="name"
+          class="name"
+          :placeholder="t('sidebar.playlistName')"
+          maxlength="80"
+          :disabled="saving"
+          @input="nameEdited = true"
+        />
+      </div>
+      <fieldset :disabled="saving || loading || !!loadError" class="controls">
+        <div class="relation outer">
+          <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
+          <div
+            class="switch"
+            role="group"
+            :aria-label="t('smartBuilder.betweenGroupsAria')"
+          >
+            <button type="button" :aria-pressed="mode === 'single'" @click="selectMode('single')">
+              {{ t('smartBuilder.single') }}
             </button>
-          </p>
-          <fieldset :disabled="saving || loading || !!loadError" class="controls">
-            <div class="relation outer">
-              <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
-              <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
+            <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
+              {{ t('smartBuilder.andAll') }}
+            </button>
+            <button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
+              {{ t('smartBuilder.orAny') }}
+            </button>
+          </div>
+        </div>
+        <div class="condition-groups parallel-groups">
+          <fieldset
+            v-for="field in fields"
+            :key="field"
+            class="group"
+            :class="{ 'group-disabled': isGroupDisabled(field) }"
+            :disabled="isGroupDisabled(field)"
+            :aria-label="labels[field]"
+          >
+            <div class="group-header">
+              <h2><span :class="icons[field]" aria-hidden="true" />{{ labels[field] }}</h2>
+              <span
+                class="badge"
+                :class="{
+                  'badge-selected': state.groups[field].values.length,
+                  empty: state.groups[field].values.length && !groupCount(field),
+                }"
+                >{{
+                  isGroupDisabled(field)
+                    ? t('smartBuilder.inactive')
+                    : state.groups[field].values.length
+                      ? t('smartBuilder.matchCount', { count: groupCount(field) })
+                      : t('smartBuilder.unselected')
+                }}</span
+              >
+            </div>
+            <p
+              v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
+              class="notice neutral"
+              role="status"
+            >
+              {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
+            </p>
+            <div class="relation">
+              <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
+              <div
+                class="switch"
+                role="group"
+                :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
+              >
                 <button
                   type="button"
-                  :aria-pressed="mode === 'single'"
-                  @click="selectMode('single')"
+                  :aria-pressed="state.groups[field].relation === 'and'"
+                  @click="state.groups[field].relation = 'and'"
                 >
-                  {{ t('smartBuilder.single') }}
+                  {{ t('smartBuilder.and') }}
                 </button>
-                <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
-                  {{ t('smartBuilder.andAll') }}</button
-                ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
-                  {{ t('smartBuilder.orAny') }}
+                <button
+                  type="button"
+                  :aria-pressed="state.groups[field].relation === 'or'"
+                  @click="state.groups[field].relation = 'or'"
+                >
+                  {{ t('smartBuilder.or') }}
                 </button>
               </div>
             </div>
-            <div class="condition-groups parallel-groups">
-              <fieldset
-                v-for="field in fields"
-                :key="field"
-                class="group"
-                :class="{ 'group-disabled': isGroupDisabled(field) }"
-                :disabled="isGroupDisabled(field)"
-                :aria-label="labels[field]"
+            <div
+              v-if="state.groups[field].values.length"
+              class="selected-values"
+              role="group"
+              :aria-label="t('smartBuilder.selected', { field: labels[field] })"
+            >
+              <button
+                v-for="value in state.groups[field].values"
+                :key="value"
+                type="button"
+                class="chip"
+                :title="label(field, value)"
+                :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
+                @click="remove(field, value)"
               >
-                <div class="group-header">
-                  <h2><span :class="icons[field]" />{{ labels[field] }}</h2>
-                  <span
-                    class="badge"
-                    :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
-                    >{{
-                      state.groups[field].values.length
-                        ? t('smartBuilder.matchCount', { count: groupCount(field) })
-                        : t('smartBuilder.unselected')
-                    }}</span
-                  >
-                </div>
-                <p
-                  v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
-                  class="notice neutral"
-                  role="status"
-                >
-                  {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
-                </p>
-                <div class="relation">
-                  <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
-                  <div
-                    class="switch"
-                    role="group"
-                    :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
-                  >
-                    <button
-                      :aria-pressed="state.groups[field].relation === 'and'"
-                      @click="state.groups[field].relation = 'and'"
-                    >
-                      {{ t('smartBuilder.and') }}</button
-                    ><button
-                      :aria-pressed="state.groups[field].relation === 'or'"
-                      @click="state.groups[field].relation = 'or'"
-                    >
-                      {{ t('smartBuilder.or') }}
-                    </button>
-                  </div>
-                </div>
-                <div
-                  v-if="state.groups[field].values.length"
-                  class="selected-values"
-                  :aria-label="t('smartBuilder.selected', { field: labels[field] })"
-                >
-                  <button
-                    v-for="value in state.groups[field].values"
-                    :key="value"
-                    class="chip"
-                    :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
-                    @click="remove(field, value)"
-                  >
-                    <span>{{ label(field, value) }}</span
-                    ><span class="i-lucide-x" /></button
-                  ><button class="clear-group" @click="state.groups[field].values = []">
-                    {{ t('smartBuilder.clear') }}
-                  </button>
-                </div>
-                <div class="search-wrap">
-                  <span class="i-lucide-search" /><input
-                    v-model="queries[field]"
-                    class="search"
-                    :placeholder="t('smartBuilder.search', { field: labels[field] })"
-                    :aria-label="t('smartBuilder.search', { field: labels[field] })"
-                  /><button
-                    v-if="queries[field]"
-                    class="clear-search"
-                    :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
-                    @click="queries[field] = ''"
-                  >
-                    <span class="i-lucide-x" />
-                  </button>
-                </div>
-                <div class="choices">
-                  <label
-                    v-for="option in filtered[field].slice(0, limits[field])"
-                    :key="option.value"
-                    class="choice"
-                    ><input
-                      :checked="state.groups[field].values.includes(option.value)"
-                      :disabled="
-                        state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
-                        !state.groups[field].values.includes(option.value)
-                      "
-                      type="checkbox"
-                      :value="option.value"
-                      @change="toggleValue(field, option.value)"
-                    /><span>{{ option.label }}</span
-                    ><small>{{ option.ids.size }}</small></label
-                  ><button
-                    v-if="filtered[field].length > limits[field]"
-                    class="more"
-                    @click="limits[field] += 100"
-                  >
-                    {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
-                  </button>
-                </div>
-                <p v-if="!filtered[field].length" class="notice neutral">
-                  {{ t('smartBuilder.noValues') }}
-                </p>
-              </fieldset>
+                <span>{{ label(field, value) }}</span>
+                <span class="i-lucide-x" aria-hidden="true" />
+              </button>
+              <button type="button" class="clear-group" @click="state.groups[field].values = []">
+                {{ t('smartBuilder.clear') }}
+              </button>
             </div>
+            <div class="search-wrap">
+              <span class="i-lucide-search" aria-hidden="true" />
+              <input
+                v-model="queries[field]"
+                class="search"
+                :placeholder="t('smartBuilder.search', { field: labels[field] })"
+                :aria-label="t('smartBuilder.search', { field: labels[field] })"
+              />
+              <button
+                v-if="queries[field]"
+                type="button"
+                class="clear-search"
+                :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
+                @click="queries[field] = ''"
+              >
+                <span class="i-lucide-x" aria-hidden="true" />
+              </button>
+            </div>
+            <div class="choices">
+              <label
+                v-for="option in filtered[field].slice(0, limits[field])"
+                :key="option.value"
+                class="choice"
+                :title="option.label"
+              >
+                <input
+                  :checked="state.groups[field].values.includes(option.value)"
+                  :disabled="
+                    state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
+                    !state.groups[field].values.includes(option.value)
+                  "
+                  type="checkbox"
+                  :value="option.value"
+                  @change="toggleValue(field, option.value)"
+                />
+                <span>{{ option.label }}</span>
+                <small>{{ option.ids.size }}</small>
+              </label>
+              <button
+                v-if="filtered[field].length > limits[field]"
+                type="button"
+                class="more"
+                @click="limits[field] += 100"
+              >
+                {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
+              </button>
+            </div>
+            <p
+              v-if="!loading && !loadError && !filtered[field].length"
+              class="empty-values"
+            >
+              <span class="i-lucide-search-x" aria-hidden="true" />
+              {{
+                t(queries[field].trim() ? 'smartBuilder.noValues' : 'smartBuilder.emptyValues', {
+                  field: labels[field],
+                })
+              }}
+            </p>
           </fieldset>
         </div>
-        <div class="actions">
-          <input
-            v-model="name"
-            class="name"
-            :aria-label="t('sidebar.playlistName')"
-            :placeholder="t('sidebar.playlistName')"
-            maxlength="80"
-            :disabled="saving"
-            @input="nameEdited = true"
-          />
-          <div class="result-summary" role="status" aria-live="polite">
-            <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
-            <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
-              {{ notice }}
-            </span>
-          </div>
-          <button class="primary" :disabled="!canCreate" @click="create">
-            {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
-          </button>
-        </div>
-        <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
-      </section>
+      </fieldset>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="actions">
+        <button
+          type="button"
+          class="primary auralis-dialog-action auralis-dialog-action--primary"
+          :disabled="!canCreate"
+          @click="create"
+        >
+          <span :class="saving ? 'i-lucide-loader-circle' : 'i-lucide-plus'" aria-hidden="true" />
+          {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
+        </button>
+      </div>
+      <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
+    </template>
+  </AppDialog>
 </template>
 
 <style scoped>
-.builder-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 92;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #08090b66;
-  padding: 24px;
-}
-.playlist-builder {
-  font-family: var(--auralis-font-ui);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-  --text: var(--auralis-text, #f3eee6);
-  --muted: var(--auralis-text-muted, #afb4bc);
-  --subtle: var(--auralis-text-subtle, #9299a3);
-  --line: var(--auralis-border-subtle, #e1ddd614);
-  width: min(880px, 100%);
-  min-width: 0;
-  border-radius: 20px;
-  background: var(--auralis-frosted-surface-bg, rgba(24, 26, 29, 0.9));
-  backdrop-filter: var(--auralis-frosted-surface-filter, blur(24px));
-  color: var(--text);
-  overflow: hidden;
-  box-shadow: none;
-}
-.controls {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-}
-.more {
-  grid-column: 1/-1;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-  padding: 10px;
-  color: var(--muted);
-}
-@media (prefers-reduced-transparency: reduce) {
-  .playlist-builder {
-    background: var(--auralis-dialog-bg, #1b1d21);
-    backdrop-filter: none;
-  }
-  .builder-backdrop {
-    backdrop-filter: none;
-  }
-}
-
+/* Match the compact settings typography: labels 13px, values 12px, segmented
+ * buttons 11px (settings.chrome.css and SettingsSelect.vue). The shared dialog
+ * keeps its standard title size; scrolling geometry stays local to this panel. */
 * {
   box-sizing: border-box;
 }
-button,
-input {
+
+:where(button, input) {
   font: inherit;
 }
-button {
-  cursor: pointer;
+
+:where(button:not(.auralis-dialog-action)) {
+  padding: 0;
   border: 0;
-  background: none;
-  color: inherit;
+  background: transparent;
+  color: var(--auralis-text);
+  cursor: pointer;
 }
-button:disabled {
+
+:where(button:not(.auralis-dialog-action), input):disabled {
+  color: var(--auralis-text-disabled);
   cursor: default;
-  color: var(--auralis-text-disabled, #afb4bc59);
 }
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring, #8fa7bb);
-  outline-offset: 3px;
+
+:where(button, input):focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
 }
-.playlist-builder {
+
+.stage {
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 48px);
-  height: auto;
-}
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px 14px;
-  flex-shrink: 0;
-  gap: 20px;
-  border-bottom: 1px solid var(--line);
-}
-.title-lockup {
-  display: flex;
-  min-width: 0;
-  gap: 12px;
-  align-items: center;
-}
-h1 {
-  margin: 0;
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
-  font-weight: 600;
-  letter-spacing: -0.4px;
-  overflow-wrap: anywhere;
-}
-.close {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  color: var(--subtle);
-}
-.close:hover {
-  color: var(--text);
-}
-.stage {
-  padding: 16px 24px 14px;
-  flex: 0 1 auto;
   min-height: 0;
+  padding: 16px 20px;
   overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--auralis-scrollbar-thumb, #484d55) transparent;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
-h2 {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-input[type='checkbox'] {
-  appearance: none;
-  width: 17px;
-  height: 17px;
-  border: 1px solid var(--auralis-border-strong, #9299a380);
-  border-radius: 4px;
-  margin: 0;
-  display: grid;
-  place-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  background: transparent;
-}
-input[type='checkbox']:checked {
-  background: var(--auralis-control-primary-bg, #8fa7bb);
-  border-color: var(--auralis-control-primary-bg, #8fa7bb);
-}
-input[type='checkbox']:checked::after {
-  content: '';
-  width: 8px;
-  height: 4px;
-  border-left: 1.8px solid var(--auralis-control-primary-text, #111214);
-  border-bottom: 1.8px solid var(--auralis-control-primary-text, #111214);
-  transform: translateY(-1px) rotate(-45deg);
-}
-.choice:has(:checked) {
-  background: var(--auralis-control-active-bg, #8fa7bb1a);
-}
-.choice:hover {
-  background: var(--auralis-control-hover-bg, #e1ddd60f);
-}
-.relation {
+
+.controls {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.outer {
-  padding: 0 0 10px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 14px;
-  justify-content: space-between;
-}
-.label {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  color: var(--muted);
-}
-.outer .label {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  color: var(--text);
-}
-.switch {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.switch button {
-  padding: 6px 11px;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  border-radius: 8px;
-  color: var(--subtle);
-  white-space: nowrap;
-}
-.switch button[aria-pressed='true'] {
-  background: var(--auralis-control-active-bg, #8fa7bb19);
-  color: var(--text);
-}
-.switch button:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--auralis-control-hover-bg, #e1ddd60f);
-}
-.switch button:disabled {
-  opacity: 0.35;
-}
-.condition-groups.parallel-groups {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  align-items: start;
-}
-.group {
+  flex: 1;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
-.group-disabled {
-  opacity: 0.35;
-  pointer-events: none;
+
+.name-row {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
 }
+
+.label {
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.name {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 8px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
+}
+
+.name::placeholder,
+.search::placeholder {
+  color: var(--auralis-text-subtle);
+}
+
+.name:focus {
+  border-color: var(--auralis-focus-ring);
+}
+
+.relation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.outer {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.outer .label {
+  color: var(--auralis-text);
+  font-weight: 600;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 7px;
+  background: var(--auralis-main-bg);
+}
+
+.switch button {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--auralis-text-subtle);
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.switch button:hover:not(:disabled):not([aria-pressed='true']) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.switch button[aria-pressed='true'] {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  font-weight: 600;
+}
+
+.condition-groups.parallel-groups {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.group > :not(.choices, .empty-values) {
+  flex-shrink: 0;
+}
+
 .group-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-bottom: 8px;
 }
+
 .group-header h2 {
-  margin: 0;
-  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  color: var(--auralis-text);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
 }
+
 .group-header h2 > span {
-  width: 16px;
-  height: 16px;
-  color: var(--muted);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--auralis-text-muted);
 }
-.group .relation {
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
+
 .badge {
-  color: var(--subtle);
+  color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
+
+.badge-selected {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
+}
+
 .badge.empty {
-  color: #e5a5a0;
+  background: color-mix(in srgb, var(--auralis-danger) 10%, transparent);
+  color: var(--auralis-danger);
 }
+
+.group .relation {
+  margin-bottom: 8px;
+}
+
+.group-disabled :is(.relation, .search-wrap, .choices) {
+  opacity: 0.45;
+}
+
 .selected-values {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-  min-height: 28px;
+  gap: 4px;
+  max-height: 88px;
+  margin: 0 0 8px;
+  padding: 4px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
+
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  border: 0;
-  background: var(--auralis-border-subtle, #e1ddd614);
-  border-radius: 8px;
-  padding: 5px 7px;
-  color: var(--text);
+  gap: 4px;
   max-width: 100%;
+  min-height: 24px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
+  text-align: left;
 }
-.chip span {
+
+.chip:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+}
+
+.chip > span:first-child {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chip > span:first-child {
-  font-weight: 600;
-}
+
 .chip .i-lucide-x {
   width: 12px;
   height: 12px;
-  color: var(--subtle);
+  flex-shrink: 0;
+  color: var(--auralis-text-muted);
 }
-.clear-group {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-  color: var(--subtle);
-  padding: 4px 6px;
+
+.clear-group,
+.retry {
+  min-height: 24px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
 }
+
+.clear-group:hover:not(:disabled),
+.retry:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
 .search-wrap {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 0 10px;
-  background: var(--auralis-control-hover-bg, #e1ddd60a);
-  border-radius: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 6px;
+  background: var(--auralis-main-bg);
 }
+
 .search-wrap > span {
-  color: var(--subtle);
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--auralis-text-subtle);
 }
+
 .search-wrap:focus-within {
-  outline: 1px solid var(--auralis-focus-ring, #9299a3);
+  border-color: var(--auralis-focus-ring);
 }
+
+.search-wrap:has(.search:focus-visible) {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+
 .search {
   width: 100%;
   min-width: 0;
-  padding: 10px 0;
+  padding: 5px 0;
   border: 0;
-  background: none;
-  color: var(--text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
+  background: transparent;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
+
 .search:focus-visible {
   outline: none;
 }
-.search::placeholder {
-  color: var(--subtle);
-}
+
 .clear-search {
   display: grid;
   place-items: center;
-  color: var(--subtle);
   width: 24px;
-  height: 28px;
-  padding: 0;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--auralis-text-muted);
 }
+
+.clear-search:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+}
+
 .clear-search > span {
   width: 14px;
   height: 14px;
 }
+
 .choices {
-  --choice-row-height: 38px;
+  --choice-row-height: 28px;
   --choice-row-gap: 2px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: var(--choice-row-height);
-  gap: var(--choice-row-gap) 8px;
-  max-height: calc(4 * var(--choice-row-height) + 3 * var(--choice-row-gap));
+  align-content: start;
+  gap: var(--choice-row-gap) 6px;
+  padding: 2px;
   overflow: auto;
-  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--auralis-scrollbar-thumb, #484d55) transparent;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
-.choices > * {
-  scroll-snap-align: start;
+
+.choices:empty {
+  display: none;
 }
+
 .choice {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 7px;
-  min-height: var(--choice-row-height);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  gap: 6px;
   min-width: 0;
-}
-.choice span {
-  flex: 1;
-  font-weight: 500;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.choice small {
-  color: var(--subtle);
+  min-height: var(--choice-row-height);
+  padding: 5px 6px;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.choice:hover:has(input:enabled),
+.choice:focus-within {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.choice:has(:checked) {
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
+}
+
+.choice:has(input:disabled) {
+  cursor: default;
+}
+
+.choice > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choice small {
+  color: var(--auralis-text-subtle);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-variant-numeric: tabular-nums;
 }
-.choice input[type='checkbox'] {
+
+.choice input {
+  appearance: none;
+  display: grid;
+  place-content: center;
   width: 15px;
   height: 15px;
-  border-radius: 3px;
-}
-.result-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  text-align: right;
-  color: var(--muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.result-summary > span:first-child {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.match-notice {
-  color: #e5a5a0;
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-.match-notice.neutral {
-  color: var(--subtle);
-}
-.notice {
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  color: #e5a5a0;
-  margin: 12px 0;
-}
-.notice.neutral {
-  color: var(--subtle);
-}
-.actions {
-  padding: 16px 24px 22px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
-  gap: 12px;
-  align-items: center;
   flex-shrink: 0;
-  border-top: 1px solid var(--line);
-}
-.primary {
-  background: var(--auralis-control-primary-bg, #8fa7bb);
-  color: var(--auralis-control-primary-text, #111214);
-  padding: 11px 20px;
-  border-radius: 20px;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  white-space: nowrap;
-  justify-self: end;
-}
-.primary:disabled {
-  color: var(--auralis-text-disabled, #afb4bc59);
-  background: var(--auralis-control-hover-bg, #e1ddd60d);
-}
-.primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--auralis-control-primary-bg, #8fa7bb) 88%, #fff);
-}
-.name {
-  width: 100%;
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 10px;
-  background: var(--auralis-control-hover-bg, #e1ddd60a);
-  color: var(--text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-}
-.name::placeholder {
-  color: var(--subtle);
-}
-.name:focus-visible {
-  outline: none;
-  background: var(--auralis-control-active-bg, #8fa7bb14);
-}
-.status {
   margin: 0;
-  padding: 12px 24px 18px;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 3px;
+  background: var(--auralis-main-bg);
+  cursor: inherit;
+}
+
+.choice input:checked {
+  border-color: var(--auralis-control-primary-bg);
+  background: var(--auralis-control-primary-bg);
+}
+
+.choice input:checked::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--auralis-control-primary-text);
+  border-bottom: 1.5px solid var(--auralis-control-primary-text);
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.more {
+  grid-column: 1 / -1;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
+}
+
+.more:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.empty-values {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
-  color: var(--muted);
+  overflow-wrap: anywhere;
 }
-@media (max-width: 760px) {
-  header {
-    padding: 16px 20px 12px;
-  }
-  h1 {
-    font-size: var(--auralis-type-section-size);
-    line-height: var(--auralis-type-section-line-height);
-  }
-  .stage {
-    padding: 14px 20px 12px;
-  }
+
+.empty-values > span {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.notice,
+.status {
+  color: var(--auralis-danger);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  margin: 0 0 8px;
+}
+
+.notice.neutral {
+  color: var(--auralis-text-subtle);
+}
+
+.load-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.load-notice > span {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primary {
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.primary > span {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.status {
+  margin: 8px 0 0;
+}
+
+/* Keep useful list heights and scroll the content when space is limited. */
+@media (max-width: 760px), (max-height: 680px) {
+  .controls,
   .condition-groups.parallel-groups {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    flex: 0 0 auto;
   }
-  .actions {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 14px 20px 18px;
+
+  .condition-groups.parallel-groups {
+    grid-template-rows: none;
+    align-items: start;
   }
-  .name {
-    grid-column: 1 / -1;
-  }
-  .result-summary {
-    grid-column: 1;
-    text-align: left;
-  }
-  .primary {
-    grid-column: 2;
-  }
-  .status {
-    padding: 12px 20px 16px;
+
+  .choices {
+    flex: none;
+    height: clamp(124px, 30dvh, 224px);
   }
 }
-@media (max-width: 420px) {
-  .builder-backdrop {
-    padding: 16px;
-  }
-  header {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
+
+@media (max-width: 760px) {
   .stage {
-    padding-right: 16px;
-    padding-left: 16px;
+    padding: 12px 16px;
   }
-  .actions {
+
+  .outer {
     grid-template-columns: minmax(0, 1fr);
-    padding-right: 16px;
-    padding-left: 16px;
+    justify-items: start;
   }
-  .result-summary,
-  .primary {
-    grid-column: 1;
+
+  .condition-groups.parallel-groups {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .primary {
-    justify-self: end;
+}
+
+@media (max-width: 420px) {
+  .stage {
+    padding-right: 12px;
+    padding-left: 12px;
   }
-  .status {
-    padding-right: 16px;
-    padding-left: 16px;
+
+  .name-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .choices {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

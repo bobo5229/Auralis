@@ -56,6 +56,11 @@ const preludeLitDotCount = computed(() => {
   return Math.min(3, Math.max(1, Math.floor(3 - secondsUntilFirstLine) + 1))
 })
 
+const preludeElapsed = computed(() => {
+  if (!showPrelude.value) return 0
+  return Math.max(0, playback.state.currentTime - (parsedLines.value[0].timeSeconds - 3))
+})
+
 function reset(): void {
   loadFailed.value = false
   status.value = 'no-track'
@@ -83,7 +88,22 @@ async function fetchLyrics(trackId: number): Promise<void> {
       return
     }
 
-    if (result.lyricsFormat === 'lrc') {
+    if (result.lyricsFormat === 'ttml') {
+      const projection = result.ttmlPlayback
+      if (!projection || projection.error) {
+        loadFailed.value = true
+        status.value = 'empty'
+        return
+      }
+      rawLyrics.value = result.lyricsText
+      parsedLines.value = projection.lines.map(({ id, timeSeconds, text, performer }) => ({
+        id,
+        timeSeconds,
+        text,
+        performer,
+      }))
+      status.value = parsedLines.value.length ? 'lrc' : 'empty'
+    } else if (result.lyricsFormat === 'lrc') {
       const parsed = parseLrc(result.lyricsText)
       if (parsed.length === 0) {
         // LRC 解析失败，降级为 plain 显示
@@ -146,5 +166,6 @@ export function useTrackLyrics() {
     isPrelude,
     showPrelude,
     preludeLitDotCount,
+    preludeElapsed,
   }
 }

@@ -3,6 +3,46 @@ import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagno
 
 const STORAGE_KEY = 'auralis-sidebar-full-height'
 const COLLAPSED_STORAGE_KEY = 'auralis-sidebar-collapsed'
+const WIDTH_STORAGE_KEY = 'auralis-sidebar-width'
+
+/** 展开宽度对应 Shell 左列；悬浮卡片在列内保留原有外边距。 */
+export const SIDEBAR_WIDTH = { default: 260, min: 240, max: 480 } as const
+
+export function clampSidebarWidth(width: number, max: number = SIDEBAR_WIDTH.max): number {
+  const finiteWidth = Number.isFinite(width) ? width : SIDEBAR_WIDTH.default
+  return Math.round(Math.max(SIDEBAR_WIDTH.min, Math.min(max, finiteWidth)))
+}
+
+function readPersistedWidth(): number {
+  try {
+    const saved = localStorage.getItem(WIDTH_STORAGE_KEY)
+    return saved?.trim() ? clampSidebarWidth(Number(saved)) : SIDEBAR_WIDTH.default
+  } catch (cause) {
+    rendererDiagnostics.warn({
+      scope: 'appearance.sidebar',
+      message: 'Could not read sidebar width preference',
+      cause,
+    })
+    return SIDEBAR_WIDTH.default
+  }
+}
+
+const sidebarWidth = ref(readPersistedWidth())
+
+/** 拖动期间只更新内存，结束后再持久化，避免每帧写入 localStorage。 */
+function setSidebarWidth(width: number, persist = true): void {
+  sidebarWidth.value = clampSidebarWidth(width)
+  if (!persist) return
+  try {
+    localStorage.setItem(WIDTH_STORAGE_KEY, String(sidebarWidth.value))
+  } catch (cause) {
+    rendererDiagnostics.warn({
+      scope: 'appearance.sidebar',
+      message: 'Could not save sidebar width preference; keeping it for this session',
+      cause,
+    })
+  }
+}
 
 function readPersisted(): boolean {
   try {
@@ -67,5 +107,7 @@ export function useSidebarLayout() {
     setSidebarFullHeight,
     sidebarCollapsed: readonly(sidebarCollapsed),
     setSidebarCollapsed,
+    sidebarWidth: readonly(sidebarWidth),
+    setSidebarWidth,
   }
 }

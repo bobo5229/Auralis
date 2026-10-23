@@ -1,0 +1,218 @@
+{
+  "complete": true,
+  "errors": [],
+  "samples": [
+    {
+      "name": "aac-48000-2-back.m4a",
+      "rate": 48000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 481024,
+      "playback_control_frames": 481024,
+      "playback_edited_frames": 480878,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 3.0416666666666665,
+      "playback_stops": [
+        ["playback-stop", "aac-48000-2-back.m4a", "0", "1", "481024", "0", "36.9653"],
+        ["playback-stop", "aac-48000-2-back.m4a", "1", "1", "480878", "3", "37.9528"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "6313f02671743e2061fa9fbe674fdcf69fa9055c68c3d03b8e4568a1025b14b8",
+        "top_level_atoms": ["ftyp", "free", "mdat", "moov"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "aac-48000-2-front.m4a",
+      "rate": 48000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 481024,
+      "playback_control_frames": 480827,
+      "playback_edited_frames": 481024,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 4.104166666666667,
+      "playback_stops": [
+        ["playback-stop", "aac-48000-2-front.m4a", "0", "1", "480827", "0", "37.8507"],
+        ["playback-stop", "aac-48000-2-front.m4a", "1", "1", "481024", "3", "37.6436"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "6313f02671743e2061fa9fbe674fdcf69fa9055c68c3d03b8e4568a1025b14b8",
+        "top_level_atoms": ["ftyp", "moov", "free", "mdat"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "aac-44100-1-back.m4a",
+      "rate": 44100,
+      "channels": 1,
+      "cooperative_exact": true,
+      "reference_frames": 442024,
+      "playback_control_frames": 442024,
+      "playback_edited_frames": 442024,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 0.0,
+      "playback_stops": [
+        ["playback-stop", "aac-44100-1-back.m4a", "0", "1", "442024", "0", "38.1309"],
+        ["playback-stop", "aac-44100-1-back.m4a", "1", "1", "442024", "3", "36.4116"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "6655e3e80a28ba15caf606877f4a1291c19b0ec81c7f30f19df5ae1550cee4db",
+        "top_level_atoms": ["ftyp", "free", "mdat", "moov"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "aac-44100-1-front.m4a",
+      "rate": 44100,
+      "channels": 1,
+      "cooperative_exact": true,
+      "reference_frames": 442024,
+      "playback_control_frames": 441445,
+      "playback_edited_frames": 442024,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 13.129251700680273,
+      "playback_stops": [
+        ["playback-stop", "aac-44100-1-front.m4a", "0", "1", "441445", "0", "37.4821"],
+        ["playback-stop", "aac-44100-1-front.m4a", "1", "1", "442024", "3", "39.0079"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "6655e3e80a28ba15caf606877f4a1291c19b0ec81c7f30f19df5ae1550cee4db",
+        "top_level_atoms": ["ftyp", "moov", "free", "mdat"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "alac-48000-2-back.m4a",
+      "rate": 48000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 480000,
+      "playback_control_frames": 480000,
+      "playback_edited_frames": 480000,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 0.0,
+      "playback_stops": [
+        ["playback-stop", "alac-48000-2-back.m4a", "0", "1", "480000", "0", "38.6144"],
+        ["playback-stop", "alac-48000-2-back.m4a", "1", "1", "480000", "3", "36.4504"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "8a68044aaa7f94a33508ffb8bb15f49909d7f8a84258ab7f9a0b4eb36214b328",
+        "top_level_atoms": ["ftyp", "free", "mdat", "moov"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "alac-48000-2-front.m4a",
+      "rate": 48000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 480000,
+      "playback_control_frames": 479702,
+      "playback_edited_frames": 480000,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 6.208333333333333,
+      "playback_stops": [
+        ["playback-stop", "alac-48000-2-front.m4a", "0", "1", "479702", "0", "36.7077"],
+        ["playback-stop", "alac-48000-2-front.m4a", "1", "1", "480000", "3", "38.5241"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "8a68044aaa7f94a33508ffb8bb15f49909d7f8a84258ab7f9a0b4eb36214b328",
+        "top_level_atoms": ["ftyp", "moov", "free", "mdat"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "alac-96000-2-back.m4a",
+      "rate": 96000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 960000,
+      "playback_control_frames": 960000,
+      "playback_edited_frames": 960000,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 0.0,
+      "playback_stops": [
+        ["playback-stop", "alac-96000-2-back.m4a", "0", "1", "960000", "0", "39.0723"],
+        ["playback-stop", "alac-96000-2-back.m4a", "1", "1", "960000", "3", "39.0987"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "8286c6fed08e56d602968e2dd7ea6fb0fff9e270a67bfb1e48b16c1e693b69a3",
+        "top_level_atoms": ["ftyp", "free", "mdat", "moov"],
+        "comment_retained": true
+      }
+    },
+    {
+      "name": "alac-96000-2-front.m4a",
+      "rate": 96000,
+      "channels": 2,
+      "cooperative_exact": true,
+      "reference_frames": 960000,
+      "playback_control_frames": 960000,
+      "playback_edited_frames": 960000,
+      "playback_common_prefix_exact": true,
+      "playback_control_prefix_matches_reference": true,
+      "playback_edited_prefix_matches_reference": true,
+      "playback_tail_difference_ms": 0.0,
+      "playback_stops": [
+        ["playback-stop", "alac-96000-2-front.m4a", "0", "1", "960000", "0", "38.3502"],
+        ["playback-stop", "alac-96000-2-front.m4a", "1", "1", "960000", "3", "38.0951"]
+      ],
+      "playback_completed": true,
+      "media_preserved": true,
+      "comment_preserved": true,
+      "original": {
+        "mdat_sha256": "8286c6fed08e56d602968e2dd7ea6fb0fff9e270a67bfb1e48b16c1e693b69a3",
+        "top_level_atoms": ["ftyp", "moov", "free", "mdat"],
+        "comment_retained": true
+      }
+    }
+  ],
+  "write_success_count": 48,
+  "playback_edit_events": 24,
+  "write_latency_ms": {
+    "cooperative": {
+      "max_lock_wait": 15.3614,
+      "max_total": 54.7731
+    },
+    "playback": {
+      "max_lock_wait": 0.3308,
+      "max_total": 110.754
+    }
+  }
+}

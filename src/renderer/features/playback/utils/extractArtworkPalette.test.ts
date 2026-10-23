@@ -1,9 +1,132 @@
 import { describe, expect, it } from 'vitest'
 import { extractArtworkPalette } from './extractArtworkPalette'
+import { oklabToRgb, rgbToOklab } from './colorSpace'
+import type { RgbColor } from '../types'
 
 function solidPixels(r: number, g: number, b: number, count: number): number[] {
   return Array.from({ length: count }, () => [r, g, b, 255]).flat()
 }
+
+function colorPixels(color: RgbColor, count: number): number[] {
+  return solidPixels(color.r, color.g, color.b, count)
+}
+
+function blendSource(first: RgbColor, second: RgbColor, firstWeight = 0.5): RgbColor {
+  const a = rgbToOklab(first)
+  const b = rgbToOklab(second)
+  const secondWeight = 1 - firstWeight
+  return oklabToRgb({
+    l: a.l * firstWeight + b.l * secondWeight,
+    a: a.a * firstWeight + b.a * secondWeight,
+    b: a.b * firstWeight + b.b * secondWeight,
+  })
+}
+
+function hueColor(lightness: number, chroma: number, degrees: number): RgbColor {
+  const hue = (degrees * Math.PI) / 180
+  return oklabToRgb({ l: lightness, a: Math.cos(hue) * chroma, b: Math.sin(hue) * chroma })
+}
+
+describe('area-led artwork color selection', () => {
+  const blue = { r: 35, g: 85, b: 185 }
+
+  it('combines related green shades so their total coverage beats the largest individual color', () => {
+    const dark = { r: 30, g: 110, b: 45 }
+    const light = { r: 65, g: 160, b: 70 }
+    const result = extractArtworkPalette(
+      'green-family',
+      new Uint8ClampedArray([
+        ...colorPixels(dark, 350),
+        ...colorPixels(light, 250),
+        ...colorPixels(blue, 400),
+      ]),
+    )
+    expect(result.dominant).toEqual(blendSource(dark, light, 350 / 600))
+    expect(result.accents).toHaveLength(2)
+    expect(result.accents[0]).toMatchObject({ sourceRgb: result.dominant, weight: 0.6 })
+    expect(result.accents[1]).toMatchObject({ sourceRgb: blue, weight: 0.4 })
+    expect(result.quality).toBe('reduced')
+  })
+
+  it('merges a red family across the zero-degree hue boundary', () => {
+    const left = hueColor(0.55, 0.13, 354)
+    const right = hueColor(0.65, 0.13, 6)
+    const result = extractArtworkPalette(
+      'red-wrap',
+      new Uint8ClampedArray([
+        ...colorPixels(left, 300),
+        ...colorPixels(right, 300),
+        ...colorPixels(blue, 400),
+      ]),
+    )
+    expect(result.dominant).toEqual(blendSource(left, right))
+    expect(result.accents[0]).toMatchObject({ sourceRgb: result.dominant, weight: 0.6 })
+  })
+
+  it.each([
+    { reason: 'hue separation', first: hueColor(0.55, 0.1, 10), second: hueColor(0.55, 0.1, 50) },
+    {
+      reason: 'lightness separation',
+      first: hueColor(0.4, 0.06, 140),
+      second: hueColor(0.7, 0.06, 140),
+    },
+    {
+      reason: 'near-neutral chroma',
+      first: { r: 70, g: 70, b: 70 },
+      second: { r: 150, g: 150, b: 150 },
+    },
+  ])('keeps distinct groups outside the merge limits: $reason', ({ first, second }) => {
+    const result = extractArtworkPalette(
+      'separate-groups',
+      new Uint8ClampedArray([
+        ...colorPixels(first, 300),
+        ...colorPixels(second, 300),
+        ...colorPixels(blue, 400),
+      ]),
+    )
+    expect(result.dominant).toEqual(blue)
+    expect(result.accents).toHaveLength(3)
+    expect(result.accents.map((c) => c.weight).sort()).toEqual([0.3, 0.3, 0.4])
+  })
+
+  it.each([0, 128, 255])(
+    'lets a large neutral area (%i) beat a small vivid decoration',
+    (value) => {
+      const neutral = { r: value, g: value, b: value }
+      const result = extractArtworkPalette(
+        'neutral-dominates',
+        new Uint8ClampedArray([...colorPixels(neutral, 800), ...solidPixels(220, 25, 65, 200)]),
+      )
+      expect(result.dominant).toEqual(neutral)
+      expect(result.accents[0]).toMatchObject({ sourceRgb: neutral, weight: 0.8 })
+    },
+  )
+
+  it('uses the same bounded chroma bonus for dominant and first accent without inflating coverage', () => {
+    const red = { r: 220, g: 25, b: 65 }
+    const result = extractArtworkPalette(
+      'close-coverage',
+      new Uint8ClampedArray([...solidPixels(128, 128, 128, 510), ...colorPixels(red, 490)]),
+    )
+    expect(result.dominant).toEqual(red)
+    expect(result.accents[0]).toMatchObject({ sourceRgb: red, weight: 0.49 })
+    expect(result.accents[1].weight).toBeCloseTo(0.51)
+  })
+
+  it('keeps equal-score choices and accent ordering stable across repeated requests', () => {
+    const pixels = new Uint8ClampedArray([
+      ...solidPixels(255, 0, 0, 500),
+      ...solidPixels(0, 0, 255, 500),
+    ])
+    const first = extractArtworkPalette('tie', pixels)
+    expect(first.accents).toHaveLength(2)
+    expect(first.accents[0].sourceRgb).toEqual(first.dominant)
+    expect(first.accents.map((c) => c.weight)).toEqual([0.5, 0.5])
+    for (let i = 0; i < 3; i++) {
+      expect(extractArtworkPalette('repeat', pixels)).toEqual({ ...first, key: 'repeat' })
+    }
+  })
+})
 
 describe('extractArtworkPalette color conversion compatibility', () => {
   it.each([

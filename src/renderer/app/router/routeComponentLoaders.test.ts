@@ -6,6 +6,20 @@ import {
 } from './routeComponentLoaders'
 
 describe('routeComponentLoaders', () => {
+  it('loads the annual summary on demand without adding primary warmup work', async () => {
+    const archiveAnnualSummary = vi.fn().mockResolvedValue({
+      default: { name: 'ArchiveAnnualSummaryPage' },
+    })
+    const registry = createRouteLoaderRegistry({ archiveAnnualSummary })
+    expect(archiveAnnualSummary).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('archive-annual-summary')).toBe(false)
+    await Promise.all([
+      registry.routeLoaders.archiveAnnualSummary(),
+      registry.routeLoaders.archiveAnnualSummary(),
+    ])
+    expect(archiveAnnualSummary).toHaveBeenCalledOnce()
+  })
+
   it('loads the library page lazily and shares concurrent requests', async () => {
     const library = vi.fn().mockResolvedValue({ default: { name: 'LibraryPage' } })
     const registry = createRouteLoaderRegistry({ library })

@@ -83,6 +83,15 @@ export class PlaybackNavigationSession {
     this.history.clear()
   }
 
+  visitTracks(
+    visit: (track: PlaybackTrack) => void,
+    visitQueue: (queue: PlaybackTrack[]) => void,
+  ): void {
+    if (this.shuffleTrackPool) visitQueue(this.shuffleTrackPool)
+    if (this.albumShuffleContext) visitQueue(this.albumShuffleContext.tracks)
+    this.history.visitTracks(visit, visitQueue)
+  }
+
   setMode(mode: PlaybackMode): void {
     if (this.shuffleCycle !== undefined) this.shuffleCycle = null
     if (mode !== 'album-shuffle') {

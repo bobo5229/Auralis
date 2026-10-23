@@ -125,6 +125,42 @@ describe('decode admission and lifecycle', () => {
     expect(decode).toHaveBeenCalledTimes(2)
   })
 
+  it('releases a late read lease without disturbing the active decode reservation', async () => {
+    const staleLease = deferred<{ leaseId: string }>()
+    const acquireReadLease = vi.fn((trackId: number) =>
+      trackId === 1 ? staleLease.promise : Promise.resolve({ leaseId: `lease-${trackId}` }),
+    )
+    const releaseReadLease = vi.fn()
+    const pendingDecode = deferred<AudioBuffer>()
+    decode.mockReturnValueOnce(pendingDecode.promise)
+    engine.destroy()
+    engine = new GaplessAudioEngine({
+      onCurrentEnded: vi.fn(),
+      onPlaybackStateChange: vi.fn(),
+      onTimeUpdate: vi.fn(),
+      acquireReadLease,
+      releaseReadLease,
+    })
+    const largeProbe = { ...probe, durationSeconds: 480 }
+
+    const stale = engine.prepare(1, 'audio://1', largeProbe)
+    await vi.waitFor(() => expect(acquireReadLease).toHaveBeenCalledWith(1))
+    const active = engine.prepare(2, 'audio://2', largeProbe)
+    await vi.waitFor(() => expect(decode).toHaveBeenCalledOnce())
+
+    staleLease.resolve({ leaseId: 'lease-1' })
+    expect(await stale).toBe(false)
+    expect(releaseReadLease).toHaveBeenCalledWith('lease-1')
+
+    expect(await engine.prepare(3, 'audio://3', largeProbe)).toBe(false)
+    expect(fetchAudio).toHaveBeenCalledOnce()
+    expect(decode).toHaveBeenCalledOnce()
+
+    pendingDecode.resolve(buffer())
+    expect(await active).toBe(false)
+    expect(releaseReadLease).toHaveBeenCalledWith('lease-2')
+  })
+
   it.each(['cancel', 'destroy', 'pause'] as const)(
     'does not start after %s during resume',
     async (action) => {

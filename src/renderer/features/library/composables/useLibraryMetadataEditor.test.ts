@@ -31,8 +31,10 @@ function createEditor(overrides?: {
   updateTrackMetadata?: (
     metadata: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
+  getSaveFailureMessage?: (reason: string) => string
   getSaveErrorMessage?: () => string
   getLoadErrorMessage?: () => string
+  showSaveSuccess?: (signal: AbortSignal) => Promise<void>
 }) {
   let scope: LibraryRouteScope = overrides?.scope ?? { kind: 'library' }
   let disposed = false
@@ -49,9 +51,11 @@ function createEditor(overrides?: {
     updateTrackMetadata,
     captureRouteScope: () => scope,
     refreshLibrary,
+    showSaveSuccess: overrides?.showSaveSuccess,
     restoreFocus,
     isDisposed: () => disposed,
     getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
+    getSaveFailureMessage: overrides?.getSaveFailureMessage,
     getLoadErrorMessage: overrides?.getLoadErrorMessage ?? (() => 'load failed'),
     getPlaybackInUseMessage: () => 'track in use by player',
     getPreloadInUseMessage: () => 'track preloaded',
@@ -79,6 +83,216 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it.each(['rejected', 'thrown', 'reopened'] as const)(
+    'resubmits original values after an uncertain save (%s)',
+    async (failure) => {
+      const showSaveSuccess = vi.fn(async () => undefined)
+      const { editor, updateTrackMetadata } = createEditor({ showSaveSuccess })
+      updateTrackMetadata.mockImplementationOnce(async () => {
+        if (failure === 'thrown') throw new Error('IPC failed after publication')
+        return { ok: false, reason: 'save-failed' }
+      })
+      await editor.open(42)
+      await editor.save({ ...metadata, title: 'Published despite failure' })
+      expect(showSaveSuccess).not.toHaveBeenCalled()
+      if (failure === 'reopened') {
+        editor.close()
+        await editor.open(42)
+      }
+      await editor.save(metadata)
+      expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+      expect(updateTrackMetadata).toHaveBeenLastCalledWith(metadata)
+      expect(showSaveSuccess).toHaveBeenCalledOnce()
+      expect(editor.isMetadataEditorOpen.value).toBe(false)
+    },
+  )
+
+  it('resubmits the prior committed value after a later uncertain save', async () => {
+    const { editor, updateTrackMetadata } = createEditor({ refreshResult: 'failed' })
+    await editor.open(42)
+    const committed = { ...metadata, title: 'Committed' }
+    await editor.save(committed)
+    updateTrackMetadata.mockResolvedValueOnce({ ok: false, reason: 'playback-restore-failed' })
+    await editor.save({ ...metadata, title: 'Published later' })
+    await editor.save(committed)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(3)
+    expect(updateTrackMetadata).toHaveBeenLastCalledWith(committed)
+  })
+
+  it('keeps the dialog busy until successful feedback finishes, then closes and restores focus', async () => {
+    let finish!: () => void
+    const showSaveSuccess = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const { editor, refreshLibrary, restoreFocus } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    const saving = editor.save({ ...metadata, title: 'Changed title' })
+    await vi.waitFor(() => expect(showSaveSuccess).toHaveBeenCalledOnce())
+    expect(refreshLibrary).toHaveBeenCalledOnce()
+    expect(editor.isSavingMetadata.value).toBe(true)
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(restoreFocus).not.toHaveBeenCalled()
+    finish()
+    await saving
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledOnce()
+  })
+
+  it('does not play success feedback after a rejected save', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor } = createEditor({
+      showSaveSuccess,
+      updateTrackMetadata: async () => ({ ok: false, reason: 'tag-preservation-failed' }),
+    })
+    await editor.open(42)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(showSaveSuccess).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.isSavingMetadata.value).toBe(false)
+  })
+
+  it('aborts pending success feedback on disposal without returning focus to an old editor', async () => {
+    const showSaveSuccess = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        }),
+    )
+    const { editor, restoreFocus } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    const saving = editor.save({ ...metadata, title: 'Changed title' })
+    await vi.waitFor(() => expect(showSaveSuccess).toHaveBeenCalledOnce())
+    editor.dispose()
+    await saving
+    expect(showSaveSuccess.mock.calls[0][0].aborted).toBe(true)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(restoreFocus).not.toHaveBeenCalled()
+  })
+
+  it('shows successful feedback for unchanged input without writing or refreshing', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    await editor.save(metadata)
+    expect(showSaveSuccess).toHaveBeenCalledOnce()
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
+
+  it('passes the successful commit revision to refresh and restores focus after it completes', async () => {
+    const { editor, refreshLibrary, restoreFocus } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+    })
+    await editor.open(42)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(refreshLibrary).toHaveBeenCalledWith('12:1')
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
+  it('writes a reversion to the original values after a committed save fails to refresh', async () => {
+    let persisted = { ...metadata }
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async (next) => {
+        persisted = { ...next }
+        return { ok: true, libraryRevision: '12:1' }
+      },
+    })
+    refreshLibrary.mockResolvedValueOnce('failed')
+    await editor.open(metadata.trackId)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(persisted.title).toBe('Changed title')
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.metadataEditError.value).toBe('save failed')
+
+    await editor.save({ ...metadata })
+    expect(persisted).toEqual(metadata)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(refreshLibrary).toHaveBeenCalledTimes(2)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
+
+  it('retries the failed refresh without resubmitting already committed values', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+      showSaveSuccess,
+    })
+    refreshLibrary.mockRejectedValueOnce(new Error('isolated query failure'))
+    await editor.open(metadata.trackId)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    expect(showSaveSuccess).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+    expect(refreshLibrary).toHaveBeenCalledTimes(2)
+    expect(refreshLibrary).toHaveBeenLastCalledWith('12:1')
+    expect(showSaveSuccess).toHaveBeenCalledOnce()
+    expect(restoreFocus).toHaveBeenCalledOnce()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.metadataEditError.value).toBeNull()
+  })
+
+  it('uses the newly loaded baseline after closing an editor with a failed refresh', async () => {
+    const { editor, loadTrackMetadata, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+    })
+    refreshLibrary.mockResolvedValueOnce('failed')
+    await editor.open(metadata.trackId)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    editor.close()
+    loadTrackMetadata.mockResolvedValueOnce(changed)
+    await editor.open(metadata.trackId)
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+    expect(refreshLibrary).toHaveBeenCalledOnce()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
+
+  it('closes an unchanged edit and restores focus without invoking IPC or refreshing the library', async () => {
+    const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor()
+    await editor.open(42)
+    await editor.save({ ...metadata, title: ' A Song ', artistDisplay: 'An Artist; an artist' })
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
+  it('shows the localized preservation failure, retains input and allows a changed edit to be retried', async () => {
+    const language = ref('zh')
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async () => ({ ok: false, reason: 'tag-preservation-failed' }),
+      getSaveFailureMessage: (reason) =>
+        language.value === 'zh'
+          ? `保存会丢失原有标签：${reason}`
+          : `Existing tags would be lost: ${reason}`,
+    })
+    await editor.open(42)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    expect(editor.metadataEditError.value).toBe('保存会丢失原有标签：tag-preservation-failed')
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.editingMetadata.value).toEqual(metadata)
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    language.value = 'en'
+    expect(editor.metadataEditError.value).toBe(
+      'Existing tags would be lost: tag-preservation-failed',
+    )
+    updateTrackMetadata.mockResolvedValueOnce({ ok: true })
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
   it('blocks saving a preloaded track and follows its transition into playback', async () => {
     let listener!: (event: TrackEditStateChangedEvent) => void
     const { editor, updateTrackMetadata } = createEditor({
@@ -90,12 +304,12 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
     expect(editor.editStatus.value).toBe('preload-in-use')
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(updateTrackMetadata).not.toHaveBeenCalled()
     listener({ trackId: metadata.trackId, status: 'playback-in-use', version: 2 })
     expect(editor.editStatus.value).toBe('playback-in-use')
     listener({ trackId: metadata.trackId, status: 'playback-editable', version: 3 })
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(updateTrackMetadata).toHaveBeenCalledOnce()
   })
 
@@ -113,7 +327,7 @@ describe('useLibraryMetadataEditor', () => {
       },
     })
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(editor.editStatus.value).toBe('preload-in-use')
     expect(editor.metadataEditError.value).toBe('track preloaded')
     expect(editor.editingMetadata.value).toEqual(metadata)
@@ -145,7 +359,7 @@ describe('useLibraryMetadataEditor', () => {
       expect(editor.isLoadingMetadata.value).toBe(false)
       expect(editor.metadataEditError.value).toBe('load failed')
       expect(editor.editingMetadata.value).toBeNull()
-      await editor.save(metadata)
+      await editor.save({ ...metadata, title: 'Changed title' })
       expect(updateTrackMetadata).not.toHaveBeenCalled()
       await editor.retryLoad()
       expect(editor.editingMetadata.value).toEqual(metadata)
@@ -238,7 +452,7 @@ describe('useLibraryMetadataEditor', () => {
       getSaveErrorMessage: () => (language.value === 'en' ? 'Could not save' : '保存失败'),
     })
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(editor.metadataEditError.value).toBe('保存失败')
     language.value = 'en'
     expect(editor.metadataEditError.value).toBe('Could not save')
@@ -266,9 +480,9 @@ describe('useLibraryMetadataEditor', () => {
     const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor()
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
-    expect(updateTrackMetadata).toHaveBeenCalledWith(metadata)
+    expect(updateTrackMetadata).toHaveBeenCalledWith({ ...metadata, title: 'Changed title' })
     expect(refreshLibrary).toHaveBeenCalledOnce()
     expect(editor.editingMetadata.value).toBeNull()
     expect(editor.isSavingMetadata.value).toBe(false)
@@ -282,7 +496,7 @@ describe('useLibraryMetadataEditor', () => {
       const { editor, restoreFocus, logSaveError } = createEditor({ refreshResult })
       await editor.open(metadata.trackId)
 
-      await editor.save(metadata)
+      await editor.save({ ...metadata, title: 'Changed title' })
 
       expect(editor.editingMetadata.value).toEqual(metadata)
       expect(editor.metadataEditError.value).toBe('save failed')
@@ -303,7 +517,7 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(editor.editingMetadata.value).toBeNull()
     expect(editor.metadataEditError.value).toBeNull()
@@ -317,7 +531,7 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(refreshLibrary).not.toHaveBeenCalled()
     expect(restoreFocus).not.toHaveBeenCalled()
@@ -422,7 +636,7 @@ describe('useLibraryMetadataEditor', () => {
     await editor.open(metadata.trackId)
     expect(editor.editStatus.value).toBe('playback-in-use')
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(updateTrackMetadata).not.toHaveBeenCalled()
     expect(editor.editingMetadata.value).toEqual(metadata)
@@ -436,7 +650,7 @@ describe('useLibraryMetadataEditor', () => {
     const { editor, refreshLibrary } = createEditor({ updateTrackMetadata })
 
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(editor.editStatus.value).toBe('playback-in-use')
     expect(editor.metadataEditError.value).toBe('track in use by player')

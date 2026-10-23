@@ -270,6 +270,98 @@ describe('PlaybackAudioRuntime', () => {
     expect(callbacks.onEnded).toHaveBeenCalledWith(null)
   })
 
+  it('reacquires a reader before seeking and replaying an ended HTML source', async () => {
+    let grant!: (lease: { leaseId: string }) => void
+    const acquire = vi
+      .fn()
+      .mockResolvedValueOnce({ leaseId: 'first' })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            grant = resolve
+          }),
+      )
+    const release = vi.fn()
+    const runtime = createPlaybackAudioRuntime(callbacks, {
+      audio: testAudio as unknown as HTMLAudioElement,
+      acquireReadLease: acquire,
+      releaseReadLease: release,
+    })
+    await runtime.start(1, 'audio://1', { preferGapless: false })
+    testAudio.currentTime = 120
+    testAudio.paused = true
+    testAudio.dispatch('ended')
+    expect(release).toHaveBeenCalledWith('first')
+    const seek = runtime.seek(0)
+    const resume = runtime.resume()
+    await Promise.resolve()
+    expect(testAudio.currentTime).toBe(120)
+    expect(testAudio.paused).toBe(true)
+    expect(acquire).toHaveBeenCalledTimes(2)
+    grant({ leaseId: 'replay' })
+    await Promise.all([seek, resume])
+    expect(testAudio.currentTime).toBe(0)
+    expect(testAudio.paused).toBe(false)
+    runtime.dispose()
+    expect(release.mock.calls.map(([id]) => id)).toEqual(['first', 'replay'])
+  })
+
+  it.each(['pause', 'switch', 'dispose'] as const)(
+    'releases a late replay lease after %s without resuming the old track',
+    async (action) => {
+      let grant!: (lease: { leaseId: string }) => void
+      const acquire = vi
+        .fn()
+        .mockResolvedValueOnce({ leaseId: 'first' })
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              grant = resolve
+            }),
+        )
+        .mockResolvedValue({ leaseId: 'replacement' })
+      const release = vi.fn()
+      const play = vi.spyOn(testAudio, 'play')
+      const runtime = createPlaybackAudioRuntime(callbacks, {
+        audio: testAudio as unknown as HTMLAudioElement,
+        acquireReadLease: acquire,
+        releaseReadLease: release,
+      })
+      await runtime.start(1, 'audio://1', { preferGapless: false })
+      testAudio.paused = true
+      testAudio.dispatch('ended')
+      const pending = runtime.resume()
+      if (action === 'pause') runtime.pause()
+      if (action === 'dispose') runtime.dispose()
+      if (action === 'switch') await runtime.start(2, 'audio://2', { preferGapless: false })
+      const plays = play.mock.calls.length
+      grant({ leaseId: 'late' })
+      await pending
+      expect(play).toHaveBeenCalledTimes(plays)
+      expect(release).toHaveBeenCalledWith('late')
+      if (action === 'switch') expect(testAudio.src).toBe('audio://2')
+      else expect(testAudio.paused).toBe(true)
+      runtime.dispose()
+    },
+  )
+
+  it('does not replay when reacquiring the reader fails', async () => {
+    const runtime = createPlaybackAudioRuntime(callbacks, {
+      audio: testAudio as unknown as HTMLAudioElement,
+      acquireReadLease: vi
+        .fn()
+        .mockResolvedValueOnce({ leaseId: 'first' })
+        .mockRejectedValueOnce(new Error('lease failed')),
+      releaseReadLease: vi.fn(),
+    })
+    await runtime.start(1, 'audio://1', { preferGapless: false })
+    testAudio.paused = true
+    testAudio.dispatch('ended')
+    await expect(runtime.resume()).rejects.toThrow('lease failed')
+    expect(testAudio.paused).toBe(true)
+    runtime.dispose()
+  })
+
   it('dispatches gapless engine events when gapless backend is active', async () => {
     const runtime = createPlaybackAudioRuntime(callbacks, {
       audio: testAudio as unknown as HTMLAudioElement,

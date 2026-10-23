@@ -65,16 +65,16 @@ foobar2000 的属性窗口使用 `; ` 表达多个值，窗口中的空格属于
 
 ## 验收行为
 
-| 来源 | 规范值列表 | 存储 | 展示 |
-| --- | --- | --- | --- |
-| 两个原生 GENRE：Pop、Live | Pop / Live | `Pop; Live` | `Pop & Live` |
-| `Pop; Live` | Pop / Live | `Pop; Live` | `Pop & Live` |
-| ID3v2.3 `TCON`：`Live;Cantopop` | Live / Cantopop | `Live; Cantopop` | `Live & Cantopop` |
-| ID3v2.3 `TCON`：` Live ; Cantopop ; live ` | Live / Cantopop | `Live; Cantopop` | `Live & Cantopop` |
-| 通用编辑输入：`Live;Cantopop` | 一个完整值 | `Live;Cantopop` | `Live;Cantopop` |
-| ID3v2.3 `TPE1`：`A;B` | 一个完整名称 | `A;B` | `A;B` |
-| `Pop, Live` | 一个完整值 | `Pop, Live` | `Pop, Live` |
-| `AC/DC; Tyler, The Creator` | 两个完整名称 | 原字符串 | `AC/DC & Tyler, The Creator` |
-| `Pop; pop; Live` | Pop / Live | `Pop; Live` | `Pop & Live` |
+| 来源                                     | 规范值列表      | 存储             | 展示                         |
+| ---------------------------------------- | --------------- | ---------------- | ---------------------------- |
+| 两个原生 GENRE：Pop、Live                | Pop / Live      | `Pop; Live`      | `Pop & Live`                 |
+| `Pop; Live`                              | Pop / Live      | `Pop; Live`      | `Pop & Live`                 |
+| ID3v2.3 `TCON`：`Live;Cantopop`          | Live / Cantopop | `Live; Cantopop` | `Live & Cantopop`            |
+| ID3v2.3 `TCON`：`Live ; Cantopop ; live` | Live / Cantopop | `Live; Cantopop` | `Live & Cantopop`            |
+| 通用编辑输入：`Live;Cantopop`            | 一个完整值      | `Live;Cantopop`  | `Live;Cantopop`              |
+| ID3v2.3 `TPE1`：`A;B`                    | 一个完整名称    | `A;B`            | `A;B`                        |
+| `Pop, Live`                              | 一个完整值      | `Pop, Live`      | `Pop, Live`                  |
+| `AC/DC; Tyler, The Creator`              | 两个完整名称    | 原字符串         | `AC/DC & Tyler, The Creator` |
+| `Pop; pop; Live`                         | Pop / Live      | `Pop; Live`      | `Pop & Live`                 |
 
 验证覆盖原生多值读取、字符串边界、编辑规范化、文件读写往返、数据库两层一致性、艺术家关联、用户覆盖保留，以及筛选、统计和展示消费方。ID3v2.3 流派兼容需使用实际编码的 MP3 标签验证读取，并检查 common/native 合并后只有两个目标流派；其他字段及格式中的单独分号按原规则保留。

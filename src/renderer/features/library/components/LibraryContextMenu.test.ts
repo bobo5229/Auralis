@@ -58,6 +58,8 @@ describe('LibraryContextMenu insert visibility', () => {
     expect(html).not.toContain('data-context-main-index="2"')
     expect(html).toContain('data-context-main-index="3"')
     expect(html).toContain('data-context-main-index="4"')
+    expect(html).toContain('data-context-main-index="6"')
+    expect(html).toContain('library.contextMenu.openInExplorer')
   })
 
   it('renders the insert row for another track', async () => {
@@ -114,7 +116,10 @@ function textContent(root: TestNode): string {
   return root.text + root.children.map(textContent).join('')
 }
 
-async function mountInteractiveMenu(addResult: () => Promise<AddPlaylistTracksResult>) {
+async function mountInteractiveMenu(
+  addResult: () => Promise<AddPlaylistTracksResult>,
+  options: { canSwitchToCover?: boolean; currentViewMode?: 'flat' | 'cover' } = {},
+) {
   vi.useFakeTimers()
   focused = null
   const body = node()
@@ -160,6 +165,7 @@ async function mountInteractiveMenu(addResult: () => Promise<AddPlaylistTracksRe
     listSidebarItems: async () => [playlist],
     createPlaylist: async () => ({ id: 10, name: 'New' }),
     addTracksToPlaylist: addResult,
+    revealInExplorer: async () => ({ ok: true }),
   })
   const renderer = createRenderer<TestNode, TestNode>({
     createElement: () => node(),
@@ -191,6 +197,8 @@ async function mountInteractiveMenu(addResult: () => Promise<AddPlaylistTracksRe
     querySelector: () => body,
   })
   menu.onOpenContextMenu(1, { clientX: 10, clientY: 10 } as MouseEvent, 'track', 'keyboard')
+  const switchView = vi.fn()
+  const openInExplorer = vi.fn()
   const app = renderer.createApp({
     render: () =>
       h(LibraryContextMenu, {
@@ -201,19 +209,22 @@ async function mountInteractiveMenu(addResult: () => Promise<AddPlaylistTracksRe
         albumTitle: 'Album',
         canLocateCurrent: true,
         canInsert: true,
-        currentViewMode: 'flat',
+        currentViewMode: options.currentViewMode ?? 'flat',
+        canSwitchToCover: options.canSwitchToCover,
         playlists: menu.regularPlaylistItems.value,
         playlistFeedback: menu.addToPlaylistFeedback.value,
         playlistLoading: menu.playlistLoading.value,
         playlistLoadError: menu.playlistLoadError.value,
         creatingPlaylist: menu.isCreatingPlaylistFromMenu.value,
         onClose: () => menu.closeContextMenu(),
+        onSwitchView: switchView,
         onAddToPlaylist: (item: SidebarPlaylistItem) => {
           void menu.onAddContextTracksToPlaylist(item)
         },
         onCreatePlaylist: () => {
           void menu.onCreatePlaylistAndAddContextTracks()
         },
+        onOpenInExplorer: openInExplorer,
       }),
   })
   app.directive('tooltip', {})
@@ -245,8 +256,44 @@ async function mountInteractiveMenu(addResult: () => Promise<AddPlaylistTracksRe
     await key('ArrowDown')
     expect(textContent(focused!)).toContain('Night')
   }
-  return { body, menu, key, settle, openPlaylistSubmenu }
+  return { body, menu, key, settle, openPlaylistSubmenu, switchView, openInExplorer }
 }
+
+describe('LibraryContextMenu cover-view availability', () => {
+  it('retains the disabled cover-view item and skips it during keyboard navigation', async () => {
+    const harness = await mountInteractiveMenu(vi.fn(), { canSwitchToCover: false })
+    const item = findAll(harness.body, (node) => node.props['data-context-main-index'] === '5')[0]
+    expect(textContent(item)).toContain('library.contextMenu.switchToCover')
+    expect(item.props.disabled).toBe(true)
+    expect(item.props.tabindex).toBe(-1)
+    ;(item.props.onClick as () => void)()
+    expect(harness.switchView).not.toHaveBeenCalled()
+    expect(harness.menu.contextMenu.value).not.toBeNull()
+    await harness.key('End')
+    expect(focused?.props['data-context-main-index']).toBe('6')
+    expect(textContent(focused!)).toContain('library.contextMenu.openInExplorer')
+    await harness.key('ArrowDown')
+    expect(focused?.props['data-context-main-index']).toBe('0')
+    await harness.key('End')
+    await harness.key('Enter')
+    expect(harness.switchView).not.toHaveBeenCalled()
+    expect(harness.openInExplorer).toHaveBeenCalledOnce()
+    expect(harness.menu.contextMenu.value).not.toBeNull()
+  })
+
+  it.each([
+    { currentViewMode: 'flat' as const, canSwitchToCover: undefined, target: 'cover' },
+    { currentViewMode: 'cover' as const, canSwitchToCover: false, target: 'flat' },
+  ])('allows the view switch when applicable: %j', async (options) => {
+    const harness = await mountInteractiveMenu(vi.fn(), options)
+    await harness.key('End')
+    expect(focused?.props['data-context-main-index']).toBe('6')
+    await harness.key('ArrowUp')
+    expect(focused?.props['data-context-main-index']).toBe('5')
+    await harness.key('Enter')
+    expect(harness.switchView).toHaveBeenCalledExactlyOnceWith(options.target)
+  })
+})
 
 describe('LibraryContextMenu add result events and keyboard navigation', () => {
   it.each([

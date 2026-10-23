@@ -9,7 +9,11 @@ import {
 } from './metadataNormalizer'
 import { writeArtworkToCache } from '../artwork/artworkCache'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
-import type { RefreshedTrackMetadata } from '../../repositories/metadataRefreshRepository'
+import type { StableTrackMetadata } from './metadataRefreshTypes'
+import {
+  hasSameScanFileFingerprint,
+  scanFileFingerprint,
+} from '../libraryScan/libraryScanFileFingerprint'
 
 export class MetadataFileChangedError extends Error {
   constructor() {
@@ -18,13 +22,17 @@ export class MetadataFileChangedError extends Error {
 }
 
 export async function assertMetadataFingerprint(
-  result: Pick<RefreshedTrackMetadata, 'sourceFilePath' | 'fileSize' | 'fileMtimeMs'>,
+  result: Pick<
+    StableTrackMetadata,
+    'sourceFilePath' | 'fileSize' | 'fileMtimeMs' | 'fileFingerprint'
+  >,
 ): Promise<void> {
   const current = await stat(result.sourceFilePath)
   if (
     !current.isFile() ||
     current.size !== result.fileSize ||
-    current.mtimeMs !== result.fileMtimeMs
+    current.mtimeMs !== result.fileMtimeMs ||
+    !hasSameScanFileFingerprint(current, result.fileFingerprint)
   ) {
     throw new MetadataFileChangedError()
   }
@@ -36,7 +44,7 @@ export async function readStableMetadata(
   filePath: string,
   artworkCacheDir: string,
   verifyTags?: (metadata: IAudioMetadata) => void,
-): Promise<RefreshedTrackMetadata> {
+): Promise<StableTrackMetadata> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const before = await stat(filePath)
@@ -48,6 +56,7 @@ export async function readStableMetadata(
         sourceFilePath: filePath,
         fileSize: before.size,
         fileMtimeMs: before.mtimeMs,
+        fileFingerprint: scanFileFingerprint(before),
       }
       await assertMetadataFingerprint(fingerprint)
       const picture = metadata.common.picture?.[0]

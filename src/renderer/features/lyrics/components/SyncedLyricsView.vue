@@ -3,9 +3,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLyricLineSeek } from '../composables/useLyricLineSeek'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibility'
 import { useReducedMotion } from '../composables/useReducedMotion'
 import { getLyricsScrollEasing, useLyricsScrollPreset } from '../lyricsScrollPreset'
 import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'
+import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
+import LyricsFractureDots from './LyricsFractureDots.vue'
 import {
   resolveLyricsFollowBehavior,
   shouldAnimateLyricsFollow,
@@ -13,24 +16,35 @@ import {
 } from '../utils/lyricsMotion'
 import type { LyricLine } from '../types'
 
-const props = defineProps<{
-  lines: LyricLine[]
-  activeIndex: number
-  isPrelude: boolean
-  showPrelude: boolean
-  preludeLitDotCount: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    active?: boolean
+    interactive?: boolean
+    lines: LyricLine[]
+    activeIndex: number
+    isPrelude: boolean
+    showPrelude: boolean
+    preludeLitDotCount: number
+    preludeElapsed?: number
+  }>(),
+  { active: true, interactive: true, preludeElapsed: 0 },
+)
 
 const { t } = useI18n()
 const { effects } = useLyricsEffectsPreference()
+const { effect: countdownEffect } = useLyricsCountdownPreference()
 const { activate: onLyricLineActivate, onKeydown: onLyricLineKeydown } = useLyricLineSeek({
   lines: () => props.lines,
+  enabled: () => isActive.value && props.interactive,
   onSeek: followAfterSeek,
 })
 const reducedMotion = useReducedMotion()
 const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
 const { displayMode } = usePlayerDisplayMode()
-const isActive = computed(() => displayMode.value === 'normal')
+const windowVisible = useWindowVisibility()
+const isActive = computed(
+  () => props.active && displayMode.value === 'normal' && windowVisible.value,
+)
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -141,7 +155,9 @@ function computeTarget(): number | null {
 }
 
 function updateTarget(
-  behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
+  behavior: LyricsFollowBehavior = props.interactive
+    ? resolveLyricsFollowBehavior(reducedMotion.matches.value)
+    : 'auto',
 ): void {
   if (!isActive.value || isUserScrolling.value) return
   const container = scrollRef.value
@@ -192,6 +208,7 @@ function updateTarget(
 }
 
 function pauseAutoFollow(): void {
+  if (!isActive.value || !props.interactive) return
   const container = scrollRef.value
   if (!isUserScrolling.value) {
     const currentOffset = cancelTrackAnimation(true)
@@ -286,9 +303,25 @@ function syncContainer(): void {
   resizeObserver.observe(container)
 }
 
+async function prepareForDisplay(): Promise<void> {
+  if (!isActive.value) return
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  scrollTimeout = null
+  isUserScrolling.value = false
+  syncContainer()
+  // Height changes update the padding; measure line positions after that DOM update.
+  await nextTick()
+  if (!isActive.value) return
+  rebuildMetrics(true)
+  updateTarget('auto')
+}
+
+defineExpose({ prepareForDisplay })
+
 watch(
   () => [props.activeIndex, props.isPrelude, props.showPrelude, props.lines] as const,
   (next, previous) => {
+    if (!isActive.value) return
     const linesChanged = next[3] !== previous[3]
     if (props.lines.length === 0) {
       resetScrollPosition()
@@ -308,12 +341,14 @@ watch(isActive, (active) => {
     scrollTimeout = null
     isUserScrolling.value = false
     cancelTrackAnimation(true)
+    resizeObserver?.disconnect()
+    resizeObserver = null
     return
   }
   void nextTick(() => {
     if (!isActive.value) return
     if (!resizeObserver) syncContainer()
-    rebuildMetrics()
+    rebuildMetrics(true)
     updateTarget('auto')
   })
 })
@@ -353,7 +388,10 @@ onBeforeUnmount(() => {
   <div
     ref="scrollRef"
     class="synced-lyrics-scroll h-full overflow-auto scrollbar-none px-4"
-    :class="{ 'synced-lyrics-scroll--blur': effects.blur }"
+    :class="{
+      'synced-lyrics-scroll--blur': effects.blur,
+      'synced-lyrics-scroll--inactive': !isActive,
+    }"
     tabindex="0"
     @wheel="pauseAutoFollow"
     @pointerdown="pauseAutoFollow"
@@ -373,18 +411,22 @@ onBeforeUnmount(() => {
         :aria-label="t('player.lyricsStartingSoon')"
         data-lyric-prelude
       >
-        <span
-          v-for="dot in 3"
-          :key="dot"
-          class="lyric-dot"
-          :class="{ 'lyric-dot-lit': dot <= preludeLitDotCount }"
-        ></span>
+        <LyricsFractureDots v-if="countdownEffect === 'fracture'" :elapsed="preludeElapsed" />
+        <template v-else>
+          <span
+            v-for="dot in 3"
+            :key="dot"
+            class="lyric-dot"
+            :class="{ 'lyric-dot-lit': dot <= preludeLitDotCount }"
+          ></span>
+        </template>
       </div>
       <div
         v-for="(line, index) in lines"
         :key="line.id"
-        v-memo="[activeIndex === index, line.text]"
+        v-memo="[activeIndex === index, line.text, line.performer]"
         class="lyric-line lyric-line-seekable"
+        :data-performer="line.performer ?? undefined"
         :class="
           activeIndex === index
             ? 'lyric-active lyric-line-active-filter'
@@ -430,6 +472,19 @@ onBeforeUnmount(() => {
     opacity 300ms ease,
     filter 300ms ease;
   overflow-wrap: anywhere;
+}
+
+.lyric-line[data-performer='1'] {
+  text-align: left;
+}
+
+.lyric-line[data-performer='2'] {
+  text-align: right;
+}
+
+.synced-lyrics-scroll--inactive .lyric-line,
+.synced-lyrics-scroll--inactive .lyric-dot {
+  transition: none;
 }
 
 .lyric-line-seekable {
@@ -497,5 +552,9 @@ onBeforeUnmount(() => {
     0 0 0.72em color-mix(in srgb, currentColor 42%, transparent);
   opacity: 1;
   transform: scale(1);
+}
+
+[data-theme='light'] .lyric-dot-lit {
+  box-shadow: none;
 }
 </style>

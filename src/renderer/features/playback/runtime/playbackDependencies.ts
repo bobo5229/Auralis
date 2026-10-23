@@ -1,4 +1,5 @@
 import type { PlaybackTrack } from '../types'
+import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type { AlbumShuffleContext } from '../core/playbackQueueState'
 import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
@@ -22,6 +23,7 @@ export interface PlaybackDiagnosticsLogger {
 }
 
 export interface PlaybackDependencies {
+  getTrackMetadata?: (trackId: number) => Promise<EditableTrackMetadata | null>
   getAudioUrl(trackId: number): Promise<AudioResource | null | undefined>
   getRandomTrack(excludeTrackId?: number): Promise<PlaybackTrack | null | undefined>
   getAlbumTracks(albumKey: {
@@ -47,6 +49,7 @@ export interface PlaybackDependencies {
 
 export function createBrowserPlaybackDependencies(): PlaybackDependencies {
   return {
+    getTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
     createAudioRuntime: (callbacks) =>
       createNativePlaybackRuntime(callbacks, auralis.playback, (cause) =>
         rendererDiagnostics.warn({

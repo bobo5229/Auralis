@@ -75,6 +75,32 @@ describe('groupAlbums', () => {
 })
 
 describe('moreAlbumsByArtist', () => {
+  it.each([null, 'invalid-date'])(
+    'orders equally unknown years by title after dated albums (%s)',
+    (releaseDate) => {
+      const albums = groupAlbums([
+        createTrack(1, { album: 'Current', releaseDate }),
+        createTrack(2, { album: 'Zulu', releaseDate }),
+        createTrack(3, { album: 'Alpha', releaseDate }),
+        createTrack(4, { album: 'Dated Z', releaseDate: '2020-01-01' }),
+        createTrack(5, { album: 'Dated A', releaseDate: '2020-06-01' }),
+      ])
+      expect(moreAlbumsByArtist(albums, 'Artist', 'Current').map((album) => album.title)).toEqual([
+        'Dated A',
+        'Dated Z',
+        'Alpha',
+        'Zulu',
+      ])
+      expect(albums.map((album) => album.title)).toEqual([
+        'Current',
+        'Zulu',
+        'Alpha',
+        'Dated Z',
+        'Dated A',
+      ])
+    },
+  )
+
   it('excludes the current album and unknown artists, then sorts by year', () => {
     const albums = groupAlbums([
       createTrack(1, { album: 'B', releaseDate: '2022-01-01' }),
@@ -98,7 +124,7 @@ describe('moreAlbumsByArtist', () => {
 })
 
 describe('moreAlbumsByGenre', () => {
-  it('matches any atomic genre case-insensitively, deduplicates albums and excludes the current album', () => {
+  it('uses the first ranked genre on ties, deduplicates albums and excludes the current album', () => {
     const current = createTrack(1, { genre: 'Jazz; R&B/SOUL' })
     const albums = groupAlbums([
       current,
@@ -111,7 +137,23 @@ describe('moreAlbumsByGenre', () => {
     ])
     expect(
       moreAlbumsByGenre(albums, [current], 'Artist', 'Album').map((album) => album.title),
-    ).toEqual(['Other', 'Compound', 'Album'])
+    ).toEqual(['Other', 'Album'])
     expect(moreAlbumsByGenre(albums, [createTrack(1)], 'Artist', 'Album')).toEqual([])
+  })
+
+  it('matches only the most frequent genre and counts duplicate labels once per track', () => {
+    const currentTracks = [
+      createTrack(1, { genre: 'Jazz; Jazz; Jazz; R&B/SOUL' }),
+      createTrack(2, { genre: 'r&b/soul' }),
+    ]
+    const albums = groupAlbums([
+      ...currentTracks,
+      createTrack(3, { album: 'Primary match', genre: 'R&B/SOUL' }),
+      createTrack(4, { album: 'Secondary only', genre: 'Jazz' }),
+      createTrack(5, { album: 'Partial only', genre: 'SOUL' }),
+    ])
+    expect(
+      moreAlbumsByGenre(albums, currentTracks, 'Artist', 'Album').map((album) => album.title),
+    ).toEqual(['Primary match'])
   })
 })

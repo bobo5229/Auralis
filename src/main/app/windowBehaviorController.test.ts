@@ -29,7 +29,7 @@ function harness(initial: WindowCloseBehavior = 'quit', available = true) {
 }
 
 describe('window close behavior', () => {
-  it.each(['quit', 'minimize', 'tray'] as const)(
+  it.each(['quit', 'tray'] as const)(
     'handles %s without destroying the window',
     (behavior) => {
       const { controller, window, quit } = harness(behavior)
@@ -38,27 +38,29 @@ describe('window close behavior', () => {
       expect(event.preventDefault).toHaveBeenCalledOnce()
       expect(quit).toHaveBeenCalledTimes(behavior === 'quit' ? 1 : 0)
       expect(window.hide).toHaveBeenCalledTimes(behavior === 'tray' ? 1 : 0)
-      expect(window.minimize).toHaveBeenCalledTimes(behavior === 'minimize' ? 1 : 0)
+      expect(window.minimize).not.toHaveBeenCalled()
       controller.dispose()
       expect(window.listenerCount('close')).toBe(0)
     },
   )
 
-  it('falls back to the taskbar for an unavailable saved tray mode and rejects selecting it', () => {
+  it('keeps the window accessible for an unavailable saved tray mode and rejects selecting it', () => {
     const { controller, window, preference } = harness('tray', false)
     window.emit('close', { preventDefault: vi.fn() })
     expect(window.hide).not.toHaveBeenCalled()
-    expect(window.minimize).toHaveBeenCalledOnce()
+    expect(window.minimize).not.toHaveBeenCalled()
+    expect(window.show).toHaveBeenCalledOnce()
+    expect(window.focus).toHaveBeenCalledOnce()
     expect(() => controller.setBehavior('tray')).toThrow('unavailable')
     expect(preference.set).not.toHaveBeenCalled()
-    expect(controller.setBehavior('minimize')).toEqual({
-      behavior: 'minimize',
+    expect(controller.setBehavior('quit')).toEqual({
+      behavior: 'quit',
       trayAvailable: false,
     })
   })
 
   it('restores and focuses the same minimized window, attaches once and detaches when destroyed', () => {
-    const { controller, window } = harness('minimize')
+    const { controller, window } = harness('tray')
     controller.attachWindow(window as unknown as Parameters<typeof controller.attachWindow>[0])
     expect(window.listenerCount('close')).toBe(1)
     window.isMinimized.mockReturnValue(true)

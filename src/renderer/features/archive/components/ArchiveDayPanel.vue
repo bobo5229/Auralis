@@ -4,8 +4,6 @@ import ArchiveDayDetails from './ArchiveDayDetails.vue'
 defineProps<{
   id: string
   date: string
-  playCount: number
-  durationSeconds: number
   tracks: DailyTopTrack[]
   loading: boolean
   failed: boolean
@@ -24,8 +22,6 @@ defineProps<{
       <ArchiveDayDetails
         :heading-id="`${id}-date`"
         :date="date"
-        :play-count="playCount"
-        :duration-seconds="durationSeconds"
         :tracks="tracks"
         :loading="loading"
         :failed="failed"

@@ -314,3 +314,160 @@ it('ranks at most three daily tracks including removed history with stable ties 
     db.close()
   }
 })
+
+it('ranks daily albums by duration, excludes unknown albums, and includes removed history', () => {
+  const db = new DatabaseCtor(':memory:')
+  try {
+    migrateDatabase(db)
+    db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist,duration_seconds) VALUES
+      (1,'a1.flac','A1','Artist','Alpha','Artist',300),
+      (2,'a2.flac','A2','Artist','Alpha','Artist',300),
+      (3,'b1.flac','B1','Other','Beta','Other',600),
+      (4,'u1.flac','U1','Unknown','','',120),
+      (6,'c1.flac','C1','Artist','Gamma','Artist',100),
+      (7,'d1.flac','D1','Other','Delta','Other',600);
+      INSERT INTO albums(title,artist,artwork_cache_key) VALUES('Alpha','Artist','alpha-cover');
+      INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
+      ('2026-10-09',1,5,900),('2026-10-09',2,2,300),('2026-10-09',3,1,600),
+      ('2026-10-09',4,9,9999),('2026-10-09',6,3,300),('2026-10-09',7,2,600);
+      INSERT INTO removed_track_history(id,title,artist,album,album_artist,source_file_path,recovery_json)
+      VALUES(5,'Removed','Historical','Removed Album','Historical Artist','removed.flac','{}');
+      INSERT INTO removed_daily_track_play_stats(play_date,track_id,play_count,duration_seconds)
+      VALUES('2026-10-09',5,2,700);`)
+    const snapshot = () =>
+      [
+        'tracks',
+        'albums',
+        'daily_track_play_stats',
+        'removed_track_history',
+        'removed_daily_track_play_stats',
+      ].map((table) => db.prepare(`SELECT * FROM ${table}`).all())
+    const before = snapshot()
+    const service = new PlayStatsService(new PlayStatsRepository(db))
+    expect(service.getDayTopAlbums('2026-10-09')).toEqual([
+      {
+        album: 'Alpha',
+        albumArtist: 'Artist',
+        artworkCacheKey: 'alpha-cover',
+        playCount: 7,
+        durationSeconds: 1200,
+        trackCount: 2,
+      },
+      {
+        album: 'Removed Album',
+        albumArtist: 'Historical Artist',
+        artworkCacheKey: null,
+        playCount: 2,
+        durationSeconds: 700,
+        trackCount: 1,
+      },
+      {
+        album: 'Delta',
+        albumArtist: 'Other',
+        artworkCacheKey: null,
+        playCount: 2,
+        durationSeconds: 600,
+        trackCount: 1,
+      },
+      {
+        album: 'Beta',
+        albumArtist: 'Other',
+        artworkCacheKey: null,
+        playCount: 1,
+        durationSeconds: 600,
+        trackCount: 1,
+      },
+      {
+        album: 'Gamma',
+        albumArtist: 'Artist',
+        artworkCacheKey: null,
+        playCount: 3,
+        durationSeconds: 300,
+        trackCount: 1,
+      },
+    ])
+    expect(service.getDayTopAlbums('2026-10-10')).toEqual([])
+    expect(snapshot()).toEqual(before)
+  } finally {
+    db.close()
+  }
+})
+
+it('groups active and removed tracks together using current display metadata and artist fallbacks', () => {
+  const db = new DatabaseCtor(':memory:')
+  try {
+    migrateDatabase(db)
+    db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist) VALUES
+      (1,'edited.flac','Original','Original','Original Album','Original'),
+      (2,'other.flac','Other','Other','Shared','Other');
+      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display,artwork_cache_key)
+      VALUES(1,'Edited','Artist','Shared','   ','edited-cover');
+      INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
+      ('2026-10-09',1,2,600),('2026-10-09',2,3,900);
+      INSERT INTO removed_track_history(id,title,artist,album,album_artist,artwork_cache_key,source_file_path,recovery_json)
+      VALUES(3,'Removed','Artist','Shared',NULL,'removed-cover','removed.flac','{}');
+      INSERT INTO removed_daily_track_play_stats(play_date,track_id,play_count,duration_seconds)
+      VALUES('2026-10-09',3,2,600);`)
+    const repo = new PlayStatsRepository(db)
+    expect(repo.getDayTopAlbums('2026-10-09')).toEqual([
+      {
+        album: 'Shared',
+        albumArtist: 'Artist',
+        artworkCacheKey: 'removed-cover',
+        playCount: 4,
+        durationSeconds: 1200,
+        trackCount: 2,
+      },
+      {
+        album: 'Shared',
+        albumArtist: 'Other',
+        artworkCacheKey: null,
+        playCount: 3,
+        durationSeconds: 900,
+        trackCount: 1,
+      },
+    ])
+    expect(repo.getDayTopTracks('2026-10-09')[1]).toEqual({
+      trackId: 1,
+      title: 'Edited',
+      artist: 'Artist',
+      playCount: 2,
+    })
+  } finally {
+    db.close()
+  }
+})
+
+it.each(['getDayTopTracks', 'getDayTopAlbums'] as const)(
+  '%s locates daily tracks without scanning or materializing the full display library',
+  (method) => {
+    const db = new DatabaseCtor(':memory:')
+    try {
+      migrateDatabase(db)
+      db.exec(`WITH RECURSIVE ids(id) AS (
+        SELECT 1 UNION ALL SELECT id+1 FROM ids WHERE id<10000
+      ) INSERT INTO tracks(id,file_path,title,artist,album)
+        SELECT id,'fixture/'||id||'.flac','Track '||id,'Artist','Album '||(id/10) FROM ids;
+        INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds)
+        VALUES('2026-10-09',1,2,600);`)
+      const prepare = vi.spyOn(db, 'prepare')
+      try {
+        expect(new PlayStatsRepository(db)[method]('2026-10-09')).toHaveLength(1)
+        const sql = prepare.mock.calls[0][0]
+        const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all({ date: '2026-10-09' }) as {
+          detail: string
+        }[]
+        expect(plan.some(({ detail }) => /\bSCAN (?:t|removed_track_history)\b/.test(detail))).toBe(
+          false,
+        )
+        expect(
+          plan.some(({ detail }) => detail.includes('MATERIALIZE listening_track_display')),
+        ).toBe(false)
+      } finally {
+        prepare.mockRestore()
+      }
+    } finally {
+      db.close()
+    }
+  },
+)

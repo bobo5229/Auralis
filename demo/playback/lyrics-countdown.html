@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 歌词倒计时</title>
+    <style>
+      :root { color-scheme: light; --bg: #f0f1f2; --fg: #27292c; --muted: #84888e; --accent: #b50009; --line: #d3d5d8; }
+      [data-theme="dark"] { color-scheme: dark; --bg: #17181a; --fg: #eeeff1; --muted: #70747b; --accent: #ff6570; --line: #383b40; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/20px 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+      main { max-width: 820px; margin: 0 auto; padding: 40px 28px; }
+      h1 { font-size: 24px; line-height: 32px; margin: 0 0 10px; }
+      p { color: var(--muted); margin: 0; }
+      .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 26px; }
+      label { display: flex; align-items: center; gap: 8px; }
+      select, button { font: inherit; padding: 7px 12px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+      button { cursor: pointer; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+      .panel { min-height: 330px; padding: 72px 12px 40px; }
+      .previous, .next { font-size: 24px; line-height: 36px; color: var(--muted); }
+      .stage { height: 104px; display: flex; align-items: center; position: relative; }
+      .dots { display: flex; gap: 18px; align-items: center; }
+      .dot { width: 12px; height: 12px; position: relative; color: var(--accent); }
+      .solid { position: absolute; inset: 0; border-radius: 50%; background: currentColor; }
+      svg { position: absolute; width: 12px; height: 12px; overflow: visible; visibility: hidden; }
+      .particle { transform-box: fill-box; transform-origin: center; }
+      .broken .solid { opacity: 0; transition: opacity 65ms linear; }
+      .broken svg { visibility: visible; }
+      .broken .particle { animation: fracture 450ms cubic-bezier(.16,.55,.36,1) both; }
+      @keyframes fracture {
+        from { transform: translate(0, 0) scale(1); opacity: 1; }
+        20% { opacity: .85; }
+        to { transform: translate(var(--x), var(--y)) scale(.25); opacity: 0; }
+      }
+      .lighting .solid { opacity: .22; transition: opacity 180ms ease, transform 180ms ease; transform: scale(.85); }
+      .lighting .lit .solid { opacity: 1; transform: scale(1); }
+      [data-theme="dark"] .lighting .lit .solid { box-shadow: 0 0 10px currentColor; }
+      .lyric { font-size: 30px; line-height: 44px; font-weight: 600; color: var(--accent); }
+      [hidden] { display: none !important; }
+      .status { font-variant-numeric: tabular-nums; }
+      @media (prefers-reduced-motion: reduce) { .broken .particle { animation-name: fade; } @keyframes fade { to { opacity: 0; } } }
+      @media (max-width: 480px) { main { padding: 28px 20px; } .lyric { font-size: 24px; line-height: 36px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>歌词圆点倒计时</h1>
+      <p>三秒后进入歌词。圆点从左到右依次化为细小颗粒，散开并淡出。</p>
+      <div class="controls">
+        <label>效果 <select id="effect"><option value="fracture">逐个破碎</option><option value="lighting">逐个点亮</option></select></label>
+        <label>主题 <select id="theme"><option value="light">浅色</option><option value="dark">深色</option></select></label>
+        <button id="replay" type="button">重新播放</button>
+      </div>
+      <section class="panel" aria-label="歌词预览">
+        <div class="previous">前奏</div>
+        <div class="stage">
+          <div class="dots" id="dots" aria-label="歌词开始倒计时"></div>
+          <div class="lyric" id="lyric" hidden>让旋律慢慢走近</div>
+        </div>
+        <div class="next">在这一刻，听见自己</div>
+      </section>
+      <p class="status" id="status" role="status">准备倒计时</p>
+    </main>
+    <script>
+      const dots = document.querySelector('#dots');
+      const lyric = document.querySelector('#lyric');
+      const status = document.querySelector('#status');
+      const effect = document.querySelector('#effect');
+      let frame = 0;
+      // Subpixel grains fill a 12px circle. Seeded variation keeps replays comparable.
+      function particles(seed) {
+        const random = () => {
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          return seed / 4294967296;
+        };
+        const grains = [];
+        for (let y = .5; y < 12; y += 1) {
+          for (let x = .5; x < 12; x += 1) {
+            if (Math.hypot(x - 6, y - 6) > 5.6) continue;
+            const angle = Math.atan2(y - 6, x - 6) + (random() - .5) * 1.6;
+            const distance = 5 + random() * 15;
+            const size = .45 + random() * .5;
+            grains.push(`<circle class="particle" cx="${x}" cy="${y}" r="${size / 2}" style="--x:${Math.cos(angle) * distance + 4}px;--y:${Math.sin(angle) * distance + 5}px" fill="currentColor"/>`);
+          }
+        }
+        return grains.join('');
+      }
+      function replay() {
+        cancelAnimationFrame(frame);
+        const mode = effect.value;
+        dots.className = `dots ${mode}`;
+        dots.innerHTML = Array.from({ length: 3 }, (_, index) => `<span class="dot"><span class="solid"></span>${mode === 'fracture' ? `<svg viewBox="0 0 12 12" aria-hidden="true">${particles(index + 1)}</svg>` : ''}</span>`).join('');
+        dots.hidden = false;
+        lyric.hidden = true;
+        const start = performance.now();
+        function tick(now) {
+          const elapsed = (now - start) / 1000;
+          dots.querySelectorAll('.dot').forEach((dot, index) => {
+            if (mode === 'fracture' && elapsed >= index + .55) dot.classList.add('broken');
+            if (mode === 'lighting' && elapsed >= index) dot.classList.add('lit');
+          });
+          if (elapsed >= 3) {
+            dots.hidden = true;
+            lyric.hidden = false;
+            status.textContent = '倒计时结束 · 歌词开始';
+            return;
+          }
+          status.textContent = `距离歌词开始 ${Math.max(1, Math.ceil(3 - elapsed))} 秒`;
+          frame = requestAnimationFrame(tick);
+        }
+        frame = requestAnimationFrame(tick);
+      }
+      document.querySelector('#replay').addEventListener('click', replay);
+      effect.addEventListener('change', replay);
+      document.querySelector('#theme').addEventListener('change', (event) => {
+        document.documentElement.dataset.theme = event.target.value;
+        replay();
+      });
+      replay();
+    </script>
+  </body>
+</html>

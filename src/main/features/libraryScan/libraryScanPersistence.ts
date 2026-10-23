@@ -1,15 +1,20 @@
 import { win32 } from 'node:path'
 import type Database from 'better-sqlite3'
 import { ipcChannels } from '@shared/ipc/channels'
-import type { LibraryScanProgress, ScannedTrack } from '@shared/types/libraryScan'
+import type { LibraryScanProgress } from '@shared/types/libraryScan'
 import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { MissingTrackCleanupRepository } from '@main/repositories/missingTrackCleanupRepository'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
-import type { LibraryScanWorkerMessage } from './libraryScanTypes'
+import type {
+  LibraryScanWorkerMessage,
+  ScannedTrackFile,
+  ScanFileSnapshot,
+} from './libraryScanTypes'
 import { importScannedTracks, type ImportedTracks } from './libraryScanTrackImport'
+import { isCurrentScanSnapshot } from './libraryScanSnapshot'
 
 function isUnderDirectory(filePath: string, directory: string): boolean {
   const relative = win32.relative(directory, filePath)
@@ -20,7 +25,8 @@ function isUnderDirectory(filePath: string, directory: string): boolean {
 }
 
 export class LibraryScanPersistence {
-  private readonly pendingNewTracks = new Map<string, ScannedTrack>()
+  private readonly pendingNewTracks = new Map<string, ScannedTrackFile>()
+  private readonly rejectedScanFiles = new Set<string>()
   private scanHadFailures = false
   private readonly scanFailureRepository: ScanFailureRepository
 
@@ -41,6 +47,7 @@ export class LibraryScanPersistence {
 
   clearPendingTracks(): void {
     this.pendingNewTracks.clear()
+    this.rejectedScanFiles.clear()
   }
 
   fail(jobId: number, reason: string, defaultFailedFiles = 0): void {
@@ -59,7 +66,10 @@ export class LibraryScanPersistence {
 
   handleMessage(message: LibraryScanWorkerMessage, workerJobId: number): void {
     if (message.type === 'progress') {
-      const progress = message.payload
+      const progress = {
+        ...message.payload,
+        failedFiles: message.payload.failedFiles + this.rejectedScanFiles.size,
+      }
       if (progress.failedFiles > 0) this.scanHadFailures = true
       this.scanJobRepository.updateProgress(
         progress.jobId,
@@ -76,14 +86,29 @@ export class LibraryScanPersistence {
       const knownPaths = this.trackRepository.getExistingFilePaths(
         message.payload.map((track) => track.filePath),
       )
-      const knownTracks: ScannedTrack[] = []
+      const knownTracks: ScannedTrackFile[] = []
       for (const track of message.payload) {
         if (knownPaths.has(track.filePath)) knownTracks.push(track)
         else this.pendingNewTracks.set(track.filePath, track)
       }
-      this.trackRepository.upsertMany(knownTracks)
-      if (knownTracks.length > 0) {
-        const filePaths = knownTracks.map((track) => track.filePath)
+      const currentTracks = this.acceptCurrentSnapshots(knownTracks, workerJobId, true)
+      this.trackRepository.upsertMany(currentTracks)
+      if (currentTracks.length > 0) {
+        const filePaths = currentTracks.map((track) => track.filePath)
+        this.publishChanged(
+          'metadata-refresh',
+          this.trackRepository.getTrackIdsByFilePaths(filePaths),
+          filePaths,
+        )
+      }
+      return
+    }
+
+    if (message.type === 'trackTags') {
+      const patches = this.acceptCurrentSnapshots(message.payload, workerJobId, false)
+      this.trackRepository.patchTrackTags(patches)
+      if (patches.length > 0) {
+        const filePaths = patches.map((patch) => patch.filePath)
         this.publishChanged(
           'metadata-refresh',
           this.trackRepository.getTrackIdsByFilePaths(filePaths),
@@ -99,8 +124,10 @@ export class LibraryScanPersistence {
     }
 
     if (message.type === 'trackLyrics') {
-      this.trackRepository.patchLyrics(message.payload)
-      const filePaths = message.payload.map((patch) => patch.filePath)
+      const patches = this.acceptCurrentSnapshots(message.payload, workerJobId, true)
+      if (patches.length === 0) return
+      this.trackRepository.patchLyrics(patches)
+      const filePaths = patches.map((patch) => patch.filePath)
       this.publishChanged(
         'metadata-refresh',
         this.trackRepository.getTrackIdsByFilePaths(filePaths),
@@ -160,6 +187,24 @@ export class LibraryScanPersistence {
             this.scanHadFailures = true
           },
         )
+        const allRestoredIds = restoredIds.concat(
+          this.trackRepository.markAvailableByFilePaths(imported.restoredPaths),
+        )
+
+        // Worker counters cover reads; final per-track persistence failures must
+        // also reach the stored job and its terminal progress event.
+        const failedFiles = status.failedFiles + imported.failures.length
+        if (imported.failures.length > 0) {
+          this.scanFailureRepository.insertMany(
+            imported.failures.map((failure) => ({ ...failure, jobId: workerJobId })),
+          )
+          this.scanJobRepository.updateProgress(
+            workerJobId,
+            status.totalFiles,
+            status.scannedFiles,
+            failedFiles,
+          )
+        }
 
         const removedIds =
           !this.scanHadFailures &&
@@ -173,11 +218,15 @@ export class LibraryScanPersistence {
         }
 
         const relocated = new Set(imported.relocatedIds)
+        const restored = new Set(allRestoredIds)
         return {
-          status,
-          restoredIds,
+          status: { ...status, failedFiles },
+          restoredIds: allRestoredIds,
           missingIds: [
-            ...new Set([...missingIds.filter((id) => !relocated.has(id)), ...removedIds]),
+            ...new Set([
+              ...missingIds.filter((id) => !relocated.has(id) && !restored.has(id)),
+              ...removedIds,
+            ]),
           ],
           imported,
         }
@@ -190,7 +239,10 @@ export class LibraryScanPersistence {
       this.publishImportedTracks(result.imported)
 
       if (result.restoredIds.length > 0) {
-        this.publishChanged('track-restored', result.restoredIds, message.payload.foundFilePaths)
+        this.publishChanged('track-restored', result.restoredIds, [
+          ...message.payload.foundFilePaths,
+          ...result.imported.restoredPaths,
+        ])
       }
 
       if (result.missingIds.length > 0) {
@@ -220,6 +272,41 @@ export class LibraryScanPersistence {
     if (result.relocatedIds.length > 0) {
       this.publishChanged('track-relocated', result.relocatedIds, result.relocatedPaths)
     }
+  }
+
+  private acceptCurrentSnapshots<T extends ScanFileSnapshot>(
+    items: T[],
+    jobId: number,
+    verifyLyrics: boolean,
+  ): T[] {
+    const accepted: T[] = []
+    const failures: { jobId: number; filePath: string; reason: string }[] = []
+    for (const item of items) {
+      if (isCurrentScanSnapshot(item, verifyLyrics)) {
+        accepted.push(item)
+      } else if (!this.rejectedScanFiles.has(item.filePath)) {
+        this.rejectedScanFiles.add(item.filePath)
+        this.scanHadFailures = true
+        failures.push({
+          jobId,
+          filePath: item.filePath,
+          reason: 'Audio file or lyric sidecar changed or became unavailable before scan update',
+        })
+      }
+    }
+    if (failures.length > 0) {
+      this.scanFailureRepository.insertMany(failures)
+      const status = this.scanJobRepository.getById(jobId)
+      if (status) {
+        this.scanJobRepository.updateProgress(
+          jobId,
+          status.totalFiles,
+          status.scannedFiles,
+          status.failedFiles + failures.length,
+        )
+      }
+    }
+    return accepted
   }
 
   publishMissingTracks(trackIds: number[]): void {

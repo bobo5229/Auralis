@@ -14,6 +14,7 @@ import VirtualAlbumTrackList from './VirtualAlbumTrackList.vue'
 import {
   getAlbumCoverColumnHeight,
   LIBRARY_LAYOUT_METRICS,
+  type CoverMetadataLayout,
 } from '../constants/libraryLayoutMetrics'
 
 const props = withDefaults(
@@ -23,20 +24,24 @@ const props = withDefaults(
     isPlaying?: boolean
     selectedTrackId?: number | null
     contextSelectedTrackId?: number | null
+    artworkContextSelected?: boolean
     focusedTrackId?: number | null
     viewportHeight?: number
     scrollElement?: HTMLElement | null
     startOffset?: number
+    metadataLayout?: Readonly<CoverMetadataLayout>
   }>(),
   {
     nowPlayingTrackId: null,
     isPlaying: false,
     selectedTrackId: null,
     contextSelectedTrackId: null,
+    artworkContextSelected: false,
     focusedTrackId: null,
     viewportHeight: 0,
     scrollElement: null,
     startOffset: 0,
+    metadataLayout: undefined,
   },
 )
 
@@ -63,7 +68,7 @@ const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.t
 const canStickAside = computed(
   () =>
     props.viewportHeight >=
-    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate)) +
+    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate), props.metadataLayout) +
       LIBRARY_LAYOUT_METRICS.coverStickyTopInset,
 )
 
@@ -108,6 +113,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
       <div
         class="album-cover-artwork select-none"
+        :class="{ 'album-cover-artwork--context-selected': artworkContextSelected }"
         tabindex="0"
         role="button"
         aria-haspopup="menu"
@@ -145,11 +151,10 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
           {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
         <p
-          class="album-cover-meta-line album-cover-meta-artist flex items-center justify-between gap-2 min-w-0"
+          v-tooltip.overflow="songValues(group.albumArtist)"
+          class="album-cover-meta-line album-cover-meta-artist min-w-0 truncate"
         >
-          <span v-tooltip.overflow="songValues(group.albumArtist)" class="truncate">
-            {{ songValues(group.albumArtist) }}
-          </span>
+          {{ songValues(group.albumArtist) }}
         </p>
         <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">
           {{ group.releaseDate }}
@@ -212,7 +217,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   cursor: default;
 }
 
-.album-cover-artwork:focus-visible {
+.album-cover-artwork:is(:focus-visible, .album-cover-artwork--context-selected) {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 3px;
 }
@@ -220,19 +225,37 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 .album-cover-meta-title {
   font-weight: var(--auralis-song-cover-album-weight, 700);
   font-size: var(--auralis-song-cover-album-size, 16px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-album-line-height, var(--library-cover-meta-line-height));
 }
 
 .album-cover-meta-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
   font-size: var(--auralis-song-cover-album-artist-size, 12px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-artist-line-height, var(--library-cover-meta-line-height));
 }
 
 .album-cover-meta-date {
   font-weight: var(--auralis-song-cover-release-date-weight, 500);
   font-size: var(--auralis-song-cover-release-date-size, 12px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-date-line-height, var(--library-cover-meta-line-height));
+}
+
+.album-cover-meta {
+  display: flex;
+  flex-direction: column;
+  text-align: var(--library-cover-meta-align, left);
+}
+
+.album-cover-meta > p {
+  margin: 0;
+}
+
+.album-cover-meta > .album-cover-meta-artist {
+  margin-top: var(--library-cover-meta-album-artist-gap);
+}
+
+.album-cover-meta > .album-cover-meta-date {
+  margin-top: var(--library-cover-meta-artist-date-gap);
 }
 
 :deep(.cover-disc-heading) {
@@ -241,6 +264,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   align-items: center;
   font-family: var(--auralis-font-disc-heading);
   height: var(--library-cover-disc-heading-height);
+  padding-block: 8px;
   padding-inline: 12px;
   border-radius: 8px;
   background: transparent;
@@ -254,7 +278,9 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 /* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
 :deep(.cover-disc-heading--first) {
   position: absolute;
-  top: calc(-1 * var(--library-cover-disc-heading-height));
+  height: 24px;
+  padding-block: 0;
+  top: -24px;
   left: var(--library-cover-panel-padding-inline-side);
   right: var(--library-cover-panel-padding-inline-side);
 }

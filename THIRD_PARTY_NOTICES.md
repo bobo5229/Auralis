@@ -1,5 +1,15 @@
 # Third-party notices
 
+## node-taglib-sharp
+
+M4A metadata writes use **node-taglib-sharp 6.0.3** by Ben Russell, a Node.js port
+of TagLib#. Upstream: <https://github.com/benrr101/node-taglib-sharp/tree/v6.0.3>.
+License: LGPL-2.1-or-later; the complete license is included in the installed
+package at `node_modules/node-taglib-sharp/LICENSE`. The package is used
+unmodified, remains an external runtime dependency (not bundled into Auralis
+code), and can be replaced with a compatible modified version. It edits only
+disposable staging files; Auralis verifies tags before replacing an original.
+
 ## Startup album card fonts
 
 The card bundles local WOFF2 editions of:
@@ -121,6 +131,44 @@ The unused implementation was removed on 2026-10-06. This notice is retained for
 Copyright (c) 2025 Nikita Stadnik
 
 MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## SVG loading-to-success feedback — svg-loading and Segment
+
+`SaveProgressIcon.vue` adapts the circular SVG geometry, loading sequence and
+success stroke drawing from [jagjitgill/svg-loading](https://github.com/jagjitgill/svg-loading),
+commit `edf7b8499754b7c23aa9ed3e5e7b656ea493ab61` (`dist/svg-loading.js`).
+The Vue adapter adds cancellation, reduced-motion support, a short success hold
+and unmount cleanup instead of the upstream DOM/button mutation layer.
+
+`src/renderer/shared/feedback/vendor/segment.js` vendors
+[lmgonzalves/segment](https://github.com/lmgonzalves/segment), version 1.1.3,
+commit `dbd180703b1b94f6293688adaddda48b8d61b7e5` (`dist/segment.js`).
+Only the UMD export wrapper is replaced by ESM; the SVG stroke animation engine
+is unchanged. Both upstream projects use the MIT license.
+
+MIT License
+
+Copyright (c) 2017 Jag (svg-loading)
+
+Copyright (c) 2015 Luis Manuel (Segment)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

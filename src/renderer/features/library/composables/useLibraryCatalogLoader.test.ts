@@ -5,6 +5,7 @@ import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/li
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
+import type { RecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import type { SmartPlaylistDetail, SmartPlaylistRule } from '@shared/types/smartPlaylist'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { LibraryViewportCapture } from './useLibraryViewport'
@@ -64,6 +65,7 @@ function createLoader(overrides?: {
   getSmartPlaylistDetail?: (id: number) => Promise<SmartPlaylistDetail | null>
   getPlaylistDetail?: (id: number) => Promise<PlaylistDetail | null>
   getTrackPage?: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
+  readPersistedViewMode?: () => LibraryViewMode
   prepareForegroundViewport?: (isRequestCurrent: () => boolean) => Promise<void>
   restoreNavigationViewport?: (isRequestCurrent: () => boolean) => Promise<boolean>
 }) {
@@ -88,7 +90,9 @@ function createLoader(overrides?: {
   const restoreNavigationViewport = vi.fn(
     overrides?.restoreNavigationViewport ?? (async () => false),
   )
-  let changedHandler: ((event: { reason: string }) => void | Promise<void>) | null = null
+  let changedHandler:
+    | ((event: { reason: string; libraryRevision?: string }) => void | Promise<void>)
+    | null = null
   let scanHandler: ((progress: LibraryScanProgress) => void | Promise<void>) | null = null
   const subscribeChanged = vi.fn((callback: NonNullable<typeof changedHandler>) => {
     changedHandler = callback
@@ -104,6 +108,8 @@ function createLoader(overrides?: {
   })
   const getTrackPage =
     overrides?.getTrackPage ?? vi.fn(async () => createPage([createTrack(1), createTrack(2)]))
+  const getPlaylistDetail = overrides?.getPlaylistDetail ?? vi.fn(async () => null)
+  const getSmartPlaylistDetail = overrides?.getSmartPlaylistDetail ?? vi.fn(async () => null)
 
   const loader = useLibraryCatalogLoader({
     isDisposed: () => disposed,
@@ -113,9 +119,9 @@ function createLoader(overrides?: {
     libraryViewMode,
     isLoading,
     getTrackPage,
-    getPlaylistDetail: overrides?.getPlaylistDetail ?? vi.fn(async () => null),
-    getSmartPlaylistDetail: overrides?.getSmartPlaylistDetail ?? vi.fn(async () => null),
-    readPersistedViewMode: () => 'flat' as const,
+    getPlaylistDetail,
+    getSmartPlaylistDetail,
+    readPersistedViewMode: overrides?.readPersistedViewMode ?? (() => 'flat' as const),
     onSnapshotCommitted,
     captureViewportRestore,
     restoreViewportRestore,
@@ -134,6 +140,9 @@ function createLoader(overrides?: {
     tracks,
     isLoading,
     getTrackPage,
+    getPlaylistDetail,
+    getSmartPlaylistDetail,
+    libraryViewMode,
     onSnapshotCommitted,
     restoreViewportRestore,
     scrollToPlaybackTrack,
@@ -141,8 +150,8 @@ function createLoader(overrides?: {
     restoreNavigationViewport,
     subscribeChanged,
     subscribeScan,
-    emitLibraryChanged: async (reason: string) => {
-      await changedHandler?.({ reason })
+    emitLibraryChanged: async (reason: string, libraryRevision?: string) => {
+      await changedHandler?.({ reason, ...(libraryRevision ? { libraryRevision } : {}) })
     },
     emitScanCompleted: async () => {
       await scanHandler?.({ status: 'completed' } as LibraryScanProgress)
@@ -156,6 +165,215 @@ function createLoader(overrides?: {
 
 describe('useLibraryCatalogLoader', () => {
   afterEach(() => vi.useRealTimers())
+
+  it('filters the full catalog for recent-added without requesting playlist details', async () => {
+    const now = Date.now()
+    const range: RecentAddedLibraryRange = 7
+    const inRange = { ...createTrack(9), createdAt: new Date(now - 2 * 86_400_000).toISOString() }
+    const outOfRange = {
+      ...createTrack(3),
+      createdAt: new Date(now - 10 * 86_400_000).toISOString(),
+    }
+    const getPlaylistDetail = vi.fn(async () => null)
+    const getSmartPlaylistDetail = vi.fn(async () => null)
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'recent-added', range }),
+      getTrackPage: vi.fn(async () => createPage([outOfRange, inRange])),
+      getPlaylistDetail,
+      getSmartPlaylistDetail,
+      readPersistedViewMode: () => 'cover',
+    })
+
+    expect(await returned.loader.loadLibraryData()).toBe('committed')
+    expect(returned.pageIdentity.value).toEqual({ kind: 'recent-added', range: 7 })
+    expect(returned.tracks.value).toEqual([inRange])
+    expect(returned.libraryViewMode.value).toBe('cover')
+    expect(getPlaylistDetail).not.toHaveBeenCalled()
+    expect(getSmartPlaylistDetail).not.toHaveBeenCalled()
+    returned.dispose()
+  })
+
+  it('does not commit a catalog response captured for an older recent-added range', async () => {
+    const now = Date.now()
+    let range: RecentAddedLibraryRange = 7
+    const gate = deferred<LibraryTrackPage>()
+    const getTrackPage = vi.fn(() => gate.promise)
+    const withinSevenDays = {
+      ...createTrack(9),
+      createdAt: new Date(now - 2 * 86_400_000).toISOString(),
+    }
+    const withinThirtyDays = {
+      ...createTrack(3),
+      createdAt: new Date(now - 10 * 86_400_000).toISOString(),
+    }
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'recent-added', range }),
+      getTrackPage,
+    })
+
+    const oldRangeLoad = returned.loader.loadLibraryData('foreground')
+    await vi.waitFor(() => expect(getTrackPage).toHaveBeenCalledOnce())
+    range = 30
+    const currentRangeLoad = returned.loader.loadLibraryData('foreground')
+    gate.resolve(createPage([withinThirtyDays, withinSevenDays]))
+
+    expect(await oldRangeLoad).toBe('stale')
+    expect(await currentRangeLoad).toBe('committed')
+    expect(returned.pageIdentity.value).toEqual({ kind: 'recent-added', range: 30 })
+    expect(returned.tracks.value).toEqual([withinSevenDays, withinThirtyDays])
+    expect(returned.onSnapshotCommitted).toHaveBeenCalledOnce()
+    returned.dispose()
+  })
+
+  it('re-filters after the existing import and metadata refresh events', async () => {
+    vi.useFakeTimers()
+    const now = Date.now()
+    const range: RecentAddedLibraryRange = 7
+    const recent = { ...createTrack(1), createdAt: new Date(now - 5 * 86_400_000).toISOString() }
+    const added = { ...createTrack(3), createdAt: new Date(now - 1 * 86_400_000).toISOString() }
+    const older = { ...createTrack(2), createdAt: new Date(now - 10 * 86_400_000).toISOString() }
+    const renamed = { ...recent, title: 'Updated title' }
+    const getTrackPage = vi
+      .fn()
+      .mockResolvedValueOnce(createPage([recent, older]))
+      .mockResolvedValueOnce(createPage([recent, added, older]))
+      .mockResolvedValueOnce(createPage([renamed, added, older]))
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'recent-added', range }),
+      getTrackPage,
+    })
+    returned.loader.subscribeLibraryEvents()
+
+    await returned.loader.loadLibraryData('foreground')
+    expect(returned.tracks.value).toEqual([recent])
+    await returned.emitLibraryChanged('track-added')
+    await vi.advanceTimersByTimeAsync(1000)
+    await vi.waitFor(() => expect(returned.tracks.value).toEqual([added, recent]))
+
+    await returned.emitLibraryChanged('metadata-refresh')
+    expect(returned.tracks.value).toEqual([added, renamed])
+    expect(returned.getTrackPage).toHaveBeenCalledTimes(3)
+    returned.dispose()
+  })
+
+  it('keeps retry available after a failed recent-added load and retries the active range', async () => {
+    const now = Date.now()
+    const inRange = { ...createTrack(4), createdAt: new Date(now - 2 * 86_400_000).toISOString() }
+    const outOfRange = {
+      ...createTrack(2),
+      createdAt: new Date(now - 20 * 86_400_000).toISOString(),
+    }
+    const getTrackPage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('query failed'))
+      .mockResolvedValueOnce(createPage([outOfRange, inRange]))
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'recent-added', range: 7 }),
+      getTrackPage,
+    })
+
+    expect(await returned.loader.loadLibraryData('foreground')).toBe('failed')
+    expect(returned.loader.initialLoadError.value).toBe('load failed')
+    expect(await returned.loader.retryInitialLoad()).toBeUndefined()
+    expect(returned.loader.initialLoadError.value).toBeNull()
+    expect(returned.pageIdentity.value).toEqual({ kind: 'recent-added', range: 7 })
+    expect(returned.tracks.value).toEqual([inRange])
+    expect(returned.getTrackPage).toHaveBeenCalledTimes(2)
+    returned.dispose()
+  })
+
+  it.each(['notification-first', 'save-first'])(
+    'commits one refresh for the same save revision when %s is in flight',
+    async (order) => {
+      const gate = deferred<LibraryTrackPage>()
+      const getTrackPage = vi.fn(() => gate.promise)
+      const { loader, emitLibraryChanged, onSnapshotCommitted, restoreViewportRestore } =
+        createLoader({ getTrackPage })
+      loader.subscribeLibraryEvents()
+      const first =
+        order === 'notification-first'
+          ? emitLibraryChanged('metadata-refresh', '12:1')
+          : loader.loadLibraryData('metadata-save', '12:1')
+      const second =
+        order === 'notification-first'
+          ? loader.loadLibraryData('metadata-save', '12:1')
+          : emitLibraryChanged('metadata-refresh', '12:1')
+      gate.resolve(createPage([createTrack(9)]))
+      await Promise.all([first, second])
+      expect(getTrackPage).toHaveBeenCalledOnce()
+      expect(onSnapshotCommitted).toHaveBeenCalledOnce()
+      expect(restoreViewportRestore).toHaveBeenCalledOnce()
+      loader.dispose()
+    },
+  )
+
+  it.each(['notification-first', 'save-first'])(
+    'reuses an already committed view for the same revision when %s completes first',
+    async (order) => {
+      const { loader, emitLibraryChanged, getTrackPage, onSnapshotCommitted } = createLoader()
+      loader.subscribeLibraryEvents()
+      if (order === 'notification-first') {
+        await emitLibraryChanged('metadata-refresh', '12:1')
+        expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+      } else {
+        expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+        await emitLibraryChanged('metadata-refresh', '12:1')
+      }
+      expect(getTrackPage).toHaveBeenCalledOnce()
+      expect(onSnapshotCommitted).toHaveBeenCalledOnce()
+      loader.dispose()
+    },
+  )
+
+  it('does not reuse a commit across an unversioned change or a second save', async () => {
+    const { loader, emitLibraryChanged, getTrackPage } = createLoader()
+    loader.subscribeLibraryEvents()
+    await loader.loadLibraryData('metadata-save', '12:1')
+    await emitLibraryChanged('file-change')
+    await loader.loadLibraryData('metadata-save', '12:1')
+    await loader.loadLibraryData('metadata-save', '13:1')
+    expect(getTrackPage).toHaveBeenCalledTimes(4)
+    loader.dispose()
+  })
+
+  it('retries a failed notification refresh before reporting a save refresh as committed', async () => {
+    const getTrackPage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('query failed'))
+      .mockResolvedValueOnce(createPage([createTrack(9)]))
+    const { loader, emitLibraryChanged, onSnapshotCommitted } = createLoader({ getTrackPage })
+    loader.subscribeLibraryEvents()
+    await emitLibraryChanged('metadata-refresh', '12:1')
+    expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+    expect(getTrackPage).toHaveBeenCalledTimes(2)
+    expect(onSnapshotCommitted).toHaveBeenCalledOnce()
+    loader.dispose()
+  })
+
+  it('does not reuse a view from another route for the same commit', async () => {
+    let scope: LibraryRouteScope = { kind: 'library' }
+    const getPlaylistDetail = vi.fn(async (): Promise<PlaylistDetail> => ({
+      playlist: {
+        id: 8,
+        name: 'Playlist',
+        viewMode: 'flat',
+        sortOrder: 0,
+        createdAt: '',
+        updatedAt: '',
+      },
+      tracks: [createTrack(9)],
+    }))
+    const { loader, onSnapshotCommitted } = createLoader({
+      captureRouteScope: () => scope,
+      getPlaylistDetail,
+    })
+    await loader.loadLibraryData('metadata-save', '12:1')
+    scope = { kind: 'playlist', id: 8 }
+    expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+    expect(getPlaylistDetail).toHaveBeenCalledOnce()
+    expect(onSnapshotCommitted).toHaveBeenCalledTimes(2)
+    loader.dispose()
+  })
 
   function smartDetail(rule: SmartPlaylistRule, ids: number[]): SmartPlaylistDetail {
     return {

@@ -2,6 +2,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
 import { albumIdentityKey, resolveAlbumArtist, resolveAlbumTitle } from './albumIdentity'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
+import { rankAlbumGenres } from '@shared/utils/albumGenres'
 
 export function selectAlbumTracks(
   tracks: TrackListItem[],
@@ -61,8 +62,9 @@ export function albumYearSortKey(value: string | null): number {
 
 export function sortAlbumsByYearThenTitle(albums: AlbumSummary[]): AlbumSummary[] {
   return [...albums].sort((left, right) => {
-    const yearOrder = albumYearSortKey(left.releaseDate) - albumYearSortKey(right.releaseDate)
-    if (yearOrder !== 0) return yearOrder
+    const leftYear = albumYearSortKey(left.releaseDate)
+    const rightYear = albumYearSortKey(right.releaseDate)
+    if (leftYear !== rightYear) return leftYear - rightYear
     return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
   })
 }
@@ -85,19 +87,16 @@ export function moreAlbumsByGenre(
   albumArtist: string,
   albumTitle: string,
 ): AlbumSummary[] {
-  const genres = new Set(
-    currentTracks.flatMap((track) =>
-      splitDelimitedValues(track.genre).map(normalizeDelimitedValue),
-    ),
-  )
-  if (genres.size === 0) return []
+  const primaryGenre = rankAlbumGenres(currentTracks)[0]
+  if (!primaryGenre) return []
+  const genreKey = normalizeDelimitedValue(primaryGenre)
   const currentKey = albumIdentityKey(albumArtist, albumTitle)
   return albums.filter(
     (album) =>
       album.key !== currentKey &&
       album.tracks.some((track) =>
-        splitDelimitedValues(track.genre).some((genre) =>
-          genres.has(normalizeDelimitedValue(genre)),
+        splitDelimitedValues(track.genre).some(
+          (genre) => normalizeDelimitedValue(genre) === genreKey,
         ),
       ),
   )
