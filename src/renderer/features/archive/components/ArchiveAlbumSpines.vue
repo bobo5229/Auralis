@@ -42,18 +42,13 @@ function unbind(): void {
 function bind(): void {
   unbind()
   if (enabled && viewport.value && row.value) {
-    interaction = createAlbumSpineInteraction(
-      viewport.value,
-      row.value,
-      (index) => {
-        activeIndex.value = index
-        if (index !== null) emit('select', index)
-      },
-      () => ({ open: t('archive.openAlbumCase'), close: t('archive.closeAlbumCase') }),
-    )
+    interaction = createAlbumSpineInteraction(viewport.value, row.value, (index) => {
+      activeIndex.value = index
+      if (index !== null) emit('select', index)
+    })
   }
 }
-// Counts can change without changing the displayed cases. Keep an open case and
+// Counts can change without changing the displayed cases. Keep the current preview and
 // the pointer controller alive unless their ordered visual sources change.
 watch(
   () =>
@@ -81,7 +76,7 @@ onBeforeUnmount(unbind)
 </script>
 
 <template>
-  <div class="archive-album-spines">
+  <div class="archive-album-spines" :class="{ 'archive-album-spines--small': albums.length <= 3 }">
     <div ref="viewport" class="archive-spines-viewport">
       <ol ref="row" class="archive-spines-row">
         <li
@@ -93,8 +88,6 @@ onBeforeUnmount(unbind)
             type="button"
             class="archive-album-trigger"
             aria-pressed="false"
-            aria-haspopup="dialog"
-            aria-expanded="false"
             :aria-label="
               t('archive.albumPreview', {
                 rank: index + 1,
@@ -115,6 +108,7 @@ onBeforeUnmount(unbind)
                   v-if="artwork(album)"
                   :src="artwork(album)"
                   alt=""
+                  draggable="false"
                   loading="lazy"
                   decoding="async"
                   @error="artworkError(album.artworkCacheKey)"
@@ -126,26 +120,32 @@ onBeforeUnmount(unbind)
               <div class="archive-album-top"></div>
               <div class="archive-album-bottom"></div>
               <div class="archive-album-front">
-                <img
-                  v-if="artwork(album)"
-                  :src="artwork(album)"
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  @error="artworkError(album.artworkCacheKey)"
-                />
-                <span v-else class="i-lucide-disc-3 archive-spine-fallback"></span>
+                <div class="archive-album-inlay">
+                  <img
+                    v-if="artwork(album)"
+                    :src="artwork(album)"
+                    alt=""
+                    draggable="false"
+                    loading="lazy"
+                    decoding="async"
+                    @error="artworkError(album.artworkCacheKey)"
+                  />
+                  <span v-else class="i-lucide-disc-3 archive-spine-fallback"></span>
+                </div>
               </div>
             </div>
           </div>
-          <div class="archive-album-envelope" aria-hidden="true"></div>
         </li>
       </ol>
     </div>
     <div class="archive-spines-info" aria-live="polite" aria-atomic="true">
       <template v-if="activeAlbum">
-        <p class="archive-spines-title auralis-type-control">{{ albumTitle(activeAlbum) }}</p>
-        <p class="archive-spines-artist auralis-type-caption">{{ albumArtist(activeAlbum) }}</p>
+        <p class="archive-spines-title auralis-type-control" :title="albumTitle(activeAlbum)">
+          {{ albumTitle(activeAlbum) }}
+        </p>
+        <p class="archive-spines-artist auralis-type-caption" :title="albumArtist(activeAlbum)">
+          {{ albumArtist(activeAlbum) }}
+        </p>
       </template>
     </div>
   </div>
@@ -158,6 +158,8 @@ onBeforeUnmount(unbind)
   --archive-album-pitch: 64px;
   --archive-spine-angle: 55deg;
   --archive-pull-depth: 160px;
+  --archive-case-rim: color-mix(in srgb, var(--auralis-text) 18%, var(--auralis-surface-raised));
+  --archive-case-recess: color-mix(in srgb, var(--auralis-surface-raised) 72%, #080a0d);
   min-width: 0;
 }
 .archive-spines-viewport {
@@ -187,38 +189,25 @@ onBeforeUnmount(unbind)
   perspective: 2400px;
   perspective-origin: 50% 45%;
   transform-style: flat;
+  pointer-events: none;
 }
 .archive-album-slot.is-active {
   z-index: 10;
 }
-.archive-album-slot.is-focused .archive-album-lift {
-  visibility: hidden;
+.archive-album-spines--small {
+  --archive-album-pitch: 80px;
 }
-.archive-album-focus {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  outline: none;
-  overflow: hidden;
-  background: transparent;
-  color: var(--auralis-text);
-}
-.archive-album-focus::backdrop {
-  background: color-mix(in srgb, var(--auralis-bg) 32%, transparent);
-}
-.archive-album-focus-mover {
+.archive-album-slot::after {
   position: absolute;
+  top: calc(var(--archive-album-size) - 1px);
+  left: 50%;
+  width: calc(var(--archive-album-pitch) * 1.7);
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(0 0 0 / 24%), transparent 70%);
+  transform: translateX(-50%);
   pointer-events: none;
-}
-.archive-album-focus .archive-album-lift,
-.archive-album-focus .archive-album-object {
-  transition: none !important;
+  content: '';
 }
 .archive-album-occlusion {
   position: absolute;
@@ -242,7 +231,8 @@ onBeforeUnmount(unbind)
   border: 0;
   background: transparent;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
+  pointer-events: none;
   -webkit-tap-highlight-color: transparent;
 }
 .archive-album-trigger:focus-visible {
@@ -260,12 +250,31 @@ onBeforeUnmount(unbind)
   transform: translateX(-50%);
   color: var(--auralis-text-faint);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  pointer-events: auto;
+}
+.archive-album-rank::before {
+  position: absolute;
+  inset: -5px;
+  content: '';
 }
 .is-active .archive-album-rank {
   color: var(--auralis-theme-accent);
+  font-weight: 600;
 }
-.archive-album-lift,
-.archive-album-envelope {
+.is-active .archive-album-rank::after {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translateX(-50%);
+  pointer-events: none;
+  content: '';
+}
+.archive-album-lift {
   position: absolute;
   top: 0;
   left: 50%;
@@ -273,14 +282,14 @@ onBeforeUnmount(unbind)
   height: var(--archive-album-size);
   pointer-events: none;
   transform-style: preserve-3d;
-}
-.archive-album-lift {
   transform: translate3d(-50%, 0, 0);
   transition: transform 500ms cubic-bezier(0.22, 0.8, 0.22, 1);
 }
-.archive-album-envelope {
-  visibility: hidden;
-  transform: translate3d(-50%, -12px, var(--archive-pull-depth));
+.archive-album-object > div {
+  pointer-events: auto;
+}
+.archive-album-occlusion .archive-album-object > div {
+  pointer-events: none;
 }
 .is-active .archive-album-lift {
   transform: translate3d(-50%, -12px, var(--archive-pull-depth));
@@ -303,36 +312,74 @@ onBeforeUnmount(unbind)
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--auralis-surface-raised);
+  border-radius: 2px;
+  background: var(--archive-case-rim);
   backface-visibility: hidden;
 }
 .archive-album-front {
+  transform: translateZ(7px);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 14%),
+    4px 7px 14px rgb(0 0 0 / 12%);
+}
+.archive-album-inlay {
+  position: absolute;
+  inset: 3px 3px 3px 10px;
   display: grid;
   place-items: center;
-  transform: translateZ(7px);
-  box-shadow: inset 0 0 0 1px var(--auralis-border-strong);
+  overflow: hidden;
+  border-radius: 1px;
+  background: linear-gradient(145deg, var(--auralis-surface-raised), var(--auralis-bg));
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 22%);
 }
 .archive-album-front img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+.archive-album-front::before {
+  position: absolute;
+  inset: 2px auto 2px 1px;
+  width: 7px;
+  border-radius: 1px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 18%), transparent 8%, rgb(0 0 0 / 20%) 96%),
+    repeating-linear-gradient(
+      90deg,
+      rgb(0 0 0 / 22%) 0 1px,
+      rgb(255 255 255 / 12%) 1px 2px,
+      transparent 2px 3px
+    ),
+    var(--archive-case-recess);
+  pointer-events: none;
+  content: '';
+}
 .archive-album-front::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgb(0 0 0 / 14%),
-    transparent 6%,
-    transparent 97%,
-    rgb(255 255 255 / 12%)
-  );
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      125deg,
+      rgb(255 255 255 / 12%),
+      rgb(255 255 255 / 3%) 30%,
+      transparent 30.5% 65%,
+      rgb(255 255 255 / 4%)
+    ),
+    linear-gradient(90deg, rgb(0 0 0 / 16%), transparent 9% 97%, rgb(255 255 255 / 18%));
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 20%),
+    inset 1px 1px 0 1px rgb(255 255 255 / 28%),
+    inset -1px -1px 0 1px rgb(0 0 0 / 18%);
+  pointer-events: none;
   content: '';
 }
 .archive-album-back {
   transform: rotateY(180deg) translateZ(7px);
-  box-shadow: inset 0 0 0 1px var(--auralis-border-strong);
-  background: linear-gradient(135deg, var(--auralis-surface-raised), var(--auralis-bg));
+  box-shadow:
+    inset 0 0 0 1px var(--auralis-border-strong),
+    inset 0 0 0 3px var(--archive-case-rim);
+  background: linear-gradient(135deg, var(--auralis-surface-raised), var(--archive-case-recess));
 }
 .archive-album-spine {
   position: absolute;
@@ -342,7 +389,7 @@ onBeforeUnmount(unbind)
   align-items: center;
   width: 14px;
   height: 100%;
-  padding: 10px 0;
+  padding: 14px 0;
   overflow: hidden;
   background: var(--auralis-surface-raised);
   color: var(--auralis-text);
@@ -361,7 +408,26 @@ onBeforeUnmount(unbind)
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.2;
+  opacity: 0.26;
+}
+.archive-album-spine::before,
+.archive-album-spine::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+}
+.archive-album-spine::before {
+  border-top: 6px solid var(--archive-case-recess);
+  border-bottom: 6px solid var(--archive-case-recess);
+  background: linear-gradient(90deg, rgb(0 0 0 / 12%), transparent 45%, rgb(255 255 255 / 12%));
+}
+.archive-album-spine::after {
+  box-shadow:
+    inset 1px 0 0 rgb(255 255 255 / 28%),
+    inset -1px 0 0 rgb(0 0 0 / 24%),
+    inset 0 1px 0 rgb(255 255 255 / 32%),
+    inset 0 -1px 0 rgb(0 0 0 / 24%);
 }
 .archive-spine-title,
 .archive-spine-artist {
@@ -372,7 +438,7 @@ onBeforeUnmount(unbind)
 }
 .archive-spine-title {
   max-height: 65%;
-  font-weight: 500;
+  font-weight: 600;
 }
 .archive-spine-artist {
   max-height: 30%;
@@ -386,16 +452,24 @@ onBeforeUnmount(unbind)
   height: 14px;
   transform-origin: center top;
   backface-visibility: hidden;
-  box-shadow: inset 0 0 0 1px var(--auralis-border-subtle);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 22%),
+    inset 0 2px 0 rgb(255 255 255 / 18%),
+    inset 0 -2px 0 rgb(0 0 0 / 16%);
 }
 .archive-album-top {
   top: 0;
-  background: color-mix(in srgb, var(--auralis-text) 12%, var(--auralis-surface-raised));
+  background: linear-gradient(
+    180deg,
+    var(--archive-case-rim),
+    var(--auralis-surface-raised) 45%,
+    var(--archive-case-recess)
+  );
   transform: translateZ(-7px) rotateX(90deg);
 }
 .archive-album-bottom {
   top: 100%;
-  background: color-mix(in srgb, var(--auralis-bg) 35%, var(--auralis-surface-raised));
+  background: var(--archive-case-recess);
   transform: translateZ(7px) rotateX(-90deg);
 }
 .archive-album-edge {
@@ -404,8 +478,19 @@ onBeforeUnmount(unbind)
   left: 100%;
   width: 14px;
   height: 100%;
-  background: linear-gradient(90deg, var(--auralis-surface-raised), var(--auralis-bg));
-  box-shadow: inset 0 0 0 1px var(--auralis-border-subtle);
+  background:
+    linear-gradient(
+      180deg,
+      transparent 8%,
+      rgb(255 255 255 / 18%) 8% 10%,
+      transparent 10% 90%,
+      rgb(255 255 255 / 18%) 90% 92%,
+      transparent 92%
+    ),
+    linear-gradient(90deg, var(--archive-case-rim), var(--archive-case-recess));
+  box-shadow:
+    inset 1px 0 0 rgb(255 255 255 / 20%),
+    inset -1px 0 0 rgb(0 0 0 / 28%);
   transform-origin: left center;
   transform: translateZ(7px) rotateY(90deg);
   backface-visibility: hidden;
@@ -416,7 +501,7 @@ onBeforeUnmount(unbind)
   color: var(--auralis-text-faint);
 }
 .archive-spines-info {
-  min-height: 48px;
+  min-height: 66px;
   margin-top: 4px;
   padding-inline: 16px;
   text-align: center;
@@ -425,12 +510,19 @@ onBeforeUnmount(unbind)
 .archive-spines-artist {
   margin: 0;
   overflow-wrap: anywhere;
+  max-width: 640px;
+  margin-inline: auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .archive-spines-title {
+  -webkit-line-clamp: 2;
   color: var(--auralis-text);
   font-weight: 600;
 }
 .archive-spines-artist {
+  -webkit-line-clamp: 1;
   margin-top: 4px;
   color: var(--auralis-text-muted);
 }

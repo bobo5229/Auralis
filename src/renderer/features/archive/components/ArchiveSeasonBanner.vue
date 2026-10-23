@@ -30,7 +30,8 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
       :aria-label="t('archive.annualSummaryPageTitle', { year })"
     />
     <span class="annual-summary auralis-type-body" aria-hidden="true">
-      {{ t('archive.annualSummary') }}
+      {{ t('archive.annualSummaryPageTitle', { year }) }}
+      <span class="i-lucide-arrow-up-right" aria-hidden="true"></span>
     </span>
   </div>
 </template>
@@ -59,7 +60,7 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
 
 .season-placeholder {
   position: relative;
-  height: clamp(140px, 18cqw, 180px);
+  height: clamp(124px, 14cqw, 164px);
   background: linear-gradient(var(--season-wash), var(--season-wash)), var(--season-banner-art);
   pointer-events: none;
 }
@@ -104,12 +105,23 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
   );
   position: absolute;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   right: var(--season-content-inset);
   bottom: calc(var(--season-content-inset) - var(--season-text-half-leading));
   color: var(--auralis-archive-summary-text);
   font-family: 'HarmonyOS Sans SC', var(--auralis-font-ui);
   font-weight: 500;
   pointer-events: none;
+}
+.annual-summary > span {
+  width: 16px;
+  height: 16px;
+  transition: transform 160ms ease-out;
+}
+.archive-season-banner:has(.season-banner-link:hover) .annual-summary > span {
+  transform: translate(2px, -2px);
 }
 
 [data-theme='light'] .archive-season-banner {
@@ -119,10 +131,16 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
 :where([data-reduced-motion='true']) .archive-season-banner {
   --season-reveal-duration: 0ms;
 }
+:where([data-reduced-motion='true']) .annual-summary > span {
+  transition: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .archive-season-banner {
     --season-reveal-duration: 0ms;
+  }
+  .annual-summary > span {
+    transition: none;
   }
 }
 </style>

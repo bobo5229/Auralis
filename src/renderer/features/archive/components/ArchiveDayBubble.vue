@@ -76,6 +76,7 @@ onScopeDispose(() => {
     @pointerenter="emit('keep')"
     @pointerleave="emit('leave')"
   >
+    <p class="archive-day-bubble-date auralis-type-caption">{{ dateLabel }}</p>
     <p class="archive-day-summary auralis-type-caption">
       <span ref="summaryText">{{
         t('archive.daySummary', { count: playCount, minutes: Math.round(durationSeconds / 60) })
@@ -89,6 +90,7 @@ onScopeDispose(() => {
   position: fixed;
   z-index: 100;
   width: max-content;
+  min-width: max-content;
   padding: 6px 10px;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 8px;
@@ -98,6 +100,10 @@ onScopeDispose(() => {
 }
 .archive-day-summary {
   margin: 0;
+}
+.archive-day-bubble-date {
+  margin: 0 0 3px;
+  color: var(--auralis-text);
 }
 .archive-day-summary > span {
   display: inline-block;

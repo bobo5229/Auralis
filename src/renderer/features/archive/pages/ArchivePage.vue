@@ -15,8 +15,8 @@ const { t } = useI18n()
 const route = useRoute()
 const year = ref(resolveArchiveYear(route.query.year))
 watch(
-  () => route.query.year,
-  (value) => {
+  () => [route.query.year, route.query.date] as const,
+  ([value]) => {
     year.value = resolveArchiveYear(value)
   },
 )
@@ -57,13 +57,17 @@ const statusMessage = computed(() => {
         @pin-date="pinDay"
       />
       <ArchiveDayAlbums
+        v-if="pinnedDate"
         :date="pinnedDate"
         :albums="pinnedAlbums"
         :loading="pinnedAlbumsLoading"
         :failed="pinnedAlbumsError"
+        :day-summary="days.find((day) => day.date === pinnedDate)"
         @retry="refreshPinnedAlbums"
       />
-      <p class="sr-only" role="status">{{ statusMessage }}</p>
+      <p v-if="statusMessage" class="archive-status auralis-type-caption" role="status">
+        {{ statusMessage }}
+      </p>
     </div>
   </section>
 </template>
@@ -74,19 +78,29 @@ const statusMessage = computed(() => {
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
-  padding: 24px;
+  padding: 24px 32px;
   padding-bottom: calc(var(--auralis-playbar-safe-area) + 24px);
   color: var(--auralis-text);
 }
 
 .archive-calendar-section {
   width: 100%;
-  max-width: 1600px;
+  max-width: 1440px;
   min-width: 0;
   margin: 0 auto;
 }
 
 .archive-seasons {
-  margin: 0 2px 24px;
+  margin: 0 2px 20px;
+}
+.archive-status {
+  margin: 16px 0 0;
+  color: var(--auralis-text-muted);
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .archive-page {
+    padding-inline: 20px;
+  }
 }
 </style>

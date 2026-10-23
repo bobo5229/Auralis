@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>成章 · 珐琅材质研究</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AURALIS · MATERIAL STUDY</p>
+          <h1>让光，沿着表面流动。</h1>
+        </div>
+        <p class="intro">聆听时光 · 100 小时「成章」<br />银、蓝色珐琅与一圈虹彩。</p>
+      </header>
+      <div class="toolbar" aria-label="预览设置">
+        <div class="segmented" role="group" aria-label="徽章状态">
+          <button id="lit" aria-pressed="true">已点亮</button
+          ><button id="unlit" aria-pressed="false">未点亮</button>
+        </div>
+        <label class="reflection"><input id="reflection" type="checkbox" checked />表面反光</label>
+        <div class="tools">
+          <button id="theme" aria-pressed="false">浅色背景</button
+          ><button id="reset">复位视角</button>
+        </div>
+      </div>
+      <section class="comparison" aria-label="原版与新材质对照">
+        <article class="specimen">
+          <div class="caption">
+            <h2>原版</h2>
+            <span>固定反光</span>
+          </div>
+          <div class="stage" id="original-stage">
+            <img
+              id="original"
+              width="330"
+              height="370"
+              src="../hours/assets/hours-100@2x.png"
+              alt="100 小时成章徽章，原版固定反光"
+            />
+          </div>
+          <p class="description">反光已经绘制在图中，随徽章一起转动。</p>
+        </article>
+        <article class="specimen">
+          <div class="caption">
+            <h2>新材质</h2>
+            <span id="finish">动态反光</span>
+          </div>
+          <div
+            class="stage"
+            id="live-stage"
+            tabindex="0"
+            role="group"
+            aria-label="动态材质徽章，可使用方向键调整视角，Home 复位"
+            aria-describedby="instructions"
+          >
+            <canvas id="badge-canvas" aria-hidden="true"></canvas>
+            <img
+              id="fallback"
+              hidden
+              width="330"
+              height="370"
+              src="../hours/assets/hours-100@2x.png"
+              alt="100 小时成章徽章，静态预览"
+            />
+          </div>
+          <p class="description" id="instructions">移动鼠标，观察银边与釉面的受光变化。</p>
+        </article>
+      </section>
+      <p id="status" role="status">正在准备材质…</p>
+      <section class="small-comparison" aria-label="96 像素实际尺寸对照">
+        <div>
+          <h2>缩小以后</h2>
+          <p>96 px · 数字与轮廓仍是主角</p>
+        </div>
+        <figure>
+          <img
+            id="small-original"
+            width="96"
+            height="108"
+            src="../hours/assets/hours-100@2x.png"
+            alt="96 像素原版徽章"
+          />
+          <figcaption>原版</figcaption>
+        </figure>
+        <figure>
+          <canvas id="small-canvas" aria-label="96 像素新材质徽章"></canvas
+          ><img
+            id="small-fallback"
+            hidden
+            width="96"
+            height="108"
+            src="../hours/assets/hours-100@2x.png"
+            alt="96 像素静态回退"
+          />
+          <figcaption>新材质</figcaption>
+        </figure>
+      </section>
+      <footer><span>固定光源 · 悬停轻倾斜 · 两侧视角同步</span><span>独立材质原型</span></footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

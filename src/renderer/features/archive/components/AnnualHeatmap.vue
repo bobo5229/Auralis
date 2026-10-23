@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, useId, watch } from 'vue'
+import {
+  computed,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onScopeDispose,
+  ref,
+  useId,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
-import { auralis } from '@renderer/shared/ipc/client'
 import type { DailyPlayCount } from '@shared/types/listeningArchive'
 import ArchiveDayBubble from './ArchiveDayBubble.vue'
-import ArchiveDayPanel from './ArchiveDayPanel.vue'
 import ArchiveYear from './ArchiveYear.vue'
 import { useArchiveDayBubble } from '../composables/useArchiveDayBubble'
-import { useArchivePanelMotion } from '../composables/useArchivePanelMotion'
 import { createAnnualCalendar } from '../utils/annualCalendar'
 import { playCountIntensity } from '../utils/playCountIntensity'
 
@@ -19,19 +25,22 @@ const counts = computed(() => new Map(props.days.map((day) => [day.date, day.pla
 const totalPlays = computed(() => props.days.reduce((total, day) => total + day.playCount, 0))
 const activeDays = computed(() => props.days.filter((day) => day.playCount > 0).length)
 const dayStats = computed(() => new Map(props.days.map((day) => [day.date, day])))
-const bubble = useArchiveDayBubble(auralis.archive)
-const panelMotion = useArchivePanelMotion(bubble.close)
-function openPanel(element: Element, done: () => void) {
-  if (bubble.anchor.value) panelMotion.enter(element, bubble.anchor.value, done)
-  else done()
-}
-const { date: bubbleDate, anchor: bubbleAnchor, expanded, tracks, loading, failed } = bubble
-const bubbleId = useId()
-const overlayId = computed(() =>
-  expanded.value ? `${bubbleId}-panel-${bubbleDate.value}` : `${bubbleId}-preview`,
-)
+const bubble = useArchiveDayBubble()
+const { date: bubbleDate, anchor: bubbleAnchor } = bubble
+const overlayId = useId()
 const root = ref<HTMLElement | null>(null)
-const focusDate = ref(`${props.year}-01-01`)
+const today = ref('')
+const focusDate = ref(props.pinnedDate ?? `${props.year}-01-01`)
+let midnightTimer: ReturnType<typeof setTimeout> | undefined
+let active = true
+function updateToday() {
+  clearTimeout(midnightTimer)
+  if (!active || document.hidden) return
+  const now = new Date()
+  today.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  midnightTimer = setTimeout(updateToday, midnight.getTime() - now.getTime() + 100)
+}
 const summary = computed(() => dayStats.value.get(bubbleDate.value ?? ''))
 const dateFormatter = computed(
   () =>
@@ -63,12 +72,13 @@ function focus(date: string, event: FocusEvent) {
 }
 function pin(date: string) {
   bubble.close()
+  focusDate.value = date
   emit('pinDate', date)
 }
 function navigate(date: string, event: KeyboardEvent) {
   if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
     event.preventDefault()
-    emit('pinDate', date)
+    pin(date)
     return
   }
   const dates = calendar.value.weeks.flat()
@@ -100,7 +110,7 @@ function onOutside(event: Event) {
   if (
     !(target instanceof Node) ||
     (cell && root.value?.contains(cell)) ||
-    document.getElementById(overlayId.value)?.contains(target)
+    document.getElementById(overlayId)?.contains(target)
   )
     return
   bubble.close()
@@ -114,26 +124,45 @@ watch(
   () => props.year,
   () => {
     bubble.close()
-    focusDate.value = `${props.year}-01-01`
+    focusDate.value = props.pinnedDate ?? `${props.year}-01-01`
     const scroll = root.value?.querySelector('.heatmap-scroll')
     if (scroll) scroll.scrollLeft = 0
   },
 )
 watch(
-  () => props.days,
-  () => {
-    void bubble.refresh()
+  () => props.pinnedDate,
+  (date) => {
+    if (date) focusDate.value = date
   },
 )
+function visibilityChanged() {
+  bubble.close()
+  if (document.hidden) clearTimeout(midnightTimer)
+  else updateToday()
+}
 onMounted(() => {
+  updateToday()
   document.addEventListener('pointerdown', onOutside)
   document.addEventListener('focusin', onOutside)
   document.addEventListener('keydown', onEscape)
+  document.addEventListener('visibilitychange', visibilityChanged)
+})
+onActivated(() => {
+  active = true
+  updateToday()
+})
+onDeactivated(() => {
+  active = false
+  bubble.close()
+  clearTimeout(midnightTimer)
 })
 onScopeDispose(() => {
+  active = false
+  clearTimeout(midnightTimer)
   document.removeEventListener('pointerdown', onOutside)
   document.removeEventListener('focusin', onOutside)
   document.removeEventListener('keydown', onEscape)
+  document.removeEventListener('visibilitychange', visibilityChanged)
 })
 const monthLabels = computed(() => {
   const formatter = new Intl.DateTimeFormat(locale.value, { month: 'short', timeZone: 'UTC' })
@@ -159,6 +188,7 @@ const weekdayLabels = computed(() => {
         <button
           type="button"
           class="archive-year-chevron"
+          :disabled="year <= 1900"
           :aria-label="t('archive.previousYear')"
           @click="emit('previousYear')"
         >
@@ -168,19 +198,22 @@ const weekdayLabels = computed(() => {
         <button
           type="button"
           class="archive-year-chevron"
+          :disabled="year >= 9999"
           :aria-label="t('archive.nextYear')"
           @click="emit('nextYear')"
         >
           <span class="i-lucide-chevron-right" aria-hidden="true"></span>
         </button>
       </div>
-      <div class="heatmap-legend" aria-hidden="true">
+      <div class="heatmap-year-stats auralis-type-caption">
         <span
-          v-for="level in 5"
-          :key="level"
-          class="heatmap-cell"
-          :class="`heatmap-cell--level-${level - 1}`"
-        ></span>
+          ><strong>{{ totalPlays.toLocaleString(locale) }}</strong>
+          {{ t('archive.playsLabel') }}</span
+        >
+        <span
+          ><strong>{{ activeDays.toLocaleString(locale) }}</strong>
+          {{ t('archive.activeDaysLabel') }}</span
+        >
       </div>
     </div>
     <div
@@ -214,22 +247,23 @@ const weekdayLabels = computed(() => {
                 class="heatmap-cell heatmap-cell--interactive"
                 :class="[
                   `heatmap-cell--level-${playCountIntensity(counts.get(date) ?? 0)}`,
-                  { 'heatmap-cell--pinned': pinnedDate === date },
+                  {
+                    'heatmap-cell--pinned': pinnedDate === date,
+                    'heatmap-cell--today': today === date,
+                  },
                 ]"
                 :data-date="date"
                 :tabindex="focusDate === date ? 0 : -1"
-                :aria-label="dateLabels.get(date)"
-                :aria-current="pinnedDate === date ? 'date' : undefined"
-                aria-haspopup="dialog"
-                :aria-expanded="bubbleDate === date && expanded"
-                :aria-controls="bubbleDate === date && expanded ? overlayId : undefined"
-                :aria-describedby="bubbleDate === date && !expanded ? overlayId : undefined"
+                :aria-label="`${dateLabels.get(date)}${today === date ? `, ${t('archive.today')}` : ''}`"
+                :aria-current="today === date ? 'date' : undefined"
+                :aria-pressed="pinnedDate === date"
+                :aria-describedby="bubbleDate === date ? overlayId : undefined"
                 @pointerenter="preview(date, $event)"
                 @pointerleave="bubble.leave"
                 @focus="focus(date, $event)"
                 @blur="bubble.leave"
                 @keydown="navigate(date, $event)"
-                @click="bubble.select(date, $event.currentTarget as HTMLElement)"
+                @click="pin(date)"
                 @contextmenu.prevent="pin(date)"
               ></button>
               <span v-else class="heatmap-cell heatmap-cell--padding" aria-hidden="true"></span>
@@ -238,9 +272,23 @@ const weekdayLabels = computed(() => {
         </div>
       </div>
     </div>
+    <div class="heatmap-footer auralis-type-caption">
+      <span class="heatmap-today-key"><i aria-hidden="true"></i>{{ t('archive.today') }}</span>
+      <div class="heatmap-legend" :aria-label="t('archive.intensityLegend')">
+        <span>{{ t('archive.less') }}</span>
+        <span
+          v-for="level in 5"
+          :key="level"
+          class="heatmap-cell"
+          :class="`heatmap-cell--level-${level - 1}`"
+          aria-hidden="true"
+        ></span>
+        <span>{{ t('archive.more') }}</span>
+      </div>
+    </div>
     <Teleport to="body">
       <ArchiveDayBubble
-        v-if="bubbleDate && bubbleAnchor && !expanded"
+        v-if="bubbleDate && bubbleAnchor"
         :id="overlayId"
         :date="bubbleDate"
         :anchor="bubbleAnchor"
@@ -250,22 +298,6 @@ const weekdayLabels = computed(() => {
         @leave="bubble.leave"
         @close="bubble.close"
       />
-      <Transition
-        :css="false"
-        @before-enter="panelMotion.beforeEnter"
-        @enter="openPanel"
-        @leave="panelMotion.leave"
-      >
-        <ArchiveDayPanel
-          v-if="bubbleDate && bubbleAnchor && expanded"
-          :id="overlayId"
-          :key="bubbleDate"
-          :date="bubbleDate"
-          :tracks="tracks"
-          :loading="loading"
-          :failed="failed"
-        />
-      </Transition>
     </Teleport>
   </div>
 </template>
@@ -279,7 +311,7 @@ const weekdayLabels = computed(() => {
     12px,
     calc((100cqw - 44px - (var(--heatmap-weeks) - 1) * var(--heatmap-gap)) / var(--heatmap-weeks))
   );
-  --heatmap-empty: var(--auralis-surface-raised);
+  --heatmap-empty: color-mix(in srgb, var(--auralis-surface-raised) 68%, var(--auralis-bg));
   container-type: inline-size;
   min-width: 0;
   color: var(--auralis-text-muted);
@@ -316,6 +348,8 @@ const weekdayLabels = computed(() => {
 }
 
 .heatmap-months > span {
+  color: var(--auralis-text-muted);
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -362,7 +396,7 @@ const weekdayLabels = computed(() => {
 }
 .heatmap-cell--interactive:hover {
   z-index: 1;
-  transform: scale(1.12);
+  box-shadow: inset 0 0 0 1px var(--auralis-text-muted);
 }
 .heatmap-cell--interactive:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
@@ -374,8 +408,19 @@ const weekdayLabels = computed(() => {
   box-shadow: inset 0 0 0 2px var(--auralis-text);
 }
 
-.heatmap-cell--interactive[aria-expanded='true'] {
-  opacity: 0;
+.heatmap-cell--pinned:hover {
+  box-shadow: inset 0 0 0 2px var(--auralis-text);
+}
+.heatmap-cell--today::after {
+  position: absolute;
+  inset: 0;
+  width: 4px;
+  height: 4px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--auralis-text);
+  box-shadow: 0 0 0 1px var(--auralis-bg);
+  content: '';
 }
 
 .heatmap-cell--level-1 {
@@ -400,21 +445,22 @@ const weekdayLabels = computed(() => {
   justify-content: space-between;
   gap: 12px;
   padding-inline: 2px;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .archive-year-navigation {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
 }
 
 .archive-year-chevron {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 28px;
+  width: 28px;
+  height: 32px;
   flex-shrink: 0;
   padding: 0;
   border: 0;
@@ -433,6 +479,41 @@ const weekdayLabels = computed(() => {
   background: var(--auralis-surface-raised);
   color: var(--auralis-text);
 }
+.archive-year-chevron:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+.heatmap-year-stats {
+  display: flex;
+  gap: 20px;
+  color: var(--auralis-text-faint);
+}
+.heatmap-year-stats strong {
+  margin-right: 3px;
+  color: var(--auralis-text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.heatmap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 2px 0;
+  color: var(--auralis-text-faint);
+}
+.heatmap-today-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.heatmap-today-key i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--auralis-text);
+}
 
 .archive-year-chevron:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
@@ -445,5 +526,11 @@ const weekdayLabels = computed(() => {
   align-items: center;
   flex-shrink: 0;
   gap: var(--heatmap-gap);
+}
+.heatmap-legend > span:first-child {
+  margin-right: 4px;
+}
+.heatmap-legend > span:last-child {
+  margin-left: 4px;
 }
 </style>

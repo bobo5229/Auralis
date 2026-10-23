@@ -1,6 +1,4 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { createAlbumFocusPresentation } from './albumFocusPresentation'
-import type { AlbumCaseLabels } from './albumCaseModel'
 
 type InputMode = 'pointer' | 'keyboard' | 'touch'
 type Point = { x: number; y: number }
@@ -13,7 +11,6 @@ export function createAlbumSpineInteraction(
   viewport: HTMLElement,
   row: HTMLElement,
   onSelect: (index: number | null) => void,
-  caseLabels: () => AlbumCaseLabels,
 ) {
   const controller = new AbortController()
   const options = { signal: controller.signal }
@@ -23,33 +20,6 @@ export function createAlbumSpineInteraction(
     slot.querySelector<HTMLElement>(`.archive-album-${name}`)!
   const buttons = slots.map((slot) => part(slot, 'trigger') as HTMLButtonElement)
   const ranks = slots.map((slot) => part(slot, 'rank'))
-  const fronts = slots.map((slot) => part(slot, 'front'))
-  const envelopes = slots.map((slot) => part(slot, 'envelope'))
-  let hitRegions:
-    | { viewport: DOMRect; ranks: DOMRect[]; buttons: DOMRect[]; envelopes: DOMRect[] }
-    | undefined
-  function invalidateHitRegions(): void {
-    hitRegions = undefined
-  }
-  function regions() {
-    const bounds = viewport.getBoundingClientRect()
-    if (
-      hitRegions &&
-      bounds.left === hitRegions.viewport.left &&
-      bounds.top === hitRegions.viewport.top &&
-      bounds.width === hitRegions.viewport.width &&
-      bounds.height === hitRegions.viewport.height
-    )
-      return hitRegions
-    // A translated ancestor or a wrapping heading can move this viewport without
-    // resizing it. Keep cached hit boxes tied to its current screen position.
-    return (hitRegions = {
-      viewport: bounds,
-      ranks: ranks.map((rank) => rank.getBoundingClientRect()),
-      buttons: buttons.map((button) => button.getBoundingClientRect()),
-      envelopes: envelopes.map((envelope) => envelope.getBoundingClientRect()),
-    })
-  }
   const returning = new Map<HTMLElement, ReturnCopy>()
   let active: number | null = null
   let inputMode: InputMode = 'pointer'
@@ -57,31 +27,6 @@ export function createAlbumSpineInteraction(
   let touchWasActive = false
   let pointerFrame = 0
   let lastPoint: Point | null = null
-  let focus: ReturnType<typeof createAlbumFocusPresentation> | undefined
-  let focusing = false
-
-  function openFocus(): void {
-    if (focusing || active === null) return
-    const index = active
-    focusing = true
-    cancelPointer()
-    slots.forEach(clearReturn)
-    buttons[index].setAttribute('aria-expanded', 'true')
-    focus = createAlbumFocusPresentation(
-      slots[index],
-      () => motion.matches,
-      () => {
-        focus = undefined
-        focusing = false
-        active = null
-        inputMode = 'keyboard'
-        buttons[index].setAttribute('aria-expanded', 'false')
-        buttons[index].setAttribute('aria-pressed', 'false')
-        onSelect(null)
-      },
-      caseLabels,
-    )
-  }
 
   function alignRanks(): void {
     const offsets = slots.map((slot, index) => {
@@ -91,7 +36,6 @@ export function createAlbumSpineInteraction(
     ranks.forEach((rank, index) => {
       rank.style.left = `${offsets[index]}px`
     })
-    invalidateHitRegions()
   }
 
   function clearReturn(slot: HTMLElement): void {
@@ -178,7 +122,6 @@ export function createAlbumSpineInteraction(
   }
 
   function select(index: number | null, source: InputMode = 'pointer'): void {
-    if (focusing) return
     inputMode = source
     if (active === index) return
     if (active !== null) {
@@ -194,41 +137,16 @@ export function createAlbumSpineInteraction(
     onSelect(index)
   }
 
-  function contains(
-    rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>,
-    point: Point,
-    padding = 0,
-  ): boolean {
-    return (
-      point.x >= rect.left - padding &&
-      point.x <= rect.right + padding &&
-      point.y >= rect.top - padding &&
-      point.y <= rect.bottom + padding
-    )
-  }
-
-  function inActiveRegion(point: Point, hit: ReturnType<typeof regions>): boolean {
-    if (active === null) return false
-    const original = hit.buttons[active]
-    const expanded = hit.envelopes[active]
-    const bounds = {
-      left: Math.min(original.left, expanded.left),
-      top: Math.min(original.top, expanded.top),
-      right: Math.max(original.right, expanded.right),
-      bottom: Math.max(original.bottom, expanded.bottom),
-    }
-    if (contains(bounds, point, 8)) return true
-    const current = fronts[active].getBoundingClientRect()
-    return contains(
-      {
-        left: Math.min(bounds.left, current.left),
-        top: Math.min(bounds.top, current.top),
-        right: Math.max(bounds.right, current.right),
-        bottom: Math.max(bounds.bottom, current.bottom),
-      },
-      point,
-      8,
-    )
+  function pointerIndex(point: Point): number | null {
+    // Let the renderer resolve perspective, overlap and in-flight transforms.
+    // Only the visible case faces and rank labels accept pointer hits; the
+    // untransformed keyboard button and returning visual copies do not.
+    const surface = document
+      .elementFromPoint(point.x, point.y)
+      ?.closest('.archive-album-lift, .archive-album-rank')
+    const slot = surface?.closest<HTMLElement>('.archive-album-slot')
+    const index = slot ? slots.indexOf(slot) : -1
+    return index === -1 ? null : index
   }
 
   function cancelPointer(): void {
@@ -240,57 +158,28 @@ export function createAlbumSpineInteraction(
   function pointerSelection(): void {
     pointerFrame = 0
     if (!lastPoint) return
-    const hit = regions()
-    const rank = hit.ranks.findIndex((rect) => contains(rect, lastPoint!, 5))
-    if (rank !== -1) {
-      select(rank)
-      return
-    }
-    const candidate = hit.buttons.findIndex((rect) => contains(rect, lastPoint!))
-    if (!inActiveRegion(lastPoint, hit)) select(candidate === -1 ? null : candidate)
+    select(pointerIndex(lastPoint))
   }
 
   function reset(): void {
-    focus?.dispose()
-    focus = undefined
-    focusing = false
     cancelPointer()
     active = null
     slots.forEach((slot, index) => {
       clearReturn(slot)
       slot.classList.remove('is-active')
       buttons[index].setAttribute('aria-pressed', 'false')
-      buttons[index].setAttribute('aria-expanded', 'false')
       slot.getAnimations({ subtree: true }).forEach((animation) => animation.cancel())
     })
     alignRanks()
     onSelect(null)
   }
 
-  function overActiveCover(point: Point): boolean {
-    return active !== null && contains(fronts[active].getBoundingClientRect(), point)
-  }
-
   viewport.addEventListener(
     'pointerdown',
     (event) => {
       lastPointerType = event.pointerType
-      if (event.button !== 0 || !overActiveCover({ x: event.clientX, y: event.clientY })) return
-      touchWasActive = true
-      // The extracted cover can extend over a neighboring button. Keep that click
-      // attached to the visible album instead of focusing the hidden neighbor.
-      event.preventDefault()
-      event.stopPropagation()
-    },
-    { ...options, capture: true },
-  )
-  viewport.addEventListener(
-    'click',
-    (event) => {
-      if (event.button !== 0 || !overActiveCover({ x: event.clientX, y: event.clientY })) return
-      if (lastPointerType === 'touch' && !touchWasActive) return
-      event.stopPropagation()
-      openFocus()
+      touchWasActive =
+        active !== null && pointerIndex({ x: event.clientX, y: event.clientY }) === active
     },
     { ...options, capture: true },
   )
@@ -298,7 +187,7 @@ export function createAlbumSpineInteraction(
   viewport.addEventListener(
     'pointermove',
     (event) => {
-      if (focusing || event.pointerType === 'touch') return
+      if (event.pointerType === 'touch') return
       inputMode = 'pointer'
       lastPoint = { x: event.clientX, y: event.clientY }
       if (!pointerFrame) pointerFrame = requestAnimationFrame(pointerSelection)
@@ -316,7 +205,6 @@ export function createAlbumSpineInteraction(
   viewport.addEventListener(
     'scroll',
     () => {
-      invalidateHitRegions()
       cancelPointer()
       if (inputMode === 'pointer') select(null)
     },
@@ -373,28 +261,18 @@ export function createAlbumSpineInteraction(
     options,
   )
   row.addEventListener(
-    'pointerdown',
-    (event) => {
-      lastPointerType = event.pointerType
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-        '.archive-album-trigger',
-      )
-      touchWasActive = buttons.indexOf(button!) === active
-    },
-    options,
-  )
-  row.addEventListener(
     'click',
     (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-        '.archive-album-trigger',
-      )
-      const index = buttons.indexOf(button!)
-      if (index === -1) return
       if (event.detail === 0) {
-        select(index, 'keyboard')
-        openFocus()
-      } else if (lastPointerType === 'touch') select(touchWasActive ? null : index, 'touch')
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+          '.archive-album-trigger',
+        )
+        const index = buttons.indexOf(button!)
+        if (index !== -1) select(index, 'keyboard')
+      } else if (lastPointerType === 'touch') {
+        const index = pointerIndex({ x: event.clientX, y: event.clientY })
+        if (index !== null) select(touchWasActive ? null : index, 'touch')
+      }
     },
     options,
   )
@@ -405,12 +283,6 @@ export function createAlbumSpineInteraction(
     },
     options,
   )
-  document.addEventListener('scroll', invalidateHitRegions, {
-    ...options,
-    capture: true,
-    passive: true,
-  })
-  document.fonts?.addEventListener('loadingdone', invalidateHitRegions, options)
   document.addEventListener(
     'visibilitychange',
     () => {
@@ -427,19 +299,14 @@ export function createAlbumSpineInteraction(
     )
   }
   const layoutChanged = () => {
-    invalidateHitRegions()
-    if (focus) focus.reposition()
-    else if (!hasFocusedKeyboardSelection()) reset()
+    if (!hasFocusedKeyboardSelection()) reset()
   }
   window.addEventListener('resize', layoutChanged, options)
   const resize = new ResizeObserver(layoutChanged)
   resize.observe(viewport)
   function syncMotion(): void {
     viewport.dataset.reducedMotion = String(motion.matches)
-    if (motion.matches) {
-      if (focus) focus.reposition()
-      else reset()
-    }
+    if (motion.matches) reset()
   }
   syncMotion()
   alignRanks()
