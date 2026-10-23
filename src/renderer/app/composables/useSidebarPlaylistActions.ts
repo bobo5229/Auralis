@@ -48,6 +48,8 @@ export function useSidebarPlaylistActions({
   const smartCreateSubmenu = ref(false)
   const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | null>(null)
   const createError = ref('')
+  const creatingRegularPlaylist = ref(false)
+  let createdRegularPlaylistId: number | null = null
   const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
   const playlistContextIndex = computed(() => {
     const item = playlistContextMenu.value?.item
@@ -95,6 +97,7 @@ export function useSidebarPlaylistActions({
     closeRecentAddedContextMenu()
     smartCreateSubmenu.value = false
     createError.value = ''
+    if (!creatingRegularPlaylist.value) createdRegularPlaylistId = null
     const rect = createPlaylistButton.value.getBoundingClientRect()
     createMenu.value = {
       x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
@@ -158,11 +161,30 @@ export function useSidebarPlaylistActions({
   }
 
   async function createRegularPlaylist(): Promise<void> {
-    closeCreateMenu()
-    const playlist = await auralis.playlists.create()
-    await loadSidebarPlaylists()
-    window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
-    await router.push(`/playlists/${playlist.id}`)
+    if (creatingRegularPlaylist.value) return
+    const menu = createMenu.value
+    creatingRegularPlaylist.value = true
+    createError.value = ''
+    try {
+      // Retry a failed refresh/navigation without creating another playlist.
+      if (createdRegularPlaylistId === null) {
+        createdRegularPlaylistId = (await auralis.playlists.create()).id
+      }
+      await loadSidebarPlaylists()
+      window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
+      await router.push(`/playlists/${createdRegularPlaylistId}`)
+      createdRegularPlaylistId = null
+      if (createMenu.value === menu) closeCreateMenu()
+    } catch (cause) {
+      if (createMenu.value === menu) createError.value = 'sidebar.createPlaylistFailed'
+      rendererDiagnostics.warn({
+        scope: 'sidebar.create-playlist',
+        message: 'Failed to create or open regular playlist',
+        cause,
+      })
+    } finally {
+      creatingRegularPlaylist.value = false
+    }
   }
 
   function openSmartPlaylistBuilder(): void {
@@ -330,6 +352,7 @@ export function useSidebarPlaylistActions({
     smartCreateSubmenu,
     creatingPlaybackPreset,
     createError,
+    creatingRegularPlaylist,
     playlistContextMenu,
     playlistContextHasPrevious,
     playlistContextHasNext,

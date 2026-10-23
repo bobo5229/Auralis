@@ -153,6 +153,7 @@ const {
   smartCreateSubmenu,
   creatingPlaybackPreset,
   createError,
+  creatingRegularPlaylist,
   playlistContextMenu,
   playlistContextHasPrevious,
   playlistContextHasNext,
@@ -1263,6 +1264,8 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            :disabled="creatingRegularPlaylist"
+            :aria-busy="creatingRegularPlaylist"
             @click="createRegularPlaylist"
           >
             <PlaylistIcon kind="playlist" />

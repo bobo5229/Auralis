@@ -557,6 +557,25 @@ describe('AppSidebar playlist operations', () => {
     expect(fixture.positions.every((p) => p.dispose.mock.calls.length > 0)).toBe(true)
   })
 
+  it('renders a regular create failure in the menu and supports retry', async () => {
+    await mount()
+    fixture.create.mockRejectedValueOnce(new Error('SQLITE_BUSY'))
+    const menu = await openCreate()
+    dispatch(menu.querySelector('button')!, 'click')
+    await settle()
+    expect(find('#sidebar-create-menu')).toBe(menu)
+    const alert = find('.sidebar-create-error')
+    expect(alert.props.role).toBe('alert')
+    expect(alert.text).toBe('sidebar.createPlaylistFailed')
+    expect(fixture.push).not.toHaveBeenCalled()
+    dispatch(menu.querySelector('button')!, 'click')
+    await settle()
+    expect(fixture.create).toHaveBeenCalledTimes(2)
+    expect(fixture.push).toHaveBeenCalledWith('/playlists/3')
+    expect(doc.body.querySelector('#sidebar-create-menu')).toBeNull()
+    expect(row('playlist:3')).toBeTruthy()
+  })
+
   it('creates regular playlists and passes the custom builder its original trigger', async () => {
     await mount()
     const menu = await openCreate()

@@ -273,27 +273,55 @@ describe('sidebar playlist action sessions', () => {
       expect(f.s.createMenu.value === null).toBe(stage === 'navigation')
     },
   )
-  it('closes regular create before writing and preserves its event order', async () => {
+  it('keeps regular create open until success and prevents overlapping writes', async () => {
     const f = setup()
     f.s.openCreateMenu()
     const task = f.s.createRegularPlaylist()
-    expect(f.s.createMenu.value).toBeNull()
+    expect(f.s.createMenu.value).not.toBeNull()
+    expect(f.s.creatingRegularPlaylist.value).toBe(true)
+    await f.s.createRegularPlaylist()
     await task
+    expect(f.api.playlists.create).toHaveBeenCalledOnce()
+    expect(f.s.createMenu.value).toBeNull()
+    expect(f.s.creatingRegularPlaylist.value).toBe(false)
     expect(f.trace).toEqual(['write:create', 'reload', 'event:playlist', 'push:/playlists/3'])
   })
   it.each(['write', 'refresh', 'navigation'] as const)(
-    'preserves regular create %s rejection',
+    'shows regular create %s failure and retries without duplicating a saved playlist',
     async (stage) => {
       const f = setup(),
         failure = new Error(stage)
       if (stage === 'write') f.api.playlists.create.mockRejectedValueOnce(failure)
       if (stage === 'refresh') f.reload.mockRejectedValueOnce(failure)
       if (stage === 'navigation') f.push.mockRejectedValueOnce(failure)
-      await expect(f.s.createRegularPlaylist()).rejects.toBe(failure)
+      f.s.openCreateMenu()
+      await expect(f.s.createRegularPlaylist()).resolves.toBeUndefined()
       expect(f.api.playlists.create).toHaveBeenCalledOnce()
+      expect(f.s.createMenu.value).not.toBeNull()
+      expect(f.s.createError.value).toBe('sidebar.createPlaylistFailed')
+      expect(f.s.creatingRegularPlaylist.value).toBe(false)
+      await f.s.createRegularPlaylist()
+      expect(f.api.playlists.create).toHaveBeenCalledTimes(stage === 'write' ? 2 : 1)
       expect(f.s.createError.value).toBe('')
+      expect(f.s.createMenu.value).toBeNull()
+      expect(f.push).toHaveBeenLastCalledWith('/playlists/3')
     },
   )
+  it('does not show a late regular create error in a reopened menu', async () => {
+    const f = setup()
+    const pending = deferred<Awaited<ReturnType<typeof f.api.playlists.create>>>()
+    f.api.playlists.create.mockReturnValueOnce(pending.promise)
+    f.s.openCreateMenu()
+    const task = f.s.createRegularPlaylist()
+    f.s.closeCreateMenu()
+    f.s.openCreateMenu()
+    pending.reject(new Error('SQLITE_BUSY'))
+    await task
+    expect(f.s.createMenu.value).not.toBeNull()
+    expect(f.s.createError.value).toBe('')
+    expect(f.s.creatingRegularPlaylist.value).toBe(false)
+  })
+
   it('selects rename after rendering, rejects blank input and preserves the raw submitted name', async () => {
     const f = setup(),
       input = new ElementHost()

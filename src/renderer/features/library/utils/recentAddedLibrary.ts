@@ -31,7 +31,7 @@ export function selectRecentAddedLibraryTracks(
 
   const start = range === 'all' ? Number.NEGATIVE_INFINITY : nowMs - range * 86_400_000
 
-  return selected
+  const ordered = selected
     .filter(({ addedAt }) =>
       range === 'all' ? true : Number.isFinite(addedAt) && addedAt >= start && addedAt <= nowMs,
     )
@@ -46,4 +46,21 @@ export function selectRecentAddedLibraryTracks(
       return right.track.id - left.track.id
     })
     .map(({ track }) => track)
+
+  // Match the cover view's album identity and preserve newest-album-first order.
+  const albums = new Map<string, TrackListItem[]>()
+  for (const track of ordered) {
+    const key = `${track.albumArtist || track.artist || ''}\u0000${track.album || ''}`
+    const album = albums.get(key)
+    if (album) album.push(track)
+    else albums.set(key, [track])
+  }
+
+  return [...albums.values()].flatMap((album) =>
+    album.sort(
+      (left, right) =>
+        (left.discNo ?? 1) - (right.discNo ?? 1) ||
+        (left.trackNo ?? Number.MAX_SAFE_INTEGER) - (right.trackNo ?? Number.MAX_SAFE_INTEGER),
+    ),
+  )
 }

@@ -92,10 +92,10 @@ describe('createLibraryCatalogViewIndex', () => {
 
     expect(result.albumGroups).toHaveLength(120)
     // 8 首 × 48px + 上下各 28px 留白 + 1px 底边 = 441px；
-    // 双碟组的首个标题不占布局，第二个标题增加 24px，组高为 465px。
-    // 前 99 组包含 33 个双碟组和 66 个单碟组：33 × 465 + 66 × 441。
-    expect(result.albumGroupStartOffsets[99]).toBe(44_451)
-    // 前 119 组包含 40 个双碟组和 79 个单碟组：40 × 465 + 79 × 441。
-    expect(result.albumGroupStartOffsets[119]).toBe(53_439)
+    // 双碟组的首个标题不占布局，第二个标题增加 40px（24px 行高 + 上下各 8px），组高为 481px。
+    // 前 99 组包含 33 个双碟组和 66 个单碟组：33 × 481 + 66 × 441。
+    expect(result.albumGroupStartOffsets[99]).toBe(44_979)
+    // 前 119 组包含 40 个双碟组和 79 个单碟组：40 × 481 + 79 × 441。
+    expect(result.albumGroupStartOffsets[119]).toBe(54_079)
   })
 })
