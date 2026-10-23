@@ -46,6 +46,7 @@ export function createCdStageResources(
   stage: HTMLElement,
   dimensions: () => { width: number; height: number },
   beforeRemove: (node: CdStageNode) => void,
+  onArtworkRotation?: () => void,
 ) {
   const nodes = new Map<number, CdStageNode>()
   const nodeResources = new WeakMap<CdStageNode, NodeResources>()
@@ -426,6 +427,7 @@ export function createCdStageResources(
     for (const item of nodes.values()) {
       if (item.albumKey === node.albumKey) item.art.style.transform = `rotate(${angle}deg)`
     }
+    onArtworkRotation?.()
   }
 
   return {

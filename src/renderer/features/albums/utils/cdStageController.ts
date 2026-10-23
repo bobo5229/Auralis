@@ -12,6 +12,7 @@ import {
   type CdStageNode as DiscNode,
 } from './cdStageResources'
 import { createCdStageInteractions } from './cdStageInteractions'
+import { createCdStageMaterial } from './cdStageMaterial'
 
 export type { CdAlbum } from './cdStageResources'
 
@@ -102,11 +103,33 @@ export function createCdStage(
   let waveFrameElapsed = 0
   let ringDrawElapsed = 0
   let ringDrawSettled = false
+  const material = createCdStageMaterial()
+  let materialAppearance = { dark: false, vinyl: 0 }
+
+  function syncDiscMaterial(): void {
+    const node = focusProgress > 0 && !startup ? resources.get(selected) : undefined
+    material.sync(
+      node,
+      node
+        ? {
+            ...node.rotation,
+            angle: resources.getArtworkAngle(node),
+            vinyl: materialAppearance.vinyl * focusProgress,
+            dark: materialAppearance.dark,
+            size: 392 * node.poseScale,
+          }
+        : undefined,
+    )
+  }
 
   const resources = createCdStageResources(
     stage,
     () => ({ width, height }),
-    (node) => interactions.releaseNode(node),
+    (node) => {
+      material.releaseNode(node)
+      interactions.releaseNode(node)
+    },
+    syncDiscMaterial,
   )
   const interactions = createCdStageInteractions(
     stage,
@@ -432,9 +455,11 @@ export function createCdStage(
       )
     })
     syncPlaybackRing()
+    syncDiscMaterial()
   }
 
   function stop(): void {
+    material.sync(undefined)
     interactions.clearKeyboardNavigation()
     clearVibration()
     interactions.cancelArtworkClick()
@@ -681,6 +706,7 @@ export function createCdStage(
     () => {
       if (document.hidden) interactions.stopKeyboardNavigation()
       syncPlaybackRing()
+      syncDiscMaterial()
     },
     options,
   )
@@ -699,6 +725,13 @@ export function createCdStage(
     stopKeyboardNavigation: interactions.stopKeyboardNavigation,
     focusAlbum,
     setFocused,
+    setMaterialAppearance(next: { dark: boolean; vinyl: number }): void {
+      materialAppearance = {
+        dark: next.dark,
+        vinyl: Number.isFinite(next.vinyl) ? Math.max(0, Math.min(1, next.vinyl)) : 0,
+      }
+      syncDiscMaterial()
+    },
     setVibrationOffset(offset: number): void {
       const node =
         focusProgress === 1 &&
@@ -738,6 +771,7 @@ export function createCdStage(
     },
     dispose(): void {
       stop()
+      material.dispose()
       interactions.dispose()
       listeners.abort()
       observer.disconnect()

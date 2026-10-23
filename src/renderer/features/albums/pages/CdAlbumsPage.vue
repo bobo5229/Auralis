@@ -419,6 +419,7 @@ function setDiscSurface(surface: 'cd' | 'vinyl'): void {
   const update = (value: number): void => {
     vinylBlend = value
     stageRef.value?.style.setProperty('--cd-vinyl', String(value))
+    syncMaterialAppearance()
   }
   if (reducedMotion.matches || from === to) {
     update(to)
@@ -433,6 +434,11 @@ function setDiscSurface(surface: 'cd' | 'vinyl'): void {
     },
   )
 }
+
+function syncMaterialAppearance(): void {
+  controller?.setMaterialAppearance({ dark: cdCanvasTheme.value === 'dark', vinyl: vinylBlend })
+}
+watch(cdCanvasTheme, syncMaterialAppearance)
 
 function onMotionPreferenceChange(): void {
   motionReduced.value = reducedMotion.matches
@@ -580,6 +586,7 @@ onMounted(() => {
       },
     },
   )
+  syncMaterialAppearance()
   syncPlaybackRing()
   if (!document.activeElement?.closest('.cd-view-switch')) {
     stageRef.value.focus({ preventScroll: true })
@@ -602,6 +609,14 @@ onBeforeUnmount(() => {
     routeName !== 'cd-albums' && !reducedMotion.matches
       ? Array.from(stageRef.value?.children ?? [], (node) => node.cloneNode(true))
       : []
+  // cloneNode does not copy the WebGL backing buffer. The inert leave tail uses CSS.
+  for (const node of departingDiscs) {
+    if (!(node instanceof Element)) continue
+    node.querySelectorAll('.cd-material-canvas').forEach((canvas) => canvas.remove())
+    node
+      .querySelectorAll('[data-material-ready]')
+      .forEach((disc) => disc.removeAttribute('data-material-ready'))
+  }
   if (routeName !== 'cd-albums' && pageRef.value) pageRef.value.inert = true
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
     cdAlbumCatalogSession.clear()
@@ -1795,6 +1810,15 @@ onBeforeUnmount(() => {
 .cd-stage :deep(.cd-disc > *) {
   pointer-events: none;
 }
+.cd-stage :deep(.cd-material-canvas) {
+  position: absolute;
+  inset: 4px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  z-index: 1;
+  border-radius: 50%;
+  pointer-events: none;
+}
 .cd-stage :deep(.cd-disc::before) {
   content: '';
   position: absolute;
@@ -1871,6 +1895,15 @@ onBeforeUnmount(() => {
       #00000022
     );
   box-shadow: inset 0 0 0 2px #d8dce422;
+}
+/* Override both themes only after a valid draw; original coatings remain the fallback. */
+.cd-page .cd-stage :deep(.cd-disc[data-material-ready='true']::before) {
+  background: none;
+}
+.cd-page
+  .cd-stage
+  :deep(.cd-position[data-selected='true'] .cd-disc[data-material-ready='true']::after) {
+  opacity: 0;
 }
 .cd-stage :deep(.cd-hub) {
   position: absolute;
