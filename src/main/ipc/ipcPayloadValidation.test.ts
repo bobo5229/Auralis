@@ -304,6 +304,35 @@ describe('domain IPC payload validation behavior', () => {
       parse(ipcChannels.playback.nativeCommand, { ...payload, path: 'bridge.wav' }),
     ).toThrow(IpcPayloadValidationError)
   })
+  it('accepts only bounded half-second soft-transition durations', () => {
+    const payload = {
+      action: 'next',
+      session: 1,
+      trackId: 2,
+      trimDigitalSilence: false,
+      softTransition: true,
+    }
+    for (const softTransitionDurationSeconds of [1, 1.5, 2, 2.5, 6]) {
+      const request = { ...payload, softTransitionDurationSeconds }
+      expect(parse(ipcChannels.playback.nativeCommand, request)).toEqual(request)
+    }
+    for (const softTransitionDurationSeconds of [
+      0,
+      0.5,
+      6.5,
+      2.1,
+      NaN,
+      Infinity,
+      '2',
+      null,
+      {},
+      true,
+    ]) {
+      expect(() =>
+        parse(ipcChannels.playback.nativeCommand, { ...payload, softTransitionDurationSeconds }),
+      ).toThrow(IpcPayloadValidationError)
+    }
+  })
   it('accepts bounded startup presentation history without changing legacy callers', () => {
     const album = { albumArtist: 'Artist', album: 'Album' }
     const request = { recentAlbums: Array.from({ length: 10 }, () => album) }

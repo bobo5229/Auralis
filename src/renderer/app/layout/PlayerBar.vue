@@ -33,6 +33,8 @@ import { useTheme } from '@renderer/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
+import { useLiquidGlassParameters } from '@renderer/features/appearance/composables/useLiquidGlassParameters'
+import { isPlaybarLiquidSurface } from './playerBar/playbarLiquidGlass'
 import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,
@@ -45,7 +47,11 @@ const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const { style: playbarMaterialStyle } = usePlaybarStyle()
 const { layout: playbarLayout } = usePlaybarLayout()
+const { parameters: liquidGlassParameters } = useLiquidGlassParameters()
 const isFullLayout = computed(() => playbarLayout.value === 'full')
+const liquidSurface = computed(() =>
+  isPlaybarLiquidSurface(playbarMaterialStyle.value, playbarLayout.value),
+)
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
 // must not decode artwork, paint canvases, or start palette work.
@@ -337,6 +343,9 @@ function handleNext(): void {
       <FrostedSurface
         class="player-bar-surface"
         :frosted="playbarMaterialStyle === 'frosted'"
+        :liquid="liquidSurface"
+        :liquid-active="liquidSurface && isNormalPlayerDisplay"
+        :liquid-options="liquidGlassParameters"
         plain-background="var(--auralis-playbar-bg)"
       />
       <div

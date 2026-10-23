@@ -2,6 +2,8 @@ import type { MpvClient } from './mpvClient'
 import { DigitalSilenceAnalyzer } from './digitalSilence'
 import { NativeBoundaryUpdater } from './nativeBoundaryUpdate'
 import { SoftTransitionPreparer, type SoftTransition } from './softTransition'
+import { softTransitionContinuationOptions } from './softTransitionContinuation'
+import { LiveSilenceAnalyzer } from './liveSilence'
 import type { NativePlaybackSession } from './nativePlaybackSession'
 import type {
   BoundaryStatus,
@@ -38,6 +40,7 @@ export class NativeNextTrackScheduler {
   private readonly boundaryUpdater: NativeBoundaryUpdater
   private readonly analyzer: DigitalSilenceAnalyzer
   private readonly transitions: SoftTransitionPreparer
+  private readonly liveSilence: LiveSilenceAnalyzer
 
   constructor(
     private readonly options: Pick<
@@ -74,6 +77,7 @@ export class NativeNextTrackScheduler {
     })
     this.analyzer = new DigitalSilenceAnalyzer(options.ffmpegPath, options.mpvPath)
     this.transitions = new SoftTransitionPreparer(options.ffmpegPath, options.mpvPath)
+    this.liveSilence = new LiveSilenceAnalyzer(options.ffmpegPath, options.mpvPath)
   }
 
   get isEnteringNext(): boolean {
@@ -158,10 +162,6 @@ export class NativeNextTrackScheduler {
     }
   }
 
-  clearDeferredNext(): void {
-    this.deferredNext = null
-  }
-
   reset(): void {
     this.deferredAnalysis = null
     this.lastNextRequest = null
@@ -242,8 +242,11 @@ export class NativeNextTrackScheduler {
     void task.finally(() => this.analysisTasks.delete(task)).catch(this.options.warn)
   }
 
-  async cancelNext(client: MpvClient): Promise<void> {
-    this.deferredNext = null
+  async cancelNext(
+    client: MpvClient,
+    { preserveDeferredNext = false }: { preserveDeferredNext?: boolean } = {},
+  ): Promise<void> {
+    if (!preserveDeferredNext) this.deferredNext = null
     const transition = this.transition
     if (transition?.stage === 'bridge' && transition.continuationRecovery !== 'missing') {
       // B's continuation is part of the current logical track, not a next song.
@@ -299,11 +302,13 @@ export class NativeNextTrackScheduler {
     transition.continuationRecovery = 'missing'
     // append-play leaves an active bridge alone, and starts the continuation if
     // IPC delay let the bridge reach EOF. Keep the lease until it loads or fails.
-    await client.command('loadfile', transition.continuationPath, 'append-play', -1, {
-      start: String(transition.plan.incomingResume),
-      'hr-seek': 'yes',
-      'hr-seek-demuxer-offset': '1',
-    })
+    await client.command(
+      'loadfile',
+      transition.continuationPath,
+      'append-play',
+      -1,
+      softTransitionContinuationOptions(transition.plan.incomingResume),
+    )
     if (this.runtime.isCurrent(session, client) && this.transition === transition)
       transition.continuationRecovery = 'queued'
   }
@@ -392,13 +397,9 @@ export class NativeNextTrackScheduler {
     if (result.accepted && isCurrent()) {
       const analyze = () => {
         if (!isCurrent()) return
-        if (request.softTransition)
+        if (request.softTransition || request.trimDigitalSilence)
           this.trackAnalysis(
-            this.refineSoftTransition(client, currentPath, nextPath, request, signal, isCurrent),
-          )
-        else if (request.trimDigitalSilence)
-          this.trackAnalysis(
-            this.refineBoundary(client, currentPath, nextPath, request.trackId, signal, isCurrent),
+            this.refineNext(client, currentPath, nextPath, request, signal, isCurrent),
           )
       }
       // A save gates file analysis, not playlist scheduling. Resume the latest
@@ -407,6 +408,35 @@ export class NativeNextTrackScheduler {
       else analyze()
     }
     return result
+  }
+
+  private async refineNext(
+    client: MpvClient,
+    currentPath: string,
+    nextPath: string,
+    request: NextTrackRequest,
+    signal: AbortSignal,
+    isCurrent: () => boolean,
+  ): Promise<void> {
+    const report = (status: BoundaryStatus) =>
+      this.options.onBoundaryStatus?.({ trackId: request.trackId, status })
+    try {
+      report('analyzing')
+      const live = await this.liveSilence.boundary(currentPath, nextPath, signal)
+      if (!isCurrent()) return report('cancelled')
+      if (live.live) {
+        if (!live.boundary) return report('unchanged')
+        report(
+          await this.boundaryUpdater.updateBoundary(client, nextPath, live.boundary, isCurrent),
+        )
+      } else if (request.softTransition)
+        await this.refineSoftTransition(client, currentPath, nextPath, request, signal, isCurrent)
+      else
+        await this.refineBoundary(client, currentPath, nextPath, request.trackId, signal, isCurrent)
+    } catch (error) {
+      report(isCurrent() ? 'failed' : 'cancelled')
+      if (isCurrent()) this.options.warn(error)
+    }
   }
 
   private async refineSoftTransition(
@@ -421,12 +451,12 @@ export class NativeNextTrackScheduler {
     const report = (status: BoundaryStatus) =>
       this.options.onBoundaryStatus?.({ trackId: request.trackId, status })
     try {
-      report('analyzing')
       plan = await this.transitions.prepare(
         currentPath,
         nextPath,
         request.trimDigitalSilence,
         signal,
+        request.softTransitionDurationSeconds,
       )
       if (!isCurrent()) return report('cancelled')
       if (!plan) {
@@ -469,7 +499,6 @@ export class NativeNextTrackScheduler {
   ): Promise<void> {
     const report = (status: BoundaryStatus) => this.options.onBoundaryStatus?.({ trackId, status })
     try {
-      report('analyzing')
       const boundary = await this.analyzer.boundary(currentPath, nextPath, signal)
       if (!isCurrent()) return report('cancelled')
       if (!boundary) return report('unchanged')

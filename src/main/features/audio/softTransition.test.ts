@@ -40,9 +40,9 @@ async function directory() {
   directories.push(path)
   return path
 }
-function samples(rate: number, amplitude: number) {
-  const pcm = Buffer.alloc(rate * 6 * 8)
-  for (let frame = 0; frame < rate * 6; frame++) {
+function samples(rate: number, amplitude: number, seconds = 6) {
+  const pcm = Buffer.alloc(rate * seconds * 8)
+  for (let frame = 0; frame < rate * seconds; frame++) {
     const value = amplitude * Math.cos(frame * 0.041)
     pcm.writeFloatLE(value, frame * 8)
     pcm.writeFloatLE(value * 0.8, frame * 8 + 4)
@@ -96,6 +96,34 @@ function expectPcm(actual: Buffer, expected: Buffer) {
   expect(max).toBeLessThan(0.00002)
 }
 
+it.each([1, 2, 2.5, 6])(
+  'renders the selected %s-second fade with exact endpoints and timing',
+  (seconds) => {
+    const rate = 8000
+    const a = audio(samples(rate, 0.8, 16), rate)
+    const b = audio(samples(rate, -0.7, 16), rate)
+    const mix = renderSoftTransition(a, b, false, seconds)
+    expect(mix.duration).toBe(seconds)
+    expect(mix.wave.length).toBe(44 + seconds * rate * 8)
+    expect(mix.outgoingEnd).toBeCloseTo(16 - seconds + 0.25 / rate, 10)
+    expect(mix.incomingResume).toBeCloseTo(seconds + 0.25 / rate, 10)
+    expect(mix.wave.readFloatLE(44)).toBe(a.tail.readFloatLE((16 - seconds) * rate * 8))
+    expect(mix.wave.readFloatLE(mix.wave.length - 4)).toBe(
+      b.head.readFloatLE(seconds * rate * 8 - 4),
+    )
+  },
+)
+
+it('shortens a long fade for short tracks and preserves digital-silence trimming', () => {
+  const rate = 8000
+  const a = { ...audio(samples(rate, 0.8, 6), rate), trailing: 48 }
+  const b = { ...audio(samples(rate, -0.7, 4), rate), leading: 32 }
+  const mix = renderSoftTransition(a, b, true, 6)
+  expect(mix.duration).toBe((4 * rate - 32) / 2 / rate)
+  expect(mix.incomingStart).toBe(32 / rate)
+  expect(mix.outgoingEnd).toBeCloseTo((6 * rate - 48 - mix.duration * rate + 0.25) / rate, 10)
+})
+
 it('maps decoded samples into the container timeline and preserves fade endpoints', () => {
   const a = audio(samples(44100, 0.8), 44100, 2112 / 44100)
   const b = audio(samples(44100, -0.7), 44100, 2112 / 44100)
@@ -114,15 +142,18 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
   'real decoder and mpv soft transition',
   () => {
     it.each([
-      [44100, 44100],
-      [48000, 48000],
-      [44100, 48000],
+      [44100, 44100, 2, 6],
+      [48000, 48000, 2, 6],
+      [44100, 48000, 2, 6],
+      [44100, 44100, 1, 16],
+      [44100, 44100, 2.5, 16],
+      [44100, 44100, 6, 16],
     ])(
-      'matches native PCM or independently resampled ranges at %i -> %i Hz with one boundary',
-      async (rate, outputRate) => {
+      'matches PCM at %i -> %i Hz with a %s-second fade on %s-second tracks and one boundary',
+      async (rate, outputRate, durationSeconds, trackSeconds) => {
         const dir = await directory()
-        const a = samples(rate, 0.7),
-          b = samples(rate, -0.6)
+        const a = samples(rate, 0.7, trackSeconds),
+          b = samples(rate, -0.6, trackSeconds)
         a.fill(0, a.length - 48 * 8)
         b.fill(0, 0, 32 * 8)
         const paths = [await fixture(dir, 'a', rate, a), await fixture(dir, 'b', rate, b)]
@@ -154,6 +185,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
           trackId: 2,
           trimDigitalSilence: true,
           softTransition: true,
+          softTransitionDurationSeconds: durationSeconds,
         })
         await waitFor(() => statuses.includes('applied'))
         await service.command({ action: 'resume', session: 1 })
@@ -170,11 +202,11 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
         await delay(100)
         const left = { ...audio(a, rate), trailing: 48 },
           right = { ...audio(b, rate), leading: 32 }
-        const plan = renderSoftTransition(left, right, true)
+        const plan = renderSoftTransition(left, right, true, durationSeconds)
         let expected = Buffer.concat([
-          a.subarray(0, (rate * 4 - 48) * 8),
+          a.subarray(0, (rate * (trackSeconds - durationSeconds) - 48) * 8),
           plan.wave.subarray(44),
-          b.subarray((rate * 2 + 32) * 8),
+          b.subarray((rate * durationSeconds + 32) * 8),
         ])
         if (rate !== outputRate) {
           const reference = await fixture(dir, 'reference', rate, expected)
@@ -206,11 +238,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
             { path: bridgePath, options: [] },
             {
               path: paths[1],
-              options: [
-                `--start=${plan.incomingResume}`,
-                '--hr-seek=yes',
-                '--hr-seek-demuxer-offset=1',
-              ],
+              options: [`--af=lavfi=[atrim=start=${plan.incomingResume}]`],
             },
           ]
           const renderedSegments: Buffer[] = []
@@ -254,60 +282,111 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
       15000,
     )
 
-    it('falls back for mixed rates, consecutive albums, and aborts', async () => {
+    it('falls back for mixed rates, identical files, and aborts', async () => {
       const dir = await directory()
       const a = await fixture(dir, 'a', 44100, samples(44100, 0.2))
       const b = await fixture(dir, 'b', 48000, samples(48000, 0.2))
       const preparer = new SoftTransitionPreparer(ffmpeg, mpv)
       expect(await preparer.prepare(a, b, true, new AbortController().signal)).toBeNull()
-      const c = join(dir, 'c.flac'),
-        d = join(dir, 'd.flac')
-      for (const [file, track] of [
-        [c, '1'],
-        [d, '2'],
-      ])
-        run([
-          '-v',
-          'error',
-          '-i',
-          a,
-          '-metadata',
-          'album=Album',
-          '-metadata',
-          'artist=Artist',
-          '-metadata',
-          'disc=1',
-          '-metadata',
-          `track=${track}`,
-          file,
-        ])
-      expect(await preparer.prepare(c, d, true, new AbortController().signal)).toBeNull()
-      const incomplete = join(dir, 'missing-disc.flac')
-      run([
-        '-v',
-        'error',
-        '-i',
-        a,
-        '-metadata',
-        'album=Album',
-        '-metadata',
-        'artist=Artist',
-        '-metadata',
-        'track=2',
-        incomplete,
-      ])
-      expect(await preparer.prepare(c, incomplete, true, new AbortController().signal)).toBeNull()
+      expect(await preparer.prepare(a, a, false, new AbortController().signal)).toBeNull()
       const aborted = new AbortController()
       aborted.abort()
       await expect(preparer.prepare(a, a, false, aborted.signal)).rejects.toThrow()
     })
 
-    it('pauses and seeks within the visible B track on muted WASAPI output', async () => {
+    it.each(['complete', 'missing-disc', 'missing-track'] as const)(
+      'crossfades consecutive album tracks with %s tags',
+      async (tags) => {
+        const dir = await directory()
+        const rate = 44100
+        const left = samples(rate, 0.2)
+        const right = samples(rate, -0.3)
+        const sources = [await fixture(dir, 'a', rate, left), await fixture(dir, 'b', rate, right)]
+        const paths = [join(dir, 'track-1.flac'), join(dir, 'track-2.flac')]
+        for (const [index, path] of paths.entries()) {
+          const metadata = ['-metadata', 'album=Album', '-metadata', 'artist=Artist']
+          if (index === 0 || tags !== 'missing-disc') metadata.push('-metadata', 'disc=1')
+          if (index === 0 || tags !== 'missing-track')
+            metadata.push('-metadata', `track=${index + 1}`)
+          run(['-v', 'error', '-i', sources[index], '-c:a', 'flac', ...metadata, path])
+        }
+        const preparer = new SoftTransitionPreparer(ffmpeg, mpv)
+        const plan = await preparer.prepare(paths[0], paths[1], true, new AbortController().signal)
+        try {
+          expect(plan).not.toBeNull()
+          if (!plan) throw new Error('Missing same-album transition')
+          expect(plan.duration).toBe(2)
+          expect(plan.outgoingEnd).toBeCloseTo(4 + 0.25 / rate, 10)
+          expect(plan.incomingResume).toBeCloseTo(2 + 0.25 / rate, 10)
+          const expected = renderSoftTransition(audio(left, rate), audio(right, rate), true)
+          expectPcm((await readFile(plan.path)).subarray(44), expected.wave.subarray(44))
+        } finally {
+          await plan?.dispose()
+        }
+      },
+    )
+
+    it.each([2, 6])(
+      'pauses and seeks within B during a %s-second fade on muted WASAPI output',
+      async (durationSeconds) => {
+        const dir = await directory()
+        const paths = [
+          await fixture(dir, 'a', 44100, samples(44100, 0.2, durationSeconds === 6 ? 14 : 6)),
+          await fixture(dir, 'b', 44100, samples(44100, 0.3, durationSeconds === 6 ? 14 : 6)),
+        ]
+        const statuses: string[] = [],
+          events: NativePlaybackEvent[] = [],
+          warnings: unknown[] = []
+        const service = new NativePlaybackService({
+          mpvPath: mpv,
+          ffmpegPath: ffmpeg,
+          mpvArgs: ['--ao=wasapi', '--pause=yes'],
+          resolveTrack: async (id) => paths[id - 1],
+          emit: (e) => events.push(e),
+          warn: (e) => warnings.push(e),
+          onBoundaryStatus: (e) => statuses.push(e.status),
+        })
+        services.push(service)
+        await service.command({ action: 'start', session: 1, trackId: 1, volume: 0.2, muted: true })
+        await service.command({
+          action: 'next',
+          session: 1,
+          trackId: 2,
+          softTransition: true,
+          softTransitionDurationSeconds: durationSeconds,
+          trimDigitalSilence: false,
+        })
+        await waitFor(() => statuses.includes('applied'))
+        await service.command({ action: 'resume', session: 1 })
+        await waitFor(() => events.some((e) => e.kind === 'boundary'), 15000)
+        await service.command({ action: 'pause', session: 1 })
+        await service.command({ action: 'cancel-next', session: 1 })
+        await delay(100)
+        const pausedAt = events.at(-1)!.currentTime
+        await delay(200)
+        expect(events.at(-1)?.currentTime).toBeCloseTo(pausedAt, 2)
+        expect(events.at(-1)?.isPlaying).toBe(false)
+        await service.command({ action: 'seek', session: 1, time: 3 })
+        await waitFor(() => Math.abs((events.at(-1)?.currentTime ?? 0) - 3) < 0.1)
+        expect(events.at(-1)?.isPlaying).toBe(false)
+        await service.command({ action: 'resume', session: 1 })
+        await waitFor(() => (events.at(-1)?.currentTime ?? 0) > 3.1)
+        expect(events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+        expect(events.filter((e) => e.kind === 'error')).toEqual([])
+        expect(warnings).toEqual([])
+      },
+      25000,
+    )
+
+    it('seeks back into the AAC intro after a six-second continuation on muted WASAPI', async () => {
       const dir = await directory()
-      const paths = [
-        await fixture(dir, 'a', 44100, samples(44100, 0.2)),
-        await fixture(dir, 'b', 44100, samples(44100, 0.3)),
-      ]
+      const paths: string[] = []
+      for (const name of ['a', 'b']) {
+        const source = await fixture(dir, name, 44100, samples(44100, 0.2, 14))
+        const path = join(dir, name + '.m4a')
+        run(['-v', 'error', '-i', source, '-c:a', 'aac', path])
+        paths.push(path)
+      }
       const statuses: string[] = [],
         events: NativePlaybackEvent[] = [],
         warnings: unknown[] = []
@@ -316,38 +395,36 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
         ffmpegPath: ffmpeg,
         mpvArgs: ['--ao=wasapi', '--pause=yes'],
         resolveTrack: async (id) => paths[id - 1],
-        emit: (e) => events.push(e),
-        warn: (e) => warnings.push(e),
-        onBoundaryStatus: (e) => statuses.push(e.status),
+        emit: (event) => events.push(event),
+        warn: (error) => warnings.push(error),
+        onBoundaryStatus: (event) => statuses.push(event.status),
       })
       services.push(service)
       await service.command({ action: 'start', session: 1, trackId: 1, volume: 0.2, muted: true })
+      await service.command({ action: 'seek', session: 1, time: 6 })
       await service.command({
         action: 'next',
         session: 1,
         trackId: 2,
-        softTransition: true,
         trimDigitalSilence: false,
+        softTransition: true,
+        softTransitionDurationSeconds: 6,
       })
       await waitFor(() => statuses.includes('applied'))
       await service.command({ action: 'resume', session: 1 })
-      await waitFor(() => events.some((e) => e.kind === 'boundary'))
+      await waitFor(() => events.at(-1)?.trackId === 2 && events.at(-1)!.currentTime > 6.3, 15000)
       await service.command({ action: 'pause', session: 1 })
-      await service.command({ action: 'cancel-next', session: 1 })
-      await delay(100)
-      const pausedAt = events.at(-1)!.currentTime
-      await delay(200)
-      expect(events.at(-1)?.currentTime).toBeCloseTo(pausedAt, 2)
-      expect(events.at(-1)?.isPlaying).toBe(false)
-      await service.command({ action: 'seek', session: 1, time: 3 })
-      await waitFor(() => Math.abs((events.at(-1)?.currentTime ?? 0) - 3) < 0.1)
+      await service.command({ action: 'seek', session: 1, time: 0.5 })
+      await waitFor(() => Math.abs((events.at(-1)?.currentTime ?? 0) - 0.5) < 0.1)
       expect(events.at(-1)?.isPlaying).toBe(false)
       await service.command({ action: 'resume', session: 1 })
-      await waitFor(() => (events.at(-1)?.currentTime ?? 0) > 3.1)
-      expect(events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
-      expect(events.filter((e) => e.kind === 'error')).toEqual([])
+      await waitFor(() => events.at(-1)!.currentTime > 0.8 && events.at(-1)!.currentTime < 2)
+      expect(
+        events.filter((event) => event.kind === 'boundary').map((event) => event.trackId),
+      ).toEqual([2])
+      expect(events.filter((event) => event.kind === 'error')).toEqual([])
       expect(warnings).toEqual([])
-    }, 15000)
+    }, 25000)
 
     it.skipIf(!process.env.AURALIS_TRANSITION_MANIFEST)(
       'matches original AAC and MP3 timestamps using the production preparer',

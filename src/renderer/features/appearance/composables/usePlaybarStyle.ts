@@ -1,7 +1,7 @@
 import { readonly, ref } from 'vue'
 
 export const PLAYBAR_STYLE_KEY = 'auralis-playbar-style'
-export const PLAYBAR_STYLES = ['plain', 'frosted'] as const
+export const PLAYBAR_STYLES = ['plain', 'frosted', 'liquid'] as const
 export type PlaybarStyle = (typeof PLAYBAR_STYLES)[number]
 
 function readStyle(): PlaybarStyle {

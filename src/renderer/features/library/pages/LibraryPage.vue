@@ -14,6 +14,7 @@ import { useSongCoverInfoLayout } from '@renderer/features/appearance/composable
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
 import PageParameterTrigger from '@renderer/app/layout/PageParameterTrigger.vue'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
 import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
@@ -552,6 +553,18 @@ watch(
   { flush: 'sync' },
 )
 
+watch(isCoverView, (cover) => {
+  if (cover) return
+  clearSearchHover()
+})
+
+function openFlatSearch(): void {
+  isSearchFocused.value = true
+  void nextTick(() => {
+    searchInputRef.value?.focus()
+  })
+}
+
 function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
   flatColumnLayoutState.preview(widths)
 }
@@ -591,7 +604,12 @@ function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolea
 function onLibrarySurfaceMouseMove(event: MouseEvent): void {
   const insideHandle = isPointInsideFlatResizeHandle(event.clientX, event.clientY)
   isFlatColumnResizeTarget.value = insideHandle || isFlatColumnResizeActive.value
-  if (insideHandle || isFlatColumnResizeActive.value || !isSearchEnabled.value) {
+  if (
+    insideHandle ||
+    isFlatColumnResizeActive.value ||
+    !isSearchEnabled.value ||
+    !isCoverView.value
+  ) {
     clearSearchHover()
     return
   }
@@ -611,6 +629,7 @@ function onLibraryPointerDownCapture(event: PointerEvent): void {
 
   const handles = header.getResizeHandles()
   const target = event.target instanceof Element ? event.target : null
+  if (target?.closest('.library-flat-search')) return
   const directHandle = target?.closest<HTMLElement>('[data-column-resize-handle]')
   const handle =
     directHandle && handles.includes(directHandle)
@@ -632,6 +651,7 @@ function onLibraryContextMenuCapture(event: MouseEvent): void {
   if (isCoverView.value) return
   const header = scrollRef.value?.querySelector<HTMLElement>('.library-flat-track-header')
   const target = event.target instanceof Element ? event.target : null
+  if (target?.closest('.library-flat-search')) return
   if (!header || (target && header.contains(target))) return
   const rect = header.getBoundingClientRect()
   if (
@@ -830,12 +850,7 @@ onBeforeUnmount(() => {
         {{ t('library.status.retry') }}
       </button>
     </div>
-    <div
-      v-if="isSearchEnabled"
-      ref="searchZoneRef"
-      class="library-search-zone"
-      :class="{ 'library-search-zone--flat-row': !isCoverView }"
-    >
+    <div v-if="isSearchEnabled && isCoverView" ref="searchZoneRef" class="library-search-zone">
       <Transition name="search-overlay" :duration="160">
         <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
           <div
@@ -895,132 +910,209 @@ onBeforeUnmount(() => {
       </Transition>
     </div>
 
-    <LibraryStatusState v-if="isLoading" kind="loading" />
-
-    <LibraryStatusState
-      v-else-if="initialLoadError && !pageIdentity"
-      kind="error"
-      :error-message="initialLoadError"
-      @retry="retryInitialLoad"
-    />
-
-    <LibraryStatusState
-      v-else-if="tracks.length === 0"
-      kind="empty"
-      :is-playlist="playlistId !== null"
-      :is-smart-playlist="smartPlaylistId !== null"
-      :is-recent-added="isRecentAdded"
-      @open-settings="openSettings"
-    />
-
-    <div
-      v-else
-      class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
-      :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
-      :class="{ 'library-list-shell--play-count': showPlayCount }"
-      @keydown="onListShellKeyDown"
-    >
+    <div class="library-list-frame relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div
-        ref="scrollRef"
-        tabindex="-1"
-        class="library-list-scroll main-page-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
+        v-if="isSearchEnabled && !isCoverView"
+        ref="searchRootRef"
+        class="library-flat-search"
+        :class="{
+          'library-flat-search--below-header':
+            !isLoading && tracks.length > 0 && !(initialLoadError && !pageIdentity),
+        }"
       >
-        <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
-          <div :key="libraryViewMode" class="min-h-full">
-            <template v-if="!isCoverView">
-              <div
-                :style="{
-                  height: `${totalSize + LIBRARY_LAYOUT_METRICS.flatBottomInset}px`,
-                  width: '100%',
-                  position: 'relative',
-                }"
+        <Transition name="library-flat-search" :duration="160">
+          <div
+            v-if="shouldRenderSearchBar || keepSearchToolsVisible"
+            class="page-search-tools library-flat-search-tools"
+            :class="{ 'page-search-tools--parameters': hasPageParameters }"
+            @focusin="onSearchToolsFocusIn"
+            @focusout="onSearchToolsFocusOut"
+          >
+            <PageParameterTrigger v-if="hasPageParameters" />
+            <div
+              class="library-search-bar"
+              @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
+              @focusout="onSearchBarFocusOut"
+            >
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="library-search-input"
+                :disabled="isLoading || tracks.length === 0"
+                :placeholder="t('library.search.placeholder')"
+                :aria-label="t('library.search.ariaLabel')"
+                spellcheck="false"
+                @focus="onSearchInputFocus"
+                @keydown="onSearchKeydown"
+              />
+              <span
+                v-if="searchOutcome.kind !== 'idle'"
+                class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
+                role="status"
+                aria-live="polite"
               >
-                <FlatTrackColumnHeader
-                  ref="flatHeaderRef"
-                  :layout="flatColumnLayout"
-                  :resizing="isFlatColumnResizeActive"
-                  @resize-preview="onFlatColumnResizePreview"
-                  @resize-commit="onFlatColumnResizeCommit"
-                  @resize-cancel="onFlatColumnResizeCancel"
-                  @resize-state="onFlatColumnResizeStateChange"
-                  @open-context-menu="openFlatColumnMenu"
-                />
-                <SongRow
-                  v-for="virtualRow in virtualRows"
-                  :key="String(virtualRow.key)"
-                  :track="tracks[virtualRow.index]"
-                  :show-play-count="showPlayCount"
-                  :visible-columns="flatColumnLayout.visibleColumnIds"
-                  :index="virtualRow.index"
-                  :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
-                  :is-playing="playback.state.isPlaying"
-                  :selected="highlightedTrackId === tracks[virtualRow.index].id"
-                  :context-selected="contextSelectedTrackId === tracks[virtualRow.index].id"
-                  :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
-                  :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
-                  :style="{
-                    height: `${virtualRow.size}px`,
-                    top: `${virtualRow.start}px`,
-                  }"
-                  class="absolute left-0 w-full"
-                  @select="onSelect"
-                  @play="onPlay"
-                  @focus="onRowFocus"
-                  @open-context-menu="openSongRowContextMenu"
-                />
-              </div>
-            </template>
-
-            <template v-else>
-              <div
-                :style="{
-                  height: `${albumGroupsTotalSize + COVER_TOP_INSET}px`,
-                  width: '100%',
-                  position: 'relative',
-                }"
-              >
-                <div
-                  class="library-cover-virtual-window"
-                  :style="{
-                    paddingTop: `${albumVirtualWindowStart + COVER_TOP_INSET}px`,
-                  }"
-                >
-                  <AlbumCoverGroup
-                    v-for="virtualGroup in virtualAlbumGroups"
-                    :key="String(virtualGroup.key)"
-                    :data-album-key="albumGroups[virtualGroup.index].key"
-                    :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
-                    :group="albumGroups[virtualGroup.index]"
-                    :viewport-height="coverViewportHeight"
-                    :metadata-layout="coverInfo.metadataLayout.value"
-                    :scroll-element="scrollRef"
-                    :start-offset="virtualGroup.start + COVER_TOP_INSET"
-                    :now-playing-track-id="playback.state.currentTrackId"
-                    :is-playing="playback.state.isPlaying"
-                    :selected-track-id="highlightedTrackId"
-                    :context-selected-track-id="contextSelectedTrackId"
-                    :artwork-context-selected="
-                      contextSelectedAlbumKey === albumGroups[virtualGroup.index].key
-                    "
-                    :focused-track-id="keyboardFocusTrackId"
-                    :style="{
-                      height: `${virtualGroup.size}px`,
-                    }"
-                    class="w-full"
-                    @select="onSelect"
-                    @play="onPlay"
-                    @focus-track="onRowFocus"
-                    @open-track-context-menu="openSongRowContextMenu"
-                    @open-album-artwork-context-menu="
-                      (anchorTrackId, event, openReason) =>
-                        onOpenAlbumArtworkContextMenu(anchorTrackId, event, openReason)
-                    "
-                  />
-                </div>
-              </div>
-            </template>
+                <template v-if="searchOutcome.kind === 'matched'">
+                  {{
+                    searchOutcome.wrapped
+                      ? t('library.search.wrapped', {
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
+                        })
+                      : t('library.search.matched', {
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
+                        })
+                  }}
+                </template>
+                <template v-else-if="searchOutcome.kind === 'not-found'">
+                  <span class="text-[var(--auralis-danger)] font-medium">
+                    {{ t('library.search.notFound') }}
+                  </span>
+                </template>
+              </span>
+            </div>
           </div>
         </Transition>
+        <button
+          type="button"
+          class="library-flat-search-launcher"
+          :aria-label="t('library.search.ariaLabel')"
+          :aria-expanded="shouldRenderSearchBar || keepSearchToolsVisible"
+          @click="openFlatSearch"
+        >
+          <FrostedSurface />
+          <span class="i-lucide-search" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <LibraryStatusState v-if="isLoading" kind="loading" />
+
+      <LibraryStatusState
+        v-else-if="initialLoadError && !pageIdentity"
+        kind="error"
+        :error-message="initialLoadError"
+        @retry="retryInitialLoad"
+      />
+
+      <LibraryStatusState
+        v-else-if="tracks.length === 0"
+        kind="empty"
+        :is-playlist="playlistId !== null"
+        :is-smart-playlist="smartPlaylistId !== null"
+        :is-recent-added="isRecentAdded"
+        @open-settings="openSettings"
+      />
+
+      <div
+        v-else
+        class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
+        :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
+        :class="{ 'library-list-shell--play-count': showPlayCount }"
+        @keydown="onListShellKeyDown"
+      >
+        <div
+          ref="scrollRef"
+          tabindex="-1"
+          class="library-list-scroll main-page-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
+        >
+          <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
+            <div :key="libraryViewMode" class="min-h-full">
+              <template v-if="!isCoverView">
+                <div
+                  :style="{
+                    height: `${totalSize + LIBRARY_LAYOUT_METRICS.flatBottomInset}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }"
+                >
+                  <FlatTrackColumnHeader
+                    ref="flatHeaderRef"
+                    :layout="flatColumnLayout"
+                    :resizing="isFlatColumnResizeActive"
+                    @resize-preview="onFlatColumnResizePreview"
+                    @resize-commit="onFlatColumnResizeCommit"
+                    @resize-cancel="onFlatColumnResizeCancel"
+                    @resize-state="onFlatColumnResizeStateChange"
+                    @open-context-menu="openFlatColumnMenu"
+                  />
+                  <SongRow
+                    v-for="virtualRow in virtualRows"
+                    :key="String(virtualRow.key)"
+                    :track="tracks[virtualRow.index]"
+                    :show-play-count="showPlayCount"
+                    :visible-columns="flatColumnLayout.visibleColumnIds"
+                    :index="virtualRow.index"
+                    :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
+                    :is-playing="playback.state.isPlaying"
+                    :selected="highlightedTrackId === tracks[virtualRow.index].id"
+                    :context-selected="contextSelectedTrackId === tracks[virtualRow.index].id"
+                    :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
+                    :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
+                    :style="{
+                      height: `${virtualRow.size}px`,
+                      top: `${virtualRow.start}px`,
+                    }"
+                    class="absolute left-0 w-full"
+                    @select="onSelect"
+                    @play="onPlay"
+                    @focus="onRowFocus"
+                    @open-context-menu="openSongRowContextMenu"
+                  />
+                </div>
+              </template>
+
+              <template v-else>
+                <div
+                  :style="{
+                    height: `${albumGroupsTotalSize + COVER_TOP_INSET}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }"
+                >
+                  <div
+                    class="library-cover-virtual-window"
+                    :style="{
+                      paddingTop: `${albumVirtualWindowStart + COVER_TOP_INSET}px`,
+                    }"
+                  >
+                    <AlbumCoverGroup
+                      v-for="virtualGroup in virtualAlbumGroups"
+                      :key="String(virtualGroup.key)"
+                      :data-album-key="albumGroups[virtualGroup.index].key"
+                      :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
+                      :group="albumGroups[virtualGroup.index]"
+                      :viewport-height="coverViewportHeight"
+                      :metadata-layout="coverInfo.metadataLayout.value"
+                      :scroll-element="scrollRef"
+                      :start-offset="virtualGroup.start + COVER_TOP_INSET"
+                      :now-playing-track-id="playback.state.currentTrackId"
+                      :is-playing="playback.state.isPlaying"
+                      :selected-track-id="highlightedTrackId"
+                      :context-selected-track-id="contextSelectedTrackId"
+                      :artwork-context-selected="
+                        contextSelectedAlbumKey === albumGroups[virtualGroup.index].key
+                      "
+                      :focused-track-id="keyboardFocusTrackId"
+                      :style="{
+                        height: `${virtualGroup.size}px`,
+                      }"
+                      class="w-full"
+                      @select="onSelect"
+                      @play="onPlay"
+                      @focus-track="onRowFocus"
+                      @open-track-context-menu="openSongRowContextMenu"
+                      @open-album-artwork-context-menu="
+                        (anchorTrackId, event, openReason) =>
+                          onOpenAlbumArtworkContextMenu(anchorTrackId, event, openReason)
+                      "
+                    />
+                  </div>
+                </div>
+              </template>
+            </div>
+          </Transition>
+        </div>
       </div>
     </div>
 

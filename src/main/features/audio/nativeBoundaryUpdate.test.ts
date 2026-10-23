@@ -48,7 +48,11 @@ function setup() {
       if (args[0] === 'path') value = active?.path
     }
     if (name === 'loadfile') {
-      const entry = { path: String(args[0]), start: (args[3] as { start?: string }).start ?? '0' }
+      const options = args[3] as { start?: string; af?: string }
+      const entry = {
+        path: String(args[0]),
+        start: options.start ?? options.af?.match(/atrim=start=([^\]]+)/)?.[1] ?? '0',
+      }
       if (args[1] === 'replace') {
         state.playlist = [entry]
         state.position = 0
@@ -144,6 +148,21 @@ function setup() {
 }
 
 describe('NativeBoundaryUpdater playlist transactions', () => {
+  it('keeps the bridge tail queued by trimming the continuation without an initial seek', async () => {
+    const t = setup()
+    await expect(t.run('soft')).resolves.toBe(true)
+    const continuation = t.command.mock.calls.find(
+      ([name, path, mode, , options]) =>
+        name === 'loadfile' &&
+        path === 'b.flac' &&
+        mode === 'append' &&
+        typeof (options as { af?: string })?.af === 'string',
+    )
+    expect(continuation?.[4]).toEqual({
+      af: '@auralis-soft-transition:lavfi=[atrim=start=1.1]',
+    })
+  })
+
   it.each(['silence', 'soft'] as const)(
     'applies %s with a nonzero decoder offset',
     async (kind) => {

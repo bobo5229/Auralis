@@ -57,8 +57,6 @@ export function useLibraryViewport(options: {
     index: number
     trackId: number | null
     fraction: number
-    atTopInset: boolean
-    topScrollTop: number
   } | null = null
 
   function currentFlatRowHeight(): number {
@@ -399,8 +397,6 @@ export function useLibraryViewport(options: {
         index: anchorIndex,
         trackId,
         fraction: rowOffset / previousHeight,
-        atTopInset: container.scrollTop < inset,
-        topScrollTop: container.scrollTop,
       }
     }
     pendingFlatLayoutAnchor = anchor
@@ -424,9 +420,10 @@ export function useLibraryViewport(options: {
       anchor.trackId === null
         ? anchor.index
         : (options.derivedIndex.value.trackIndexById.get(anchor.trackId) ?? anchor.index)
-    currentContainer.scrollTop = anchor.atTopInset
-      ? anchor.topScrollTop
-      : Math.max(0, currentInset + (targetIndex + anchor.fraction) * nextHeight)
+    currentContainer.scrollTop = Math.max(
+      0,
+      currentInset + (targetIndex + anchor.fraction) * nextHeight,
+    )
     pendingFlatLayoutAnchor = null
     scheduleFirstVisibleTrackIndexUpdate()
   }

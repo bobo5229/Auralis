@@ -432,9 +432,27 @@
       },
       "playbarStyle": {
         "title": "播放栏样式",
-        "description": "选择底部播放栏的背景样式。",
+        "description": "选择底部播放栏的背景样式。液态玻璃只作用于悬浮岛，全宽布局仍使用普通底。",
         "plain": "普通",
         "frosted": "毛玻璃",
+        "liquid": "液态玻璃",
+        "persistFailed": "本次选择未保存，请重新选择以重试。"
+      },
+      "liquidGlass": {
+        "title": "液态玻璃参数",
+        "description": "这些参数作用于悬浮岛。",
+        "scale": "折射",
+        "chroma": "色散",
+        "blur": "模糊",
+        "saturate": "饱和",
+        "restoreDefault": "恢复默认",
+        "persistFailed": "参数已在本次会话中保留，保存未完成。"
+      },
+      "controlStyle": {
+        "title": "组件样式",
+        "description": "选择专辑详情页播放和随机按钮的材质。",
+        "brushed": "拉丝金属",
+        "anodized": "阳极氧化",
         "persistFailed": "本次选择未保存，请重新选择以重试。"
       },
       "playingIcon": {
@@ -531,7 +549,9 @@
       "digitalSilenceDescription": "移除连续专辑曲目间极短的数字静音。",
       "nativeUnavailable": "当前原生播放不可用。",
       "softTransition": "柔和过渡",
-      "softTransitionDescription": "普通换曲时交叉淡化 2 秒。"
+      "softTransitionDescription": "普通换曲时按设定时长交叉淡化；较短曲目会自动缩短。",
+      "softTransitionDuration": "过渡时长",
+      "softTransitionDurationValue": "{seconds} 秒"
     },
     "library": {
       "maintenanceSection": "资料库维护",
@@ -670,6 +690,25 @@
     "background": {
       "section": "背景",
       "pause": "暂停背景"
+    },
+    "info": {
+      "section": "曲目信息",
+      "title": "曲名",
+      "subtitle": "副标题",
+      "titleFontSize": "曲名字号",
+      "titleFontWeight": "曲名字重",
+      "subtitleFontSize": "副标题字号",
+      "subtitleFontWeight": "副标题字重",
+      "reset": "恢复默认",
+      "resetStatus": "已恢复曲目信息默认参数",
+      "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
+      "weights": {
+        "400": "常规（400）",
+        "500": "中等（500）",
+        "600": "半粗（600）",
+        "700": "粗体（700）",
+        "800": "特粗（800）"
+      }
     },
     "lyrics": {
       "section": "歌词",

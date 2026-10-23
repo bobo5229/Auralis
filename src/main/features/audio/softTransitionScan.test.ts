@@ -31,6 +31,20 @@ afterEach(() => {
 })
 
 it.each([
+  {
+    name: 'six-second window',
+    frames: 704419,
+    channels: 2,
+    sizes: [65536, 3, 130001],
+    windowSeconds: 6.1,
+  },
+  {
+    name: 'one-second window',
+    frames: 302419,
+    channels: 2,
+    sizes: [65536, 3, 130001],
+    windowSeconds: 1.1,
+  },
   { name: 'short file', frames: 37, channels: 2, sizes: [3, 11, 64] },
   { name: 'exact window', frames: 100800, channels: 2, sizes: [257, 13, 65536] },
   { name: 'wrapped window', frames: 302419, channels: 2, sizes: [65536, 3, 130001] },
@@ -44,7 +58,7 @@ it.each([
   { name: 'mono window', frames: 302419, channels: 1, sizes: [1, 65536, 17] },
 ])(
   'retains exact PCM edges, silence counts and timestamps for a $name',
-  async ({ frames, channels, sizes }) => {
+  async ({ frames, channels, sizes, windowSeconds = 2.1 }) => {
     const rate = 48000
     const bytesPerFrame = channels * 4
     const pcm = Buffer.alloc(frames * bytesPerFrame)
@@ -62,6 +76,7 @@ it.each([
       rate,
       channels,
       new AbortController().signal,
+      windowSeconds,
     )
     const diagnostics =
       '[Parsed_ashowinfo_0 @ 1234] n:0 pts:240 pts_time:0.005 channels:' +
@@ -79,7 +94,7 @@ it.each([
     child.stdout.emit('data', Buffer.alloc(0))
     child.emit('close', 0)
     const audio = await pending
-    const limit = Math.ceil(rate * 2.1) * bytesPerFrame
+    const limit = Math.ceil(rate * windowSeconds) * bytesPerFrame
     expect(audio.frames).toBe(frames)
     expect(audio.leading).toBe(2)
     expect(audio.trailing).toBe(3)

@@ -733,6 +733,83 @@ describe('playbackController unit tests with injected dependencies', () => {
     restored.dispose()
   })
 
+  it.each([null, '', 'no', 'NaN', 'Infinity', '0', '6.5', '2.1'])(
+    'defaults an absent or invalid soft-transition duration %s to two seconds',
+    (stored) => {
+      if (stored !== null) storageMap.set('auralis-soft-transition-duration-seconds', stored)
+      const controller = createPlaybackController(deps)
+      expect(controller.api.softTransitionDurationSeconds.value).toBe(2)
+      controller.dispose()
+    },
+  )
+
+  it('persists duration independently of the disabled soft-transition setting', () => {
+    const controller = createPlaybackController(deps)
+    const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+    runtime.cancelScheduledNext.mockClear()
+    controller.api.setSoftTransitionDurationSeconds(5.5)
+    expect(controller.api.softTransitionDurationSeconds.value).toBe(5.5)
+    expect(storageMap.get('auralis-soft-transition-duration-seconds')).toBe('5.5')
+    expect(runtime.cancelScheduledNext).not.toHaveBeenCalled()
+    for (const invalid of [0, 6.5, 2.1, NaN, Infinity])
+      controller.api.setSoftTransitionDurationSeconds(invalid)
+    expect(controller.api.softTransitionDurationSeconds.value).toBe(5.5)
+    controller.dispose()
+    const restored = createPlaybackController(deps)
+    expect(restored.api.softTransitionDurationSeconds.value).toBe(5.5)
+    restored.dispose()
+  })
+
+  it('replans playing transitions once and uses paused duration changes after resume', async () => {
+    const controller = createPlaybackController(deps)
+    const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+    const snapshot = {
+      kind: 'mpv',
+      trackId: 1,
+      currentTime: 0,
+      duration: 180,
+      isPlaying: true,
+      hasCurrentData: true,
+    } as PlaybackAudioSnapshot
+    runtime.getSnapshot.mockImplementation(() => snapshot)
+    runtime.scheduleNext.mockResolvedValue(true)
+    const callbacks = vi.mocked(deps.createAudioRuntime!).mock.calls[0][0]
+    runtime.start.mockImplementation(async () => callbacks.onPlayingChange(true))
+    runtime.resume.mockImplementation(async () => callbacks.onPlayingChange(true))
+    controller.api.setPlaybackMode('sequential')
+    controller.api.setSoftTransitionEnabled(true)
+    await controller.api.playTrackFromQueue(frozenTracks(), 1)
+    await vi.waitFor(() => expect(runtime.scheduleNext).toHaveBeenCalled())
+    runtime.scheduleNext.mockClear()
+    runtime.cancelScheduledNext.mockClear()
+    controller.api.setSoftTransitionDurationSeconds(6)
+    await vi.waitFor(() => expect(runtime.scheduleNext).toHaveBeenCalledOnce())
+    expect(runtime.scheduleNext).toHaveBeenLastCalledWith(
+      2,
+      'audio://2',
+      expect.objectContaining({ softTransitionDurationSeconds: 6 }),
+    )
+    const cancellations = runtime.cancelScheduledNext.mock.calls.length
+    controller.api.setSoftTransitionDurationSeconds(6)
+    expect(runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancellations)
+    controller.api.pause()
+    snapshot.isPlaying = false
+    runtime.scheduleNext.mockClear()
+    runtime.cancelScheduledNext.mockClear()
+    controller.api.setSoftTransitionDurationSeconds(1.5)
+    expect(runtime.scheduleNext).not.toHaveBeenCalled()
+    expect(runtime.cancelScheduledNext).not.toHaveBeenCalled()
+    snapshot.isPlaying = true
+    await controller.api.play()
+    await vi.waitFor(() => expect(runtime.scheduleNext).toHaveBeenCalledOnce())
+    expect(runtime.scheduleNext).toHaveBeenLastCalledWith(
+      2,
+      'audio://2',
+      expect.objectContaining({ softTransitionDurationSeconds: 1.5 }),
+    )
+    controller.dispose()
+  })
+
   it('updates volume, persists to storage, and supports mute toggle', () => {
     const controller = createPlaybackController(deps)
     controller.api.setVolume(0.4)

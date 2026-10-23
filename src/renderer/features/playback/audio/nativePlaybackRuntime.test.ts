@@ -66,6 +66,7 @@ describe('native playback renderer adapter', () => {
     await test.runtime.scheduleNext(2, 'audio://2', {
       trimBoundarySilence: false,
       softTransition: true,
+      softTransitionDurationSeconds: 5.5,
     })
     expect(test.api.nativeCommand).toHaveBeenLastCalledWith({
       action: 'next',
@@ -73,6 +74,7 @@ describe('native playback renderer adapter', () => {
       trackId: 2,
       trimDigitalSilence: false,
       softTransition: true,
+      softTransitionDurationSeconds: 5.5,
     })
     test.runtime.dispose()
   })

@@ -188,6 +188,40 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## deepika-builds/liquid-glass
+
+[deepika-builds/liquid-glass](https://github.com/deepika-builds/liquid-glass),
+retrieved on 2026-10-23, MIT, Copyright (c) 2026 Deepika Rao.
+
+`demo/playback/deepika-liquid-glass/liquid-glass.js` is an unmodified copy used
+by the offline prototype. `src/renderer/shared/glass/liquidGlass.ts` is the
+same displacement map, SVG filter and backdrop-filter wiring, exported as a
+module for the floating playbar. The playbar passes refraction, dispersion,
+blur and saturation from appearance settings. Those settings start at the
+library defaults. Displacement border and map blur remain the library defaults.
+
+MIT License
+
+Copyright (c) 2026 Deepika Rao
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 ## n3r4zzurr0/svg-spinners — Blocks Wave
 
 `PlayingIndicator.vue` and `animatePlaybackBlocks` adapt the geometry and timing from

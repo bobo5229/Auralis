@@ -165,6 +165,9 @@ export function createNativePlaybackRuntime(
         trackId,
         trimDigitalSilence: options.trimBoundarySilence,
         softTransition: options.softTransition === true,
+        ...(options.softTransitionDurationSeconds === undefined
+          ? {}
+          : { softTransitionDurationSeconds: options.softTransitionDurationSeconds }),
       })
       return session === requestSession && result.accepted
     },

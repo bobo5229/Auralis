@@ -1,6 +1,7 @@
 import { createRenderer, h, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FullscreenLyricsTypography } from '@renderer/features/lyrics/constants/fullscreenLyricsTypography'
+import type { FullscreenInfoTypography } from '../constants/fullscreenInfoTypography'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('../composables/useFullscreenBackground', () => ({
@@ -8,6 +9,9 @@ vi.mock('../composables/useFullscreenBackground', () => ({
 }))
 vi.mock('@renderer/features/lyrics/composables/useFullscreenLyricsTypography', () => ({
   useFullscreenLyricsTypography: () => typographyState,
+}))
+vi.mock('../composables/useFullscreenInfoTypography', () => ({
+  useFullscreenInfoTypography: () => infoTypographyState,
 }))
 vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
@@ -38,6 +42,24 @@ const typographyState = {
       fontWeight: 800,
       lineGapPercent: 100,
     }
+  }),
+}
+
+const infoTypographyDefaults = {
+  titleFontSizePx: 25,
+  titleFontWeight: 800,
+  subtitleFontSizePx: 19,
+  subtitleFontWeight: 700,
+} satisfies FullscreenInfoTypography
+
+const infoTypographyState = {
+  preference: ref<FullscreenInfoTypography>({ ...infoTypographyDefaults }),
+  persistFailed: ref(false),
+  setPreference: vi.fn((patch: Partial<FullscreenInfoTypography>) => {
+    infoTypographyState.preference.value = { ...infoTypographyState.preference.value, ...patch }
+  }),
+  resetPreference: vi.fn(() => {
+    infoTypographyState.preference.value = { ...infoTypographyDefaults }
   }),
 }
 
@@ -126,6 +148,16 @@ function find(predicate: (node: TestNode) => boolean, root = body): TestNode | u
   return undefined
 }
 
+function collect(
+  predicate: (node: TestNode) => boolean,
+  root = body,
+  acc: TestNode[] = [],
+): TestNode[] {
+  if (predicate(root)) acc.push(root)
+  for (const child of root.children) collect(predicate, child, acc)
+  return acc
+}
+
 async function flush(): Promise<void> {
   await nextTick()
   await nextTick()
@@ -161,6 +193,10 @@ beforeEach(() => {
   typographyState.persistFailed.value = false
   typographyState.setPreference.mockClear()
   typographyState.resetPreference.mockClear()
+  infoTypographyState.preference.value = { ...infoTypographyDefaults }
+  infoTypographyState.persistFailed.value = false
+  infoTypographyState.setPreference.mockClear()
+  infoTypographyState.resetPreference.mockClear()
   backgroundState.backgroundMotionPaused.value = false
   backgroundState.setBackgroundMotionPaused.mockClear()
   vi.stubGlobal('Node', TestNode)
@@ -190,12 +226,15 @@ afterEach(async () => {
 describe('FullscreenBackgroundControls lyrics typography group', () => {
   it('renders the lyrics group after background and sends typed input updates', async () => {
     await mount()
-    const headers = [] as string[]
-    const backgroundHeader = find((node) => node.props.class === 'settings-group-title')
-    if (backgroundHeader) headers.push(backgroundHeader.textContent)
-    const lyricsHeader = find((node) => node.textContent === 'fullscreen.lyrics.section')
-    if (lyricsHeader) headers.push(lyricsHeader.textContent)
-    expect(headers).toEqual(['fullscreen.background.section', 'fullscreen.lyrics.section'])
+    expect(
+      collect((node) => node.props.class === 'settings-group-title').map(
+        (node) => node.textContent,
+      ),
+    ).toEqual([
+      'fullscreen.background.section',
+      'fullscreen.info.section',
+      'fullscreen.lyrics.section',
+    ])
 
     trigger(
       find((node) => node.props['data-lyrics-typography'] === 'font-size'),
@@ -292,6 +331,112 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
   })
 })
 
+describe('FullscreenBackgroundControls info typography group', () => {
+  it('sends title and subtitle size and weight without changing lyrics', async () => {
+    await mount()
+    const titleSize = find((node) => node.props.id === 'fullscreen-info-title-font-size')
+    const subtitleSize = find((node) => node.props.id === 'fullscreen-info-subtitle-font-size')
+    expect(titleSize?.props.role).toBe('spinbutton')
+    expect(subtitleSize?.props.role).toBe('spinbutton')
+    expect(titleSize?.props.type).not.toBe('range')
+    expect(
+      collect(
+        (node) =>
+          node.type === 'input' &&
+          node.props.type === 'range' &&
+          String(node.props.id ?? '').startsWith('fullscreen-info-'),
+      ),
+    ).toEqual([])
+
+    trigger(titleSize, 'Input', { target: { value: '32' } })
+    trigger(
+      find((node) => node.props.id === 'fullscreen-info-subtitle-font-weight'),
+      'Click',
+      {},
+    )
+    await flush()
+    trigger(
+      find(
+        (node) =>
+          node.props.role === 'option' && node.textContent === 'fullscreen.info.weights.500',
+      ),
+      'Click',
+      {},
+    )
+    await flush()
+    trigger(subtitleSize, 'Input', { target: { value: '16' } })
+    trigger(
+      find((node) => node.props.id === 'fullscreen-info-title-font-weight'),
+      'Click',
+      {},
+    )
+    await flush()
+    trigger(
+      find(
+        (node) =>
+          node.props.role === 'option' && node.textContent === 'fullscreen.info.weights.600',
+      ),
+      'Click',
+      {},
+    )
+
+    expect(infoTypographyState.setPreference.mock.calls).toEqual([
+      [{ titleFontSizePx: 32 }],
+      [{ subtitleFontWeight: 500 }],
+      [{ subtitleFontSizePx: 16 }],
+      [{ titleFontWeight: 600 }],
+    ])
+    expect(typographyState.setPreference).not.toHaveBeenCalled()
+    expect(titleSize?.props['aria-valuetext']).toBe('32 px')
+    expect(subtitleSize?.props['aria-valuetext']).toBe('16 px')
+
+    const subtitleStepper = subtitleSize?.parent?.parent
+    const increase = subtitleStepper?.children.filter((node) => node.type === 'button').at(-1)
+    trigger(increase, 'Click', {})
+    expect(infoTypographyState.setPreference.mock.calls.at(-1)).toEqual([
+      { subtitleFontSizePx: 17 },
+    ])
+  })
+
+  it('resets only track information and keeps lyrics plus paused background', async () => {
+    await mount()
+    infoTypographyState.preference.value = {
+      titleFontSizePx: 32,
+      titleFontWeight: 600,
+      subtitleFontSizePx: 16,
+      subtitleFontWeight: 500,
+    }
+    await flush()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    trigger(
+      find((node) => node.props['data-info-typography-reset'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+
+    expect(infoTypographyState.resetPreference).toHaveBeenCalledOnce()
+    expect(typographyState.resetPreference).not.toHaveBeenCalled()
+    expect(backgroundState.backgroundMotionPaused.value).toBe(true)
+    expect(
+      find((node) => node.props['data-info-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.info.resetStatus')
+
+    infoTypographyState.persistFailed.value = true
+    await flush()
+    expect(
+      find((node) => node.props['data-info-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.info.persistFailed')
+    expect(
+      find((node) => node.props['data-lyrics-typography-status'] !== undefined),
+    ).toBeUndefined()
+  })
+})
+
 describe('FullscreenBackgroundControls background motion', () => {
   it('offers pause without a background mode selector', async () => {
     await mount()
@@ -301,7 +446,13 @@ describe('FullscreenBackgroundControls background motion', () => {
       find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
     ).toBe(false)
     expect(
-      find((node) => node.type === 'input' && node.props['data-lyrics-typography'] === undefined),
+      find(
+        (node) =>
+          node.type === 'input' &&
+          node.props['data-lyrics-typography'] === undefined &&
+          node.props.id !== 'fullscreen-info-title-font-size' &&
+          node.props.id !== 'fullscreen-info-subtitle-font-size',
+      ),
     ).toBeUndefined()
   })
 

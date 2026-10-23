@@ -550,12 +550,17 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           key, bubbles: true, cancelable: true,
         }))
         const page = document.querySelector('.library-page')
-        const zone = page?.querySelector('.library-search-zone')
-        if (zone) {
-          const rect = zone.getBoundingClientRect()
-          page.dispatchEvent(new MouseEvent('mousemove', {
-            bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + 20,
-          }))
+        const launcher = page?.querySelector('.library-flat-search-launcher')
+        if (launcher instanceof HTMLElement) {
+          launcher.click()
+        } else {
+          const zone = page?.querySelector('.library-search-zone')
+          if (zone) {
+            const rect = zone.getBoundingClientRect()
+            page.dispatchEvent(new MouseEvent('mousemove', {
+              bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + 20,
+            }))
+          }
         }
         await waitFor('search tools parameter entry', () =>
           Boolean(page?.querySelector('.page-search-tools [data-page-parameters-trigger]')))

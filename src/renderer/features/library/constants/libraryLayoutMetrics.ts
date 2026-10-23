@@ -6,11 +6,11 @@
  * 对应 CSS 变量由 AlbumCoverGroup / Uno 直接消费，禁止重复写死尺寸。
  */
 export const LIBRARY_LAYOUT_METRICS = {
-  flatSearchRowHeight: 48,
   flatHeaderHeight: 32,
   flatRowHeight: 48,
   flatArtworkSize: 44,
-  flatRowsInset: 16,
+  /** 粘性表头下沿到第一行的间距。 */
+  flatRowsInset: 0,
   flatBottomInset: 28,
   coverArtworkSize: 280,
   coverTrackRowHeight: 48,
@@ -99,7 +99,6 @@ export function getAlbumGroupEstimatedHeight(
 
 /** 挂到 LibraryPage 根节点的 CSS 变量（带 px）；全部曲库与歌单路由均绑定。 */
 export const LIBRARY_LAYOUT_CSS_VARS: Readonly<Record<string, string>> = {
-  '--library-flat-search-row-height': `${LIBRARY_LAYOUT_METRICS.flatSearchRowHeight}px`,
   '--library-flat-row-height': `${LIBRARY_LAYOUT_METRICS.flatRowHeight}px`,
   '--library-flat-header-height': `${LIBRARY_LAYOUT_METRICS.flatHeaderHeight}px`,
   '--library-flat-artwork-size': `${LIBRARY_LAYOUT_METRICS.flatArtworkSize}px`,

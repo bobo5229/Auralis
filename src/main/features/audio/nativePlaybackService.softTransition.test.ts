@@ -5,6 +5,7 @@ import { openMpvClient, type MpvMessage } from './mpvClient'
 import type { NativePlaybackEvent } from '../../../shared/ipc/contracts'
 import type { PlaybackCoordinator } from './nativePlaybackTypes'
 import type { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
+import { LiveSilenceAnalyzer } from './liveSilence'
 
 vi.mock('./mpvClient', () => ({ openMpvClient: vi.fn() }))
 afterEach(() => vi.restoreAllMocks())
@@ -38,6 +39,10 @@ it('drains file analysis for saving and resumes deferred refinement without rebu
 })
 
 async function setup(coordinator?: PlaybackCoordinator) {
+  const liveBoundary = vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary').mockResolvedValue({
+    live: false,
+    boundary: null,
+  })
   const plan: SoftTransition = {
     path: 'bridge.wav',
     outgoingEnd: 118,
@@ -63,6 +68,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
   let emit!: (event: MpvMessage) => void
   let nextEntryId = 0
   const entryIds = new WeakMap<object, number>()
+  const entryFilters = new WeakMap<object, { label: string; start: number }[]>()
   const state = {
     time: 0,
     position: 0,
@@ -70,6 +76,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
     paused: false,
     idle: false,
     playlist: [] as { path: string; start: number }[],
+    filters: [] as { label: string; start: number }[],
     before: (async () => {}) as (name: string, args: unknown[]) => Promise<void>,
   }
   const command = vi.fn(async (rawName: unknown, ...args: unknown[]) => {
@@ -83,18 +90,26 @@ async function setup(coordinator?: PlaybackCoordinator) {
       if (args[0] === 'path') return state.playlist[state.position]?.path
       if (args[0] === 'playlist/0/id') return entryIds.get(state.playlist[0])
       if (args[0] === 'pause') return state.paused
+      if (args[0] === 'af') return state.filters
     }
     if (name === 'loadfile') {
+      const options = args[3] as { start?: string; af?: string }
+      const trimmedStart = options?.af?.match(/atrim=start=([^\]]+)/)?.[1]
       const item = {
         path: String(args[0]),
-        start: Number((args[3] as { start?: string })?.start ?? 0),
+        start: Number(options?.start ?? trimmedStart ?? 0),
       }
+      entryFilters.set(
+        item,
+        trimmedStart ? [{ label: 'auralis-soft-transition', start: Number(trimmedStart) }] : [],
+      )
       const entryId = ++nextEntryId
       entryIds.set(item, entryId)
       if (args[1] === 'replace') {
         state.playlist = [item]
         state.position = 0
         state.time = item.start
+        state.filters = entryFilters.get(item)!
         queueMicrotask(() => {
           emit({ event: 'start-file', playlist_entry_id: entryId })
           emit({ event: 'file-loaded' })
@@ -105,6 +120,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
           state.idle = false
           state.position = state.playlist.length - 1
           state.time = item.start
+          state.filters = entryFilters.get(item)!
           queueMicrotask(() => {
             emit({ event: 'start-file', playlist_entry_id: entryId })
             emit({ event: 'file-loaded' })
@@ -125,6 +141,12 @@ async function setup(coordinator?: PlaybackCoordinator) {
     if (name === 'playlist-remove') state.playlist.splice(Number(args[0]), 1)
     if (name === 'set_property' && args[0] === 'file-local-options/end') state.end = String(args[1])
     if (name === 'set_property' && args[0] === 'pause') state.paused = Boolean(args[1])
+    if (name === 'af' && args[0] === 'remove')
+      state.filters = state.filters.filter((filter) => `@${filter.label}` !== args[1])
+    if (name === 'seek') {
+      state.time = Math.max(Number(args[0]), ...state.filters.map((filter) => filter.start))
+      emit({ event: 'property-change', name: 'time-pos', data: state.time })
+    }
     return undefined
   })
   vi.mocked(openMpvClient).mockImplementation(async (_path, callback) => {
@@ -141,17 +163,19 @@ async function setup(coordinator?: PlaybackCoordinator) {
     coordinator,
   })
   await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
-  const schedule = (id = 2) =>
+  const schedule = (id = 2, durationSeconds = 2) =>
     service.command({
       action: 'next',
       session: 1,
       trackId: id,
       trimDigitalSilence: false,
       softTransition: true,
+      softTransitionDurationSeconds: durationSeconds,
     })
   async function advance(load = true) {
     state.position++
     state.time = state.playlist[state.position].start
+    state.filters = entryFilters.get(state.playlist[state.position]) ?? []
     emit({ event: 'start-file' })
     if (!load) return
     emit({ event: 'file-loaded' })
@@ -171,6 +195,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
     warnings,
     command,
     prepare,
+    liveBoundary,
     resolve,
     reject,
     schedule,
@@ -179,6 +204,113 @@ async function setup(coordinator?: PlaybackCoordinator) {
     emit: (event: MpvMessage) => emit(event),
   }
 }
+
+it('replaces crossfade with a direct Live boundary even when digital trimming is off', async () => {
+  const test = await setup()
+  test.liveBoundary.mockResolvedValue({ live: true, boundary: { start: 1.5, end: 117 } })
+  await test.schedule()
+  await vi.waitFor(() => expect(test.statuses).toContain('applied'))
+  expect(test.prepare).not.toHaveBeenCalled()
+  expect(test.state.playlist).toEqual([
+    { path: '1.flac', start: 0 },
+    { path: '2.flac', start: 1.5 },
+  ])
+  expect(test.state.end).toBe('117')
+  await test.service.dispose()
+})
+
+it('keeps ordinary gapless playback for Live without edge silence', async () => {
+  const test = await setup()
+  test.liveBoundary.mockResolvedValue({ live: true, boundary: null })
+  await test.schedule()
+  await vi.waitFor(() => expect(test.statuses).toContain('unchanged'))
+  expect(test.prepare).not.toHaveBeenCalled()
+  expect(test.state.playlist).toEqual([
+    { path: '1.flac', start: 0 },
+    { path: '2.flac', start: 0 },
+  ])
+  expect(test.state.end).toBe('none')
+  await test.service.dispose()
+})
+
+it.each(['cancel-next', 'stop'] as const)(
+  'discards a pending Live scan after %s',
+  async (action) => {
+    const test = await setup()
+    let finish!: (result: { live: boolean; boundary: { start: number; end: number } }) => void
+    test.liveBoundary.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    await test.schedule()
+    await test.service.command({ action, session: 1 })
+    const calls = test.command.mock.calls.length
+    finish({ live: true, boundary: { start: 1.5, end: 117 } })
+    await vi.waitFor(() => expect(test.statuses).toContain('cancelled'))
+    expect(test.command).toHaveBeenCalledTimes(calls)
+    expect(test.prepare).not.toHaveBeenCalled()
+    await test.service.dispose()
+  },
+)
+
+it('allows seeking back into B after its trimmed continuation has loaded', async () => {
+  const test = await setup()
+  await test.install()
+  await test.advance()
+  await test.advance()
+  await vi.waitFor(() => expect(test.plan.dispose).toHaveBeenCalledOnce())
+  expect(test.state.filters).toEqual([{ label: 'auralis-soft-transition', start: 2.048 }])
+  test.state.filters.push({ label: 'user-equalizer', start: 0 })
+  await test.service.command({ action: 'seek', session: 1, time: 0.5 })
+  expect(test.state.time).toBe(0.5)
+  expect(test.events.at(-1)?.currentTime).toBe(0.5)
+  expect(test.state.filters).toEqual([{ label: 'user-equalizer', start: 0 }])
+  const remove = test.command.mock.calls.findIndex(([name]) => name === 'af')
+  const seek = test.command.mock.calls.findIndex(([name]) => name === 'seek')
+  expect(remove).toBeGreaterThan(-1)
+  expect(remove).toBeLessThan(seek)
+  await test.service.dispose()
+})
+
+it('drops a seek when playback ends while reading continuation filters', async () => {
+  const test = await setup()
+  await test.install()
+  await test.advance()
+  await test.advance()
+  await vi.waitFor(() => expect(test.plan.dispose).toHaveBeenCalledOnce())
+  test.state.before = async (name, args) => {
+    if (name === 'get_property' && args[0] === 'af')
+      test.emit({ event: 'property-change', name: 'idle-active', data: true })
+  }
+  await expect(test.service.command({ action: 'seek', session: 1, time: 0.5 })).resolves.toEqual({
+    accepted: false,
+  })
+  expect(test.command.mock.calls.some(([name]) => name === 'af' || name === 'seek')).toBe(false)
+  await test.service.dispose()
+})
+
+it('uses a new duration for deferred preparation without replacing the active bridge', async () => {
+  const test = await setup()
+  await test.install()
+  await test.advance()
+  const previous = test.state.playlist.map((entry) => ({ ...entry }))
+  await test.service.command({ action: 'cancel-next', session: 1 })
+  await test.schedule(3, 6)
+  expect(test.state.playlist).toEqual(previous)
+  expect(test.plan.dispose).not.toHaveBeenCalled()
+  await test.advance()
+  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledTimes(2))
+  expect(test.prepare).toHaveBeenLastCalledWith(
+    '2.flac',
+    '3.flac',
+    false,
+    expect.any(AbortSignal),
+    6,
+  )
+  expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+  await test.service.dispose()
+})
 
 it('cancels a prepared transition and restores the entire outgoing track', async () => {
   const test = await setup()
@@ -526,9 +658,7 @@ it.each(['append', 'move'] as const)(
     test.state.before = async (name, args) => {
       const hit =
         phase === 'append'
-          ? name === 'loadfile' &&
-            args[0] === '2.flac' &&
-            Boolean((args[3] as { start?: string })?.start)
+          ? name === 'loadfile' && args[0] === '2.flac' && Boolean((args[3] as { af?: string })?.af)
           : name === 'playlist-move' && args[0] === 3
       if (!hit) return
       test.state.before = async () => {}
@@ -542,3 +672,74 @@ it.each(['append', 'move'] as const)(
     expect(test.plan.dispose).toHaveBeenCalledOnce()
   },
 )
+
+it('retains a duration update deferred behind an in-flight transport command during bridge', async () => {
+  const test = await setup()
+  await test.install()
+  await test.advance()
+  let release!: () => void
+  let blocked = false
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  test.state.before = async (name, args) => {
+    if (name === 'set_property' && args[0] === 'volume' && args[1] === 50) {
+      blocked = true
+      await gate
+    }
+  }
+  const volume = test.service.command({ action: 'volume', session: 1, volume: 0.5, muted: false })
+  await vi.waitFor(() => expect(blocked).toBe(true))
+  const cancel = test.service.command({ action: 'cancel-next', session: 1 })
+  await test.schedule(3, 6)
+  release()
+  await Promise.all([volume, cancel])
+  test.state.before = async () => {}
+  await test.advance()
+  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledTimes(2), { timeout: 500 })
+  expect(test.prepare).toHaveBeenLastCalledWith(
+    '2.flac',
+    '3.flac',
+    false,
+    expect.any(AbortSignal),
+    6,
+  )
+  await test.service.dispose()
+})
+
+it('retains a new duration request when cancellation waits behind transport during a tag write', async () => {
+  const test = await setup()
+  const tags = (test.service as unknown as { tags: { isActive(): boolean } }).tags
+  const active = vi.spyOn(tags, 'isActive').mockReturnValue(true)
+  let release!: () => void
+  let blocked = false
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  test.state.before = async (name, args) => {
+    if (name === 'set_property' && args[0] === 'volume' && args[1] === 50) {
+      blocked = true
+      await gate
+    }
+  }
+  const volume = test.service.command({ action: 'volume', session: 1, volume: 0.5, muted: false })
+  await vi.waitFor(() => expect(blocked).toBe(true))
+  const cancel = test.service.command({ action: 'cancel-next', session: 1 })
+  await test.schedule(3, 6)
+  release()
+  await Promise.all([volume, cancel])
+  active.mockReturnValue(false)
+  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
+  scheduler.restoreDeferredNext()
+  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledOnce())
+  expect(test.prepare).toHaveBeenLastCalledWith(
+    '1.flac',
+    '3.flac',
+    false,
+    expect.any(AbortSignal),
+    6,
+  )
+  test.resolve(null)
+  await scheduler.drainAnalysis()
+  await test.service.dispose()
+})

@@ -8,8 +8,16 @@ import {
   type FullscreenLyricsTypography,
 } from '@renderer/features/lyrics/constants/fullscreenLyricsTypography'
 import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
+import {
+  FULLSCREEN_INFO_FONT_WEIGHTS,
+  FULLSCREEN_INFO_TYPOGRAPHY_RANGES,
+  isFullscreenInfoFontWeight,
+  type FullscreenInfoTypography,
+} from '../constants/fullscreenInfoTypography'
 import { useFullscreenBackground } from '../composables/useFullscreenBackground'
+import { useFullscreenInfoTypography } from '../composables/useFullscreenInfoTypography'
 import SettingsSelect from '@renderer/features/settings/components/SettingsSelect.vue'
+import SongFontSizeInput from '@renderer/features/settings/components/SongFontSizeInput.vue'
 import '@renderer/features/settings/styles/settings.chrome.css'
 import '@renderer/features/settings/styles/parameterSurface.css'
 
@@ -20,16 +28,52 @@ const {
   setPreference: setLyricsTypographyPreference,
   resetPreference: resetLyricsTypographyPreference,
 } = useFullscreenLyricsTypography()
+const {
+  preference: infoTypography,
+  persistFailed: infoTypographyPersistFailed,
+  setPreference: setInfoTypographyPreference,
+  resetPreference: resetInfoTypographyPreference,
+} = useFullscreenInfoTypography()
 const { backgroundMotionPaused, setBackgroundMotionPaused } = useFullscreenBackground()
 const rootRef = ref<HTMLElement | null>(null)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 const open = ref(false)
-const resetAnnounced = ref(false)
-let resetStatusTimer: ReturnType<typeof setTimeout> | null = null
+
+function createResetAnnouncement() {
+  const announced = ref(false)
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  function clear(): void {
+    announced.value = false
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+  }
+
+  function announce(): void {
+    clear()
+    announced.value = true
+    timer = setTimeout(() => {
+      announced.value = false
+      timer = null
+    }, 3000)
+  }
+
+  return { announced, clear, announce }
+}
+
+const lyricsResetStatus = createResetAnnouncement()
+const infoResetStatus = createResetAnnouncement()
 const lyricsTypographyStatus = computed(() => {
   if (lyricsTypographyPersistFailed.value) return t('fullscreen.lyrics.persistFailed')
-  if (resetAnnounced.value) return t('fullscreen.lyrics.resetStatus')
+  if (lyricsResetStatus.announced.value) return t('fullscreen.lyrics.resetStatus')
+  return ''
+})
+const infoTypographyStatus = computed(() => {
+  if (infoTypographyPersistFailed.value) return t('fullscreen.info.persistFailed')
+  if (infoResetStatus.announced.value) return t('fullscreen.info.resetStatus')
   return ''
 })
 const lyricsFontWeightOptions = computed(() =>
@@ -38,14 +82,14 @@ const lyricsFontWeightOptions = computed(() =>
     label: t(`fullscreen.lyrics.weights.${weight}`),
   })),
 )
-
-function clearResetStatus(): void {
-  resetAnnounced.value = false
-  if (resetStatusTimer !== null) {
-    clearTimeout(resetStatusTimer)
-    resetStatusTimer = null
-  }
-}
+const infoFontWeightOptions = computed(() =>
+  FULLSCREEN_INFO_FONT_WEIGHTS.map((weight) => ({
+    value: String(weight),
+    label: t(`fullscreen.info.weights.${weight}`),
+  })),
+)
+const infoTitleSizeRange = FULLSCREEN_INFO_TYPOGRAPHY_RANGES.titleFontSizePx
+const infoSubtitleSizeRange = FULLSCREEN_INFO_TYPOGRAPHY_RANGES.subtitleFontSizePx
 
 function close(restoreFocus = true): boolean {
   if (!open.value) return false
@@ -71,12 +115,12 @@ function lyricsParameterFill(field: 'fontSizePercent' | 'lineGapPercent'): strin
 }
 
 function updateLyricsPercent(field: 'fontSizePercent' | 'lineGapPercent', event: Event): void {
-  clearResetStatus()
+  lyricsResetStatus.clear()
   setLyricsTypographyPreference({ [field]: Number((event.target as HTMLInputElement).value) })
 }
 
 function updateLyricsFontWeight(selected: string): void {
-  clearResetStatus()
+  lyricsResetStatus.clear()
   const value = Number(selected)
   if (isFullscreenLyricFontWeight(value))
     setLyricsTypographyPreference({
@@ -85,20 +129,39 @@ function updateLyricsFontWeight(selected: string): void {
 }
 
 function resetLyricsTypography(): void {
-  clearResetStatus()
+  lyricsResetStatus.clear()
   resetLyricsTypographyPreference()
   if (lyricsTypographyPersistFailed.value) return
-  resetAnnounced.value = true
-  resetStatusTimer = setTimeout(() => {
-    resetAnnounced.value = false
-    resetStatusTimer = null
-  }, 3000)
+  lyricsResetStatus.announce()
+}
+
+function updateInfoFontSize(field: 'titleFontSizePx' | 'subtitleFontSizePx', value: number): void {
+  infoResetStatus.clear()
+  setInfoTypographyPreference({ [field]: value })
+}
+
+function updateInfoFontWeight(
+  field: 'titleFontWeight' | 'subtitleFontWeight',
+  selected: string,
+): void {
+  infoResetStatus.clear()
+  const value = Number(selected)
+  if (isFullscreenInfoFontWeight(value))
+    setInfoTypographyPreference({ [field]: value } satisfies Partial<FullscreenInfoTypography>)
+}
+
+function resetInfoTypography(): void {
+  infoResetStatus.clear()
+  resetInfoTypographyPreference()
+  if (infoTypographyPersistFailed.value) return
+  infoResetStatus.announce()
 }
 
 onMounted(() => document.addEventListener('pointerdown', dismissOutside, true))
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', dismissOutside, true)
-  clearResetStatus()
+  lyricsResetStatus.clear()
+  infoResetStatus.clear()
 })
 defineExpose({ close })
 </script>
@@ -159,6 +222,90 @@ defineExpose({ close })
               >
                 <span class="settings-switch-thumb" aria-hidden="true"></span>
               </button>
+            </div>
+          </div>
+          <div class="settings-group fullscreen-info-typography-group">
+            <div class="settings-group-header">
+              <h3 class="settings-group-title">{{ t('fullscreen.info.section') }}</h3>
+              <button
+                type="button"
+                class="settings-text-button background-controls-reset"
+                data-info-typography-reset
+                @click="resetInfoTypography"
+              >
+                {{ t('fullscreen.info.reset') }}
+              </button>
+            </div>
+            <div class="settings-group-card">
+              <div class="settings-row fullscreen-info-typography-row">
+                <div>
+                  <strong>{{ t('fullscreen.info.titleFontSize') }}</strong>
+                </div>
+                <div class="fullscreen-info-size-control">
+                  <SongFontSizeInput
+                    id="fullscreen-info-title-font-size"
+                    :label="t('fullscreen.info.title')"
+                    :model-value="infoTypography.titleFontSizePx"
+                    :min="infoTitleSizeRange.min"
+                    :max="infoTitleSizeRange.max"
+                    @update:model-value="updateInfoFontSize('titleFontSizePx', $event)"
+                  />
+                </div>
+              </div>
+              <div class="settings-row fullscreen-info-typography-row">
+                <div>
+                  <strong id="fullscreen-info-title-font-weight-label">{{
+                    t('fullscreen.info.titleFontWeight')
+                  }}</strong>
+                </div>
+                <SettingsSelect
+                  id="fullscreen-info-title-font-weight"
+                  labelledby="fullscreen-info-title-font-weight-label"
+                  :model-value="String(infoTypography.titleFontWeight)"
+                  :options="infoFontWeightOptions"
+                  :teleport-to="rootRef ?? undefined"
+                  @update:model-value="updateInfoFontWeight('titleFontWeight', $event)"
+                />
+              </div>
+              <div class="settings-row fullscreen-info-typography-row">
+                <div>
+                  <strong>{{ t('fullscreen.info.subtitleFontSize') }}</strong>
+                </div>
+                <div class="fullscreen-info-size-control">
+                  <SongFontSizeInput
+                    id="fullscreen-info-subtitle-font-size"
+                    :label="t('fullscreen.info.subtitle')"
+                    :model-value="infoTypography.subtitleFontSizePx"
+                    :min="infoSubtitleSizeRange.min"
+                    :max="infoSubtitleSizeRange.max"
+                    @update:model-value="updateInfoFontSize('subtitleFontSizePx', $event)"
+                  />
+                </div>
+              </div>
+              <div class="settings-row fullscreen-info-typography-row">
+                <div>
+                  <strong id="fullscreen-info-subtitle-font-weight-label">{{
+                    t('fullscreen.info.subtitleFontWeight')
+                  }}</strong>
+                </div>
+                <SettingsSelect
+                  id="fullscreen-info-subtitle-font-weight"
+                  labelledby="fullscreen-info-subtitle-font-weight-label"
+                  :model-value="String(infoTypography.subtitleFontWeight)"
+                  :options="infoFontWeightOptions"
+                  :teleport-to="rootRef ?? undefined"
+                  @update:model-value="updateInfoFontWeight('subtitleFontWeight', $event)"
+                />
+              </div>
+              <div
+                v-if="infoTypographyStatus"
+                class="fullscreen-info-typography-status"
+                :class="{ 'is-warning': infoTypographyPersistFailed }"
+                role="status"
+                data-info-typography-status
+              >
+                {{ infoTypographyStatus }}
+              </div>
             </div>
           </div>
           <div class="settings-group fullscreen-lyrics-typography-group">
@@ -306,11 +453,26 @@ defineExpose({ close })
   border-color: var(--auralis-fullscreen-controls-border);
   background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 32%, transparent);
 }
-.background-controls-panel .fullscreen-lyrics-typography-group {
+.background-controls-panel
+  :is(.fullscreen-lyrics-typography-group, .fullscreen-info-typography-group) {
   margin-top: 24px;
 }
-.background-controls-panel .fullscreen-lyrics-typography-row > div:first-child {
+.background-controls-panel
+  :is(.fullscreen-lyrics-typography-row, .fullscreen-info-typography-row)
+  > div:first-child {
   flex: 1 1 100px;
+}
+.background-controls-panel .fullscreen-info-size-control {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+/* The shared stepper is 148px so it lines up with the song-page weight column. */
+.background-controls-panel :deep(.fullscreen-info-size-control .song-font-size-input) {
+  width: max-content;
+}
+.background-controls-panel :deep(.fullscreen-info-size-control .song-font-size-value) {
+  flex: 0 0 auto;
 }
 .background-controls-panel :deep(.settings-select) {
   line-height: var(--auralis-type-caption-line-height);
@@ -326,13 +488,15 @@ defineExpose({ close })
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
-.background-controls-panel .fullscreen-lyrics-typography-status {
+.background-controls-panel
+  :is(.fullscreen-lyrics-typography-status, .fullscreen-info-typography-status) {
   padding: 0 16px 14px;
   color: var(--auralis-text-muted);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
-.background-controls-panel .fullscreen-lyrics-typography-status.is-warning {
+.background-controls-panel
+  :is(.fullscreen-lyrics-typography-status, .fullscreen-info-typography-status).is-warning {
   color: var(--auralis-danger);
 }
 .background-controls-panel :is(.settings-group-title, .settings-row > div > strong) {

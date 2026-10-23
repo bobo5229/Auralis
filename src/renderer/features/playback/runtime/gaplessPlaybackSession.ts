@@ -10,7 +10,12 @@ interface GaplessPlaybackDependencies {
     currentTrack: PlaybackTrack | null
     paused: boolean
   }
-  getSettings(): { enabled: boolean; skipDigitalSilence: boolean; softTransition: boolean }
+  getSettings(): {
+    enabled: boolean
+    skipDigitalSilence: boolean
+    softTransition: boolean
+    softTransitionDurationSeconds: number
+  }
   resolvePlan(fromTrackId: number): Promise<PlaybackTransitionPlan | null>
   filterPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan | null
   resolveAudioUrl(trackId: number): Promise<AudioResource>
@@ -119,6 +124,7 @@ export function createGaplessPlaybackSession(deps: GaplessPlaybackDependencies) 
           (settings.softTransition ||
             isSameAlbumBoundary(deps.getPlayback().currentTrack, plan.track)),
         softTransition: settings.softTransition,
+        softTransitionDurationSeconds: settings.softTransitionDurationSeconds,
       })
       if (scheduled && isCurrentPrefetch(requestGeneration, fromTrackId))
         preparedForTrackId = fromTrackId

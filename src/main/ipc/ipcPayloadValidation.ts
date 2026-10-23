@@ -1,4 +1,5 @@
 import * as v from 'valibot'
+import { isSoftTransitionDuration } from '@shared/audio/softTransitionSettings'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { WINDOW_CLOSE_BEHAVIORS } from '@shared/types/windowBehavior'
@@ -153,6 +154,12 @@ const nativePlaybackCommand: Validator = (value, path, context) => {
   if (action === 'next') {
     fields.trimDigitalSilence = field(booleanValue)
     fields.softTransition = field(booleanValue, true)
+    fields.softTransitionDurationSeconds = field(
+      schemaValidator(
+        v.custom(isSoftTransitionDuration, 'must be 1–6 seconds in 0.5-second steps'),
+      ),
+      true,
+    )
   }
   if (action === 'seek') fields.time = field(finiteNumber({ min: 0, max: 604800 }))
   objectShape(fields)(value, path, context)

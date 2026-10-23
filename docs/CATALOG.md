@@ -58,6 +58,8 @@
 - [产品需求文档 (PRD)：专辑列表页 Hi-Fi 发烧唱片馆藏与黑曜石控制架](topics/albums/prd-albums-page-obsidian-shelf.md)
 - [产品需求文档 (PRD)：专辑列表页阳极氧化拉丝金属内凹 Header 展架](topics/albums/prd-albums-page-recessed-metal-header.md)
 - [TECHDOC：专辑详情退出的对称淡入淡出](topics/albums/techdoc-album-detail-exit-transition-motion.md)
+- [Stage 1：专辑详情控件样式的前端切换器](topics/albums/DELIVERY-album-detail-control-style-stage1-2026-10-23.md) — 设置页在拉丝金属与阳极氧化之间选择，并记在本地。
+- [Stage 2：专辑详情按钮读取组件样式](topics/albums/DELIVERY-album-detail-control-style-stage2-2026-10-23.md) — 播放和随机按钮读取该选择。拉丝金属保持原样，阳极氧化换成平色金属。仍不经过主进程。
 - [技术方案文档：专辑详情页沉浸式 Hero 巨幕重构 (Album Detail Hero Billboard Technical Spec)](topics/albums/techdoc-album-detail-hero-billboard-redesign.md)
 - [技术方案文档 (TECHDOC)：热门单曲右下角入口与曲目行物理推移联动](topics/albums/techdoc-album-detail-top-tracks-push-motion.md)
 - [技术方案文档 (TECHDOC)：专辑列表页独立动态液态极光 Header 展架](topics/albums/techdoc-albums-page-liquid-aurora-header.md)

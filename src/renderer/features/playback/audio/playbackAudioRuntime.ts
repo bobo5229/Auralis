@@ -5,6 +5,7 @@ type StartOptions = { preferGapless: boolean; decodeProbe?: AudioDecodeProbe | n
 type NextOptions = {
   trimBoundarySilence: boolean
   softTransition?: boolean
+  softTransitionDurationSeconds?: number
   decodeProbe?: AudioDecodeProbe | null
 }
 

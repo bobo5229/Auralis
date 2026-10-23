@@ -432,9 +432,27 @@
       },
       "playbarStyle": {
         "title": "Playback bar style",
-        "description": "Choose the background style of the bottom playback bar.",
+        "description": "Choose the background style of the bottom playback bar. Liquid glass applies only to the floating island; the full-width bar stays plain.",
         "plain": "Plain",
         "frosted": "Frosted glass",
+        "liquid": "Liquid glass",
+        "persistFailed": "Your selection could not be saved. Select it again to retry."
+      },
+      "liquidGlass": {
+        "title": "Liquid glass",
+        "description": "These values apply to the floating island.",
+        "scale": "Refraction",
+        "chroma": "Dispersion",
+        "blur": "Blur",
+        "saturate": "Saturation",
+        "restoreDefault": "Restore default",
+        "persistFailed": "These values stay for this session, but saving did not finish."
+      },
+      "controlStyle": {
+        "title": "Component style",
+        "description": "Choose the material for the play and shuffle buttons on the album page.",
+        "brushed": "Brushed metal",
+        "anodized": "Anodized",
         "persistFailed": "Your selection could not be saved. Select it again to retry."
       },
       "playingIcon": {
@@ -531,7 +549,9 @@
       "digitalSilenceDescription": "Trim brief digital silence between consecutive album tracks.",
       "nativeUnavailable": "Native playback is currently unavailable.",
       "softTransition": "Soft transitions",
-      "softTransitionDescription": "Crossfade for 2 seconds during regular track changes."
+      "softTransitionDescription": "Crossfade for the selected duration during regular track changes; shorter tracks use a shorter fade.",
+      "softTransitionDuration": "Transition duration",
+      "softTransitionDurationValue": "{seconds} s"
     },
     "library": {
       "maintenanceSection": "Library maintenance",
@@ -670,6 +690,25 @@
     "background": {
       "section": "Background",
       "pause": "Pause background"
+    },
+    "info": {
+      "section": "Track information",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "titleFontSize": "Title size",
+      "titleFontWeight": "Title weight",
+      "subtitleFontSize": "Subtitle size",
+      "subtitleFontWeight": "Subtitle weight",
+      "reset": "Restore defaults",
+      "resetStatus": "Default track information settings restored",
+      "persistFailed": "Changes are applied, but could not be saved. They may reset after restarting.",
+      "weights": {
+        "400": "Regular (400)",
+        "500": "Medium (500)",
+        "600": "Semibold (600)",
+        "700": "Bold (700)",
+        "800": "Extra bold (800)"
+      }
     },
     "lyrics": {
       "section": "Lyrics",

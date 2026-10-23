@@ -1236,15 +1236,15 @@ body.is-column-resizing * {
 
 /* Page parameter panel material, also used by both frosted Playbar layouts. */
 :is(.page-parameter-panel, .player-bar, .frosted-surface) {
-  --auralis-parameter-surface-alpha: 0.76;
+  --auralis-parameter-surface-alpha: 0.68;
   --auralis-parameter-surface-bg: rgb(
     from var(--auralis-frosted-surface-bg) r g b / var(--auralis-parameter-surface-alpha)
   );
-  --auralis-parameter-surface-filter: blur(18px) saturate(1.15);
+  --auralis-parameter-surface-filter: blur(14px) saturate(1.15);
 }
 
 :where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface) {
-  --auralis-parameter-surface-alpha: 0.72;
+  --auralis-parameter-surface-alpha: 0.64;
 }
 
 .player-bar > :not(.player-bar-album-tint, .player-bar-surface) {

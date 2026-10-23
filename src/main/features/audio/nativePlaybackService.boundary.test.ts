@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
 import { NativePlaybackService } from './nativePlaybackService'
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
+import { LiveSilenceAnalyzer } from './liveSilence'
 
 vi.mock('./mpvClient', () => ({ openMpvClient: vi.fn() }))
 
@@ -16,6 +17,10 @@ function deferred<T>() {
 }
 
 async function setup() {
+  vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary').mockResolvedValue({
+    live: false,
+    boundary: null,
+  })
   const analysis = deferred<DigitalBoundary | null>()
   vi.spyOn(DigitalSilenceAnalyzer.prototype, 'boundary').mockReturnValue(analysis.promise)
   const statuses: string[] = []
@@ -41,7 +46,11 @@ async function setup() {
       if (args[0] === 'pause') return state.paused
     }
     if (name === 'loadfile') {
-      const item = { path: String(args[0]), start: (args[3] as { start?: string })?.start ?? '0' }
+      const options = args[3] as { start?: string; af?: string }
+      const item = {
+        path: String(args[0]),
+        start: options?.start ?? options?.af?.match(/atrim=start=([^\]]+)/)?.[1] ?? '0',
+      }
       const entryId = ++nextEntryId
       entryIds.set(item, entryId)
       if (args[1] === 'replace') {

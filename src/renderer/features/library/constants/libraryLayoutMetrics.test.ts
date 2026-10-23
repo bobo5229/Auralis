@@ -10,11 +10,10 @@ import {
 describe('library layout geometry contract', () => {
   it('keeps the virtualized dimensions frozen to the shared metrics', () => {
     expect(LIBRARY_LAYOUT_METRICS).toMatchObject({
-      flatSearchRowHeight: 48,
       flatHeaderHeight: 32,
       flatRowHeight: 48,
       flatArtworkSize: 44,
-      flatRowsInset: 16,
+      flatRowsInset: 0,
       flatBottomInset: 28,
       coverArtworkSize: 280,
       coverTrackRowHeight: 48,
@@ -25,7 +24,6 @@ describe('library layout geometry contract', () => {
       coverPanelBorderWidth: 0,
       coverGroupPaddingBlockSide: 28,
     })
-    expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-search-row-height']).toBe('48px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-header-height']).toBe('32px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-row-height']).toBe('48px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-artwork-size']).toBe('44px')

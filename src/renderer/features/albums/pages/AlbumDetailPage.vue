@@ -6,6 +6,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useControlStyle } from '@renderer/features/appearance/composables/useControlStyle'
 
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
@@ -29,6 +30,7 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const { songText, songValues, songParts } = useChineseTextDisplay()
+const { style: controlStyle } = useControlStyle()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
@@ -307,7 +309,7 @@ onBeforeUnmount(() => {
               </div>
 
               <!-- 专辑播放操作 -->
-              <div class="album-hero-actions">
+              <div class="album-hero-actions" :data-control-style="controlStyle">
                 <button class="album-hero-play-btn" type="button" @click="playAlbum">
                   <span class="album-hero-engraved-icon" aria-hidden="true">
                     <span class="i-lucide-play h-4 w-4"></span>
@@ -824,6 +826,57 @@ onBeforeUnmount(() => {
     inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
     0 2px 8px rgba(0, 0, 0, 0.4);
 }
+
+/* 阳极氧化只在选中时盖过上面的拉丝。两枚都是平色，上沿一条高光；播放跟强调色，随机是中性灰。 */
+.album-hero-actions[data-control-style='anodized'] {
+  --album-hero-anodized-neutral: color-mix(
+    in srgb,
+    var(--auralis-text) 18%,
+    var(--auralis-surface-raised)
+  );
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn,
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 24%, transparent);
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-label {
+  text-shadow: none;
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-icon {
+  filter: none;
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn {
+  background: var(--auralis-theme-accent);
+  border: 1px solid color-mix(in srgb, #ffffff 34%, var(--auralis-theme-accent));
+  color: var(--auralis-control-primary-text);
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn:hover {
+  background: color-mix(in srgb, #ffffff 12%, var(--auralis-theme-accent));
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn {
+  background: var(--album-hero-anodized-neutral);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  color: var(--auralis-text);
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn:hover {
+  background: color-mix(in srgb, #ffffff 14%, var(--album-hero-anodized-neutral));
+}
+
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn:active,
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn:active {
+  transform: translateY(0.5px);
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.35);
+}
+
 .album-hero-footer-stage {
   position: relative;
   z-index: 1;

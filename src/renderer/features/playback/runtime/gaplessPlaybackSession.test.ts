@@ -32,7 +32,12 @@ function setup() {
     consumeQueued: false,
   }
   const playback = { currentTrackId: 1, currentTrack: tracks[0], paused: false }
-  const settings = { enabled: true, skipDigitalSilence: false, softTransition: false }
+  const settings = {
+    enabled: true,
+    skipDigitalSilence: false,
+    softTransition: false,
+    softTransitionDurationSeconds: 2,
+  }
   const snapshot: PlaybackAudioSnapshot = {
     kind: 'mpv',
     trackId: 1,
@@ -74,6 +79,21 @@ function setup() {
 }
 
 describe('gapless playback session', () => {
+  it('passes the selected duration to the next-track request', async () => {
+    const t = setup()
+    t.settings.softTransition = true
+    t.settings.softTransitionDurationSeconds = 6
+    await t.session.refresh(1)
+    expect(t.audio.scheduleNext).toHaveBeenLastCalledWith(
+      2,
+      'audio://2',
+      expect.objectContaining({
+        softTransition: true,
+        softTransitionDurationSeconds: 6,
+      }),
+    )
+  })
+
   it('deduplicates preparation both before and after the ACK', async () => {
     const t = setup()
     const ack = deferred<boolean>()

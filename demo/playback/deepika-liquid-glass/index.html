@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auralis · deepika liquid-glass</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4efe8;
+      --ink-dim: rgba(244, 239, 232, 0.72);
+      --card-radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      min-height: 100%;
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: #1a120c;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+    }
+    .stage img {
+      position: absolute;
+      inset: -8%;
+      width: 116%;
+      height: 116%;
+      object-fit: cover;
+      transform: rotate(-8deg) scale(1.08);
+    }
+    .ribbons {
+      position: absolute;
+      inset: -10%;
+      background:
+        repeating-linear-gradient(112deg,
+          transparent 0 42px,
+          rgba(255, 236, 214, 0.16) 42px 44px),
+        linear-gradient(160deg, rgba(92, 28, 18, 0.2), rgba(18, 32, 28, 0.05) 45%, rgba(24, 18, 64, 0.28));
+      mix-blend-mode: soft-light;
+    }
+    .poster {
+      position: absolute;
+      left: 7vw;
+      top: 11vh;
+      z-index: 1;
+      max-width: 46vw;
+      pointer-events: none;
+    }
+    .poster p {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255, 244, 230, 0.8);
+    }
+    .poster h1 {
+      margin: 10px 0 0;
+      font-size: clamp(64px, 9vw, 120px);
+      line-height: 0.86;
+      font-weight: 760;
+      letter-spacing: -0.045em;
+      text-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+    }
+    .poster h1 span { display: block; }
+    .notes {
+      position: absolute;
+      right: 6vw;
+      bottom: 18vh;
+      width: min(280px, 30vw);
+      font-size: 15px;
+      line-height: 1.55;
+      color: rgba(255, 246, 236, 0.88);
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .glass {
+      background: linear-gradient(180deg, rgba(18, 14, 12, 0.16), rgba(18, 14, 12, 0.3));
+      box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.38),
+        inset 0 1px 1px rgba(255, 255, 255, 0.5),
+        inset 0 -8px 20px rgba(255, 255, 255, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+    }
+    .glass::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: radial-gradient(
+        180px circle at var(--gx, 22%) var(--gy, 12%),
+        rgba(255, 255, 255, 0.2),
+        transparent 68%
+      );
+    }
+
+    .card {
+      position: fixed;
+      z-index: 3;
+      width: min(340px, calc(100vw - 32px));
+      padding: 22px 22px 18px;
+      border-radius: var(--card-radius);
+      cursor: grab;
+      touch-action: none;
+    }
+    .card:active { cursor: grabbing; }
+    .kicker {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+    }
+    .card h2 {
+      margin: 8px 0 0;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+    }
+    .card .by {
+      margin: 6px 0 16px;
+      color: var(--ink-dim);
+    }
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pill, .play {
+      position: relative;
+      border: 0;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .pill {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+    }
+    .play {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      color: #1a120c;
+      font-size: 18px;
+    }
+    .time {
+      margin-left: auto;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-dim);
+      font-size: 13px;
+    }
+
+    .dock {
+      position: fixed;
+      z-index: 3;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      width: min(720px, calc(100vw - 32px));
+      height: 84px;
+      padding: 14px 18px;
+      border-radius: 28px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+    }
+    .track {
+      min-width: 0;
+    }
+    .track strong, .track span {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track span { margin-top: 4px; color: var(--ink-dim); font-size: 13px; }
+    .bar {
+      margin-top: 10px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+    }
+    .bar i {
+      display: block;
+      width: 38%;
+      height: 100%;
+      background: #fff;
+    }
+    .dock-actions { display: flex; gap: 8px; }
+
+    .panel {
+      position: fixed;
+      z-index: 4;
+      top: 20px;
+      right: 20px;
+      width: min(280px, calc(100vw - 32px));
+      padding: 16px 16px 14px;
+      border-radius: 22px;
+    }
+    .panel h3 { margin: 0 0 4px; font-size: 15px; }
+    .status {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    label {
+      display: grid;
+      grid-template-columns: 72px 1fr 36px;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    input[type="range"] { width: 100%; accent-color: #f4efe8; }
+    output { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .presets { display: flex; gap: 6px; margin-top: 12px; }
+    .presets button {
+      flex: 1;
+      height: 30px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .hint {
+      margin: 12px 0 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink-dim);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" aria-hidden="true">
+    <img src="../../assets/test-cover.png" alt="" />
+    <div class="ribbons"></div>
+    <div class="poster">
+      <p>Local collection</p>
+      <h1><span>Night</span><span>Market</span></h1>
+    </div>
+    <p class="notes">把玻璃拖过字和封面。边缘应弯折底下的细节，中间保持能读。</p>
+  </div>
+
+  <article class="card glass" id="card" data-glass>
+    <p class="kicker">正在播放</p>
+    <h2>雨后的菜场</h2>
+    <p class="by">南风口琴 · 现场</p>
+    <div class="transport">
+      <button class="pill" type="button">上一首</button>
+      <button class="play" type="button" aria-label="播放">▶</button>
+      <button class="pill" type="button">下一首</button>
+      <span class="time">1:42</span>
+    </div>
+  </article>
+
+  <section class="dock glass" data-glass aria-label="播放条">
+    <div class="track">
+      <strong>雨后的菜场</strong>
+      <span>南风口琴</span>
+      <div class="bar" aria-hidden="true"><i></i></div>
+    </div>
+    <div class="dock-actions">
+      <button class="pill" type="button">歌词</button>
+      <button class="pill" type="button">收藏</button>
+    </div>
+  </section>
+
+  <aside class="panel glass" data-glass>
+    <h3>liquid-glass.js</h3>
+    <p class="status" id="status">正在挂载</p>
+    <label>折射 <input id="scale" type="range" min="-180" max="-40" value="-112" /> <output id="scale-out">-112</output></label>
+    <label>色散 <input id="chroma" type="range" min="0" max="16" value="6" /> <output id="chroma-out">6</output></label>
+    <label>模糊 <input id="blur" type="range" min="0" max="12" value="3" /> <output id="blur-out">3</output></label>
+    <label>饱和 <input id="saturate" type="range" min="1" max="2.2" step="0.1" value="1.5" /> <output id="sat-out">1.5</output></label>
+    <div class="presets">
+      <button type="button" data-preset="subtle">轻</button>
+      <button type="button" data-preset="default">默认</button>
+      <button type="button" data-preset="strong">强</button>
+    </div>
+    <p class="hint">脚本未改。Chromium 走边缘折射；其他浏览器自动降成磨砂。单块玻璃请保持在约 800px 以内。</p>
+  </aside>
+
+  <script src="./liquid-glass.js"></script>
+  <script>
+    const card = document.getElementById("card");
+    const status = document.getElementById("status");
+    const fields = {
+      scale: document.getElementById("scale"),
+      chroma: document.getElementById("chroma"),
+      blur: document.getElementById("blur"),
+      saturate: document.getElementById("saturate"),
+    };
+    const presets = {
+      subtle: { scale: -60, chroma: 3, blur: 6, saturate: 1.3 },
+      default: { scale: -112, chroma: 6, blur: 3, saturate: 1.5 },
+      strong: { scale: -180, chroma: 10, blur: 1, saturate: 1.8 },
+    };
+    const handles = new Map();
+
+    function readOpts() {
+      return {
+        scale: Number(fields.scale.value),
+        chroma: Number(fields.chroma.value),
+        blur: Number(fields.blur.value),
+        saturate: Number(fields.saturate.value),
+      };
+    }
+
+    function paintOutputs() {
+      document.getElementById("scale-out").textContent = fields.scale.value;
+      document.getElementById("chroma-out").textContent = fields.chroma.value;
+      document.getElementById("blur-out").textContent = fields.blur.value;
+      document.getElementById("sat-out").textContent = Number(fields.saturate.value).toFixed(1);
+    }
+
+    function mount() {
+      const opts = readOpts();
+      document.querySelectorAll("[data-glass]").forEach((el) => {
+        const prev = handles.get(el);
+        if (prev) prev.destroy();
+        handles.set(el, liquidGlass(el, opts));
+      });
+      const sample = handles.get(card);
+      const filter = getComputedStyle(card).backdropFilter || "";
+      status.textContent = sample && sample.supported
+        ? "Chromium 折射已挂上"
+        : "当前环境使用磨砂降级";
+      status.dataset.filter = /lg-filter/.test(filter) ? "refraction" : "frost";
+    }
+
+    let timer = 0;
+    function scheduleMount() {
+      paintOutputs();
+      clearTimeout(timer);
+      timer = setTimeout(mount, 80);
+    }
+
+    Object.values(fields).forEach((input) => {
+      input.addEventListener("input", scheduleMount);
+    });
+    document.querySelectorAll("[data-preset]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const next = presets[button.dataset.preset];
+        Object.entries(next).forEach(([key, value]) => {
+          fields[key].value = String(value);
+        });
+        scheduleMount();
+      });
+    });
+
+    const drag = { on: false, dx: 0, dy: 0 };
+    card.style.left = "calc(58vw - 170px)";
+    card.style.top = "18vh";
+    card.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button")) return;
+      const rect = card.getBoundingClientRect();
+      drag.on = true;
+      drag.dx = event.clientX - rect.left;
+      drag.dy = event.clientY - rect.top;
+      card.setPointerCapture(event.pointerId);
+    });
+    card.addEventListener("pointermove", (event) => {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty("--gx", ((event.clientX - rect.left) / rect.width * 100).toFixed(1) + "%");
+      card.style.setProperty("--gy", ((event.clientY - rect.top) / rect.height * 100).toFixed(1) + "%");
+      if (!drag.on) return;
+      const left = Math.min(Math.max(12, event.clientX - drag.dx), window.innerWidth - rect.width - 12);
+      const top = Math.min(Math.max(12, event.clientY - drag.dy), window.innerHeight - rect.height - 12);
+      card.style.left = left + "px";
+      card.style.top = top + "px";
+    });
+    card.addEventListener("pointerup", () => { drag.on = false; });
+
+    paintOutputs();
+    mount();
+  </script>
+</body>
+</html>

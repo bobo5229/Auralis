@@ -1,6 +1,7 @@
 import type { MpvClient } from './mpvClient'
 import type { DigitalBoundary } from './digitalSilence'
 import type { SoftTransition } from './softTransition'
+import { softTransitionContinuationOptions } from './softTransitionContinuation'
 
 const BOUNDARY_UPDATE_MARGIN_SECONDS = 2
 
@@ -131,11 +132,13 @@ export class NativeBoundaryUpdater {
       try {
         // Keep the original B first until both replacements are available.
         await client.command('loadfile', prepared.path, 'append', -1, {})
-        await client.command('loadfile', nextPath, 'append', -1, {
-          start: String(prepared.incomingResume),
-          'hr-seek': 'yes',
-          'hr-seek-demuxer-offset': '1',
-        })
+        await client.command(
+          'loadfile',
+          nextPath,
+          'append',
+          -1,
+          softTransitionContinuationOptions(prepared.incomingResume),
+        )
         if (!(await ready())) return false
         await client.command('playlist-move', position + 2, position + 1)
         await client.command('playlist-move', position + 3, position + 2)
@@ -201,11 +204,13 @@ export class NativeBoundaryUpdater {
     const operation = this.beginUpdate()
     try {
       // Preserve the ordinary next item until its replacement is accepted by mpv.
-      await client.command('loadfile', nextPath, 'append', -1, {
-        start: String(boundary.start),
-        'hr-seek': 'yes',
-        'hr-seek-demuxer-offset': '1',
-      })
+      await client.command(
+        'loadfile',
+        nextPath,
+        'append',
+        -1,
+        softTransitionContinuationOptions(boundary.start),
+      )
       appended = true
       if (!(await canUpdate())) return skipped()
       // Move the replacement ahead first: removing the original directly could

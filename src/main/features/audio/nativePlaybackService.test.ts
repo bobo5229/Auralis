@@ -289,7 +289,9 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         resolveAnalysis = resolve
         rejectAnalysis = reject
       })
-      vi.spyOn(DigitalSilenceAnalyzer.prototype, 'boundary').mockReturnValueOnce(analysis)
+      const analyze = vi
+        .spyOn(DigitalSilenceAnalyzer.prototype, 'boundary')
+        .mockReturnValueOnce(analysis)
       const pcm = join(directory, `ordinary-${reason}.pcm`)
       const service = create([
         '--ao=pcm',
@@ -303,6 +305,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
       ).toEqual({ accepted: true })
       if (reason === 'failed') {
+        await vi.waitFor(() => expect(analyze).toHaveBeenCalledOnce())
         rejectAnalysis(new Error('scan timed out'))
         await waitFor(() => boundaryStatuses.includes('failed'))
       }

@@ -16,6 +16,7 @@ import {
   useFullscreenLyricsViewport,
 } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
 import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
+import { useFullscreenInfoTypography } from '@renderer/features/playback/composables/useFullscreenInfoTypography'
 import type { LyricLine } from '@renderer/features/lyrics/types'
 import FullscreenArtworkBackground from '@renderer/features/playback/components/FullscreenArtworkBackground.vue'
 import FullscreenBackgroundControls from '@renderer/features/playback/components/FullscreenBackgroundControls.vue'
@@ -79,6 +80,16 @@ const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
 const { effect: countdownEffect } = useLyricsCountdownPreference()
 const { preference: lyricsTypography, style: lyricsTypographyStyle } =
   useFullscreenLyricsTypography()
+const { preference: infoTypography, style: infoTypographyStyle } = useFullscreenInfoTypography()
+// The lines carry their own size and weight so a parent variable cannot leave the subtitle inherited.
+const titleTypographyStyle = computed(() => ({
+  fontSize: `${infoTypography.value.titleFontSizePx}px`,
+  fontWeight: infoTypography.value.titleFontWeight,
+}))
+const subtitleTypographyStyle = computed(() => ({
+  fontSize: `${infoTypography.value.subtitleFontSizePx}px`,
+  fontWeight: infoTypography.value.subtitleFontWeight,
+}))
 let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
 let interruptedTransition: FullscreenPlayerTransitionSnapshot | undefined
 let backgroundReleaseFrame = 0
@@ -569,9 +580,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="fullscreen-player-meta-row">
-            <div class="fullscreen-player-meta">
-              <h1>{{ title }}</h1>
-              <p>{{ subtitle }}</p>
+            <div class="fullscreen-player-meta" :style="infoTypographyStyle">
+              <h1 :style="titleTypographyStyle">{{ title }}</h1>
+              <p :style="subtitleTypographyStyle">{{ subtitle }}</p>
             </div>
           </div>
 
@@ -948,8 +959,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(18px, 1.45vw, 25px);
-  font-weight: 800;
+  font-size: var(--fullscreen-info-title-font-size, 25px);
+  font-weight: var(--fullscreen-info-title-font-weight, 800);
   line-height: 1.18;
 }
 
@@ -959,8 +970,8 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--auralis-text-muted);
-  font-size: clamp(14px, 1.1vw, 19px);
-  font-weight: 700;
+  font-size: var(--fullscreen-info-subtitle-font-size, 19px);
+  font-weight: var(--fullscreen-info-subtitle-font-weight, 700);
   line-height: 1.4;
 }
 

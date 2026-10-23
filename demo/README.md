@@ -4,6 +4,8 @@
 
 侧立专辑：[2.5D 专辑侧放](archive/album-spines/index.html)，离线打开；接近侧面的窄封面与书脊排列，悬停向前抽出、转正，离开归位，支持明暗主题和角度调节。[原型说明](archive/album-spines/README.md)。
 
+专辑详情控件：[拉丝金属 / 阳极氧化 / 内页纸 / 钢琴漆](albums/album-detail-control-materials.html)，离线打开；深浅底并排，可切换绿色与浅色默认灰强调色。悬停和按下可看高光与内凹。未接入正式界面。续稿：[搪瓷 / 丝印油墨 / 喷砂 / 扁平](albums/album-detail-control-materials-more.html)，扁平没有边、阴影和高光。
+
 金属品牌图标：[渐变金属 A](brand/enamel-icon.html)，直接在浏览器打开；沿用正式图标轮廓，提供钛蓝、银铬、香槟金三种渐变、原版对照、32/64/128px 尺寸预览及高光、倒角、渐变方向调节。独立 SVG 材质原型，未替换正式应用图标。
 
 季节拨盘：[四季聆听档案](archive/season-dial/index.html)，直接在浏览器打开；左侧拨盘切换春夏秋冬，右侧展示示例歌曲，支持明暗主题，不连接后端。[原型说明](archive/season-dial/README.md)。
@@ -18,10 +20,10 @@
 
 | 目录               | 内容与入口                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html)、[2.5D 专辑预览](albums/album-2.5d-preview.html)（[目标参考图](albums/user-target-reference.png)） |
+| `albums/`          | [控件材质](albums/album-detail-control-materials.html)、[控件材质续](albums/album-detail-control-materials-more.html)、[专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html)、[2.5D 专辑预览](albums/album-2.5d-preview.html)（[目标参考图](albums/user-target-reference.png)） |
 | `assets/`          | [test-cover.png](assets/test-cover.png)：保留的封面图片，归属尚未确认 |
 | `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)、[包装袋撕开交互](archive/pouch-tear.html) |
-| `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
+| `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)、[Deepika Liquid Glass](playback/deepika-liquid-glass/index.html) |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
 | `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗；[时间沉积歌单封面](library/recent-added-time-sediment.html)：自有 WebGL 方形封面、分范围配色与深浅主题（离线可用） |
 | `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意；[品牌动效](brand/brand-motion.html) |

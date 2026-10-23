@@ -130,7 +130,7 @@ describe('useLibraryViewport', () => {
     const first = createViewport({ tracks: source, scrollTop: 508 })
     const saved = first.viewport.captureNavigationViewport()!
     expect(saved.anchorTrackIds[0]).toBe(11)
-    expect(saved.anchorOffset).toBe(12)
+    expect(saved.anchorOffset).toBe(28)
     first.viewport.dispose()
     const returned = createViewport({ tracks: source, scrollTop: 0 })
     expect(
@@ -183,7 +183,7 @@ describe('useLibraryViewport', () => {
     expect(scrollElement.scrollTop).toBe(576)
     isCoverView.value = false
     viewport.restoreNavigationViewport(saved, viewport.captureNavigationIntent(), () => true)
-    expect(scrollElement.scrollTop).toBe(508)
+    expect(scrollElement.scrollTop).toBe(492)
     viewport.dispose()
   })
 
@@ -218,7 +218,7 @@ describe('useLibraryViewport', () => {
     const saved = viewport.captureNavigationViewport()!
     flatRowHeight.value = 60
     viewport.restoreNavigationViewport(saved, viewport.captureNavigationIntent(), () => true)
-    expect(scrollElement.scrollTop).toBe(631)
+    expect(scrollElement.scrollTop).toBe(635)
     scrollElement.scrollTop = 0
     const start = viewport.captureNavigationViewport()!
     scrollElement.scrollTop = 100
@@ -461,12 +461,12 @@ describe('useLibraryViewport', () => {
     )
   })
 
-  it('keeps a top-inset scroll position unchanged when row height changes', async () => {
+  it('scales a position inside the first row when row height changes', async () => {
     const { viewport, scrollElement } = createViewport({ scrollTop: 8 })
 
     await viewport.preserveFlatScrollAnchorForRowHeight(48, 124)
 
-    expect(scrollElement.scrollTop).toBe(8)
+    expect(scrollElement.scrollTop).toBe((8 / 48) * 124)
   })
 
   it('does not apply a deferred layout anchor after new user scroll input', async () => {

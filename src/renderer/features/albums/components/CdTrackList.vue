@@ -193,7 +193,7 @@ h2 {
 }
 .cd-track-panel .cd-track {
   width: 100%;
-  height: 64px;
+  height: 60px;
   display: grid;
   align-items: center;
   grid-template-columns: 25px minmax(0, 1fr);

@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import {
+  SOFT_TRANSITION_MIN_SECONDS,
+  SOFT_TRANSITION_MAX_SECONDS,
+  SOFT_TRANSITION_STEP_SECONDS,
+} from '@shared/audio/softTransitionSettings'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -13,8 +18,35 @@ const {
   setSkipDigitalSilenceEnabled,
   softTransitionEnabled,
   setSoftTransitionEnabled,
+  softTransitionDurationSeconds,
+  setSoftTransitionDurationSeconds,
 } = usePlayback()
 const nativeAvailable = ref<boolean | null>(null)
+const durationPreview = ref(softTransitionDurationSeconds.value)
+watch(softTransitionDurationSeconds, (seconds) => {
+  durationPreview.value = seconds
+})
+const durationDisabled = computed(
+  () =>
+    !softTransitionEnabled.value ||
+    !gaplessPlaybackEnabled.value ||
+    nativeAvailable.value === false,
+)
+const durationProgress = computed(
+  () =>
+    `${
+      ((durationPreview.value - SOFT_TRANSITION_MIN_SECONDS) /
+        (SOFT_TRANSITION_MAX_SECONDS - SOFT_TRANSITION_MIN_SECONDS)) *
+      100
+    }%`,
+)
+const durationText = computed(() =>
+  t('settings.playback.softTransitionDurationValue', { seconds: durationPreview.value }),
+)
+function commitDuration(event: Event): void {
+  setSoftTransitionDurationSeconds(Number((event.target as HTMLInputElement).value))
+  durationPreview.value = softTransitionDurationSeconds.value
+}
 onMounted(async () => {
   try {
     nativeAvailable.value = (await auralis.playback.nativeAvailability()).available
@@ -107,7 +139,41 @@ onMounted(async () => {
             <span class="settings-switch-thumb" aria-hidden="true"></span>
           </button>
         </div>
+        <div class="settings-row soft-transition-duration-row">
+          <div>
+            <strong id="soft-transition-duration-label">{{
+              t('settings.playback.softTransitionDuration')
+            }}</strong>
+          </div>
+          <div class="settings-range-control">
+            <input
+              id="soft-transition-duration"
+              type="range"
+              :min="SOFT_TRANSITION_MIN_SECONDS"
+              :max="SOFT_TRANSITION_MAX_SECONDS"
+              :step="SOFT_TRANSITION_STEP_SECONDS"
+              :value="durationPreview"
+              :disabled="durationDisabled"
+              :style="{ '--settings-range-progress': durationProgress }"
+              aria-labelledby="soft-transition-duration-label"
+              :aria-valuetext="durationText"
+              @input="durationPreview = Number(($event.target as HTMLInputElement).value)"
+              @change="commitDuration"
+            />
+            <output for="soft-transition-duration">{{ durationText }}</output>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+/* Leave room above the shared slider's keyboard focus outline. */
+.settings-surface .settings-row.soft-transition-duration-row {
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
+  row-gap: 8px;
+}
+</style>

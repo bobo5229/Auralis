@@ -377,11 +377,43 @@ describe('LibraryPage focus wiring', () => {
   })
 })
 
+async function openFlatSearch(): Promise<void> {
+  fire(find('.library-flat-search-launcher'), 'onClick')
+  await settle()
+}
+
+describe('LibraryPage flat search entry', () => {
+  it('opens from the corner launcher and leaves the top hover zone idle', async () => {
+    await mount(true)
+    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+    await settle()
+    expect(doc.body.querySelector('.library-search-input')).toBeNull()
+    expect(doc.body.querySelector('.library-search-zone')).toBeNull()
+    expect(find('.library-flat-search-launcher').props['aria-expanded']).toBe(false)
+    await openFlatSearch()
+    const bar = find('.library-search-bar')
+    expect(bar.querySelector('.i-lucide-search')).toBeNull()
+    expect(find('.i-lucide-search').parent).toBe(find('.library-flat-search-launcher'))
+    expect(find('[data-page-parameters-trigger]').parent).toBe(find('.page-search-tools'))
+    expect(bar.parent).toBe(find('.page-search-tools'))
+    expect(find('.library-flat-search-launcher').props['aria-expanded']).toBe(true)
+  })
+
+  it('keeps cover search on the centered hover zone', async () => {
+    storage.set('auralis-library-view-mode', 'cover')
+    await mount()
+    expect(doc.body.querySelector('.library-flat-search-launcher')).toBeNull()
+    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+    await settle()
+    expect(find('.library-search-zone')).toBeDefined()
+    expect(find('.library-search-bar').querySelector('.i-lucide-search')).toBeDefined()
+  })
+})
+
 describe('LibraryPage page parameter entry', () => {
   it('keeps search and the external button together, preserves the query and returns focus', async () => {
     const parameters = (await mount(true))!
-    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-    await settle()
+    await openFlatSearch()
     const tools = find('.page-search-tools')
     const bar = find('.library-search-bar')
     const input = find('.library-search-input')
@@ -407,8 +439,7 @@ describe('LibraryPage page parameter entry', () => {
   it('keeps the parameter entry available for an empty library while search is disabled', async () => {
     fixture.tracks = []
     const parameters = (await mount(true))!
-    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-    await settle()
+    await openFlatSearch()
     expect(find('.library-search-input').props.disabled).toBe(true)
     const trigger = find('[data-page-parameters-trigger]')
     expect(trigger.props.disabled).toBe(false)
@@ -417,8 +448,7 @@ describe('LibraryPage page parameter entry', () => {
   })
   it('retains an empty search toolbar through panel closure and releases it after focus leaves', async () => {
     const parameters = (await mount(true))!
-    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-    await settle()
+    await openFlatSearch()
     const trigger = find('[data-page-parameters-trigger]')
     fire(trigger, 'onClick', { currentTarget: trigger })
     fire(find('.library-page'), 'onMouseleave')
@@ -427,6 +457,8 @@ describe('LibraryPage page parameter entry', () => {
     await settle()
     expect(doc.activeElement).toBe(trigger)
     const tools = find('.page-search-tools')
+    const bar = find('.library-search-bar')
+    fire(bar, 'onFocusout', { currentTarget: bar, relatedTarget: row(1) })
     fire(tools, 'onFocusout', { currentTarget: tools, relatedTarget: row(1) })
     await settle()
     expect(doc.body.querySelector('.page-search-tools')).toBeNull()

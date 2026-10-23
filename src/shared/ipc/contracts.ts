@@ -92,7 +92,13 @@ export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
 // Closed capabilities: no renderer-supplied paths, mpv properties or command strings.
 export type NativePlaybackCommand = { session: number } & (
   | { action: 'start'; trackId: number; volume: number; muted: boolean }
-  | { action: 'next'; trackId: number; trimDigitalSilence: boolean; softTransition?: boolean }
+  | {
+      action: 'next'
+      trackId: number
+      trimDigitalSilence: boolean
+      softTransition?: boolean
+      softTransitionDurationSeconds?: number
+    }
   | { action: 'pause' | 'resume' | 'stop' | 'cancel-next' }
   | { action: 'seek'; time: number }
   | { action: 'volume'; volume: number; muted: boolean }

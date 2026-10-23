@@ -11,6 +11,7 @@ import { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 import { NativePlaybackSession } from './nativePlaybackSession'
 import { canReplacePlayingM4a, replacePlayingM4a } from './m4aFileReplacement'
 import type { LogicalPlaybackView, NativePlaybackOptions } from './nativePlaybackTypes'
+import { clearSoftTransitionContinuation } from './softTransitionContinuation'
 
 export type { PlaybackCoordinator } from './nativePlaybackTypes'
 
@@ -211,8 +212,10 @@ export class NativePlaybackService {
       try {
         switch (request.action) {
           case 'cancel-next':
-            if (this.tags.isActive()) this.scheduler.clearDeferredNext()
-            else await this.scheduler.cancelNext(client)
+            // invalidatePreparation already cleared the request when cancellation
+            // arrived. A newer deferred request may have arrived while queued.
+            if (!this.tags.isActive())
+              await this.scheduler.cancelNext(client, { preserveDeferredNext: true })
             break
           case 'pause':
             await client.command('set_property', 'pause', true)
@@ -229,6 +232,12 @@ export class NativePlaybackService {
             this.publish()
             break
           case 'seek': {
+            const trackId = this.snapshot.trackId
+            const isSeekingTrack = () =>
+              isCurrent() &&
+              this.loaded &&
+              this.snapshot.trackId === trackId &&
+              !this.scheduler.isEnteringNext
             const tagSeek = this.tags.seek(client, request.time)
             if (tagSeek) {
               await tagSeek
@@ -239,7 +248,12 @@ export class NativePlaybackService {
             if (!isCurrent()) return { accepted: false }
             const continuation = this.scheduler.seekContinuation(client, request.time)
             if (continuation) await continuation
-            else await client.command('seek', request.time, 'absolute+exact')
+            else {
+              if (!isSeekingTrack()) return { accepted: false }
+              await clearSoftTransitionContinuation(client, isSeekingTrack)
+              if (!isSeekingTrack()) return { accepted: false }
+              await client.command('seek', request.time, 'absolute+exact')
+            }
             break
           }
           case 'volume':

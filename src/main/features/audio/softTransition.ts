@@ -1,10 +1,14 @@
 import { spawn } from 'node:child_process'
+import {
+  isSoftTransitionDuration,
+  SOFT_TRANSITION_DEFAULT_SECONDS,
+} from '@shared/audio/softTransitionSettings'
 import { mkdtemp, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { parseFile } from 'music-metadata'
-import { DigitalZeroCounter, isConsecutiveAlbumPair } from './digitalSilence'
+import { DigitalZeroCounter } from './digitalSilence'
 import { parseFirstPcmTimestamp, readMpvTimestampOrigin } from './audioTimestamp'
 
 export { readMpvTimestampOrigin } from './audioTimestamp'
@@ -30,7 +34,7 @@ export interface SoftTransition {
   dispose: () => Promise<void>
 }
 
-/** Decode in the source sample domain. Keep only the first/last 2.1 seconds.
+/** Decode in the source sample domain. Keep only the requested head/tail window.
  * copyts + ashowinfo preserves the first valid frame's container timestamp;
  * raw PCM has no timestamp and must never be treated as container time zero.
  */
@@ -40,10 +44,11 @@ export async function scanTransitionAudio(
   rate: number,
   channels: number,
   signal: AbortSignal,
+  windowSeconds = SOFT_TRANSITION_DEFAULT_SECONDS + 0.1,
 ): Promise<TransitionAudio> {
   signal.throwIfAborted()
   const counter = new DigitalZeroCounter(channels)
-  const limit = Math.ceil(rate * 2.1) * channels * 4
+  const limit = Math.ceil(rate * windowSeconds) * channels * 4
   const head = Buffer.allocUnsafe(limit)
   const tail = Buffer.allocUnsafe(limit)
   let headLength = 0
@@ -108,7 +113,7 @@ export async function scanTransitionAudio(
       headLength += headBytes
 
       // Keep the tail in a ring: each incoming byte is copied at most once,
-      // instead of copying the full 2.1-second window on every decoder chunk.
+      // instead of copying the full retained window on every decoder chunk.
       if (chunk.length >= limit) {
         chunk.copy(tail, 0, chunk.length - limit)
         tailLength = limit
@@ -150,13 +155,24 @@ export async function scanTransitionAudio(
   }
 }
 
-export function renderSoftTransition(a: TransitionAudio, b: TransitionAudio, trim: boolean) {
+export function renderSoftTransition(
+  a: TransitionAudio,
+  b: TransitionAudio,
+  trim: boolean,
+  durationSeconds = SOFT_TRANSITION_DEFAULT_SECONDS,
+) {
+  if (!isSoftTransitionDuration(durationSeconds))
+    throw new Error('Invalid soft transition duration')
   if (a.rate !== b.rate || a.channels !== b.channels) throw new Error('Transition format mismatch')
   const zeroFrames = a.trailing + b.leading
   const trimZeros = trim && zeroFrames <= a.rate / 10
   const end = a.frames - (trimZeros ? a.trailing : 0)
   const start = trimZeros ? b.leading : 0
-  const frames = Math.min(2 * a.rate, Math.floor(end / 2), Math.floor((b.frames - start) / 2))
+  const frames = Math.min(
+    Math.floor(durationSeconds * a.rate),
+    Math.floor(end / 2),
+    Math.floor((b.frames - start) / 2),
+  )
   if (frames < 2) throw new Error('Audio too short for a transition')
   const stride = a.channels * 4
   const aOffset = end - frames - (a.frames - a.tail.length / stride)
@@ -199,7 +215,7 @@ export function renderSoftTransition(a: TransitionAudio, b: TransitionAudio, tri
 
 export class SoftTransitionPreparer {
   private serial: Promise<unknown> = Promise.resolve()
-  private readonly cache = new Map<string, TransitionAudio>()
+  private readonly cache = new Map<string, { audio: TransitionAudio; windowSeconds: number }>()
   constructor(
     private readonly executable: string,
     private readonly mpvExecutable: string,
@@ -210,8 +226,9 @@ export class SoftTransitionPreparer {
     right: string,
     trim: boolean,
     signal: AbortSignal,
+    durationSeconds = SOFT_TRANSITION_DEFAULT_SECONDS,
   ): Promise<SoftTransition | null> {
-    const work = this.serial.then(() => this.create(left, right, trim, signal))
+    const work = this.serial.then(() => this.create(left, right, trim, signal, durationSeconds))
     this.serial = work.catch(() => undefined)
     return work
   }
@@ -221,27 +238,16 @@ export class SoftTransitionPreparer {
     right: string,
     trim: boolean,
     signal: AbortSignal,
+    durationSeconds: number,
   ): Promise<SoftTransition | null> {
     signal.throwIfAborted()
+    if (!isSoftTransitionDuration(durationSeconds))
+      throw new Error('Invalid soft transition duration')
     const [a, b] = await Promise.all([
       parseFile(left, { skipCovers: true }),
       parseFile(right, { skipCovers: true }),
     ])
-    if (isConsecutiveAlbumPair(a.common, b.common) || left === right) return null
-    const normalize = (value?: string) => value?.trim().toLocaleLowerCase() || ''
-    const sameAlbum =
-      normalize(a.common.album) &&
-      normalize(a.common.album) === normalize(b.common.album) &&
-      normalize(a.common.albumartist || a.common.artist) &&
-      normalize(a.common.albumartist || a.common.artist) ===
-        normalize(b.common.albumartist || b.common.artist)
-    // Missing disc/track tags must not turn a possibly continuous album into a
-    // crossfade. The stricter digital-silence eligibility remains unchanged.
-    if (
-      sameAlbum &&
-      (!a.common.track.no || !b.common.track.no || !a.common.disk.no || !b.common.disk.no)
-    )
-      return null
+    if (left === right) return null
     const rate = a.format.sampleRate
     const channels = a.format.numberOfChannels
     if (
@@ -256,13 +262,21 @@ export class SoftTransitionPreparer {
       Math.max(a.format.duration, b.format.duration) > 7200
     )
       return null
+    const windowSeconds = durationSeconds + 0.1
     const scan = async (path: string) => {
       signal.throwIfAborted()
       const before = await stat(path)
       const key = `${path}\0${before.size}\0${before.mtimeMs}`
       const cached = this.cache.get(key)
-      if (cached) return cached
-      const audio = await scanTransitionAudio(this.executable, path, rate, channels, signal)
+      if (cached && cached.windowSeconds >= windowSeconds) return cached.audio
+      const audio = await scanTransitionAudio(
+        this.executable,
+        path,
+        rate,
+        channels,
+        signal,
+        windowSeconds,
+      )
       audio.origin -= await readMpvTimestampOrigin(this.mpvExecutable, path, signal)
       // Some demuxers round their origin to microseconds. A sub-sample negative
       // residue is harmless; a larger mismatch needs an ordinary transition.
@@ -270,14 +284,14 @@ export class SoftTransitionPreparer {
       const after = await stat(path)
       if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
         throw new Error('Audio changed during transition preparation')
-      this.cache.set(key, audio)
+      this.cache.set(key, { audio, windowSeconds })
       while (this.cache.size > 8) this.cache.delete(this.cache.keys().next().value!)
       return audio
     }
     const current = await scan(left),
       next = await scan(right)
     signal.throwIfAborted()
-    const { wave, ...timing } = renderSoftTransition(current, next, trim)
+    const { wave, ...timing } = renderSoftTransition(current, next, trim, durationSeconds)
     const directory = await mkdtemp(join(tmpdir(), 'auralis-transition-'))
     const path = join(directory, 'bridge.wav')
     let disposal: Promise<void> | undefined

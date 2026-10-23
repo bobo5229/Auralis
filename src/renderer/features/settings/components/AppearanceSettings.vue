@@ -23,10 +23,21 @@ import {
   type PlaybarStyle,
 } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import {
+  CONTROL_STYLES,
+  useControlStyle,
+  type ControlStyle,
+} from '@renderer/features/appearance/composables/useControlStyle'
+import {
   PLAYBAR_LAYOUTS,
   usePlaybarLayout,
   type PlaybarLayout,
 } from '@renderer/features/appearance/composables/usePlaybarLayout'
+import {
+  LIQUID_GLASS_PARAMETER_FIELDS,
+  LIQUID_GLASS_PARAMETER_LIMITS,
+  useLiquidGlassParameters,
+  type LiquidGlassParameterField,
+} from '@renderer/features/appearance/composables/useLiquidGlassParameters'
 import SettingsSelect from './SettingsSelect.vue'
 import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
@@ -122,6 +133,39 @@ const playbarStyleOptions = computed(() =>
     label: t(`settings.appearance.playbarStyle.${value}`),
   })),
 )
+const {
+  parameters: liquidGlassParameters,
+  persistFailed: liquidGlassPersistFailed,
+  atDefaults: liquidGlassAtDefaults,
+  setParameter: setLiquidGlassParameter,
+  resetParameters: resetLiquidGlassParameters,
+} = useLiquidGlassParameters()
+
+function liquidGlassProgress(field: LiquidGlassParameterField): string {
+  const limit = LIQUID_GLASS_PARAMETER_LIMITS[field]
+  const value = liquidGlassParameters.value[field]
+  return `${((value - limit.min) / (limit.max - limit.min)) * 100}%`
+}
+
+function formatLiquidGlassValue(field: LiquidGlassParameterField): string {
+  const value = liquidGlassParameters.value[field]
+  return field === 'saturate' ? value.toFixed(1) : String(value)
+}
+
+function selectLiquidGlassParameter(field: LiquidGlassParameterField, event: Event): void {
+  setLiquidGlassParameter(field, Number((event.target as HTMLInputElement).value))
+}
+const {
+  style: controlStyle,
+  persistFailed: controlStylePersistFailed,
+  setStyle: setControlStyle,
+} = useControlStyle()
+const controlStyleOptions = computed(() =>
+  CONTROL_STYLES.map((value) => ({
+    value,
+    label: t(`settings.appearance.controlStyle.${value}`),
+  })),
+)
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
 const playingIconOptions = computed(() =>
   PLAYING_ICON_PRESETS.map((value) => ({
@@ -169,6 +213,10 @@ function selectPlaybarLayout(value: PlaybarLayout): void {
 
 function selectPlaybarStyle(value: PlaybarStyle): void {
   setPlaybarStyle(value)
+}
+
+function selectControlStyle(value: ControlStyle): void {
+  setControlStyle(value)
 }
 
 function selectPlayingIconPreset(value: PlayingIconPreset): void {
@@ -330,6 +378,79 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :model-value="playbarStyle"
             :options="playbarStyleOptions"
             @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
+          />
+        </div>
+        <template v-if="playbarStyle === 'liquid'">
+          <div class="settings-row settings-row--with-desc liquid-glass-parameter-header">
+            <div>
+              <strong id="appearance-liquid-glass-label">{{
+                t('settings.appearance.liquidGlass.title')
+              }}</strong>
+              <span id="appearance-liquid-glass-description">{{
+                t('settings.appearance.liquidGlass.description')
+              }}</span>
+              <span v-if="liquidGlassPersistFailed" role="status">{{
+                t('settings.appearance.liquidGlass.persistFailed')
+              }}</span>
+            </div>
+            <button
+              type="button"
+              class="settings-text-button"
+              :disabled="liquidGlassAtDefaults"
+              aria-describedby="appearance-liquid-glass-description"
+              @click="resetLiquidGlassParameters"
+            >
+              {{ t('settings.appearance.liquidGlass.restoreDefault') }}
+            </button>
+          </div>
+          <div
+            v-for="field in LIQUID_GLASS_PARAMETER_FIELDS"
+            :key="field"
+            class="settings-row liquid-glass-parameter-row"
+          >
+            <div>
+              <strong :id="`appearance-liquid-glass-${field}-label`">{{
+                t(`settings.appearance.liquidGlass.${field}`)
+              }}</strong>
+            </div>
+            <div class="settings-range-control">
+              <input
+                :id="`appearance-liquid-glass-${field}`"
+                type="range"
+                :min="LIQUID_GLASS_PARAMETER_LIMITS[field].min"
+                :max="LIQUID_GLASS_PARAMETER_LIMITS[field].max"
+                :step="LIQUID_GLASS_PARAMETER_LIMITS[field].step"
+                :value="liquidGlassParameters[field]"
+                :style="{ '--settings-range-progress': liquidGlassProgress(field) }"
+                :aria-labelledby="`appearance-liquid-glass-${field}-label`"
+                :aria-valuetext="formatLiquidGlassValue(field)"
+                @input="selectLiquidGlassParameter(field, $event)"
+              />
+              <output :for="`appearance-liquid-glass-${field}`">{{
+                formatLiquidGlassValue(field)
+              }}</output>
+            </div>
+          </div>
+        </template>
+        <div class="settings-row settings-row--with-desc settings-row--control-style">
+          <div>
+            <strong id="appearance-control-style-label">{{
+              t('settings.appearance.controlStyle.title')
+            }}</strong>
+            <span id="appearance-control-style-description">{{
+              t('settings.appearance.controlStyle.description')
+            }}</span>
+            <span v-if="controlStylePersistFailed" role="status">{{
+              t('settings.appearance.controlStyle.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-control-style"
+            labelledby="appearance-control-style-label"
+            describedby="appearance-control-style-description"
+            :model-value="controlStyle"
+            :options="controlStyleOptions"
+            @update:model-value="selectControlStyle($event as ControlStyle)"
           />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">
@@ -555,6 +676,18 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
   align-items: center;
   gap: 12px;
   margin-left: auto;
+}
+
+/* Leave room above the shared slider's keyboard focus outline. */
+.appearance-settings :deep(.settings-row.liquid-glass-parameter-row) {
+  height: 72px;
+  min-height: 72px;
+  max-height: 72px;
+  row-gap: 8px;
+}
+
+.appearance-settings :deep(.liquid-glass-parameter-row .settings-range-control output) {
+  min-width: 5ch;
 }
 
 .startup-album-actions .startup-album-draw {

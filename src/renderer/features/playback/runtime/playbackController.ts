@@ -1,4 +1,8 @@
 import { reactive, readonly, ref, toRaw, type Ref } from 'vue'
+import {
+  isSoftTransitionDuration,
+  SOFT_TRANSITION_DEFAULT_SECONDS,
+} from '@shared/audio/softTransitionSettings'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import {
   createPlaybackAudioRuntime,
@@ -21,6 +25,7 @@ const VOLUME_KEY = 'auralis-volume'
 const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
 const DIGITAL_SILENCE_KEY = 'auralis-skip-boundary-digital-silence'
 const SOFT_TRANSITION_KEY = 'auralis-soft-transition-enabled'
+const SOFT_TRANSITION_DURATION_KEY = 'auralis-soft-transition-duration-seconds'
 
 function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
@@ -57,6 +62,7 @@ export interface PlaybackPublicApi {
   readonly gaplessPlaybackEnabled: Readonly<Ref<boolean>>
   readonly skipDigitalSilenceEnabled: Readonly<Ref<boolean>>
   readonly softTransitionEnabled: Readonly<Ref<boolean>>
+  readonly softTransitionDurationSeconds: Readonly<Ref<number>>
   readonly isPlaybackPending: Readonly<Ref<boolean>>
   selectTrack(trackId: number): void
   playTrackFromQueue(
@@ -71,6 +77,7 @@ export interface PlaybackPublicApi {
   setGaplessPlaybackEnabled(enabled: boolean): void
   setSkipDigitalSilenceEnabled(enabled: boolean): void
   setSoftTransitionEnabled(enabled: boolean): void
+  setSoftTransitionDurationSeconds(seconds: number): void
   togglePlayPause(): Promise<void>
   play(): Promise<void>
   pause(): void
@@ -103,6 +110,12 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const gaplessPlaybackEnabled = ref(readPersistedGaplessPlayback())
   const skipDigitalSilenceEnabled = ref(deps.storage.getItem(DIGITAL_SILENCE_KEY) === 'true')
   const softTransitionEnabled = ref(deps.storage.getItem(SOFT_TRANSITION_KEY) === 'true')
+  const persistedTransitionDuration = Number(deps.storage.getItem(SOFT_TRANSITION_DURATION_KEY))
+  const softTransitionDurationSeconds = ref(
+    isSoftTransitionDuration(persistedTransitionDuration)
+      ? persistedTransitionDuration
+      : SOFT_TRANSITION_DEFAULT_SECONDS,
+  )
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
   const playbackRequests = createPlaybackRequestLifecycle()
   const navigationSession = new PlaybackNavigationSession()
@@ -340,6 +353,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       enabled: gaplessPlaybackEnabled.value,
       skipDigitalSilence: skipDigitalSilenceEnabled.value,
       softTransition: softTransitionEnabled.value,
+      softTransitionDurationSeconds: softTransitionDurationSeconds.value,
     }),
     resolvePlan: resolveTransitionPlan,
     filterPlan: filterMissingFromPlan,
@@ -582,6 +596,17 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     deps.storage.setItem(SOFT_TRANSITION_KEY, String(enabled))
     gaplessSession.cancelPreload()
     if (state.currentTrackId && state.isPlaying) void gaplessSession.refresh(state.currentTrackId)
+  }
+
+  function setSoftTransitionDurationSeconds(seconds: number): void {
+    if (!isSoftTransitionDuration(seconds) || softTransitionDurationSeconds.value === seconds)
+      return
+    softTransitionDurationSeconds.value = seconds
+    deps.storage.setItem(SOFT_TRANSITION_DURATION_KEY, String(seconds))
+    if (softTransitionEnabled.value && state.currentTrackId && state.isPlaying) {
+      gaplessSession.cancelPreload()
+      void gaplessSession.refresh(state.currentTrackId)
+    }
   }
 
   async function playTrackFromQueue(
@@ -1063,6 +1088,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     gaplessPlaybackEnabled: readonlyGaplessPlaybackEnabled,
     skipDigitalSilenceEnabled: readonly(skipDigitalSilenceEnabled),
     softTransitionEnabled: readonly(softTransitionEnabled),
+    softTransitionDurationSeconds: readonly(softTransitionDurationSeconds),
     isPlaybackPending: playbackRequests.pending,
     selectTrack,
     playTrackFromQueue,
@@ -1073,6 +1099,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     setGaplessPlaybackEnabled,
     setSkipDigitalSilenceEnabled,
     setSoftTransitionEnabled,
+    setSoftTransitionDurationSeconds,
     togglePlayPause,
     play,
     pause,
