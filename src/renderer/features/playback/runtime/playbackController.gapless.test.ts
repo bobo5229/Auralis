@@ -111,6 +111,10 @@ function setup(sourceTracks?: PlaybackTrack[]) {
       snapshot = { ...snapshot, trackId, currentTime: 0 }
       callbacks.onEnded(trackId)
     },
+    timeUpdate(currentTime: number) {
+      snapshot = { ...snapshot, currentTime }
+      callbacks.onTimeUpdate({ currentTime, duration: snapshot.duration })
+    },
     stateEvent(trackId: number, isPlaying: boolean, buffering: boolean) {
       snapshot = {
         ...snapshot,
@@ -164,6 +168,73 @@ function setup(sourceTracks?: PlaybackTrack[]) {
 }
 
 describe('gapless navigation across asynchronous backend boundaries', () => {
+  it.each(
+    (['mutable', 'frozen'] as const).flatMap((source) =>
+      (['play', 'replace', 'insert', 'insert-many', 'shuffle-pool'] as const).map((command) => ({
+        source,
+        command,
+      })),
+    ),
+  )(
+    'accepts a readonly $source queue through $command and keeps metadata writable internally',
+    async ({ source, command }) => {
+      const test = setup()
+      const tracks =
+        source === 'frozen' ? test.tracks.map((track) => Object.freeze({ ...track })) : test.tracks
+      try {
+        await test.api.playTrackFromQueue(tracks, 1, { playbackMode: 'sequential' })
+        const queue = test.api.state.queue
+        if (command === 'play') await test.api.playTrackFromQueue(queue, 2)
+        if (command === 'replace') {
+          expect(
+            test.api.replaceCurrentPlaybackQueue({
+              expectedSessionId: test.api.queueSession.value!.id,
+              expectedTrackId: 1,
+              expectedQueueTrackIds: queue.map(({ id }) => id),
+              queue,
+              playbackMode: 'sequential',
+            }),
+          ).toBe(true)
+        }
+        if (command === 'insert') test.api.insertTrackAfterCurrent(queue[2])
+        if (command === 'insert-many') test.api.insertTracksAfterCurrent(queue.slice(1))
+        if (command === 'shuffle-pool') {
+          await test.api.playTrackFromQueue([queue[0]], 1, {
+            playbackMode: 'shuffle',
+            shufflePool: queue,
+          })
+        }
+        if (command === 'play' || command === 'replace') expect(test.api.state.queue).toBe(queue)
+        const currentId = test.api.state.currentTrackId!
+        await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalled())
+        const starts = test.runtime.start.mock.calls.length
+        const scheduled = test.runtime.scheduleNext.mock.calls.length
+        test.changed('metadata-refresh', [1, 2, 3, 4])
+        await vi.waitFor(() =>
+          expect(test.api.state.currentTrack?.title).toBe(`Edited ${currentId}`),
+        )
+        expect(test.api.state.queue.every((track) => track.title === `Edited ${track.id}`)).toBe(
+          true,
+        )
+        expect(test.runtime.start).toHaveBeenCalledTimes(starts)
+        expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
+        if (command === 'play') {
+          await test.api.playPrevious()
+          expect(test.api.state.queue).toBe(queue)
+          expect(test.api.state.currentTrack?.title).toBe('Edited 1')
+        }
+        if (command === 'shuffle-pool') {
+          await test.api.playNext()
+          expect(test.api.state.currentTrack?.title).toBe(`Edited ${test.api.state.currentTrackId}`)
+        }
+        if (source === 'frozen')
+          expect(tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
+      } finally {
+        test.dispose()
+      }
+    },
+  )
+
   it.each([
     { mode: 'shuffle' as const, shuffleCycle: false },
     { mode: 'shuffle' as const, shuffleCycle: true },
@@ -725,7 +796,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
       await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1, { playbackMode: 'sequential' })
       await vi.waitFor(() => expect(test.nextId()).toBe(2))
       test.api.pause()
-      test.api.state.currentTime = 5
+      test.timeUpdate(5)
       const scheduled = test.runtime.scheduleNext.mock.calls.length
       await test.api.playPrevious()
       expect(test.api.state.currentTime).toBe(0)
@@ -752,7 +823,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
         if (action === 'manual') {
           await test.api.playTrackFromQueue(test.tracks.slice(2), 3)
           await vi.waitFor(() => expect(test.nextId()).toBe(4))
-          test.api.state.currentTime = 2
+          test.timeUpdate(2)
         }
         if (action === 'dispose') test.dispose()
         const scheduled = test.runtime.scheduleNext.mock.calls.length

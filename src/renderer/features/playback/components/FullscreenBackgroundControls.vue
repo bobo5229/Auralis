@@ -16,10 +16,10 @@ import {
 } from '../constants/fullscreenInfoTypography'
 import { useFullscreenBackground } from '../composables/useFullscreenBackground'
 import { useFullscreenInfoTypography } from '../composables/useFullscreenInfoTypography'
-import SettingsSelect from '@renderer/features/settings/components/SettingsSelect.vue'
-import SongFontSizeInput from '@renderer/features/settings/components/SongFontSizeInput.vue'
-import '@renderer/features/settings/styles/settings.chrome.css'
-import '@renderer/features/settings/styles/parameterSurface.css'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
+import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
+import '@renderer/shared/styles/parameterControls.css'
+import '@renderer/shared/styles/parameterSurface.css'
 
 const { t } = useI18n()
 const {

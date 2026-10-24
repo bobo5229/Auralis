@@ -1,3 +1,7 @@
+import type { TrackFileFingerprint } from './trackFile'
+
+export type { TrackFileFingerprint } from './trackFile'
+
 export type TrackAvailability = 'available' | 'missing'
 
 export interface TrackListItem {
@@ -50,14 +54,6 @@ export interface LibraryScanProgress {
   failedFiles: number
   currentFile: string | null
   message: string | null
-}
-
-export interface TrackFileFingerprint {
-  size: number
-  mtimeMs: number
-  ctimeMs: number
-  dev: number
-  ino: number
 }
 
 export interface ScannedTrack {

@@ -5,7 +5,7 @@ import type {
   TrackTagPatch,
 } from '@shared/types/libraryScan'
 import { isCurrentArtworkCacheKey } from '@main/features/artwork/artworkCachePolicy'
-import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
+import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import { BaseRepository } from './baseRepository'
 import {
   prepareScannedMetadataDisplayUpdate,

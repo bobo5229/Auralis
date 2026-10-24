@@ -402,7 +402,8 @@ describe('usePlayback foreground request state', () => {
     const firstView = usePlayback()
     await firstView.playTrackFromQueue([track(1), track(2)], 1, { source: 'cd' })
     const session = firstView.queueSession.value
-    firstView.state.currentTime = 35
+    TestAudio.latest!.currentTime = 35
+    TestAudio.latest!.dispatch('timeupdate')
 
     const returnedView = usePlayback()
     expect(returnedView.queueSession.value).toBe(session)
@@ -679,7 +680,7 @@ describe('usePlayback mode navigation & characterization frozen semantics', () =
     const audio = TestAudio.latest!
     await playback.playTrackFromQueue([track(1), track(2)], 1, { playbackMode: 'sequential' })
     audio.currentTime = 50
-    playback.state.currentTime = 50
+    audio.dispatch('timeupdate')
 
     await playback.playPrevious()
     expect(playback.state.currentTrackId).toBe(1)

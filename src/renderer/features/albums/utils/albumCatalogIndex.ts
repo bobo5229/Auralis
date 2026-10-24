@@ -1,7 +1,7 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
 import { groupAlbums, moreAlbumsByArtist, selectAlbumTracks } from './albumGrouping'
-import { albumIdentityKey } from './albumIdentity'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 
 /** Catalog arrays are immutable snapshots: replace the array when metadata changes. */
 const indexes = new WeakMap<TrackListItem[], ReturnType<typeof createIndex>>()

@@ -477,7 +477,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* Match the compact settings typography: labels 13px, values 12px, segmented
- * buttons 11px (settings.chrome.css and SettingsSelect.vue). The shared dialog
+ * buttons 11px (parameterControls.css and SettingsSelect.vue). The shared dialog
  * keeps its standard title size; scrolling geometry stays local to this panel. */
 * {
   box-sizing: border-box;

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>聆听纪念 · 铝盒与海绵</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="material-study" aria-labelledby="title">
+      <header class="study-header">
+        <h1 id="title">聆听纪念</h1>
+        <nav class="categories" aria-label="徽章分类">
+          <button type="button" data-series="hours" aria-pressed="true">小时</button>
+          <button type="button" data-series="days" aria-pressed="false">天数</button>
+          <button type="button" data-series="albums" aria-pressed="false">专辑</button>
+        </nav>
+      </header>
+
+      <section class="collection-case" aria-label="铝制徽章收藏盒">
+        <div class="case-foot" aria-hidden="true"></div>
+        <div class="aluminium-rim">
+          <div class="rim-grain" aria-hidden="true"></div>
+          <div class="inner-channel">
+            <div class="foam-viewport" tabindex="0" aria-label="徽章陈列，可横向滚动">
+              <ul class="badge-row" aria-label="小时徽章"></ul>
+            </div>
+          </div>
+          <button
+            class="scroll-arrow scroll-arrow--previous"
+            type="button"
+            aria-label="向前浏览"
+            disabled
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
+          </button>
+          <button
+            class="scroll-arrow scroll-arrow--next"
+            type="button"
+            aria-label="向后浏览"
+            disabled
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5" /></svg>
+          </button>
+        </div>
+      </section>
+
+      <footer class="study-footer">
+        <p id="hint">点击徽章，看看它下面的海绵凹槽。</p>
+        <div class="study-actions">
+          <button id="empty-toggle" type="button" aria-pressed="false">全部取出</button>
+          <button
+            id="environment-toggle"
+            type="button"
+            aria-pressed="false"
+            aria-label="切换为浅色环境"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"
+              />
+            </svg>
+          </button>
+        </div>
+      </footer>
+      <p class="sr-only" id="status" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

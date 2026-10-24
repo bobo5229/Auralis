@@ -2,7 +2,7 @@ import { computed, nextTick, ref, type Ref } from 'vue'
 import type { Router, RouteLocationNormalizedLoaded } from 'vue-router'
 import { createAlbumDetailEntryTransition } from '../layout/albumDetailEntryTransition'
 import { findAlbumTransitionFocusTarget } from '@renderer/features/albums/utils/albumGridTransitionPlan'
-import { albumIdentityKey } from '@renderer/features/albums/utils/albumIdentity'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import { hasCdViewSwitchTransition } from '@renderer/features/albums/utils/cdViewSwitchTransition'
 
 interface AppRouteTransitionOptions {

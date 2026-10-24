@@ -1,5 +1,5 @@
 import type { TrackListItem, TrackLyrics, TrackFileFingerprint } from '@shared/types/libraryScan'
-import { decodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
+import { decodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'

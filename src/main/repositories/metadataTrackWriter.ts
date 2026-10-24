@@ -6,7 +6,7 @@ import {
 } from '@shared/utils/delimitedValues'
 import type { RefreshedTrackMetadata } from './metadataRefreshRepositoryTypes'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
-import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
+import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 
 export class MetadataTrackWriter {
   constructor(private readonly db: Database.Database) {}

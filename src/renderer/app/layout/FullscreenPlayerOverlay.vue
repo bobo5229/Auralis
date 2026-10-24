@@ -1,39 +1,19 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { usePlaybackMetadataDisplay } from '@renderer/features/playback/composables/usePlaybackMetadataDisplay'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
-import { useDisplayedTrackLyrics } from '@renderer/features/lyrics/composables/useDisplayedTrackLyrics'
-import { useLyricLineSeek } from '@renderer/features/lyrics/composables/useLyricLineSeek'
-import {
-  FULLSCREEN_LYRICS_FADE_TOP_RATIO,
-  FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO,
-  FULLSCREEN_LYRICS_ACTIVE_SCALE,
-  useFullscreenLyricsViewport,
-} from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
-import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
-import { useFullscreenInfoTypography } from '@renderer/features/playback/composables/useFullscreenInfoTypography'
-import type { LyricLine } from '@renderer/features/lyrics/types'
+import { useFullscreenPlaybackControls } from '@renderer/features/playback/composables/useFullscreenPlaybackControls'
+import { useFullscreenLyricsPresentation } from '@renderer/features/lyrics/composables/useFullscreenLyricsPresentation'
+import { useFullscreenLyricsMenu } from '@renderer/features/lyrics/composables/useFullscreenLyricsMenu'
+import { useFullscreenOverlayLifecycle } from '../composables/useFullscreenOverlayLifecycle'
+import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
+import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import FullscreenArtworkBackground from '@renderer/features/playback/components/FullscreenArtworkBackground.vue'
 import FullscreenBackgroundControls from '@renderer/features/playback/components/FullscreenBackgroundControls.vue'
 import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
 import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
-import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
-import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
-import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
-import { useLyricsScrollPreset } from '@renderer/features/lyrics/lyricsScrollPreset'
-import { useLyricsCountdownPreference } from '@renderer/features/lyrics/lyricsCountdownPreference'
 import LyricsFractureDots from '@renderer/features/lyrics/components/LyricsFractureDots.vue'
-import { resolveRestorablePlayerTrigger } from '../utils/playerOverlayFocus'
-import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
-import {
-  animateFullscreenPlayerTransition,
-  type FullscreenPlayerTransitionSnapshot,
-} from '@renderer/shared/animation/motion'
 
 const skipPreviousIconUrl = new URL(
   '../../features/playback/assets/skip-previous-rounded.svg',
@@ -47,437 +27,97 @@ const playIconUrl = new URL('../../features/playback/assets/play.svg', import.me
 
 const playback = usePlayback()
 const { t } = useI18n()
-const { lyricsScript, lyricsPersistFailed, setLyricsScript } = useChineseTextDisplay()
-const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
+const reducedMotion = useReducedMotion()
+const artworkRef = ref<HTMLElement | null>(null)
+const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundControls> | null>(null)
+const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
+const { backgroundMotionPaused } = useFullscreenBackground()
 const {
-  status: lyricsStatus,
-  rawLyrics,
-  parsedLines,
+  imgError,
+  progressFillRef,
+  artworkCacheKey,
+  artworkUrl,
+  title,
+  subtitle,
+  infoTypographyStyle,
+  titleTypographyStyle,
+  subtitleTypographyStyle,
+  currentTimeLabel,
+  remainingTimeLabel,
+  volumeIconClass,
+  volumeFillStyle,
+  repeatButtonLabel,
+  repeatIconClass,
+  progressValueNow,
+  progressRatio,
+  handleProgressPointerDown,
+  handleProgressPointerMove,
+  handleProgressPointerUp,
+  handleProgressPointerCancel,
+  handleProgressKeydown,
+  handleVolumeInput,
+  handleRepeatClick,
+} = useFullscreenPlaybackControls({ playback, isOpen: isFullscreenPlayerOpen })
+const lyrics = useFullscreenLyricsPresentation({
+  isOpen: isFullscreenPlayerOpen,
+  currentTrackId: computed(() => playback.state.currentTrackId),
+  reducedMotion: reducedMotion.matches,
+  artworkRef,
+})
+const {
+  lyricsStatus,
+  fullscreenLyricLines,
   activeIndex,
   isPrelude,
   showPrelude,
   preludeLitDotCount,
   preludeElapsed,
-} = useDisplayedTrackLyrics()
-
-const imgError = ref(false)
-const overlayRef = ref<HTMLElement | null>(null)
-// Space can activate :focus-visible after a pointer click; reserve the lyrics ring for Tab navigation.
-const keyboardNavigation = ref(false)
-const artworkRef = ref<HTMLElement | null>(null)
-// Park the GPU backgrounds between visits; controls and lyrics still leave with the section.
-const backgroundTarget = shallowRef<HTMLElement | null>(null)
-const deferBackgroundInitialization = ref(false)
-const exitButtonRef = ref<HTMLButtonElement | null>(null)
-const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundControls> | null>(null)
-const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
-const lyricsContextMenuOpen = ref(false)
-const lyricsContextMenuAnchor = ref({ clientX: 0, clientY: 0 })
-const { backgroundMotionPaused } = useFullscreenBackground()
-const reducedMotion = useReducedMotion()
-const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
-const { effect: countdownEffect } = useLyricsCountdownPreference()
-const { preference: lyricsTypography, style: lyricsTypographyStyle } =
-  useFullscreenLyricsTypography()
-const { preference: infoTypography, style: infoTypographyStyle } = useFullscreenInfoTypography()
-// The lines carry their own size and weight so a parent variable cannot leave the subtitle inherited.
-const titleTypographyStyle = computed(() => ({
-  fontSize: `${infoTypography.value.titleFontSizePx}px`,
-  fontWeight: infoTypography.value.titleFontWeight,
-}))
-const subtitleTypographyStyle = computed(() => ({
-  fontSize: `${infoTypography.value.subtitleFontSizePx}px`,
-  fontWeight: infoTypography.value.subtitleFontWeight,
-}))
-let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
-let interruptedTransition: FullscreenPlayerTransitionSnapshot | undefined
-let backgroundReleaseFrame = 0
-let lyricsLayoutRefreshFrame = 0
-let keyboardContextMenuPending = false
-let keyboardContextMenuFallbackTimer: ReturnType<typeof setTimeout> | null = null
-
-function releaseBackgroundInitialization(): void {
-  cancelAnimationFrame(backgroundReleaseFrame)
-  // Let the completed artwork transition reach the compositor before starting a
-  // cold context; changing a flag in its completion microtask is still too early.
-  backgroundReleaseFrame = requestAnimationFrame(() => {
-    backgroundReleaseFrame = requestAnimationFrame(() => {
-      backgroundReleaseFrame = 0
-      deferBackgroundInitialization.value = false
-    })
-  })
-}
-
-watch(
-  isFullscreenPlayerOpen,
-  () => {
-    // Post-render background watchers can run before Transition's enter hook.
-    // Block cold preparation synchronously with the open/close state change.
-    cancelAnimationFrame(backgroundReleaseFrame)
-    backgroundReleaseFrame = 0
-    deferBackgroundInitialization.value = true
-  },
-  { flush: 'sync' },
-)
-
-function runTransition(element: Element, done: () => void, entering: boolean): void {
-  const interrupted = activeTransition?.cancel() ?? interruptedTransition
-  cancelAnimationFrame(backgroundReleaseFrame)
-  backgroundReleaseFrame = 0
-  // Context creation is synchronous even with parallel shader compilation. Keep
-  // cold GPU preparation outside both artwork transitions; reuse ready canvases.
-  deferBackgroundInitialization.value = true
-  ;(element as HTMLElement).inert = !entering
-  activeTransition = animateFullscreenPlayerTransition({
-    overlay: element as HTMLElement,
-    artwork: (element as HTMLElement).querySelector<HTMLElement>('.fullscreen-player-artwork'),
-    source: document.querySelector<HTMLElement>('[data-player-bar-artwork]'),
-    entering,
-    reducedMotion: reducedMotion.matches.value,
-    interrupted,
-    onComplete: () => {
-      activeTransition = undefined
-      interruptedTransition = undefined
-      done()
-      releaseBackgroundInitialization()
-      if (entering && wholeLineLyrics.value) {
-        void nextTick(() => refreshFullscreenLyrics('auto'))
-      }
-    },
-  })
-  interruptedTransition = undefined
-}
-
-function handleEnter(element: Element, done: () => void): void {
-  backgroundTarget.value = element as HTMLElement
-  runTransition(element, done, true)
-}
-
-function handleLeave(element: Element, done: () => void): void {
-  runTransition(element, done, false)
-}
-
-function handleAfterLeave(element: Element): void {
-  if (backgroundTarget.value === element) backgroundTarget.value = null
-}
-
-function handleTransitionCancelled(): void {
-  interruptedTransition = activeTransition?.cancel()
-  activeTransition = undefined
-  releaseBackgroundInitialization()
-}
-
-watch(reducedMotion.matches, () => activeTransition?.finish())
-let returnFocusTarget: HTMLElement | null = null
-const progressFillRef = ref<HTMLElement | null>(null)
-const lyricsScrollRef = ref<HTMLElement | null>(null)
-const lyricsTrackRef = ref<HTMLElement | null>(null)
-
-const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-watch(artworkCacheKey, () => activeTransition?.finish())
-const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const title = computed(
-  () => songText(playback.state.currentTrack?.title) || t('player.unknownTrack'),
-)
-const subtitle = computed(() =>
-  playback.state.currentTrack
-    ? playbackSubtitle(playback.state.currentTrack)
-    : t('player.unknownTrack'),
-)
-
-const currentTimeLabel = computed(() => formatTime(playback.state.currentTime))
-const remainingTimeLabel = computed(() => {
-  const remaining = Math.max(0, playback.state.duration - playback.state.currentTime)
-  return playback.state.duration ? `-${formatTime(remaining)}` : '-0:00'
-})
-
-const fullscreenLyricLines = computed<LyricLine[]>(() => {
-  if (lyricsStatus.value === 'plain' && rawLyrics.value) {
-    return rawLyrics.value
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0)
-      .map((line, index) => ({
-        id: `plain-${index}`,
-        timeSeconds: index,
-        text: line,
-      }))
-  }
-
-  return lyricsStatus.value === 'lrc' ? parsedLines.value : []
-})
-
-const lyricsContextMenuEnabled = computed(
-  () =>
-    isFullscreenPlayerOpen.value &&
-    (lyricsStatus.value === 'lrc' || lyricsStatus.value === 'plain') &&
-    fullscreenLyricLines.value.length > 0,
-)
-
-function focusLyricsScroll(): void {
-  void nextTick(() => lyricsScrollRef.value?.focus({ preventScroll: true }))
-}
-
-function closeLyricsContextMenuWithoutFocus(): void {
-  lyricsContextMenuOpen.value = false
-  clearKeyboardContextMenuFallback()
-}
-
-function closeLyricsContextMenu(
-  reason: 'escape' | 'tab' | 'outside' | 'focusout' | 'scroll' | 'position-error',
-): void {
-  if (!lyricsContextMenuOpen.value) return
-  lyricsContextMenuOpen.value = false
-  clearKeyboardContextMenuFallback()
-  if (reason === 'escape' || reason === 'position-error') focusLyricsScroll()
-}
-
-function selectLyricsScript(script: ChineseScript): void {
-  setLyricsScript(script)
-  closeLyricsContextMenuWithoutFocus()
-  focusLyricsScroll()
-}
-
-function openLyricsContextMenu(clientX: number, clientY: number): boolean {
-  if (!lyricsContextMenuEnabled.value || !lyricsScrollRef.value) return false
-  modeControlRef.value?.close(false)
-  backgroundControlsRef.value?.close(false)
-  lyricsContextMenuAnchor.value = { clientX, clientY }
-  lyricsContextMenuOpen.value = true
-  return true
-}
-
-function getLyricsKeyboardAnchor(): { clientX: number; clientY: number } | null {
-  const rect = lyricsScrollRef.value?.getBoundingClientRect()
-  if (!rect || rect.width <= 0 || rect.height <= 0) return null
-  return {
-    clientX: Math.round(rect.left + rect.width / 2),
-    clientY: Math.round(rect.top + rect.height / 2),
-  }
-}
-
-function clearKeyboardContextMenuFallback(): void {
-  keyboardContextMenuPending = false
-  if (keyboardContextMenuFallbackTimer) clearTimeout(keyboardContextMenuFallbackTimer)
-  keyboardContextMenuFallbackTimer = null
-}
-
-function markKeyboardContextMenuPending(): void {
-  clearKeyboardContextMenuFallback()
-  keyboardContextMenuPending = true
-  keyboardContextMenuFallbackTimer = setTimeout(clearKeyboardContextMenuFallback, 750)
-}
-
-function handleLyricsContextMenu(event: MouseEvent): void {
-  if (!lyricsContextMenuEnabled.value) return
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (event.clientX === 0 && event.clientY === 0) {
-    if (keyboardContextMenuPending && lyricsContextMenuOpen.value) {
-      clearKeyboardContextMenuFallback()
-      return
-    }
-    clearKeyboardContextMenuFallback()
-    const anchor = getLyricsKeyboardAnchor()
-    if (anchor) openLyricsContextMenu(anchor.clientX, anchor.clientY)
-    return
-  }
-
-  clearKeyboardContextMenuFallback()
-  openLyricsContextMenu(event.clientX, event.clientY)
-}
-
-function handleLyricsContainerKeydown(event: KeyboardEvent): void {
-  if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
-    if (!lyricsContextMenuEnabled.value) return
-    event.preventDefault()
-    event.stopPropagation()
-    const anchor = getLyricsKeyboardAnchor()
-    if (anchor && openLyricsContextMenu(anchor.clientX, anchor.clientY))
-      markKeyboardContextMenuPending()
-    return
-  }
-  handleFullscreenLyricsKeydown(event)
-}
-
-function handleLyricsWheel(event: WheelEvent): void {
-  closeLyricsContextMenuWithoutFocus()
-  handleFullscreenLyricsWheel(event)
-}
-
-function handleLyricsTouchMove(): void {
-  closeLyricsContextMenuWithoutFocus()
-  pauseFullscreenLyricAutoFollow()
-}
-
-watch(
-  () => [playback.state.currentTrackId, lyricsStatus.value, fullscreenLyricLines.value],
-  () => closeLyricsContextMenuWithoutFocus(),
-  { flush: 'post' },
-)
-
-const wholeLineLyrics = computed(() => lyricsStatus.value === 'lrc')
-
-const volumeIconClass = computed(() => {
-  if (playback.state.isMuted) return 'i-lucide-volume-x'
-  if (playback.state.volume <= 0) return 'i-lucide-volume'
-  if (playback.state.volume <= 0.33) return 'i-lucide-volume'
-  if (playback.state.volume <= 0.66) return 'i-lucide-volume-1'
-  return 'i-lucide-volume-2'
-})
-
-const volumeFillStyle = computed(() => ({
-  clipPath: `inset(0 ${(1 - playback.state.volume) * 100}% 0 0 round 999px)`,
-}))
-
-const repeatButtonLabel = computed(() => {
-  if (playback.state.playbackMode === 'repeat-all') return t('fullscreen.repeatEnableOne')
-  if (playback.state.playbackMode === 'repeat-one') return t('fullscreen.repeatDisable')
-  return t('fullscreen.repeatEnableAll')
-})
-
-const repeatIconClass = computed(() =>
-  playback.state.playbackMode === 'repeat-one' ? 'i-lucide-repeat-1' : 'i-lucide-repeat',
-)
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
-  const totalSeconds = Math.floor(seconds)
-  const minutes = Math.floor(totalSeconds / 60)
-  const secs = totalSeconds % 60
-  return `${minutes}:${secs.toString().padStart(2, '0')}`
-}
-
-function renderProgressRatio(ratio: number): void {
-  const fill = progressFillRef.value
-  if (!fill) return
-  fill.style.transform = `translateX(${(ratio - 1) * 100}%)`
-}
-
-const {
-  valueNow: progressValueNow,
-  ratio: progressRatio,
-  onPointerDown: handleProgressPointerDown,
-  onPointerMove: handleProgressPointerMove,
-  onPointerUp: handleProgressPointerUp,
-  onPointerCancel: handleProgressPointerCancel,
-  onKeydown: handleProgressKeydown,
-} = usePlaybackProgressInteraction({
-  duration: computed(() => playback.state.duration),
-  currentTime: computed(() => playback.state.currentTime),
-  isPlaying: computed(() => playback.state.isPlaying),
-  active: isFullscreenPlayerOpen,
-  seekByRatio: playback.seekByRatio,
-  seekTo: playback.seekTo,
-  renderRatio: renderProgressRatio,
-  maxVisualFps: 30,
-  resolveSeekStepSeconds: (shiftKey) => (shiftKey ? 10 : 5),
-})
-
-const {
-  topPadding: lyricsTopPadding,
-  bottomPadding: lyricsBottomPadding,
-  pauseAutoFollow: pauseFullscreenLyricAutoFollow,
-  onWheel: handleFullscreenLyricsWheel,
-  onKeydown: handleFullscreenLyricsKeydown,
-  refresh: refreshFullscreenLyrics,
-  renderedLines: renderedLyricLines,
-} = useFullscreenLyricsViewport({
-  scrollRef: lyricsScrollRef,
-  trackRef: lyricsTrackRef,
+  countdownEffect,
+  wholeLineLyrics,
+  lyricsScrollRef,
+  lyricsTrackRef,
+  lyricsTopPadding,
+  lyricsBottomPadding,
+  lyricsMaskStyle,
+  renderedLyricLines,
+  seekToLyricLine,
+  handleLyricLineKeydown,
+} = lyrics
+const lyricsMenu = useFullscreenLyricsMenu({
+  isOpen: isFullscreenPlayerOpen,
   currentTrackId: computed(() => playback.state.currentTrackId),
   lyricsStatus,
-  lineCount: computed(() => fullscreenLyricLines.value.length),
-  activeIndex,
-  isPrelude,
-  showPrelude,
+  lines: fullscreenLyricLines,
+  scrollRef: lyricsScrollRef,
+  closeOtherMenus: () => {
+    modeControlRef.value?.close(false)
+    backgroundControlsRef.value?.close(false)
+  },
+  onKeydown: lyrics.handleFullscreenLyricsKeydown,
+  onWheel: lyrics.handleFullscreenLyricsWheel,
+  pauseAutoFollow: lyrics.pauseFullscreenLyricAutoFollow,
+})
+const {
+  lyricsScript,
+  lyricsPersistFailed,
+  lyricsContextMenuOpen,
+  lyricsContextMenuAnchor,
+  lyricsContextMenuEnabled,
+  closeLyricsContextMenu,
+  selectLyricsScript,
+  handleLyricsContextMenu,
+  handleLyricsContainerKeydown,
+  handleLyricsWheel,
+  handleLyricsTouchMove,
+} = lyricsMenu
+const lifecycle = useFullscreenOverlayLifecycle({
   isOpen: isFullscreenPlayerOpen,
   reducedMotion: reducedMotion.matches,
-  scrollPreset: lyricsScrollPreset,
-  wholeLineMode: wholeLineLyrics,
-  lines: fullscreenLyricLines,
-  artworkRef,
-})
-
-const lyricsMaskStyle = computed(() => ({
-  ...lyricsTypographyStyle.value,
-  '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
-  '--fullscreen-lyrics-fade-bottom': `${(1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) * 100}%`,
-  '--fullscreen-lyric-active-scale': FULLSCREEN_LYRICS_ACTIVE_SCALE,
-}))
-
-const { activate: seekToLyricLine, onKeydown: handleLyricLineKeydown } = useLyricLineSeek({
-  lines: () => fullscreenLyricLines.value,
-  enabled: () => lyricsStatus.value === 'lrc',
-  onSeek: () => {
-    void nextTick(() => refreshFullscreenLyrics('smooth'))
+  artworkCacheKey,
+  onEntered: () => {
+    if (wholeLineLyrics.value) void nextTick(() => lyrics.refreshFullscreenLyrics('auto'))
   },
-})
-
-function cancelLyricsLayoutRefresh(): void {
-  if (!lyricsLayoutRefreshFrame) return
-  cancelAnimationFrame(lyricsLayoutRefreshFrame)
-  lyricsLayoutRefreshFrame = 0
-}
-
-function scheduleLyricsLayoutRefresh(): void {
-  cancelLyricsLayoutRefresh()
-  if (!isFullscreenPlayerOpen.value) return
-  lyricsLayoutRefreshFrame = requestAnimationFrame(() => {
-    lyricsLayoutRefreshFrame = 0
-    if (!isFullscreenPlayerOpen.value) return
-    refreshFullscreenLyrics('auto', true)
-  })
-}
-
-watch(
-  () => [
-    lyricsTypography.value.fontSizePercent,
-    lyricsTypography.value.fontWeight,
-    lyricsTypography.value.lineGapPercent,
-    fullscreenLyricLines.value,
-  ],
-  scheduleLyricsLayoutRefresh,
-  { flush: 'post' },
-)
-
-watch(
-  isFullscreenPlayerOpen,
-  (isOpen) => {
-    if (!isOpen) {
-      cancelLyricsLayoutRefresh()
-      closeLyricsContextMenuWithoutFocus()
-    }
-  },
-  { flush: 'sync' },
-)
-
-watch(
-  () => playback.state.currentTrackId,
-  () => {
-    imgError.value = false
-  },
-)
-
-watch(
-  isFullscreenPlayerOpen,
-  (isOpen) => {
-    keyboardNavigation.value = false
-    if (isOpen) {
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement && !overlayRef.value?.contains(activeElement)) {
-        returnFocusTarget = activeElement
-      }
-    }
-  },
-  { flush: 'sync', immediate: true },
-)
-
-useOverlayFocusTrap({
-  isOpen: isFullscreenPlayerOpen,
-  container: overlayRef,
-  initialFocus: () => exitButtonRef.value ?? undefined,
   onEscape: () => {
     if (lyricsContextMenuOpen.value) {
       closeLyricsContextMenu('escape')
@@ -486,33 +126,23 @@ useOverlayFocusTrap({
     if (modeControlRef.value?.close()) return
     if (!backgroundControlsRef.value?.close()) closeFullscreenPlayer()
   },
-  restoreFocus: () => {
-    resolveRestorablePlayerTrigger(returnFocusTarget)?.focus({ preventScroll: true })
-    returnFocusTarget = null
-  },
 })
-
-function handleVolumeInput(event: Event): void {
-  playback.setVolume(Number((event.target as HTMLInputElement).value))
-}
-
-function handleRepeatClick(): void {
-  if (playback.state.playbackMode === 'repeat-all') {
-    playback.setPlaybackMode('repeat-one')
-    return
-  }
-  if (playback.state.playbackMode === 'repeat-one') {
-    playback.setPlaybackMode('sequential')
-    return
-  }
-  playback.setPlaybackMode('repeat-all')
-}
+const {
+  overlayRef,
+  exitButtonRef,
+  keyboardNavigation,
+  backgroundTarget,
+  deferBackgroundInitialization,
+  handleEnter,
+  handleLeave,
+  handleAfterLeave,
+  handleTransitionCancelled,
+} = lifecycle
 
 onBeforeUnmount(() => {
-  activeTransition?.cancel()
-  cancelAnimationFrame(backgroundReleaseFrame)
-  cancelLyricsLayoutRefresh()
-  clearKeyboardContextMenuFallback()
+  lifecycle.dispose()
+  lyrics.dispose()
+  lyricsMenu.dispose()
   reducedMotion.dispose()
 })
 </script>

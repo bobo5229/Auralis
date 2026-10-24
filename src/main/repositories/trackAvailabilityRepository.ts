@@ -4,7 +4,7 @@ import type { MissingTrackCandidate } from './trackRepositoryTypes'
 import { toRootPrefixes, toPathVariants, escapeLikePattern } from './trackRepositoryPaths'
 import { BaseRepository } from './baseRepository'
 import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
-import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
+import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 
 export class TrackAvailabilityRepository extends BaseRepository {
   markMissingByFilePaths(filePaths: string[]): number[] {

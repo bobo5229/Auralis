@@ -3,8 +3,8 @@ import { win32 } from 'node:path'
 import { BaseRepository } from './baseRepository'
 import type { MissingTrackCandidate } from './trackRepository'
 import { TrackRepository } from './trackRepository'
-import { findUniqueRelocationCandidate } from '@main/features/libraryScan/trackRelocationMatcher'
-import type { FileIdentity } from '@main/features/libraryScan/trackRelocationMatcher'
+import { findUniqueRelocationCandidate } from '@shared/utils/trackRelocationMatcher'
+import type { FileIdentity } from '@shared/utils/trackRelocationMatcher'
 
 function underRoot(path: string, root: string): boolean {
   const relative = win32.relative(root, path)

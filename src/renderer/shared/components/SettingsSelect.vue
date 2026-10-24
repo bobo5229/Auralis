@@ -19,7 +19,7 @@ const props = withDefaults(
     showValueTitle?: boolean
     teleportTo?: string | HTMLElement
   }>(),
-  { showValueTitle: true },
+  { showValueTitle: true, describedby: undefined, teleportTo: undefined },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const trigger = ref<HTMLButtonElement | null>(null)

@@ -7,7 +7,7 @@ import {
   type WindowBehaviorState,
   type WindowCloseBehavior,
 } from '@shared/types/windowBehavior'
-import SettingsSelect from './SettingsSelect.vue'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 
 const { t } = useI18n()
 const state = ref<WindowBehaviorState>({ behavior: 'quit', trayAvailable: false })
@@ -65,9 +65,7 @@ onMounted(() => {
       <span v-if="ready && !state.trayAvailable" role="status">{{
         t('settings.appearance.windowBehavior.trayUnavailable')
       }}</span>
-      <span v-if="error" role="status">{{
-        t(`settings.appearance.windowBehavior.${error}`)
-      }}</span>
+      <span v-if="error" role="status">{{ t(`settings.appearance.windowBehavior.${error}`) }}</span>
       <button
         v-if="error === 'loadFailed'"
         type="button"

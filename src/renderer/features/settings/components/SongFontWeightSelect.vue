@@ -5,7 +5,7 @@ import {
   SONG_FONT_WEIGHT_OPTIONS,
   type SongFontWeightChoice,
 } from '@renderer/features/appearance/constants/songFontWeights'
-import SettingsSelect from './SettingsSelect.vue'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 
 const props = withDefaults(
   defineProps<{

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import '../styles/cdTypography.css'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -13,6 +13,9 @@ import {
 } from '@renderer/features/playback/utils/formatPlaybackClock'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import { useCdAlbumLoadSession } from '../composables/useCdAlbumLoadSession'
+import { useCdRoomScene } from '../composables/useCdRoomScene'
+import { useCdPlaybackSession } from '../composables/useCdPlaybackSession'
+import { useCdPlaybackVibration } from '../composables/useCdPlaybackVibration'
 import { useCdInfoTransition } from '../composables/useCdInfoTransition'
 import {
   cdFocusBackTarget,
@@ -20,28 +23,14 @@ import {
   shouldShowCdFocusedPlayback,
 } from '../utils/cdAlbumIndex'
 import { clearCdIndexReturn } from '../utils/cdAlbumIndexReturn'
-import {
-  moveSurfaceIndicator as moveSurfaceIndicatorAnimation,
-  resetSurfaceIndicator,
-  type CdSurfaceIndicatorMotionState,
-} from '../utils/cdSurfaceIndicator'
 import { useCdViewSwitchVisibility } from '../composables/useCdViewSwitchVisibility'
 import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
-import { albumIdentityKey } from '../utils/albumIdentity'
-import {
-  buildCdPlaybackPlan,
-  getNextCdPlaybackMode,
-  type CdPlaybackMode,
-} from '../utils/cdPlaybackQueue'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { usePlaybackSpectrum } from '@renderer/features/playback/composables/usePlaybackSpectrum'
-import type { PlaybackSpectrumFrame } from '@shared/types/playbackSpectrum'
-import { createCdVibrationMotion } from '../utils/cdVibrationMotion'
 import { useCdVibration } from '../composables/useCdVibration'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
-import { createCdStage } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
@@ -63,11 +52,7 @@ const themeToggleLabel = computed(() =>
   t(cdCanvasTheme.value === 'dark' ? 'albums.cd.theme.toLight' : 'albums.cd.theme.toDark'),
 )
 const themeTooltip = computed(() => t(`albums.cd.theme.${cdCanvasTheme.value}`))
-const pageRef = ref<HTMLElement | null>(null)
-const trackPanelRef = ref<HTMLElement | null>(null)
-const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
-const focused = ref(false)
 const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
   useCdVibration()
 const vibrationToggleLabel = computed(() =>
@@ -85,22 +70,66 @@ function handleVibrationContextMenu(): void {
   }
   setCdVibrationStyle(cdVibrationStyle.value === 'smooth' ? 'elastic' : 'smooth')
 }
-const focusSettled = ref(false)
-const cdMode = ref<CdPlaybackMode>('catalog-sequential')
-const discSurface = ref<'cd' | 'vinyl'>('cd')
-const surfaceSwitchRef = ref<HTMLElement | null>(null)
-const surfaceIndicatorRef = ref<HTMLElement | null>(null)
-const stageRef = ref<HTMLElement | null>(null)
-const { albumInfo, loading, failed, count, repeatEntry, loadAlbums } = useCdAlbumLoadSession({
-  catalogSession: cdAlbumCatalogSession,
+const reducedMotion = createReducedMotionQuery()
+let disposed = false
+const scene = useCdRoomScene({
+  canvasTheme: () => cdCanvasTheme.value,
+  reducedMotion,
+  isDisposed: () => disposed,
+  isLoading: () => loading.value,
+  hasFailed: () => failed.value,
+  settleInfo: () => settleInfo(),
+  setRapidBrowse: (running) => setRapidBrowse(running),
+  reduceBrowsingPlaybackMotion,
+  playbackRing: () => ({
+    visible: focusSettled.value && ringTrackMatches.value,
+    playing: playback.state.isPlaying,
+    progress:
+      Number.isFinite(playback.state.duration) && playback.state.duration > 0
+        ? playback.state.currentTime / playback.state.duration
+        : 0,
+    accent: `var(--cd-wave-accent, ${ringAccent.value})`,
+  }),
+  togglePlayback: () => toggleCdPlayback(),
+  back,
   claimStartupEntry: () => auralis.app.claimCdStartupEntry(),
-  getController: () => controller,
   requestedAlbumKey,
   fromIndexViewSwitch,
+})
+const {
+  pageRef,
   stageRef,
+  trackPanelRef,
+  controlsRef,
+  surfaceSwitchRef,
+  surfaceIndicatorRef,
+  focused,
+  focusSettled,
+  selected,
+  infoSelected,
+  starting,
+  repeatEntry,
+  discSurface,
+  motionReduced,
+  returnToBrowse,
+  setDiscSurface,
+  onKeydown,
+  onBrowseFocusOut,
+} = scene
+const {
+  albumInfo,
+  loading,
+  failed,
+  count,
+  loadAlbums: loadCatalog,
+} = useCdAlbumLoadSession({
+  catalogSession: cdAlbumCatalogSession,
+  onAlbums: scene.presentAlbums,
   isDisposed: () => disposed,
 })
-const selected = ref(0)
+async function loadAlbums(): Promise<void> {
+  if (await loadCatalog()) await scene.restoreBrowseFocus()
+}
 const focusedAlbum = computed(() => albumInfo.value[selected.value] ?? null)
 const focusedComposer = computed(() => {
   if (!focusSettled.value || displayedAlbum.value?.key !== focusedAlbum.value?.key) return null
@@ -109,16 +138,18 @@ const focusedComposer = computed(() => {
   const track = focusedAlbum.value?.tracks.find((item) => item.id === trackId)
   return presentCdTrackComposers(track?.composer)
 })
-const browsingPlaybackAlbumIndex = computed(() => {
-  const trackId = playback.state.currentTrackId
-  if (trackId === null) return -1
-  return albumInfo.value.findIndex((album) => album.tracks.some((track) => track.id === trackId))
-})
-const ringTrackMatches = computed(() => {
-  const trackId = playback.state.currentTrackId
-  return (
-    trackId !== null && Boolean(focusedAlbum.value?.tracks.some((track) => track.id === trackId))
-  )
+const {
+  cdMode,
+  browsingPlaybackAlbumIndex,
+  ringTrackMatches,
+  playCdTrack,
+  cycleMode,
+  toggleCdPlayback,
+} = useCdPlaybackSession({
+  albums: albumInfo,
+  focusedAlbum,
+  playback,
+  isUnavailable: () => loading.value || failed.value,
 })
 const ringArtworkKey = computed(() =>
   ringTrackMatches.value ? (playback.state.currentTrack?.artworkCacheKey ?? null) : null,
@@ -131,44 +162,6 @@ const ringAccent = computed(() => {
   const rgb = ringPalette.value.quality === 'fallback' || !accent ? null : accent
   return formatCdAccent(rgb, cdCanvasTheme.value === 'dark')
 })
-
-function playCdTrack(id: number): void {
-  const tracks = focusedAlbum.value?.tracks
-  if (!tracks?.some((track) => track.id === id)) return
-  const plan = buildCdPlaybackPlan(albumInfo.value, id, cdMode.value)
-  if (!plan) return
-  void playback.playTrackFromQueue(plan.queue, id, {
-    source: 'cd',
-    shufflePool: plan.shufflePool,
-    shuffleCycle: plan.shuffleCycle,
-    playbackMode: plan.playbackMode,
-    replaceHistory: true,
-  })
-}
-function cycleMode(): void {
-  cdMode.value = getNextCdPlaybackMode(cdMode.value)
-  const currentTrackId = playback.state.currentTrackId
-  const session = playback.queueSession.value
-  if (currentTrackId === null || session?.source !== 'cd') {
-    return
-  }
-  const plan = buildCdPlaybackPlan(albumInfo.value, currentTrackId, cdMode.value)
-  if (!plan) {
-    return
-  }
-  playback.replaceCurrentPlaybackQueue({
-    expectedSessionId: session.id,
-    expectedTrackId: currentTrackId,
-    expectedQueueTrackIds: playback.state.queue.map((track) => track.id),
-    queue: plan.queue,
-    playbackMode: plan.playbackMode,
-    shufflePool: plan.shufflePool,
-    shuffleCycle: plan.shuffleCycle,
-  })
-}
-function returnToBrowse(): void {
-  controller?.setFocused(false)
-}
 
 function returnToIndex(): void {
   void router.push({ name: 'cd-album-index' })
@@ -184,28 +177,9 @@ function back(): void {
   void router.push({ name: 'albums' })
 }
 function focusBrowsingPlaybackAlbum(): void {
-  if (browsingPlaybackAlbumIndex.value < 0 || loading.value || starting.value || focused.value)
-    return
-  controller?.focusAlbum(browsingPlaybackAlbumIndex.value)
-}
-function focusChange(progress: number, settled: boolean): void {
-  const wasFocused = focused.value
-  focused.value = progress > 0 || !settled
-  focusSettled.value = progress === 1 && settled
-  stageRef.value?.style.setProperty('--cd-focus', String(progress))
-  if (!wasFocused && focused.value) settleInfo()
-  const p = Math.max(0, Math.min(1, (progress - 0.72) / 0.28))
-  const reveal = p * p * p * (10 + p * (-15 + 6 * p))
-  if (trackPanelRef.value) {
-    trackPanelRef.value.style.opacity = String(reveal)
-    trackPanelRef.value.style.transform = `translateX(${(1 - reveal) * 16}px)`
-    trackPanelRef.value.style.visibility = reveal > 0 ? 'visible' : 'hidden'
-  }
-  if (controlsRef.value) controlsRef.value.style.opacity = String(1 - Math.min(1, progress / 0.5))
-  if (settled && !disposed && progress !== 1) stageRef.value?.focus({ preventScroll: true })
+  scene.focusAlbum(browsingPlaybackAlbumIndex.value)
 }
 const infoRef = ref<HTMLElement | null>(null)
-const starting = ref(false)
 useCdViewSwitchVisibility(computed(() => !focused.value && !starting.value))
 useCdCanvasColors(pageRef, cdCanvasTheme, () =>
   ringTrackMatches.value &&
@@ -214,7 +188,6 @@ useCdCanvasColors(pageRef, cdCanvasTheme, () =>
     ? (ringPalette.value.accents[0]?.rgb ?? null)
     : null,
 )
-const infoSelected = ref(0)
 const currentAlbum = computed(() => albumInfo.value[infoSelected.value] ?? null)
 const { displayedAlbum, infoSuppressed, transitionInfo, settleInfo, setRapidBrowse } =
   useCdInfoTransition({
@@ -327,43 +300,25 @@ watch(focusedPlaybackIdentity, async (identity) => {
   }
 })
 
-const reducedMotion = createReducedMotionQuery()
-const motionReduced = ref(reducedMotion.matches)
-let vinylBlend = 0
-let cancelSurfaceAnimation: (() => void) | null = null
-const surfaceIndicatorMotion: CdSurfaceIndicatorMotionState = {
-  edges: null,
-  cancelAnimation: null,
-}
 let cancelBrowsingPlaybackAnimation: (() => void) | null = null
-let controller: ReturnType<typeof createCdStage> | null = null
 let unsubscribe: (() => void) | null = null
-let disposed = false
-const spectrumFrame = shallowRef<PlaybackSpectrumFrame | null>(null)
-const vibration = createCdVibrationMotion(
-  (offset) => controller?.setVibrationOffset(offset),
-  () => cdVibrationStyle.value,
-)
-const spectrumActive = computed(
-  () =>
-    focusSettled.value &&
-    ringTrackMatches.value &&
-    !loading.value &&
-    !failed.value &&
-    !motionReduced.value &&
-    (cdVibrationEnabled.value || route.query.spectrum === '1'),
-)
-usePlaybackSpectrum({
-  enabled: spectrumActive,
-  onFrame(frame) {
-    if (route.query.spectrum === '1') spectrumFrame.value = frame
-    if (cdVibrationEnabled.value && spectrumActive.value) vibration.receive(frame)
-    else vibration.stop()
-  },
+const { spectrumFrame, stopVibration } = useCdPlaybackVibration({
+  focusSettled,
+  trackMatches: ringTrackMatches,
+  loading,
+  failed,
+  motionReduced,
+  enabled: cdVibrationEnabled,
+  style: cdVibrationStyle,
+  showPreview: () => route.query.spectrum === '1',
+  setOffset: scene.setVibrationOffset,
 })
-watch([cdVibrationEnabled, spectrumActive, cdVibrationStyle], () => vibration.stop(), {
-  flush: 'sync',
-})
+
+function reduceBrowsingPlaybackMotion(): void {
+  cancelBrowsingPlaybackAnimation?.()
+  cancelBrowsingPlaybackAnimation = null
+  if (browsingPlaybackRef.value) browsingPlaybackRef.value.style.opacity = '1'
+}
 
 watch(
   browsingPlaybackRef,
@@ -410,187 +365,11 @@ function toggleCdCanvasTheme(): void {
   })
 }
 
-function setDiscSurface(surface: 'cd' | 'vinyl'): void {
-  discSurface.value = surface
-  cancelSurfaceAnimation?.()
-  cancelSurfaceAnimation = null
-  const from = vinylBlend
-  const to = surface === 'vinyl' ? 1 : 0
-  const update = (value: number): void => {
-    vinylBlend = value
-    stageRef.value?.style.setProperty('--cd-vinyl', String(value))
-    syncMaterialAppearance()
-  }
-  if (reducedMotion.matches || from === to) {
-    update(to)
-    return
-  }
-  cancelSurfaceAnimation = animateProgress(
-    280,
-    (progress) => update(from + (to - from) * (1 - (1 - progress) ** 3)),
-    () => {
-      update(to)
-      cancelSurfaceAnimation = null
-    },
-  )
-}
-
-function syncMaterialAppearance(): void {
-  controller?.setMaterialAppearance({ dark: cdCanvasTheme.value === 'dark', vinyl: vinylBlend })
-}
-watch(cdCanvasTheme, syncMaterialAppearance)
-
-function onMotionPreferenceChange(): void {
-  motionReduced.value = reducedMotion.matches
-  settleInfo()
-  if (reducedMotion.matches) {
-    cancelBrowsingPlaybackAnimation?.()
-    cancelBrowsingPlaybackAnimation = null
-    if (browsingPlaybackRef.value) browsingPlaybackRef.value.style.opacity = '1'
-    setDiscSurface(discSurface.value)
-    moveSurfaceIndicator(false)
-  }
-}
-
-function moveSurfaceIndicator(animate: boolean): void {
-  const group = surfaceSwitchRef.value
-  const line = surfaceIndicatorRef.value
-  const button = group?.querySelector<HTMLElement>('button[aria-pressed="true"]')
-  moveSurfaceIndicatorAnimation(surfaceIndicatorMotion, {
-    group,
-    line,
-    targetButton: button ?? null,
-    animate,
-    reducedMotion: reducedMotion.matches,
-  })
-}
-
-watch(discSurface, () => moveSurfaceIndicator(true), { flush: 'post' })
-watch(
-  surfaceSwitchRef,
-  (element, _, onCleanup) => {
-    if (!element) return
-    moveSurfaceIndicator(false)
-    const observer = new ResizeObserver(() => moveSurfaceIndicator(false))
-    observer.observe(element)
-    onCleanup(() => {
-      observer.disconnect()
-      resetSurfaceIndicator(surfaceIndicatorMotion)
-    })
-  },
-  { flush: 'post' },
-)
-
-function syncPlaybackRing(): void {
-  const duration = playback.state.duration
-  controller?.setPlayback({
-    visible: focusSettled.value && ringTrackMatches.value,
-    playing: playback.state.isPlaying,
-    progress: Number.isFinite(duration) && duration > 0 ? playback.state.currentTime / duration : 0,
-    accent: `var(--cd-wave-accent, ${ringAccent.value})`,
-  })
-}
-
-watch(
-  [
-    focusSettled,
-    ringTrackMatches,
-    () => playback.state.isPlaying,
-    () => playback.state.currentTime,
-    () => playback.state.duration,
-    ringAccent,
-  ],
-  syncPlaybackRing,
-)
-
-function onKeydown(event: KeyboardEvent): void {
-  const target = event.target
-  if (
-    event.defaultPrevented ||
-    event.isComposing ||
-    event.keyCode === 229 ||
-    event.ctrlKey ||
-    event.metaKey ||
-    event.altKey ||
-    (target instanceof HTMLElement &&
-      (target.matches('input, textarea, select') ||
-        target.isContentEditable ||
-        target.closest('[role="menu"], [role="dialog"]')))
-  ) {
-    controller?.stopKeyboardNavigation()
-    return
-  }
-  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') controller?.stopKeyboardNavigation()
-  if (event.key === 'Escape' && focused.value) {
-    event.preventDefault()
-    event.stopPropagation()
-    back()
-    return
-  }
-  if (focused.value) return
-  if (event.key === 'Enter' && event.target === stageRef.value) {
-    event.preventDefault()
-    controller?.setFocused(true)
-    return
-  }
-  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-  event.preventDefault()
-  event.stopPropagation()
-  if (!event.repeat && !loading.value && !failed.value && !starting.value) {
-    controller?.startKeyboardNavigation(event.key === 'ArrowRight' ? 1 : -1)
-  }
-}
-
-function onBrowseFocusOut(event: FocusEvent): void {
-  const target = event.relatedTarget
-  if (target instanceof Node && pageRef.value?.contains(target)) return
-  controller?.stopKeyboardNavigation()
-}
-
 watch([currentAlbum, infoSuppressed], ([album, suppressed], [, wasSuppressed]) => {
   if (!suppressed) void transitionInfo(album, wasSuppressed)
 })
 onMounted(() => {
-  if (!stageRef.value) return
-  reducedMotion.addEventListener('change', onMotionPreferenceChange)
-  window.addEventListener('resize', settleInfo)
-  controller = createCdStage(
-    stageRef.value,
-    (index) => {
-      selected.value = index
-      infoSelected.value = index
-    },
-    (index) => {
-      infoSelected.value = index
-    },
-    (running) => {
-      starting.value = running
-    },
-    setRapidBrowse,
-    {
-      geometry: () => {
-        const stage = stageRef.value!.getBoundingClientRect()
-        const page = pageRef.value!.getBoundingClientRect()
-        // offsetLeft is unaffected by the panel's entry transform.
-        return {
-          cx: page.left + page.width / 2 - stage.left,
-          cy: page.top + page.height / 2 - stage.top,
-          rightBoundary: trackPanelRef.value!.offsetLeft,
-        }
-      },
-      change: focusChange,
-      togglePlayback: () => {
-        if (!ringTrackMatches.value || loading.value || failed.value) return false
-        void playback.togglePlayPause()
-        return true
-      },
-    },
-  )
-  syncMaterialAppearance()
-  syncPlaybackRing()
-  if (!document.activeElement?.closest('.cd-view-switch')) {
-    stageRef.value.focus({ preventScroll: true })
-  }
+  if (!scene.mount()) return
   unsubscribe = cdAlbumCatalogSession.subscribe(() => {
     void loadAlbums()
   })
@@ -599,37 +378,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
-  vibration.stop()
+  stopVibration()
   clearFocusedPlaybackInfoTimer()
   unsubscribe?.()
   const routeName = router.currentRoute.value.name
-  // Disposal removes imperative disc nodes before Vue finishes its leave fade.
-  // Keep inert copies for that short visual tail; all controllers still stop now.
-  const departingDiscs =
-    routeName !== 'cd-albums' && !reducedMotion.matches
-      ? Array.from(stageRef.value?.children ?? [], (node) => node.cloneNode(true))
-      : []
-  // cloneNode does not copy the WebGL backing buffer. The inert leave tail uses CSS.
-  for (const node of departingDiscs) {
-    if (!(node instanceof Element)) continue
-    node.querySelectorAll('.cd-material-canvas').forEach((canvas) => canvas.remove())
-    node
-      .querySelectorAll('[data-material-ready]')
-      .forEach((disc) => disc.removeAttribute('data-material-ready'))
-  }
-  if (routeName !== 'cd-albums' && pageRef.value) pageRef.value.inert = true
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
     cdAlbumCatalogSession.clear()
     clearCdIndexReturn()
   }
-  settleInfo()
-  cancelSurfaceAnimation?.()
-  cancelSurfaceAnimation = null
-  reducedMotion.removeEventListener('change', onMotionPreferenceChange)
-  window.removeEventListener('resize', settleInfo)
-  controller?.dispose()
-  controller = null
-  stageRef.value?.append(...departingDiscs)
+
+  scene.dispose(routeName !== 'cd-albums')
 })
 </script>
 

@@ -38,7 +38,7 @@ import {
   useLiquidGlassParameters,
   type LiquidGlassParameterField,
 } from '@renderer/features/appearance/composables/useLiquidGlassParameters'
-import SettingsSelect from './SettingsSelect.vue'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'

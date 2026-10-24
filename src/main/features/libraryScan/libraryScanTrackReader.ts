@@ -19,7 +19,7 @@ import type {
   ScannedTagPatch,
   ScannedLyricsPatch,
 } from './libraryScanTypes'
-import type { KnownTrackFile } from '@main/repositories/trackRepository'
+import type { KnownTrackFile } from '@shared/types/trackFile'
 import type { AlbumArtworkPatch } from '@shared/types/libraryScan'
 
 export type ReadTrackResult =

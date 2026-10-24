@@ -14,8 +14,9 @@ it('keeps repositories independent of scan internals, including through types an
   function dependencies(file: string): string[] {
     const cached = imports.get(file)
     if (cached) return cached
-    const result = ts.preProcessFile(readFileSync(file, 'utf8'), true, true).importedFiles.flatMap(
-      ({ fileName }) => {
+    const result = ts
+      .preProcessFile(readFileSync(file, 'utf8'), true, true)
+      .importedFiles.flatMap(({ fileName }) => {
         let target: string
         if (fileName.startsWith('.')) target = resolve(dirname(file), fileName)
         else if (fileName.startsWith('@main/')) target = resolve(main, fileName.slice(6))
@@ -25,8 +26,7 @@ it('keeps repositories independent of scan internals, including through types an
           (path) => path.endsWith('.ts') && existsSync(path),
         )
         return resolved ? [resolved] : []
-      },
-    )
+      })
     imports.set(file, result)
     return result
   }

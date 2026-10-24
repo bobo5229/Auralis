@@ -6,7 +6,7 @@ import {
   ALBUM_LIST_FONT_FIELDS,
   ALBUM_LIST_SIZE_RANGES,
 } from '@renderer/features/appearance/constants/albumListParameters'
-import SongFontSizeInput from './SongFontSizeInput.vue'
+import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
 import SongFontWeightSelect from './SongFontWeightSelect.vue'
 
 const { t } = useI18n()
@@ -129,11 +129,7 @@ defineExpose({ reset: onReset })
                 <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
               </div>
               <div class="song-font-weight-rows">
-                <div
-                  v-for="field in fields"
-                  :key="field"
-                  class="settings-row song-font-weight-row"
-                >
+                <div v-for="field in fields" :key="field" class="settings-row song-font-weight-row">
                   <div>
                     <strong :id="`album-font-${field}-label`">{{
                       t(`settings.appearance.albumParameters.fields.${field}`)

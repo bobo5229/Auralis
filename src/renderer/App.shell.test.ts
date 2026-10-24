@@ -7,7 +7,7 @@ import { useLyricsPanelWidth } from './features/appearance/composables/useLyrics
 import { useSidebarLayout } from './features/appearance/composables/useSidebarLayout'
 import { usePlayerDisplayMode } from './features/playback/composables/usePlayerDisplayMode'
 import { useSettingsDialog } from './features/settings/composables/useSettingsDialog'
-import { albumIdentityKey } from './features/albums/utils/albumIdentity'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
   clearCdViewSwitchTransition,

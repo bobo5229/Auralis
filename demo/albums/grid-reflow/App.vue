@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, KeepAlive, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AlbumsPage from '@renderer/features/albums/pages/AlbumsPage.vue'
-import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { motionMode, motionStats } from './motion'
 import { setCatalog } from './fixture'

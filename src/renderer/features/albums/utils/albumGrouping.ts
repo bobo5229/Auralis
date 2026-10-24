@@ -1,6 +1,10 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
-import { albumIdentityKey, resolveAlbumArtist, resolveAlbumTitle } from './albumIdentity'
+import {
+  albumIdentityKey,
+  resolveAlbumArtist,
+  resolveAlbumTitle,
+} from '@shared/utils/albumIdentity'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { rankAlbumGenres } from '@shared/utils/albumGenres'
 

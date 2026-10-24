@@ -12,8 +12,8 @@ import {
   type MotionQuery,
 } from '@renderer/shared/animation/motionPreference'
 import { animatePageParameterPanel } from './pageParameterPanelMotion'
-import '@renderer/features/settings/styles/settings.chrome.css'
-import '@renderer/features/settings/styles/parameterSurface.css'
+import '@renderer/shared/styles/parameterControls.css'
+import '@renderer/shared/styles/parameterSurface.css'
 
 const props = defineProps<{ controller: PageParameters }>()
 const { t } = useI18n()

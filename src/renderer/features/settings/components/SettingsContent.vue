@@ -4,6 +4,7 @@ import PlaybackSettings from './PlaybackSettings.vue'
 import MusicLibrarySettings from './MusicLibrarySettings.vue'
 import AboutSettings from './AboutSettings.vue'
 import type { SettingsSection } from '../utils/settingsSections'
+import '@renderer/shared/styles/parameterControls.css'
 import '../styles/settings.chrome.css'
 
 defineProps<{ section: SettingsSection }>()

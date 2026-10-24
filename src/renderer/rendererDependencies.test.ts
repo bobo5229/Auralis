@@ -3,6 +3,7 @@ import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { parse } from 'vue/compiler-sfc'
+import postcss from 'postcss'
 import { expect, it } from 'vitest'
 
 it.each([
@@ -16,6 +17,16 @@ it.each([
     roots: ['shared'],
     forbidden: 'features',
   },
+  {
+    label: 'playback core independent of album feature implementations',
+    roots: ['features/playback/core'],
+    forbidden: 'features/albums',
+  },
+  {
+    label: 'playback independent of settings feature implementations',
+    roots: ['features/playback'],
+    forbidden: 'features/settings',
+  },
 ])('keeps $label, including types and re-exports', ({ roots, forbidden }) => {
   const renderer = fileURLToPath(new URL('.', import.meta.url))
   const shared = resolve(renderer, '../shared')
@@ -26,7 +37,7 @@ it.each([
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
       const file = resolve(directory, entry.name)
       if (entry.isDirectory()) return sourceFiles(file)
-      return /\.(?:ts|vue)$/u.test(entry.name) && !entry.name.endsWith('.test.ts') ? [file] : []
+      return /\.(?:ts|vue|css)$/u.test(entry.name) && !entry.name.endsWith('.test.ts') ? [file] : []
     })
   }
 
@@ -34,11 +45,31 @@ it.each([
     const cached = imports.get(file)
     if (cached) return cached
     let source = readFileSync(file, 'utf8')
+    const names: string[] = []
+    const styles: string[] = []
     if (file.endsWith('.vue')) {
       const { descriptor } = parse(source, { filename: file })
       source = [descriptor.script?.content, descriptor.scriptSetup?.content].join('\n')
+      for (const style of descriptor.styles) {
+        if (style.src) names.push(style.src)
+        else styles.push(style.content)
+      }
     }
-    const result = ts.preProcessFile(source, true, true).importedFiles.flatMap(({ fileName }) => {
+    if (file.endsWith('.css')) {
+      styles.push(source)
+    } else {
+      names.push(
+        ...ts.preProcessFile(source, true, true).importedFiles.map(({ fileName }) => fileName),
+      )
+    }
+    for (const style of styles) {
+      postcss.parse(style, { from: file }).walkAtRules('import', (rule) => {
+        const match = /^(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^\s)]+))/u.exec(rule.params)
+        const name = match?.[1] ?? match?.[2] ?? match?.[3]
+        if (name) names.push(name)
+      })
+    }
+    const result = names.flatMap((fileName) => {
       let target: string
       const name = fileName.split('?')[0]
       if (name.startsWith('.')) target = resolve(dirname(file), name)
@@ -46,7 +77,7 @@ it.each([
       else if (name.startsWith('@shared/')) target = resolve(shared, name.slice(8))
       else return []
       const resolved = [target, `${target}.ts`, resolve(target, 'index.ts')].find(
-        (path) => /\.(?:ts|vue)$/u.test(path) && existsSync(path),
+        (path) => /\.(?:ts|vue|css)$/u.test(path) && existsSync(path),
       )
       return resolved ? [resolved] : []
     })

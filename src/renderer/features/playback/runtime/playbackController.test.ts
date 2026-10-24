@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, reactive, ref } from 'vue'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { computed, effectScope, isReadonly, reactive, ref, watch, type DeepReadonly } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { useAlbumDetailPlayback } from '@renderer/features/albums/composables/useAlbumDetailPlayback'
-import type { PlaybackMode, PlaybackTrack } from '../types'
+import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import { createPlaybackController, type PlaybackPublicApi } from './playbackController'
 import type { PlaybackAudioSnapshot } from '../audio/playbackAudioRuntime'
 import type { PlaybackDependencies } from './playbackDependencies'
@@ -63,6 +63,81 @@ describe('playbackController unit tests with injected dependencies', () => {
         })),
         dispose: vi.fn(),
       })),
+    }
+  })
+
+  it.each(['plain', 'frozen-array'] as const)(
+    'exposes deeply readonly state for a %s queue, including its tracks',
+    async (kind) => {
+      expectTypeOf<PlaybackPublicApi['state']>().toEqualTypeOf<DeepReadonly<PlaybackState>>()
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const warnings = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+      try {
+        const tracks = frozenTracks().map((track) => ({ ...track }))
+        if (kind === 'frozen-array') Object.freeze(tracks)
+        await api.playTrackFromQueue(tracks, 1)
+        const state = api.state
+        const queue = state.queue
+        const track = state.currentTrack!
+        const volume = state.volume
+        expect(isReadonly(state)).toBe(true)
+        expect(isReadonly(queue)).toBe(true)
+        expect(isReadonly(track)).toBe(true)
+        expect(track).toBe(queue[0])
+        Reflect.set(state, 'volume', 0)
+        Reflect.set(state, 'currentTrack', null)
+        Reflect.set(track, 'title', 'External edit')
+        Reflect.deleteProperty(queue[0], 'artist')
+        Array.prototype.splice.call(queue, 0, 1)
+        expect(api.state).toBe(state)
+        expect(state.queue).toBe(queue)
+        expect(state.currentTrack).toBe(track)
+        expect(state.volume).toBe(volume)
+        expect(queue.map(({ id }) => id)).toEqual([1, 2, 3])
+        expect(track.title).toBe('Track 1')
+        expect(track.artist).toBe('Artist')
+        expect(warnings).toHaveBeenCalled()
+      } finally {
+        warnings.mockRestore()
+        controller.dispose()
+      }
+    },
+  )
+
+  it('updates retained readonly views through commands and audio events', async () => {
+    const controller = createPlaybackController(deps)
+    const { api } = controller
+    const state = api.state
+    const display = computed(() => `${state.currentTrackId}:${state.currentTime}:${state.volume}`)
+    const changed = vi.fn()
+    const stop = watch(() => state.currentTrackId, changed, { flush: 'sync' })
+    try {
+      await api.playTrackFromQueue(frozenTracks(), 1)
+      const callbacks = vi.mocked(deps.createAudioRuntime!).mock.calls[0][0]
+      callbacks.onTimeUpdate({ currentTime: 12, duration: 180 })
+      callbacks.onPlayingChange(true)
+      api.setVolume(0.4)
+      api.selectTrack(2)
+      api.setPlaybackMode('sequential')
+      expect(display.value).toBe('1:12:0.4')
+      expect(state.isPlaying).toBe(true)
+      expect(state.selectedTrackId).toBe(2)
+      expect(state.playbackMode).toBe('sequential')
+      expect(storageMap.get('auralis-volume')).toBe('0.4')
+      api.pause()
+      expect(state.isPlaying).toBe(false)
+      api.toggleMute()
+      expect(state.isMuted).toBe(true)
+      api.seekTo(45)
+      expect(state.currentTime).toBe(45)
+      await api.playNext()
+      expect(state.currentTrackId).toBe(2)
+      expect(changed.mock.calls.map(([id]) => id)).toEqual([1, 2])
+      expect(api.state).toBe(state)
+    } finally {
+      stop()
+      controller.dispose()
     }
   })
 
@@ -293,7 +368,7 @@ describe('playbackController unit tests with injected dependencies', () => {
       const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
       await controller.api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
       // The injected runtime does not emit playing callbacks automatically.
-      controller.api.state.isPlaying = true
+      vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onPlayingChange(true)
       const pending = controller.api.playNext()
       expect(controller.api.isPlaybackPending.value).toBe(true)
       if (action === 'pause') controller.api.pause()
@@ -413,7 +488,7 @@ describe('playbackController unit tests with injected dependencies', () => {
       const { api } = controller
       const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
       await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
-      api.state.isPlaying = true
+      vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onPlayingChange(true)
       const pending = api.playNext()
       expect(api.isPlaybackPending.value).toBe(true)
 
@@ -852,7 +927,10 @@ describe('playbackController unit tests with injected dependencies', () => {
       const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
       const session = api.queueSession.value
       const cancellations = runtime.cancelScheduledNext.mock.calls.length
-      api.state.currentTime = 42
+      vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onTimeUpdate({
+        currentTime: 42,
+        duration: api.state.duration,
+      })
       api.setPlaybackMode(mode)
       expect(api.queueSession.value).toBe(session)
       expect(api.state.currentTrackId).toBe(1)
@@ -1016,13 +1094,15 @@ describe('playbackController unit tests with injected dependencies', () => {
     expect(controller.api.state.currentTrackId).toBe(2)
   })
 
-  it('provides clearError action to clear error state without external direct mutation', () => {
+  it('provides clearError action to clear error state without external direct mutation', async () => {
     const controller = createPlaybackController(deps)
-    ;(controller.api.state as { error: string | null }).error = 'Some test error'
+    vi.mocked(deps.getAudioUrl).mockRejectedValueOnce(new Error('Some test error'))
+    await controller.api.playTrackFromQueue(frozenTracks(), 1)
     expect(controller.api.state.error).toBe('Some test error')
 
     controller.api.clearError()
     expect(controller.api.state.error).toBeNull()
+    controller.dispose()
   })
 
   it('cancels a pending audio URL on pause and allows an explicit play retry', async () => {
@@ -1144,7 +1224,10 @@ describe('playbackController unit tests with injected dependencies', () => {
 
       const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
       const queue = api.state.queue
-      api.state.currentTime = 42
+      vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onTimeUpdate({
+        currentTime: 42,
+        duration: api.state.duration,
+      })
       const starts = runtime.start.mock.calls.length
       const cancellations = runtime.cancelScheduledNext.mock.calls.length
       const replaced = api.replaceCurrentPlaybackQueue({
@@ -1215,7 +1298,7 @@ describe('playbackController unit tests with injected dependencies', () => {
       const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
       const initialTracks = createTracks([1, 2])
       await controller.api.playTrackFromQueue(initialTracks, 1, { playbackMode: 'repeat-all' })
-      controller.api.state.isPlaying = true
+      vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onPlayingChange(true)
       expect(runtime.start).toHaveBeenCalledTimes(1)
 
       const extendedTracks = createTracks([1, 2, 3, 4])

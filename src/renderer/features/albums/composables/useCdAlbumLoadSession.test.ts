@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { shallowRef } from 'vue'
+import { effectScope } from 'vue'
 import type { AlbumSummary } from '../types'
 import { useCdAlbumLoadSession } from './useCdAlbumLoadSession'
+import { useCdRoomScene } from './useCdRoomScene'
+import { createCdStage } from '../utils/cdStageController'
+
+vi.mock('../utils/cdStageController', () => ({ createCdStage: vi.fn() }))
+const scopes: ReturnType<typeof effectScope>[] = []
 
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { error: vi.fn() },
@@ -29,20 +34,57 @@ function fixture(options: { first?: boolean; requested?: string; index?: boolean
   const load = vi.fn(async () => [album()])
   const claim = vi.fn(async () => ({ firstEntry: options.first ?? true }))
   const stage = { focus: vi.fn() }
-  const controller = { setAlbums: vi.fn(), setFocused: vi.fn() }
-  const body = {}
+  const controller = {
+    setAlbums: vi.fn(),
+    setFocused: vi.fn(),
+    setMaterialAppearance: vi.fn(),
+    setPlayback: vi.fn(),
+    dispose: vi.fn(),
+  }
+  vi.mocked(createCdStage).mockReturnValue(
+    controller as unknown as ReturnType<typeof createCdStage>,
+  )
+  const body = { closest: () => null }
   const doc = { body, activeElement: body }
   vi.stubGlobal('document', doc)
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
   let disposed = false
-  const session = useCdAlbumLoadSession({
-    catalogSession: { load },
-    claimStartupEntry: claim,
-    getController: () => controller,
-    requestedAlbumKey: options.requested ?? null,
-    fromIndexViewSwitch: options.index ?? false,
-    stageRef: shallowRef(stage as unknown as HTMLElement),
-    isDisposed: () => disposed,
-  })
+  const scope = effectScope()
+  scopes.push(scope)
+  const session = scope.run(() => {
+    const scene = useCdRoomScene({
+      canvasTheme: () => 'light',
+      reducedMotion: { matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+      isDisposed: () => disposed,
+      isLoading: () => data.loading.value,
+      hasFailed: () => data.failed.value,
+      settleInfo: vi.fn(),
+      setRapidBrowse: vi.fn(),
+      reduceBrowsingPlaybackMotion: vi.fn(),
+      playbackRing: () => ({ visible: false, playing: false, progress: 0, accent: 'red' }),
+      togglePlayback: vi.fn(),
+      back: vi.fn(),
+      claimStartupEntry: claim,
+      requestedAlbumKey: options.requested ?? null,
+      fromIndexViewSwitch: options.index ?? false,
+    })
+    const data = useCdAlbumLoadSession({
+      catalogSession: { load },
+      onAlbums: scene.presentAlbums,
+      isDisposed: () => disposed,
+    })
+    scene.stageRef.value = stage as unknown as HTMLElement
+    scene.mount()
+    stage.focus.mockClear()
+    return {
+      ...data,
+      repeatEntry: scene.repeatEntry,
+      async loadAlbums() {
+        if (await data.loadAlbums()) await scene.restoreBrowseFocus()
+      },
+    }
+  })!
+
   return {
     ...session,
     load,
@@ -55,8 +97,11 @@ function fixture(options: { first?: boolean; requested?: string; index?: boolean
     },
   }
 }
-afterEach(() => vi.unstubAllGlobals())
-describe('useCdAlbumLoadSession', () => {
+afterEach(() => {
+  for (const scope of scopes.splice(0)) scope.stop()
+  vi.unstubAllGlobals()
+})
+describe('CD catalog and scene coordination', () => {
   it('publishes a complete catalog, claims startup once and keeps source track arrays', async () => {
     const f = fixture()
     const source = album()
@@ -160,7 +205,7 @@ describe('useCdAlbumLoadSession', () => {
   })
   it('does not take focus from an existing control', async () => {
     const f = fixture()
-    f.doc.activeElement = {}
+    f.doc.activeElement = { closest: () => null }
     await f.loadAlbums()
     expect(f.stage.focus).not.toHaveBeenCalled()
   })

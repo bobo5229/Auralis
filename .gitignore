@@ -139,6 +139,7 @@ docs/topics/*
 !docs/topics/archive/
 docs/topics/archive/*
 !docs/topics/archive/REFERENCE-retrofuturism-design.md
+!docs/topics/archive/WORKFLOW-enamel-badge-glsl.md
 !docs/topics/albums/
 docs/topics/albums/*
 !docs/topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md

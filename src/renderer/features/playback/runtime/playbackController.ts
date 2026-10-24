@@ -1,4 +1,4 @@
-import { reactive, readonly, ref, toRaw, type Ref } from 'vue'
+import { isReadonly, reactive, readonly, ref, toRaw, type DeepReadonly, type Ref } from 'vue'
 import {
   isSoftTransitionDuration,
   SOFT_TRANSITION_DEFAULT_SECONDS,
@@ -38,7 +38,7 @@ export interface PlaybackQueueSession {
 
 export interface PlayTrackFromQueueOptions {
   source?: 'cd'
-  shufflePool?: PlaybackTrack[]
+  shufflePool?: readonly PlaybackTrack[]
   shuffleCycle?: boolean
   playbackMode?: PlaybackMode
   replaceHistory?: boolean
@@ -47,15 +47,15 @@ export interface PlayTrackFromQueueOptions {
 export interface ReplaceCurrentPlaybackQueueOptions {
   expectedSessionId: number
   expectedTrackId: number
-  expectedQueueTrackIds: number[]
-  queue: PlaybackTrack[]
+  expectedQueueTrackIds: readonly number[]
+  queue: readonly PlaybackTrack[]
   playbackMode: PlaybackMode
-  shufflePool?: PlaybackTrack[]
+  shufflePool?: readonly PlaybackTrack[]
   shuffleCycle?: boolean
 }
 
 export interface PlaybackPublicApi {
-  readonly state: PlaybackState
+  readonly state: DeepReadonly<PlaybackState>
   readonly queueSession: Readonly<Ref<PlaybackQueueSession | null>>
   /** Changes on explicit transport/queue commands, independently of natural playback updates. */
   readonly commandRevision: Readonly<Ref<number>>
@@ -66,13 +66,13 @@ export interface PlaybackPublicApi {
   readonly isPlaybackPending: Readonly<Ref<boolean>>
   selectTrack(trackId: number): void
   playTrackFromQueue(
-    queue: PlaybackTrack[],
+    queue: readonly PlaybackTrack[],
     trackId: number,
     options?: PlayTrackFromQueueOptions,
   ): Promise<void>
   replaceCurrentPlaybackQueue(options: ReplaceCurrentPlaybackQueueOptions): boolean
   insertTrackAfterCurrent(track: PlaybackTrack): void
-  insertTracksAfterCurrent(tracks: PlaybackTrack[]): void
+  insertTracksAfterCurrent(tracks: readonly PlaybackTrack[]): void
   setPlaybackMode(mode: PlaybackMode): void
   setGaplessPlaybackEnabled(enabled: boolean): void
   setSkipDigitalSilenceEnabled(enabled: boolean): void
@@ -124,6 +124,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const mutableTracks = new WeakMap<PlaybackTrack, PlaybackTrack>()
   const mutableQueues = new WeakMap<PlaybackTrack[], PlaybackTrack[]>()
   function playbackTrack(track: PlaybackTrack): PlaybackTrack {
+    // Public readonly views may return through queue commands. Keep internal
+    // metadata writes on the original reactive track, without retaining its readonly proxy.
+    if (isReadonly(track)) track = reactive(toRaw(track))
     if (!Object.isFrozen(track)) return track
     let copy = mutableTracks.get(track)
     if (!copy) {
@@ -132,7 +135,12 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
     return copy
   }
-  function playbackQueue(queue: PlaybackTrack[]): PlaybackTrack[] {
+  function playbackQueue(input: readonly PlaybackTrack[]): PlaybackTrack[] {
+    // Restore the controller's writable handle when a public queue is played again.
+    // Preserve the queue identity used by history and the frozen-catalog cache.
+    const queue = isReadonly(input)
+      ? reactive(toRaw(input) as PlaybackTrack[])
+      : (input as PlaybackTrack[])
     const source = toRaw(queue)
     const cached = mutableQueues.get(source)
     // The catalog's objects are frozen, but its consumer's array may be reordered
@@ -144,7 +152,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     ) {
       return cached
     }
-    let copy = source
+    // Vue cannot proxy a frozen array; copy its container so mutable entries
+    // remain reactive internally and readonly through the public state view.
+    let copy = Object.isFrozen(source) ? source.slice() : source
     for (let index = 0; index < source.length; index += 1) {
       const track = playbackTrack(source[index])
       if (track !== source[index]) {
@@ -305,7 +315,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     return state.queue.some((queuedTrack) => queuedTrack.id === track.id) ? state.queue : [track]
   }
 
-  function commitCurrentTrack(track: PlaybackTrack, queue: PlaybackTrack[], duration = 0): void {
+  function commitCurrentTrack(
+    track: PlaybackTrack,
+    queue: readonly PlaybackTrack[],
+    duration = 0,
+  ): void {
     audioBuffering = false
     state.queue = playbackQueue(queue)
     state.currentIndex = queue.findIndex((t) => t.id === track.id)
@@ -400,7 +414,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   // --- Internal track switch ---
 
   async function playTrackFromResolvedQueue(
-    queue: PlaybackTrack[],
+    queue: readonly PlaybackTrack[],
     trackId: number,
     options?: {
       recordHistory?: boolean
@@ -610,7 +624,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function playTrackFromQueue(
-    queue: PlaybackTrack[],
+    queue: readonly PlaybackTrack[],
     trackId: number,
     options?: PlayTrackFromQueueOptions,
   ): Promise<void> {
@@ -691,7 +705,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
   }
 
-  function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
+  function insertTracksAfterCurrent(tracks: readonly PlaybackTrack[]): void {
     if (!state.currentTrack || state.currentIndex < 0) return
     const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
     const insertion = navigationSession.insertMultipleTracks(
@@ -1082,7 +1096,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   const api: PlaybackPublicApi = {
-    state,
+    state: readonly(state),
     queueSession: readonly(queueSession),
     commandRevision: readonly(commandRevision),
     gaplessPlaybackEnabled: readonlyGaplessPlaybackEnabled,

@@ -6,7 +6,7 @@ import {
   resolveAlbumArtist,
   resolveAlbumTitle,
   UNKNOWN_ALBUM_ARTIST,
-} from './albumIdentity'
+} from '@shared/utils/albumIdentity'
 
 export const CD_ALBUM_INDEX_SOURCE = 'index'
 export const CD_INDEX_LETTERS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'] as const

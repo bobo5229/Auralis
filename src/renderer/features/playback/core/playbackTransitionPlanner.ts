@@ -1,6 +1,6 @@
 import type { PlaybackMode, PlaybackTrack } from '../types'
 import type { AlbumShuffleContext } from './playbackQueueState'
-import { resolveAlbumArtist } from '../../albums/utils/albumIdentity'
+import { resolveAlbumArtist } from '@shared/utils/albumIdentity'
 
 export type PlaybackAdvanceTrigger = 'manual-next' | 'natural-ended' | 'gapless-prefetch'
 

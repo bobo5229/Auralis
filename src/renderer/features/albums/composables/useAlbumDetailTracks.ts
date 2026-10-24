@@ -13,7 +13,7 @@ import type { AlbumSummary } from '../types'
 import { moreAlbumsByArtist, moreAlbumsByGenre } from '../utils/albumGrouping'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
-import { albumIdentityKey } from '../utils/albumIdentity'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 
 export type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
 export { selectAlbumTracks } from '../utils/albumGrouping'

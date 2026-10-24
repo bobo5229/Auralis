@@ -6,8 +6,7 @@ import type {
   TrackLyricsPatch,
   TrackTagPatch,
 } from '@shared/types/libraryScan'
-import type { KnownTrackFile } from '@main/repositories/trackRepository'
-import type { TrackFileFingerprint } from '@shared/types/libraryScan'
+import type { KnownTrackFile, TrackFileFingerprint } from '@shared/types/trackFile'
 
 export type ScanFileFingerprint = TrackFileFingerprint
 

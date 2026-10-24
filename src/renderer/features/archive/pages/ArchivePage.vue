@@ -6,6 +6,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import AnnualHeatmap from '../components/AnnualHeatmap.vue'
 import ArchiveDayAlbums from '../components/ArchiveDayAlbums.vue'
 import ArchiveSeasonBanner from '../components/ArchiveSeasonBanner.vue'
+import ArchiveMilestoneCase from '../components/ArchiveMilestoneCase.vue'
 import { useAnnualPlayCounts } from '../composables/useAnnualPlayCounts'
 import { useDayTopAlbums } from '../composables/useDayTopAlbums'
 import { usePinnedArchiveDay } from '../composables/usePinnedArchiveDay'
@@ -46,7 +47,10 @@ const statusMessage = computed(() => {
 <template>
   <section class="archive-page" :aria-label="t('archive.title')">
     <div class="archive-calendar-section">
-      <ArchiveSeasonBanner :year="year" class="archive-seasons" />
+      <div class="archive-overview">
+        <ArchiveSeasonBanner :year="year" class="archive-seasons" />
+        <ArchiveMilestoneCase />
+      </div>
       <AnnualHeatmap
         :year="year"
         :days="days"
@@ -84,14 +88,25 @@ const statusMessage = computed(() => {
 }
 
 .archive-calendar-section {
+  container-type: inline-size;
   width: 100%;
   max-width: 1440px;
   min-width: 0;
   margin: 0 auto;
 }
 
-.archive-seasons {
+.archive-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr);
+  align-items: stretch;
+  gap: 16px;
   margin: 0 2px 20px;
+}
+
+@container (max-width: 640px) {
+  .archive-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .archive-status {
   margin: 16px 0 0;

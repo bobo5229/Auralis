@@ -1,7 +1,7 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { getAlbumCatalogIndex } from './albumCatalogIndex'
-import { albumIdentityKey } from './albumIdentity'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 
 export function buildAlbumPlaybackQueue(
   tracks: TrackListItem[],

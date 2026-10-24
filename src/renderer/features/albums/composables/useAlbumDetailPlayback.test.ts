@@ -1,4 +1,4 @@
-import { effectScope, reactive, ref, shallowRef } from 'vue'
+import { effectScope, reactive, readonly, ref, shallowRef } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackPublicApi } from '@renderer/features/playback/composables/usePlayback'
@@ -31,7 +31,8 @@ function setup(mode: PlaybackMode = 'sequential') {
   const ensurePlaybackCatalog = vi.fn(async (): Promise<TrackListItem[] | null> => catalog)
   const albumArtist = ref('Artist')
   const albumTitle = ref('Album')
-  const state = reactive({ playbackMode: mode }) as PlaybackPublicApi['state']
+  const mutableState = reactive({ playbackMode: mode })
+  const state = readonly(mutableState) as PlaybackPublicApi['state']
   const queueSession = shallowRef<PlaybackPublicApi['queueSession']['value']>(null)
   const playbackCatalogRevision = ref(0)
   const playback = {
@@ -40,7 +41,7 @@ function setup(mode: PlaybackMode = 'sequential') {
     commandRevision: ref(0),
     playTrackFromQueue: vi.fn<PlaybackPublicApi['playTrackFromQueue']>(async () => {}),
     setPlaybackMode: vi.fn((next: PlaybackMode) => {
-      state.playbackMode = next
+      mutableState.playbackMode = next
     }),
   }
   const scope = effectScope()
@@ -199,8 +200,8 @@ describe('album detail playback actions', () => {
         f.albumTitle.value = 'Album'
       }
       if (change === 'mode') {
-        f.playback.state.playbackMode = 'repeat-all'
-        f.playback.state.playbackMode = 'sequential'
+        f.playback.setPlaybackMode('repeat-all')
+        f.playback.setPlaybackMode('sequential')
       }
       if (change === 'session') f.playback.queueSession.value = { id: 1, source: 'default' }
       if (change === 'command') f.playback.commandRevision.value += 1

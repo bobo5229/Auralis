@@ -14,7 +14,7 @@ import {
   useCoverArtworkCorners,
 } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import SongFontWeightSelect from './SongFontWeightSelect.vue'
-import SongFontSizeInput from './SongFontSizeInput.vue'
+import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { songFontSizeRange } from '@renderer/features/appearance/constants/songFontSizes'
 import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
@@ -22,7 +22,7 @@ import {
   COVER_INFO_ALIGNMENTS,
   COVER_INFO_SPACING_RANGES,
 } from '@renderer/features/appearance/constants/songCoverInfoLayout'
-import SettingsSelect from './SettingsSelect.vue'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 
 const { t } = useI18n()
 const { persistFailed, songFontWeightChoice, setSongFontWeight, resetSongFontWeightView } =
