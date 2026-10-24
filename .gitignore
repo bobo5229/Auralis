@@ -52,6 +52,7 @@ coverage
 /output/**/*-profile/
 /output/**/*-profile-*/
 /output/**/dist-*/
+/output/**/renderer-build/
 # Diagnostics captured from the real local music collection stay local.
 /output/metadata-real-path-probe-20261011/
 .grunt

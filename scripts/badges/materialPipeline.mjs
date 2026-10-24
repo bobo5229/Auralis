@@ -14,6 +14,13 @@ const parse = (source) =>
     },
   }).parseFromString(source, 'image/svg+xml')
 
+function removeFormattingWhitespace(node) {
+  for (const child of Array.from(node.childNodes)) {
+    if (child.nodeType === 3 && !/\S/.test(child.data)) node.removeChild(child)
+    else removeFormattingWhitespace(child)
+  }
+}
+
 export function prepareSvg(source, profile, unlit) {
   const doc = parse(source)
   const root = doc.documentElement
@@ -229,6 +236,7 @@ export function deriveSvg(prepared, profile, unlit, mode, width, height) {
   for (const defs of Array.from(doc.getElementsByTagName('defs')))
     for (const node of elements(defs))
       if (['linearGradient', 'radialGradient'].includes(node.tagName)) defs.removeChild(node)
+  removeFormattingWhitespace(doc)
   const result = serializer.serializeToString(doc)
   const ids = new Set(Array.from(result.matchAll(/\bid="([^"]+)"/g), (match) => match[1]))
   for (const match of result.matchAll(/url\(#([^)]+)\)/g))
