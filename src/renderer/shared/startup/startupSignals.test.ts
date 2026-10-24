@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { markSplashFinished, SPLASH_FINISHED_EVENT } from './startupSignals'
+import { markSplashFinished, SPLASH_FINISHED_EVENT } from '@renderer/shared/startup/startupSignals'
 
 afterEach(() => vi.unstubAllGlobals())
 it('publishes completion once and leaves state for late subscribers', () => {

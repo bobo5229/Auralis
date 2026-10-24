@@ -13,7 +13,7 @@ import { useSongFontSizes } from '@renderer/features/appearance/composables/useS
 import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
-import PageParameterTrigger from '@renderer/app/layout/PageParameterTrigger.vue'
+import PageParameterTrigger from '@renderer/features/appearance/components/PageParameterTrigger.vue'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
@@ -736,6 +736,7 @@ const {
   restoreNavigationViewport,
   replaceWithLibraryHome: () => router.replace('/songs'),
   loadErrorMessage: () => t('library.status.loadError'),
+  onPlaylistChanged: (callback) => auralis.playlists.onChanged(callback),
   onLibraryChanged: (callback) => auralis.library.onChanged(callback),
   onScanProgress: (callback) => auralis.library.onScanProgress(callback),
 })

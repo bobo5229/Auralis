@@ -145,7 +145,6 @@ export function useSidebarPlaylistActions({
         preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
       )
       await loadSidebarPlaylists()
-      window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
       closeCreateMenu()
       await router.push(`/smart-playlists/${playlist.id}`)
     } catch (cause) {
@@ -171,7 +170,6 @@ export function useSidebarPlaylistActions({
         createdRegularPlaylistId = (await auralis.playlists.create()).id
       }
       await loadSidebarPlaylists()
-      window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
       await router.push(`/playlists/${createdRegularPlaylistId}`)
       createdRegularPlaylistId = null
       if (createMenu.value === menu) closeCreateMenu()
@@ -268,13 +266,6 @@ export function useSidebarPlaylistActions({
           ? await auralis.playlists.rename(item.id, name)
           : await auralis.smartPlaylists.rename(item.id, name)
       if (renamed) {
-        window.dispatchEvent(
-          new CustomEvent(
-            item.kind === 'playlist'
-              ? 'auralis-playlists-changed'
-              : 'auralis-smart-playlists-changed',
-          ),
-        )
         await loadSidebarPlaylists()
       }
       if (session === renameSession) closeRenameDialog()
@@ -315,13 +306,6 @@ export function useSidebarPlaylistActions({
       if (result.deleted) {
         playlistItems.value = playlistItems.value.filter(
           (item) => getPlaylistKey(item) !== getPlaylistKey(deleting),
-        )
-        window.dispatchEvent(
-          new CustomEvent(
-            deleting.kind === 'playlist'
-              ? 'auralis-playlists-changed'
-              : 'auralis-smart-playlists-changed',
-          ),
         )
         if (route.path === getPlaylistPath(deleting)) {
           await router.push('/songs')

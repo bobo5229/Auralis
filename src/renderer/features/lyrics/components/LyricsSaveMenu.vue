@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { SaveLrcEditor } from '@shared/types/lyricsEditor'
 import { startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
-import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
+import { resolveMenuNavigationIndex } from '@renderer/shared/menu/menuKeyboardNavigation'
 
 export interface LyricsSaveAction {
   target: SaveLrcEditor['target']

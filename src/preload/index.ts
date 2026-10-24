@@ -99,6 +99,7 @@ export const auralisApi: AuralisApi = {
     reorder: (ids) => invoke(ipcChannels.smartPlaylists.reorder, { ids }),
   },
   playlists: {
+    onChanged: (callback) => on(ipcChannels.playlists.changed, callback),
     list: () => invoke(ipcChannels.playlists.list),
     listTrackCounts: () => invoke(ipcChannels.playlists.listTrackCounts),
     listSidebarItems: () => invoke(ipcChannels.playlists.listSidebarItems),

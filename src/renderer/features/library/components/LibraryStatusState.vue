@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
-import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
+import MainPageStatus from '@renderer/shared/components/MainPageStatus.vue'
 import type { LibraryStatusKind } from '../types/libraryInteraction'
 
 const props = withDefaults(

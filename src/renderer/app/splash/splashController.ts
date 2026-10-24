@@ -7,7 +7,7 @@ import {
   APP_HOST_ELEMENT_ID,
   APP_READY_EVENT,
   SPLASH_ELEMENT_ID,
-} from './startupSignals'
+} from '@renderer/shared/startup/startupSignals'
 
 /** 淡出时长，与 splash.css 中 `#splash.is-exiting` 的 transition 保持一致。 */
 export const SPLASH_FADE_OUT_MS = 300

@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
 import { expect, it } from 'vitest'
 import { migrateDatabase } from '../database/schema'
+import { PlayStatsService } from '../services/playStatsService'
 import { PlayStatsRepository } from './playStatsRepository'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as typeof Database
@@ -21,7 +22,8 @@ it('reads a year snapshot through real SQLite, including edits and removed histo
         ('2026-03-01',4,720),('2026-03-02',2,480),('2026-07-01',7,1400),('2025-01-01',100,18000);`)
     const before = db.prepare('SELECT total_changes() AS changes').get()
     const repo = new PlayStatsRepository(db)
-    const result = repo.getAnnualSummary(2026)
+    const service = new PlayStatsService(repo)
+    const result = service.getAnnualSummary(2026)
     expect(result).toMatchObject({
       year: 2026,
       playCount: 13,
@@ -40,7 +42,11 @@ it('reads a year snapshot through real SQLite, including edits and removed histo
     expect(result.months[6].albums[0].album).toBe('Removed album')
     expect(result.seasons[0].album?.album).toBe('Album')
     expect(result.seasons[1].album?.album).toBe('Removed album')
-    expect(repo.getAnnualSummary(2027)).toMatchObject({ playCount: 0, albums: [], selection: [] })
+    expect(service.getAnnualSummary(2027)).toMatchObject({
+      playCount: 0,
+      albums: [],
+      selection: [],
+    })
     expect(db.prepare('SELECT total_changes() AS changes').get()).toEqual(before)
   } finally {
     db.close()

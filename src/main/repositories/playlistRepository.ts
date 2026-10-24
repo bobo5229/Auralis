@@ -151,8 +151,8 @@ export class PlaylistRepository extends BaseRepository {
   }
 
   /** Validate and update both sidebar tables while holding one write transaction. */
-  reorderSidebarItems(items: Array<{ kind: SidebarPlaylistKind; id: number }>): void {
-    this.db
+  reorderSidebarItems(items: Array<{ kind: SidebarPlaylistKind; id: number }>): boolean {
+    return this.db
       .transaction(() => {
         const existing = this.db
           .prepare(
@@ -168,7 +168,7 @@ export class PlaylistRepository extends BaseRepository {
           requestedKeys.size !== items.length ||
           items.some((item) => !existingKeys.has(key(item)))
         )
-          return
+          return false
 
         const regularUpdate = this.db.prepare(
           'UPDATE playlists SET sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -180,6 +180,7 @@ export class PlaylistRepository extends BaseRepository {
           const update = item.kind === 'playlist' ? regularUpdate : smartUpdate
           update.run(index, item.id)
         })
+        return true
       })
       .immediate()
   }

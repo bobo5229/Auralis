@@ -25,25 +25,13 @@ export interface PlaybackState {
   error: string | null
 }
 
-export interface RgbColor {
-  r: number
-  g: number
-  b: number
-}
+export type { RgbColor, OklabColor } from '@renderer/shared/color/types'
+import type { RgbColor } from '@renderer/shared/color/types'
+import type { ArtworkColor } from '@renderer/shared/artwork/artworkAnalysis'
 
-export interface OklabColor {
-  l: number
-  a: number
-  b: number
-}
-
-export interface PaletteColor {
-  rgb: RgbColor
+export interface PaletteColor extends ArtworkColor {
   /** Extracted cluster color before display tone mapping. */
   sourceRgb?: RgbColor
-  oklab: OklabColor
-  weight: number
-  chroma: number
 }
 
 export interface ArtworkPalette {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
+import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'

@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
-import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
+import { resolveMenuNavigationIndex } from '@renderer/shared/menu/menuKeyboardNavigation'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type {
   LibraryContextMenuAnchor,

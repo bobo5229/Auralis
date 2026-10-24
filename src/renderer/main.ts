@@ -20,7 +20,7 @@ import {
   APP_HOST_ELEMENT_ID,
   APP_READY_EVENT,
   SPLASH_ELEMENT_ID,
-} from './app/splash/startupSignals'
+} from '@renderer/shared/startup/startupSignals'
 
 const { initTheme } = useTheme()
 const disposeAlbumListParameters = initAlbumListParameters()

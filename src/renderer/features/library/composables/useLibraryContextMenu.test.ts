@@ -147,7 +147,7 @@ function createMenu() {
 
 describe('useLibraryContextMenu', () => {
   it.each(['replace', 'close-reopen', 'dispose'] as const)(
-    'ignores delayed add feedback after %s while still notifying the playlist change',
+    'ignores delayed add feedback after %s without publishing UI-owned mutation events',
     async (action) => {
       const { menu, addTracksToPlaylist, dispatchEvent, restoreFocus } = createMenu()
       let finish!: (result: AddPlaylistTracksResult) => void
@@ -166,7 +166,7 @@ describe('useLibraryContextMenu', () => {
       restoreFocus.mockClear()
       finish({ addedCount: 1, alreadyPresentCount: 0, unavailableCount: 0, playlistExists: true })
       await pending
-      expect(dispatchEvent).toHaveBeenCalledOnce()
+      expect(dispatchEvent).not.toHaveBeenCalled()
       expect(menu.addToPlaylistFeedback.value).toBeNull()
       expect(vi.getTimerCount()).toBe(0)
       vi.advanceTimersByTime(1200)
@@ -459,7 +459,7 @@ describe('useLibraryContextMenu', () => {
     await menu.onAddContextTracksToPlaylist(createPlaylist(9, 'Night'))
 
     expect(addTracksToPlaylist).toHaveBeenCalledWith(9, [1])
-    expect(dispatchEvent).toHaveBeenCalled()
+    expect(dispatchEvent).not.toHaveBeenCalled()
     expect(menu.addToPlaylistFeedback.value?.playlistId).toBe(9)
 
     vi.advanceTimersByTime(1200)

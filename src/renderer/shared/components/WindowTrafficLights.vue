@@ -4,12 +4,10 @@ import { useI18n } from 'vue-i18n'
 import type { IpcRequest } from '@shared/ipc/contracts'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
-defineProps<{ cdCanvas?: boolean }>()
+defineProps<{ cdCanvas?: boolean; sidebarFullHeight?: boolean; sidebarCollapsed?: boolean }>()
 
 const { t } = useI18n()
-const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const isMaximized = ref(false)
 let unsubscribe: (() => void) | null = null
 let mounted = false

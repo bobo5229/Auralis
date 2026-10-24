@@ -12,7 +12,6 @@ import type {
   LibraryRevealRequest,
 } from '../types/libraryInteraction'
 import type { LibraryMetadataFocusTarget } from './useLibraryMetadataEditor'
-import { LIBRARY_PLAYLISTS_CHANGED_EVENT } from '../utils/libraryRouteScope'
 
 export function useLibraryContextMenu(options: {
   tracks: { readonly value: TrackListItem[] }
@@ -294,9 +293,6 @@ export function useLibraryContextMenu(options: {
     revision: number,
   ): Promise<void> {
     const result = await options.addTracksToPlaylist(playlistId, trackIds)
-    if (result.addedCount > 0) {
-      window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
-    }
     if (!ownsMenu(origin) || revision !== playlistOperationRevision) return
     const key = !result.playlistExists
       ? 'playlistNotFound'
@@ -369,7 +365,6 @@ export function useLibraryContextMenu(options: {
     isCreatingPlaylistFromMenu.value = true
     try {
       const playlist = await options.createPlaylist()
-      window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
       await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin, revision)
       if (ownsMenu(origin) && revision === playlistOperationRevision)
         await loadRegularPlaylistItems()

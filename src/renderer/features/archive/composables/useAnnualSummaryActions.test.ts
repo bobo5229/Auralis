@@ -29,14 +29,12 @@ function fixture() {
     alreadyPresentCount: 0,
   }))
   const playTrackFromQueue = vi.fn(async () => {})
-  const notify = vi.fn()
   const actions = scope.run(() =>
     useAnnualSummaryActions(
       summary,
       { create, rename, addTracks } as unknown as AuralisApi['playlists'],
       { playTrackFromQueue },
       (year) => `${year} selection`,
-      notify,
     ),
   )!
   return {
@@ -47,7 +45,6 @@ function fixture() {
     rename,
     addTracks,
     playTrackFromQueue,
-    notify,
     actions,
   }
 }
@@ -64,7 +61,6 @@ describe('annual selection actions', () => {
     expect(f.rename).toHaveBeenCalledExactlyOnceWith(7, '2026 selection')
     expect(f.addTracks).toHaveBeenCalledExactlyOnceWith(7, [1])
     expect(f.actions.savedPlaylistId.value).toBe(7)
-    expect(f.notify).toHaveBeenCalledOnce()
     f.scope.stop()
   })
   it('retries the same draft after a partial failure and reports tracks that disappeared', async () => {

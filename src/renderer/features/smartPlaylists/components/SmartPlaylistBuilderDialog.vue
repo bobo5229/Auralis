@@ -8,7 +8,7 @@ import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
-import { resolveRestorableFocusTarget } from '@renderer/app/utils/sidebarModalFocus'
+import { resolveRestorableFocusTarget } from '@renderer/shared/focus/restoreFocus'
 import { libraryCatalogClient } from '@renderer/features/library/utils/libraryCatalogClient'
 import {
   buildPlaylistRule,
@@ -109,7 +109,8 @@ function close(): void {
 function restoreBuilderFocus(): void {
   const fallback = document.querySelector<HTMLElement>('.app-sidebar .smart-playlist-add-button')
   const target =
-    resolveRestorableFocusTarget(restoreTrigger.value) ?? resolveRestorableFocusTarget(fallback)
+    resolveRestorableFocusTarget(restoreTrigger.value, '.sidebar-overlay') ??
+    resolveRestorableFocusTarget(fallback, '.sidebar-overlay')
   restoreTrigger.value = null
   target?.focus({ preventScroll: true })
 }
@@ -226,7 +227,6 @@ async function create(): Promise<void> {
       buildPlaylistRule(ruleState.value),
     )
     if (disposed) return
-    window.dispatchEvent(new CustomEvent('auralis-smart-playlists-changed'))
     emit('created', created.playlist)
     emit('close')
   } catch (cause) {
@@ -308,11 +308,7 @@ onBeforeUnmount(() => {
       <fieldset :disabled="saving || loading || !!loadError" class="controls">
         <div class="relation outer">
           <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
-          <div
-            class="switch"
-            role="group"
-            :aria-label="t('smartBuilder.betweenGroupsAria')"
-          >
+          <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
             <button type="button" :aria-pressed="mode === 'single'" @click="selectMode('single')">
               {{ t('smartBuilder.single') }}
             </button>
@@ -449,10 +445,7 @@ onBeforeUnmount(() => {
                 {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
               </button>
             </div>
-            <p
-              v-if="!loading && !loadError && !filtered[field].length"
-              class="empty-values"
-            >
+            <p v-if="!loading && !loadError && !filtered[field].length" class="empty-values">
               <span class="i-lucide-search-x" aria-hidden="true" />
               {{
                 t(queries[field].trim() ? 'smartBuilder.noValues' : 'smartBuilder.emptyValues', {

@@ -7,7 +7,7 @@ import {
 } from '@renderer/features/appearance/composables/usePageParameters'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumsPage from './AlbumsPage.vue'
-import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
@@ -77,7 +77,9 @@ vi.mock('../components/AlbumGridTransitionLayer.vue', () => ({
 vi.mock('../components/AlbumDropTransitionLayer.vue', () => ({
   default: { methods: { cancel: fixture.dropCancel }, render: () => null },
 }))
-vi.mock('@renderer/app/layout/MainPageStatus.vue', () => ({ default: { render: () => null } }))
+vi.mock('@renderer/shared/components/MainPageStatus.vue', () => ({
+  default: { render: () => null },
+}))
 // The custom renderer exercises the page and real grid layout. DOM animation and
 // virtualizer observers are covered separately by the isolated Chrome probe.
 vi.mock('vue', async (importOriginal) => {

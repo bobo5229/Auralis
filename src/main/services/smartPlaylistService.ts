@@ -1,3 +1,4 @@
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type {
   CreateSmartPlaylistResult,
@@ -45,6 +46,7 @@ export class SmartPlaylistService {
   constructor(
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
     private readonly trackRepository: TrackRepository,
+    private readonly publishChange: (event: PlaylistChangedEvent) => void = () => {},
   ) {}
 
   list(): SmartPlaylist[] {
@@ -87,13 +89,12 @@ export class SmartPlaylistService {
 
     if (existing) return { playlist: existing, created: false }
 
-    return {
-      playlist: this.smartPlaylistRepository.create(
-        this.getAvailableName(name, playlists),
-        normalizedRule,
-      ),
-      created: true,
-    }
+    const playlist = this.smartPlaylistRepository.create(
+      this.getAvailableName(name, playlists),
+      normalizedRule,
+    )
+    this.publishChange({ kind: 'smart', playlistId: playlist.id, reason: 'created' })
+    return { playlist, created: true }
   }
 
   createFromQuery(query: string): CreateSmartPlaylistResult {
@@ -116,7 +117,9 @@ export class SmartPlaylistService {
     if (!('preset' in playlist.rule) || playlist.rule.preset !== 'recentAdded') {
       throw new Error('仅最近添加歌单支持修改此时间范围')
     }
-    return this.smartPlaylistRepository.updateRule(id, { preset: 'recentAdded', days })
+    const updated = this.smartPlaylistRepository.updateRule(id, { preset: 'recentAdded', days })
+    if (updated) this.publishChange({ kind: 'smart', playlistId: id, reason: 'rule-updated' })
+    return updated
   }
 
   createRecentFrequent(days = DEFAULT_RECENT_FREQUENT_DAYS): CreateSmartPlaylistResult {
@@ -130,7 +133,9 @@ export class SmartPlaylistService {
     if (!isRecentFrequentRule(playlist.rule)) {
       throw new Error('仅最近常听歌单支持修改时间范围')
     }
-    return this.smartPlaylistRepository.updateRule(id, { preset: 'recentFrequent', days })
+    const updated = this.smartPlaylistRepository.updateRule(id, { preset: 'recentFrequent', days })
+    if (updated) this.publishChange({ kind: 'smart', playlistId: id, reason: 'rule-updated' })
+    return updated
   }
 
   private getPlaylistTracks(
@@ -211,15 +216,21 @@ export class SmartPlaylistService {
     if (!playlist) return null
 
     const others = this.smartPlaylistRepository.list().filter((item) => item.id !== id)
-    return this.smartPlaylistRepository.rename(id, this.getAvailableName(name, others))
+    const renamed = this.smartPlaylistRepository.rename(id, this.getAvailableName(name, others))
+    if (renamed) this.publishChange({ kind: 'smart', playlistId: id, reason: 'renamed' })
+    return renamed
   }
 
   updateViewMode(id: number, viewMode: SmartPlaylistViewMode): SmartPlaylist | null {
-    return this.smartPlaylistRepository.updateViewMode(id, viewMode)
+    const playlist = this.smartPlaylistRepository.updateViewMode(id, viewMode)
+    if (playlist) this.publishChange({ kind: 'smart', playlistId: id, reason: 'view-mode-updated' })
+    return playlist
   }
 
   delete(id: number): boolean {
-    return this.smartPlaylistRepository.delete(id)
+    const deleted = this.smartPlaylistRepository.delete(id)
+    if (deleted) this.publishChange({ kind: 'smart', playlistId: id, reason: 'deleted' })
+    return deleted
   }
 
   reorder(ids: number[]): SmartPlaylist[] {
@@ -235,7 +246,9 @@ export class SmartPlaylistService {
       return existing
     }
 
-    return this.smartPlaylistRepository.reorder(ids)
+    const reordered = this.smartPlaylistRepository.reorder(ids)
+    this.publishChange({ kind: 'collection', reason: 'reordered' })
+    return reordered
   }
 
   private getAvailableName(name: string, playlists: SmartPlaylist[]): string {

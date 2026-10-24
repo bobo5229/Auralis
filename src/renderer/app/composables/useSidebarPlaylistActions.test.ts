@@ -252,7 +252,7 @@ describe('sidebar playlist action sessions', () => {
       expect(f.s.creatingPlaybackPreset.value).toBe(preset)
       saved.resolve({ playlist: smart(3), created: true })
       await task
-      expect(f.trace).toEqual(['reload', 'event:playlist', 'push:/smart-playlists/3'])
+      expect(f.trace).toEqual(['reload', 'push:/smart-playlists/3'])
       expect(f.s.createMenu.value).toBeNull()
       expect(f.s.creatingPlaybackPreset.value).toBeNull()
     },
@@ -284,7 +284,7 @@ describe('sidebar playlist action sessions', () => {
     expect(f.api.playlists.create).toHaveBeenCalledOnce()
     expect(f.s.createMenu.value).toBeNull()
     expect(f.s.creatingRegularPlaylist.value).toBe(false)
-    expect(f.trace).toEqual(['write:create', 'reload', 'event:playlist', 'push:/playlists/3'])
+    expect(f.trace).toEqual(['write:create', 'reload', 'push:/playlists/3'])
   })
   it.each(['write', 'refresh', 'navigation'] as const)(
     'shows regular create %s failure and retries without duplicating a saved playlist',
@@ -356,7 +356,7 @@ describe('sidebar playlist action sessions', () => {
       expect(f.s.isSavingRename.value).toBe(true)
       saved.resolve(smart())
       await task
-      expect(f.trace).toEqual([`event:${kind}`, 'reload'])
+      expect(f.trace).toEqual(['reload'])
       expect(f.s.renamingPlaylist.value).toBeNull()
       expect(f.s.isSavingRename.value).toBe(false)
     },
@@ -429,7 +429,7 @@ describe('sidebar playlist action sessions', () => {
       await task
       expect(f.playlistItems.value.some((p) => p.kind === kind && p.id === 1)).toBe(false)
       expect(f.playlistItems.value.some((p) => p.kind !== kind && p.id === 1)).toBe(true)
-      expect(f.trace).toEqual([`event:${kind}`, 'push:/songs'])
+      expect(f.trace).toEqual(['push:/songs'])
       expect(f.s.playlistContextMenu.value).toBeNull()
       expect(f.s.isDeletingPlaylist.value).toBe(false)
     },

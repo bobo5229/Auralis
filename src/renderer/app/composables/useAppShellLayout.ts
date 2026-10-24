@@ -28,7 +28,7 @@ import {
   clampSidebarWidth,
 } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from '../layout/useLyricsPanelLayout'
-import type { AlbumLayoutTransitionParticipant } from '../layout/lyricsAlbumTransitionCoordinator'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { createAppLyricsLayoutTransition } from '../layout/createAppLyricsLayoutTransition'
 import { usePanelResize } from './usePanelResize'
 import { useAppRouteTransitions } from './useAppRouteTransitions'

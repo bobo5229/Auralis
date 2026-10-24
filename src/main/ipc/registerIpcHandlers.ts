@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import { ipcChannels } from '@shared/ipc/channels'
 import { isRegisteredMainWindow } from '@main/app/mainWindowRegistry'
 import { getWindowVisibility } from '@main/app/windowVisibility'
@@ -169,8 +170,18 @@ export function registerIpcHandlers(
   const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
   const playlistRepository = new PlaylistRepository(db)
   const smartPlaylistRepository = new SmartPlaylistRepository(db)
-  const smartPlaylistService = new SmartPlaylistService(smartPlaylistRepository, trackRepository)
-  const playlistService = new PlaylistService(playlistRepository, smartPlaylistRepository)
+  const publishPlaylistChange = (event: PlaylistChangedEvent) =>
+    sendToRenderer(ipcChannels.playlists.changed, event)
+  const smartPlaylistService = new SmartPlaylistService(
+    smartPlaylistRepository,
+    trackRepository,
+    publishPlaylistChange,
+  )
+  const playlistService = new PlaylistService(
+    playlistRepository,
+    smartPlaylistRepository,
+    publishPlaylistChange,
+  )
 
   const getSmartTrackCounts = () =>
     new Map(

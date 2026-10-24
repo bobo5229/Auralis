@@ -1,7 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref } from 'vue'
 import PlayingIndicator from './PlayingIndicator.vue'
-import { setPlayingIconPreset } from '@renderer/features/appearance/composables/usePlayingIconPreference'
 
 const animations: Array<{ cancel: ReturnType<typeof vi.fn> }> = []
 class TestNode {
@@ -48,9 +47,38 @@ const renderer = createRenderer<TestNode, TestNode>({
 const runningCount = () =>
   animations.filter((animation) => !animation.cancel.mock.calls.length).length
 
+it('keeps instance presets independent and replaces animations when a preset changes', async () => {
+  vi.stubGlobal('document', {
+    hidden: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+  vi.stubGlobal('window', {})
+  const preset = ref<'equalizer' | 'blocks-wave'>('equalizer')
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    render: () =>
+      h('div', [
+        h(PlayingIndicator, { playing: true, preset: preset.value }),
+        h(PlayingIndicator, { playing: false, preset: 'equalizer' }),
+      ]),
+  })
+  app.mount(root)
+  await nextTick()
+  expect(runningCount()).toBe(3)
+  preset.value = 'blocks-wave'
+  await nextTick()
+  expect(root.children[0].children.map((node) => node.props['data-preset'])).toEqual([
+    'blocks-wave',
+    'equalizer',
+  ])
+  expect(runningCount()).toBe(9)
+  app.unmount()
+  expect(runningCount()).toBe(0)
+})
+
 afterEach(() => {
   animations.length = 0
-  setPlayingIconPreset('equalizer')
   vi.unstubAllGlobals()
 })
 
@@ -79,11 +107,10 @@ it.each([
         },
       },
     })
-    setPlayingIconPreset(preset)
     const playing = ref(true)
     const root = new TestNode('root')
     const app = renderer.createApp({
-      setup: () => () => h(PlayingIndicator, { playing: playing.value }),
+      setup: () => () => h(PlayingIndicator, { playing: playing.value, preset }),
     })
     app.mount(root)
     await nextTick()

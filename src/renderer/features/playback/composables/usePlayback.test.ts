@@ -225,6 +225,7 @@ function createApi(): AuralisApi {
       reorder: vi.fn(),
     },
     playlists: {
+      onChanged: vi.fn(() => () => undefined),
       list: vi.fn(),
       listTrackCounts: vi.fn(),
       listSidebarItems: vi.fn(),

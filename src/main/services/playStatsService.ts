@@ -1,5 +1,6 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
 import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
+import { buildAnnualSummary } from './annualSummary'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 
 /** In-memory idempotency window for sessionIds (insertion-order FIFO eviction). */
@@ -74,7 +75,15 @@ export class PlayStatsService {
     if (!Number.isInteger(year) || year < 1900 || year > 9999) {
       throw new RangeError('Invalid listening archive year')
     }
-    return this.playStatsRepo.getAnnualSummary(year)
+    return this.playStatsRepo.withAnnualListeningSnapshot(
+      year,
+      ({ days, rows, getDayTopAlbums }) => {
+        const summary = buildAnnualSummary(year, days, rows)
+        if (summary.peakDay)
+          summary.peakDay.album = getDayTopAlbums(summary.peakDay.date)[0] ?? null
+        return summary
+      },
+    )
   }
 
   getDayTopTracks(date: string): DailyTopTrack[] {

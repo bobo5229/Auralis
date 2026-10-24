@@ -1,5 +1,5 @@
 import { nextTick, ref, type Ref } from 'vue'
-import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
 import type { useAlbumGridLayout } from './useAlbumGridLayout'

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
 import { createWindow } from '../createWindow'
+import { runSidebarSmokeChecks } from './runSidebarSmokeChecks'
 
 interface SmokeCheck {
   name: string
@@ -784,6 +785,10 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       if (!probe.valid)
         throw new Error(`Library IPC or sidebar tools are unavailable: ${JSON.stringify(probe)}`)
     })
+
+    await record('sidebar menus preserve keyboard focus and isolated playlist edits', () =>
+      runSidebarSmokeChecks(mainWindow),
+    )
 
     await record('playerbar layout contract holds after window operations', async () => {
       const probe = (await mainWindow.webContents.executeJavaScript(

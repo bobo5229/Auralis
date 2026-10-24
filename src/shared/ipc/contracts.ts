@@ -4,6 +4,7 @@ import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/win
 import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type {
   LibraryRoot,
   LibraryScanProgress,
@@ -108,6 +109,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'playlists:changed': PlaylistChangedEvent
   'playback:spectrum-frame': PlaybackSpectrumFrame
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand

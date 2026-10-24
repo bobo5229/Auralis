@@ -1,9 +1,13 @@
 import { readonly, ref } from 'vue'
+import {
+  PLAYING_INDICATOR_PRESETS,
+  type PlayingIndicatorPreset,
+} from '@renderer/shared/components/playingIndicatorTypes'
 
 export const PLAYING_ICON_PRESET_KEY = 'auralis-playing-icon-preset'
 
-export const PLAYING_ICON_PRESETS = ['equalizer', 'blocks-wave'] as const
-export type PlayingIconPreset = (typeof PLAYING_ICON_PRESETS)[number]
+export const PLAYING_ICON_PRESETS = PLAYING_INDICATOR_PRESETS
+export type PlayingIconPreset = PlayingIndicatorPreset
 
 function parsePreset(value: string | null): PlayingIconPreset {
   return PLAYING_ICON_PRESETS.find((preset) => preset === value) ?? 'equalizer'

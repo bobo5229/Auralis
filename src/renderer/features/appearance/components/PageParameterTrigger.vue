@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
-import SidebarIcon from './SidebarIcon.vue'
+import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 
 const controller = usePageParameters()
 const { t } = useI18n()

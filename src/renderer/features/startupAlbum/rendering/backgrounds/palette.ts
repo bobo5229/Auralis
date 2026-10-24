@@ -1,4 +1,4 @@
-import { extractArtworkPalette } from '../../../playback/utils/extractArtworkPalette'
+import { analyzeArtworkColors } from '@renderer/shared/artwork/artworkAnalysis'
 import { rgbToOklab, oklabToRgb } from '../../../../shared/color/colorMath'
 
 type Lab = ReturnType<typeof rgbToOklab>
@@ -56,15 +56,15 @@ export function extractBackgroundPalette(cover: CanvasImageSource): BackgroundPa
   c.drawImage(cover, 0, 0, 48, 48)
   const pixels = c.getImageData(0, 0, 48, 48).data
   if (!pixels.some((value, i) => i % 4 === 3 && value >= 128)) return neutralPalette()
-  const result = extractArtworkPalette('startup-album-background', pixels)
-  // Use source colours, before playback's accent saturation/lightness adjustment.
-  const colors = result.accents
+  const result = analyzeArtworkColors(pixels)
+  if (!result) return neutralPalette()
+  const colors = result.colors
     .map((color) => ({
-      rgb: color.sourceRgb ?? color.rgb,
+      rgb: color.rgb,
       weight: color.weight,
     }))
     .sort((a, b) => b.weight - a.weight)
-  const dominantRgb = result.dominant ?? colors[0]?.rgb
+  const dominantRgb = result.dominant.rgb
   if (!dominantRgb) return neutralPalette()
   const dominant = rgbToOklab(dominantRgb)
   const primaryColor = colors.find(

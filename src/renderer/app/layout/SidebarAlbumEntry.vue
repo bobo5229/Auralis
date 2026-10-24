@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
-import SidebarIcon from './SidebarIcon.vue'
+import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 
 const props = defineProps<{ rail: boolean; active: boolean; count: number; blocked: boolean }>()
 const emit = defineEmits<{

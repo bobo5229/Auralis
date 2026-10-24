@@ -10,7 +10,6 @@ export function useAnnualSummaryActions(
   playlists: AuralisApi['playlists'],
   playback: Pick<PlaybackPublicApi, 'playTrackFromQueue'>,
   playlistName: (year: number) => string,
-  notifyPlaylistsChanged: () => void,
 ) {
   const saving = ref(false)
   const playing = ref(false)
@@ -87,7 +86,6 @@ export function useAnnualSummaryActions(
         cause,
       })
     } finally {
-      notifyPlaylistsChanged()
       if (!disposed) saving.value = false
     }
   }

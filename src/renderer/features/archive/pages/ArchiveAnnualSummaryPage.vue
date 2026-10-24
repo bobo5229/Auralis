@@ -6,7 +6,6 @@ import type { DailyTopAlbum } from '@shared/types/listeningArchive'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import { LIBRARY_PLAYLISTS_CHANGED_EVENT } from '@renderer/features/library/utils/libraryRouteScope'
 import { useAnnualSummary } from '../composables/useAnnualSummary'
 import { useAnnualSummaryActions } from '../composables/useAnnualSummaryActions'
 import ArchiveSummaryArtwork from '../components/ArchiveSummaryArtwork.vue'
@@ -25,12 +24,8 @@ const { summary, loading, failed, refresh } = useAnnualSummary(
   auralis.library,
 )
 const { saving, playing, actionError, unavailableCount, savedPlaylistId, play, save } =
-  useAnnualSummaryActions(
-    summary,
-    auralis.playlists,
-    usePlayback(),
-    (year) => t('archive.summary.selectionName', { year }),
-    () => window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT)),
+  useAnnualSummaryActions(summary, auralis.playlists, usePlayback(), (year) =>
+    t('archive.summary.selectionName', { year }),
   )
 const title = computed(() => t('archive.annualSummaryPageTitle', { year: props.year }))
 const number = (value: number) => value.toLocaleString(locale.value)

@@ -18,7 +18,7 @@ import {
   ShellTestStyle,
   shellTestDocument as doc,
   shellTestRenderer,
-} from './app/layout/appShellTestHost'
+} from '@renderer/testUtils/rendererTestHost'
 
 const fixture = vi.hoisted(() => ({
   route: null as unknown as { name: string; fullPath: string; query: Record<string, string> },
@@ -119,7 +119,9 @@ vi.mock('./shared/diagnostics/rendererDiagnostics', () => ({
 vi.mock('./app/layout/AppSidebar.vue', () => ({
   default: { setup: () => () => h('aside', { class: 'app-sidebar' }) },
 }))
-vi.mock('./app/layout/WindowTrafficLights.vue', () => ({ default: { render: () => null } }))
+vi.mock('@renderer/shared/components/WindowTrafficLights.vue', () => ({
+  default: { render: () => null },
+}))
 vi.mock('./app/layout/PlayerBar.vue', () => ({
   default: {
     render: () =>

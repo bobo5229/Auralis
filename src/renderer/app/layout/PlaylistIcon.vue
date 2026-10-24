@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SidebarIcon from './SidebarIcon.vue'
+import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 
 defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded' | 'custom' }>()
 </script>

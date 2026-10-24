@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  LIBRARY_PLAYLISTS_CHANGED_EVENT,
-  LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
   isSameLibraryRouteScope,
   shouldRefreshLibraryForExternalPlaylistEvent,
 } from './libraryRouteScope'
@@ -21,9 +19,9 @@ describe('isSameLibraryRouteScope', () => {
         { kind: 'recent-added', range: 30 },
       ),
     ).toBe(false)
-    expect(isSameLibraryRouteScope({ kind: 'recent-added', range: 'all' }, { kind: 'library' })).toBe(
-      false,
-    )
+    expect(
+      isSameLibraryRouteScope({ kind: 'recent-added', range: 'all' }, { kind: 'library' }),
+    ).toBe(false)
     expect(isSameLibraryRouteScope({ kind: 'playlist', id: 7 }, { kind: 'playlist', id: 7 })).toBe(
       true,
     )
@@ -41,13 +39,13 @@ describe('shouldRefreshLibraryForExternalPlaylistEvent', () => {
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'playlist', id: 3 },
-        LIBRARY_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'playlist', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(true)
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'smart-playlist', id: 3 },
-        LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'smart', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(true)
   })
@@ -56,29 +54,32 @@ describe('shouldRefreshLibraryForExternalPlaylistEvent', () => {
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'library' },
-        LIBRARY_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'playlist', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(false)
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'playlist', id: 3 },
-        LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'smart', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(false)
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'smart-playlist', id: 3 },
-        LIBRARY_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'playlist', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(false)
     expect(
       shouldRefreshLibraryForExternalPlaylistEvent(
         { kind: 'recent-added', range: 7 },
-        LIBRARY_PLAYLISTS_CHANGED_EVENT,
+        { kind: 'playlist', playlistId: 3, reason: 'renamed' },
       ),
     ).toBe(false)
     expect(
-      shouldRefreshLibraryForExternalPlaylistEvent({ kind: 'playlist', id: 3 }, 'unrelated'),
+      shouldRefreshLibraryForExternalPlaylistEvent(
+        { kind: 'playlist', id: 3 },
+        { kind: 'collection', reason: 'reordered' },
+      ),
     ).toBe(false)
   })
 })

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { usePlayingIconPreference } from '@renderer/features/appearance/composables/usePlayingIconPreference'
+import { ref, toRef, watch } from 'vue'
+import type { PlayingIndicatorPreset } from './playingIndicatorTypes'
 import { animatePlaybackBars, animatePlaybackBlocks } from '@renderer/shared/animation/motion'
 import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibility'
 
-const props = defineProps<{ playing: boolean; size?: number }>()
-const { playingIcon } = usePlayingIconPreference()
+const props = withDefaults(
+  defineProps<{ playing: boolean; size?: number; preset?: PlayingIndicatorPreset }>(),
+  { preset: 'equalizer', size: undefined },
+)
+const playingIcon = toRef(props, 'preset')
 const element = ref<SVGSVGElement | null>(null)
 const visible = useWindowVisibility()
 const blocks = Array.from({ length: 9 }, (_, index) => ({

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import WindowTrafficLights from '@renderer/app/layout/WindowTrafficLights.vue'
+import WindowTrafficLights from '@renderer/shared/components/WindowTrafficLights.vue'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { acquireModalBackground } from '@renderer/shared/focus/modalBackground'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -20,6 +21,7 @@ const props = defineProps<{ presentation: StartupAlbumPresentation }>()
 const emit = defineEmits<{ close: []; shown: [] }>()
 const { t } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
+const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const playback = usePlayback()
 const root = ref<HTMLElement | null>(null)
 const backdrop = ref<HTMLElement | null>(null)
@@ -348,7 +350,10 @@ onBeforeUnmount(() => {
       />
       <template v-if="interactive">
         <div class="startup-album-drag" aria-hidden="true" />
-        <WindowTrafficLights />
+        <WindowTrafficLights
+          :sidebar-full-height="sidebarFullHeight"
+          :sidebar-collapsed="sidebarCollapsed"
+        />
       </template>
       <div class="startup-album-stage">
         <div ref="host" class="startup-album-canvas" :class="{ 'is-fallback': fallback }" />

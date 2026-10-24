@@ -125,6 +125,7 @@ function pageLoader() {
     scrollToPlaybackTrack: async () => undefined,
     replaceWithLibraryHome: async () => undefined,
     loadErrorMessage: () => 'load failed',
+    onPlaylistChanged: () => () => undefined,
     onLibraryChanged: (callback) => {
       shared.callbacks.add(callback)
       return () => shared.callbacks.delete(callback)

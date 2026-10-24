@@ -16,7 +16,7 @@ import {
   APP_FAILED_EVENT,
   APP_READY_EVENT,
   SPLASH_FINISHED_EVENT,
-} from '@renderer/app/splash/startupSignals'
+} from '@renderer/shared/startup/startupSignals'
 import {
   startupAlbumStorage,
   readStartupAlbumHistory,

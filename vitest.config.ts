@@ -37,6 +37,8 @@ export default defineConfig({
         '**/FullscreenLyricsContextMenu.test.ts',
         '**/SyncedLyricsView.test.ts',
         '**/PlayingIndicator.test.ts',
+        '**/PreferredPlayingIndicator.test.ts',
+        '**/WindowTrafficLights.test.ts',
         '**/StartupAlbumOverlay.test.ts',
         '**/AppearanceSettings.lyricsScroll.test.ts',
         '**/AppearanceSettings.controlStyle.test.ts',

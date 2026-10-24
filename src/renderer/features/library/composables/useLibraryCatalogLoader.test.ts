@@ -1,3 +1,4 @@
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import { ref, shallowRef } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LibraryScanProgress, TrackListItem } from '@shared/types/libraryScan'
@@ -93,6 +94,13 @@ function createLoader(overrides?: {
   let changedHandler:
     | ((event: { reason: string; libraryRevision?: string }) => void | Promise<void>)
     | null = null
+  let playlistHandler: ((event: PlaylistChangedEvent) => void) | null = null
+  const subscribePlaylists = vi.fn((callback: NonNullable<typeof playlistHandler>) => {
+    playlistHandler = callback
+    return () => {
+      playlistHandler = null
+    }
+  })
   let scanHandler: ((progress: LibraryScanProgress) => void | Promise<void>) | null = null
   const subscribeChanged = vi.fn((callback: NonNullable<typeof changedHandler>) => {
     changedHandler = callback
@@ -130,6 +138,7 @@ function createLoader(overrides?: {
     restoreNavigationViewport,
     replaceWithLibraryHome,
     loadErrorMessage: () => 'load failed',
+    onPlaylistChanged: subscribePlaylists,
     onLibraryChanged: subscribeChanged,
     onScanProgress: subscribeScan,
   })
@@ -150,6 +159,10 @@ function createLoader(overrides?: {
     restoreNavigationViewport,
     subscribeChanged,
     subscribeScan,
+    emitPlaylistChanged(event: PlaylistChangedEvent) {
+      playlistHandler?.(event)
+    },
+    subscribePlaylists,
     emitLibraryChanged: async (reason: string, libraryRevision?: string) => {
       await changedHandler?.({ reason, ...(libraryRevision ? { libraryRevision } : {}) })
     },
@@ -164,6 +177,22 @@ function createLoader(overrides?: {
 }
 
 describe('useLibraryCatalogLoader', () => {
+  it('subscribes once to matching typed playlist changes and releases the subscription', async () => {
+    const f = createLoader({ captureRouteScope: () => ({ kind: 'playlist', id: 3 }) })
+    f.loader.bindExternalPlaylistEvents()
+    f.loader.bindExternalPlaylistEvents()
+    expect(f.subscribePlaylists).toHaveBeenCalledOnce()
+    f.emitPlaylistChanged({ kind: 'smart', playlistId: 3, reason: 'renamed' })
+    f.emitPlaylistChanged({ kind: 'playlist', playlistId: 3, reason: 'view-mode-updated' })
+    f.emitPlaylistChanged({ kind: 'collection', reason: 'reordered' })
+    expect(f.getPlaylistDetail).not.toHaveBeenCalled()
+    f.emitPlaylistChanged({ kind: 'playlist', playlistId: 3, reason: 'tracks-added' })
+    await vi.waitFor(() => expect(f.getPlaylistDetail).toHaveBeenCalledOnce())
+    f.dispose()
+    f.emitPlaylistChanged({ kind: 'playlist', playlistId: 3, reason: 'deleted' })
+    expect(f.getPlaylistDetail).toHaveBeenCalledOnce()
+  })
+
   afterEach(() => vi.useRealTimers())
 
   it('filters the full catalog for recent-added without requesting playlist details', async () => {
@@ -352,17 +381,19 @@ describe('useLibraryCatalogLoader', () => {
 
   it('does not reuse a view from another route for the same commit', async () => {
     let scope: LibraryRouteScope = { kind: 'library' }
-    const getPlaylistDetail = vi.fn(async (): Promise<PlaylistDetail> => ({
-      playlist: {
-        id: 8,
-        name: 'Playlist',
-        viewMode: 'flat',
-        sortOrder: 0,
-        createdAt: '',
-        updatedAt: '',
-      },
-      tracks: [createTrack(9)],
-    }))
+    const getPlaylistDetail = vi.fn(
+      async (): Promise<PlaylistDetail> => ({
+        playlist: {
+          id: 8,
+          name: 'Playlist',
+          viewMode: 'flat',
+          sortOrder: 0,
+          createdAt: '',
+          updatedAt: '',
+        },
+        tracks: [createTrack(9)],
+      }),
+    )
     const { loader, onSnapshotCommitted } = createLoader({
       captureRouteScope: () => scope,
       getPlaylistDetail,

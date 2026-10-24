@@ -76,6 +76,7 @@ export interface AuralisApi {
     reorder: (ids: Req<'smart-playlists:reorder'>['ids']) => Result<'smart-playlists:reorder'>
   }
   playlists: {
+    onChanged: (callback: (event: IpcEventPayload<'playlists:changed'>) => void) => () => void
     list: () => Result<'playlists:list'>
     listTrackCounts: () => Result<'playlists:list-track-counts'>
     listSidebarItems: () => Result<'playlists:list-sidebar-items'>

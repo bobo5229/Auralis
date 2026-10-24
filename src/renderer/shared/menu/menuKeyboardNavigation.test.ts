@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveMenuNavigationIndex } from './menuKeyboardNavigation'
+import { resolveMenuNavigationIndex } from '@renderer/shared/menu/menuKeyboardNavigation'
 
 describe('menu keyboard navigation', () => {
   const enabled = [1, 3, 4]

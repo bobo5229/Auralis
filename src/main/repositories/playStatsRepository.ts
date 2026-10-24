@@ -1,8 +1,14 @@
 import type Database from 'better-sqlite3'
 import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import { BaseRepository } from './baseRepository'
-import { buildAnnualSummary, type AnnualListeningRow } from '../services/annualSummary'
-import type { AnnualSummary } from '@shared/types/listeningArchive'
+import type { AnnualListeningRow } from '@shared/types/annualListening'
+
+/** Valid only for the synchronous duration of withAnnualListeningSnapshot. */
+export interface AnnualListeningSnapshot {
+  days: DailyPlayCount[]
+  rows: Iterable<AnnualListeningRow>
+  getDayTopAlbums(date: string): DailyTopAlbum[]
+}
 
 // Join each history source by the day's track IDs before combining them. Joining
 // both UNION views materializes the entire library display on every daily query.
@@ -129,9 +135,9 @@ export class PlayStatsRepository extends BaseRepository {
       .all({ date }) as DailyTopTrack[]
   }
 
-  getAnnualSummary(year: number): AnnualSummary {
-    // Read the summary in one snapshot. Date predicates constrain both history sources
-    // before joining display metadata; no catalog-wide renderer query is needed.
+  withAnnualListeningSnapshot<T>(year: number, read: (snapshot: AnnualListeningSnapshot) => T): T {
+    // Keep the lazy history iterator and all supplementary queries in one read snapshot.
+    // Date predicates constrain both sources before joining display metadata.
     return this.db.transaction(() => {
       const rows = this.db
         .prepare(
@@ -163,10 +169,11 @@ export class PlayStatsRepository extends BaseRepository {
           start: `${year}-01-01`,
           end: `${year}-12-31`,
         }) as IterableIterator<AnnualListeningRow>
-      const summary = buildAnnualSummary(year, this.getAnnualPlayCounts(year), rows)
-      if (summary.peakDay)
-        summary.peakDay.album = this.getDayTopAlbums(summary.peakDay.date)[0] ?? null
-      return summary
+      return read({
+        days: this.getAnnualPlayCounts(year),
+        rows,
+        getDayTopAlbums: (date) => this.getDayTopAlbums(date),
+      })
     })()
   }
 

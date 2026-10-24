@@ -1,16 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { invoke, exposeInMainWorld } = vi.hoisted(() => ({
+const { invoke, exposeInMainWorld, on, removeListener } = vi.hoisted(() => ({
   invoke: vi.fn(async (): Promise<unknown> => ({ ok: true })),
   exposeInMainWorld: vi.fn(),
+  on: vi.fn(),
+  removeListener: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
   contextBridge: { exposeInMainWorld },
-  ipcRenderer: { invoke },
+  ipcRenderer: { invoke, on, removeListener },
 }))
 
 import { auralisApi } from './index'
+
+it('forwards typed playlist changes without exposing the Electron event and unsubscribes', () => {
+  const changed = vi.fn()
+  const unsubscribe = auralisApi.playlists.onChanged(changed)
+  expect(on).toHaveBeenLastCalledWith('playlists:changed', expect.any(Function))
+  const listener = on.mock.calls.at(-1)![1]
+  const payload = { kind: 'smart', playlistId: 7, reason: 'created' }
+  listener({ sender: 'private Electron event' }, payload)
+  expect(changed).toHaveBeenCalledExactlyOnceWith(payload)
+  unsubscribe()
+  expect(removeListener).toHaveBeenLastCalledWith('playlists:changed', listener)
+})
 
 describe('archive preload capabilities', () => {
   beforeEach(() => invoke.mockClear())

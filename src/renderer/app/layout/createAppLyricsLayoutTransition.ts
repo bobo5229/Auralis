@@ -1,9 +1,9 @@
 import { nextTick, type Ref } from 'vue'
 import {
   createLyricsAlbumTransitionCoordinator,
-  type AlbumLayoutTransitionParticipant,
   type LyricsAlbumTransitionTicket,
 } from './lyricsAlbumTransitionCoordinator'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { createSidebarLayoutTransition } from './sidebarLayoutTransition'
 import { createPlayerBarLayoutTransition } from './createPlayerBarLayoutTransition'
 import {

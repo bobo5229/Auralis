@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { CdPlaybackMode } from '../utils/cdPlaybackQueue'
 import { formatArtist, splitArtistValues } from '@renderer/features/library/utils/formatArtist'
-import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
+import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
 
 const props = defineProps<{
   tracks: TrackListItem[]

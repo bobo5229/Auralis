@@ -4,6 +4,7 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { TrackListItem, LibraryScanProgress } from '@shared/types/libraryScan'
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -17,8 +18,6 @@ import type { LibraryDataSnapshot } from '../utils/libraryDataSnapshot'
 import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
-  LIBRARY_PLAYLISTS_CHANGED_EVENT,
-  LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
   isSameLibraryRouteScope,
   shouldRefreshLibraryForExternalPlaylistEvent,
   type LibraryRouteScope,
@@ -64,6 +63,7 @@ export function useLibraryCatalogLoader(options: {
       libraryRevision?: string
     }) => void | Promise<void>,
   ) => () => void
+  onPlaylistChanged: (callback: (event: PlaylistChangedEvent) => void) => () => void
   onScanProgress: (callback: (progress: LibraryScanProgress) => void | Promise<void>) => () => void
 }) {
   const coordinator = new LibraryRequestCoordinator()
@@ -75,6 +75,7 @@ export function useLibraryCatalogLoader(options: {
     initialLoadError,
     commitLibrarySnapshot,
   } = presentation
+  let unsubscribePlaylistsChanged: (() => void) | null = null
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
   let importRefreshTimer: ReturnType<typeof setTimeout> | null = null
@@ -294,26 +295,16 @@ export function useLibraryCatalogLoader(options: {
     await loadLibraryData('foreground')
   }
 
-  function onExternalPlaylistCollectionChanged(eventName: string): void {
-    if (isDisposed()) return
-    if (!shouldRefreshLibraryForExternalPlaylistEvent(options.captureRouteScope(), eventName)) {
-      return
-    }
-    void loadLibraryData('background')
-  }
-
-  function onPlaylistsChanged(): void {
-    onExternalPlaylistCollectionChanged(LIBRARY_PLAYLISTS_CHANGED_EVENT)
-  }
-
-  function onSmartPlaylistsChanged(): void {
-    onExternalPlaylistCollectionChanged(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT)
-  }
-
   function bindExternalPlaylistEvents(): void {
-    if (isDisposed() || typeof window === 'undefined') return
-    window.addEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
-    window.addEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
+    if (isDisposed() || unsubscribePlaylistsChanged) return
+    unsubscribePlaylistsChanged = options.onPlaylistChanged((event) => {
+      if (
+        isDisposed() ||
+        !shouldRefreshLibraryForExternalPlaylistEvent(options.captureRouteScope(), event)
+      )
+        return
+      void loadLibraryData('background')
+    })
   }
 
   function subscribeLibraryEvents(): void {
@@ -366,10 +357,8 @@ export function useLibraryCatalogLoader(options: {
     unsubscribeScanProgress?.()
     unsubscribeChanged = null
     unsubscribeScanProgress = null
-    if (typeof window !== 'undefined') {
-      window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
-      window.removeEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
-    }
+    unsubscribePlaylistsChanged?.()
+    unsubscribePlaylistsChanged = null
   }
 
   return {

@@ -1,3 +1,4 @@
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type {
   AddPlaylistTracksResult,
   Playlist,
@@ -15,6 +16,7 @@ export class PlaylistService {
   constructor(
     private readonly playlistRepository: PlaylistRepository,
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
+    private readonly publishChange: (event: PlaylistChangedEvent) => void = () => {},
   ) {}
 
   list(): Playlist[] {
@@ -73,7 +75,9 @@ export class PlaylistService {
       ...this.smartPlaylistRepository.list().map((playlist) => playlist.name),
     ]
     const name = this.getAvailableName(defaultName, allNames)
-    return this.playlistRepository.create(name, this.getNextSortOrder())
+    const playlist = this.playlistRepository.create(name, this.getNextSortOrder())
+    this.publishChange({ kind: 'playlist', playlistId: playlist.id, reason: 'created' })
+    return playlist
   }
 
   rename(id: number, name: string): Playlist | null {
@@ -87,25 +91,40 @@ export class PlaylistService {
         .map((item) => item.name),
       ...this.smartPlaylistRepository.list().map((item) => item.name),
     ]
-    return this.playlistRepository.rename(id, this.getAvailableName(name, otherNames, false))
+    const renamed = this.playlistRepository.rename(
+      id,
+      this.getAvailableName(name, otherNames, false),
+    )
+    if (renamed) this.publishChange({ kind: 'playlist', playlistId: id, reason: 'renamed' })
+    return renamed
   }
 
   updateViewMode(id: number, viewMode: PlaylistViewMode): Playlist | null {
-    return this.playlistRepository.updateViewMode(id, viewMode)
+    const playlist = this.playlistRepository.updateViewMode(id, viewMode)
+    if (playlist)
+      this.publishChange({ kind: 'playlist', playlistId: id, reason: 'view-mode-updated' })
+    return playlist
   }
 
   delete(id: number): boolean {
-    return this.playlistRepository.delete(id)
+    const deleted = this.playlistRepository.delete(id)
+    if (deleted) this.publishChange({ kind: 'playlist', playlistId: id, reason: 'deleted' })
+    return deleted
   }
 
   addTracks(id: number, trackIds: number[]): AddPlaylistTracksResult {
-    return this.playlistRepository.addTracks(id, trackIds)
+    const result = this.playlistRepository.addTracks(id, trackIds)
+    if (result.addedCount > 0)
+      this.publishChange({ kind: 'playlist', playlistId: id, reason: 'tracks-added' })
+    return result
   }
 
   reorderSidebarItems(
     items: Array<{ kind: SidebarPlaylistKind; id: number }>,
   ): SidebarPlaylistItem[] {
-    this.playlistRepository.reorderSidebarItems(items)
+    if (this.playlistRepository.reorderSidebarItems(items)) {
+      this.publishChange({ kind: 'collection', reason: 'reordered' })
+    }
     return this.listSidebarItems(new Map())
   }
 

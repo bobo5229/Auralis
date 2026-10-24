@@ -1,24 +1,10 @@
 <script setup lang="ts">
-import {
-  createReducedMotionQuery,
-  type MotionQuery,
-} from '@renderer/shared/animation/motionPreference'
-import { RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
-import { useResizeObserver } from '@vueuse/core'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
-import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
-import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
-import { useSidebarPlaylistActions } from '../composables/useSidebarPlaylistActions'
-import {
-  MAX_RECENT_ADDED_LIBRARY_DAYS,
-  parseRecentAddedLibraryRange,
-  type RecentAddedLibraryRange,
-} from '@renderer/features/library/utils/recentAddedLibrary'
-import { useRoute } from 'vue-router'
+import { MAX_RECENT_ADDED_LIBRARY_DAYS } from '@renderer/features/library/utils/recentAddedLibrary'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -31,25 +17,24 @@ import { useSettingsDialog } from '@renderer/features/settings/composables/useSe
 import { useTheme } from '@renderer/composables/useTheme'
 import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
-import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { prefetchRouteOnIntent } from '../router/routeWarmup'
-import type { WarmableRouteName } from '../router/routeComponentLoaders'
-import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
-import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
-import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
-import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
+import { useSidebarPlaylistActions } from '../composables/useSidebarPlaylistActions'
 import { useSidebarLibraryStatus } from '../composables/useSidebarLibraryStatus'
-import { useSidebarFlavor } from '../composables/useSidebarFlavor'
 import { useSidebarResize } from '../composables/useSidebarResize'
-import { animateTrashLid } from '@renderer/shared/animation/motion'
+import { useSidebarLibraryData } from '../composables/useSidebarLibraryData'
+import { useSidebarFlavorLabel } from '../composables/useSidebarFlavorLabel'
+import { useSidebarNavigation } from '../composables/useSidebarNavigation'
+import { useSidebarRecentAddedRange } from '../composables/useSidebarRecentAddedRange'
+import { useSidebarPlaylistMenus } from '../composables/useSidebarPlaylistMenus'
+import { useSidebarPlaylistInteractions } from '../composables/useSidebarPlaylistInteractions'
+import { onMenuKeydown } from '../utils/sidebarMenuKeyboard'
+import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import PlaylistIcon from './PlaylistIcon.vue'
-import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
+import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 import SidebarAlbumEntry from './SidebarAlbumEntry.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
 
 const props = defineProps<{ maxWidth: number; resizeDisabled: boolean }>()
 const emit = defineEmits<{ 'resize-active-change': [active: boolean] }>()
-
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -63,7 +48,6 @@ const themeToggleLabel = computed(() =>
 const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
 /** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
 const isRail = computed(() => sidebarFullHeight.value && sidebarCollapsed.value)
-
 function toggleSidebarCollapsed(): void {
   if (!sidebarFullHeight.value) return
   setSidebarCollapsed(!sidebarCollapsed.value)
@@ -77,73 +61,69 @@ const libraryStatusLabel = computed(() =>
 watch(isSettingsOpen, (open, wasOpen) => {
   if (wasOpen && !open) void libraryStatus.reload()
 })
-
-const playlistItems = ref<SidebarPlaylistItem[]>([])
+const { playlistItems, libraryStats, loadSidebarPlaylists, getPlaylistIcon } =
+  useSidebarLibraryData(auralis)
 const sidebarNavigation = ref<HTMLElement | null>(null)
 const sidebarPlaylistSection = ref<HTMLElement | null>(null)
-const smartPlaylists = ref<SmartPlaylist[]>([])
-const smartPlaylistKinds = computed(
-  () =>
-    new Map(
-      smartPlaylists.value.map((playlist) => [
-        playlist.id,
-        'preset' in playlist.rule ? playlist.rule.preset : 'custom',
-      ]),
-    ),
-)
-const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
-const isFlavorHovered = ref(false)
-const isFlavorFocused = ref(false)
-const flavor = useSidebarFlavor(
-  computed(() => !isRail.value),
-  computed(() => isFlavorHovered.value || isFlavorFocused.value),
-)
-const flavorValues = computed(() => ({ count: libraryStats.value.trackCount }))
-const flavorLabel = computed(() => t(`sidebar.flavor.${flavor.key.value}`, flavorValues.value))
-const flavorLabelRef = ref<HTMLElement | null>(null)
-const flavorTextRef = ref<HTMLElement | null>(null)
-const isFlavorOverflowing = ref(false)
-const flavorOverflowDistance = ref(0)
-
-function updateFlavorOverflow(): void {
-  if (isRail.value || !flavorLabelRef.value || !flavorTextRef.value) {
-    isFlavorOverflowing.value = false
-    flavorOverflowDistance.value = 0
-    return
-  }
-  const containerWidth = flavorLabelRef.value.clientWidth
-  const contentWidth = flavorTextRef.value.scrollWidth
-  if (contentWidth > containerWidth + 4) {
-    isFlavorOverflowing.value = true
-    flavorOverflowDistance.value = contentWidth - containerWidth
-  } else {
-    isFlavorOverflowing.value = false
-    flavorOverflowDistance.value = 0
-  }
-}
-
-useResizeObserver(flavorLabelRef, updateFlavorOverflow)
-
-const flavorMarqueeStyle = computed(() => {
-  if (!isFlavorOverflowing.value) return undefined
-  const duration = Math.max(7, Math.round(flavorOverflowDistance.value / 18))
-  return {
-    '--flavor-scroll-distance': `${flavorOverflowDistance.value}px`,
-    '--flavor-scroll-duration': `${duration}s`,
-  }
+const albumMenuOpen = ref(false)
+const {
+  isFlavorHovered,
+  isFlavorFocused,
+  flavorLabel,
+  flavorLabelRef,
+  flavorTextRef,
+  isFlavorOverflowing,
+  flavorMarqueeStyle,
+} = useSidebarFlavorLabel({ isRail, libraryStats, t })
+const {
+  activePath,
+  primaryNavItems,
+  isPrimaryNavActive,
+  onRouteIntent,
+  setPendingActive,
+  setPendingActiveFromPointer,
+} = useSidebarNavigation({ route, libraryStats, t })
+const {
+  recentAddedContextMenu,
+  recentAddedContextPanel,
+  recentAddedRangeSelectorOpen,
+  recentAddedRangeSelectorPanel,
+  recentAddedRangeOptions,
+  recentAddedRangeSliderValue,
+  recentAddedRangeSliderFill,
+  selectedRecentAddedRange,
+  customRecentAddedDays,
+  getPrimaryNavTarget,
+  onRecentAddedContextMenuKeydown,
+  closeRecentAddedContextMenu,
+  openRecentAddedRangeSelector,
+  selectRecentAddedRangeBySlider,
+  commitRecentAddedRangeBySlider,
+  applyCustomRecentAddedRange,
+  onPrimaryNavContextMenu,
+  onPrimaryNavKeydown,
+} = useSidebarRecentAddedRange({
+  route,
+  router,
+  onBeforeOpen() {
+    closeCreateMenu()
+    closePlaylistContextMenu()
+  },
 })
-
-watch([() => flavorLabel.value, isRail], () => {
-  void nextTick(updateFlavorOverflow)
-})
-const sidebarLibraryLoader = createSidebarLibraryLoader({
+const playlistActions = useSidebarPlaylistActions({
+  api: auralis,
+  route,
+  router,
+  t,
   playlistItems,
-  smartPlaylists,
-  libraryStats,
-  getStats: () => auralis.library.getStats(),
-  listSidebarItems: () => auralis.playlists.listSidebarItems(),
-  listSmartPlaylists: () => auralis.smartPlaylists.list(),
-  listSmartTrackCounts: () => auralis.smartPlaylists.listTrackCounts(),
+  reloadPlaylists: loadSidebarPlaylists,
+  cancelReorder: (immediate) => cancelPlaylistReorder(immediate),
+  canMove: (item, direction) => canMovePlaylist(item, direction),
+  move: (item, direction) => movePlaylist(item, direction),
+  closeRecentAddedContextMenu,
+  getPlaylistKey,
+  getPlaylistPath,
+  onMenuKeydown,
 })
 const {
   createPlaylistButton,
@@ -157,7 +137,6 @@ const {
   playlistContextMenu,
   playlistContextHasPrevious,
   playlistContextHasNext,
-  playlistContextTrigger,
   renamingPlaylist,
   deletingPlaylist,
   isDeletingPlaylist,
@@ -184,225 +163,7 @@ const {
   closeRenameDialog,
   submitRename,
   requestDelete,
-} = useSidebarPlaylistActions({
-  api: auralis,
-  route,
-  router,
-  t,
-  playlistItems,
-  reloadPlaylists: loadSidebarPlaylists,
-  cancelReorder: (immediate) => cancelPlaylistReorder(immediate),
-  canMove: (item, direction) => canMovePlaylist(item, direction),
-  move: (item, direction) => movePlaylist(item, direction),
-  closeRecentAddedContextMenu,
-  getPlaylistKey,
-  getPlaylistPath,
-  onMenuKeydown,
-})
-const createMenuPanel = ref<HTMLElement | null>(null)
-const playlistContextPanel = ref<HTMLElement | null>(null)
-const playlistContextPositioned = ref(false)
-let playlistPosition: ReturnType<typeof startFloatingPosition> | undefined
-watch(
-  playlistContextMenu,
-  () => {
-    playlistPosition?.dispose()
-    playlistContextPositioned.value = false
-  },
-  { flush: 'sync' },
-)
-watch(
-  [playlistContextMenu, playlistContextPanel],
-  (_values, _previous, onCleanup) => {
-    const menu = playlistContextMenu.value
-    const panel = playlistContextPanel.value
-    if (!menu || !panel) return
-    const session = startFloatingPosition({
-      reference: pointReference(menu.x, menu.y),
-      floating: panel,
-      profile: 'point-menu',
-      onPosition: () => {
-        playlistContextPositioned.value = true
-      },
-      onError: closePlaylistContextMenu,
-    })
-    playlistPosition = session
-    onCleanup(session.dispose)
-  },
-  { flush: 'post' },
-)
-const recentAddedContextMenu = ref<{ x: number; y: number } | null>(null)
-const recentAddedContextPanel = ref<HTMLElement | null>(null)
-const recentAddedContextTrigger = ref<HTMLElement | null>(null)
-const recentAddedContextPositioned = ref(false)
-const recentAddedRangeSelectorOpen = ref(false)
-const recentAddedRangeSelectorPanel = ref<HTMLElement | null>(null)
-const recentAddedRangeOptions = [
-  { value: 7, label: 'sidebar.recentAddedRange7Days' },
-  { value: 30, label: 'sidebar.recentAddedRange30Days' },
-  { value: 90, label: 'sidebar.recentAddedRange90Days' },
-  { value: 'all', label: 'sidebar.recentAddedRangeAll' },
-] as const
-const recentAddedRange = ref<RecentAddedLibraryRange>('all')
-const recentAddedRangeDraft = ref<RecentAddedLibraryRange | null>(null)
-const selectedRecentAddedRange = computed(() => {
-  const range = recentAddedRangeDraft.value ?? recentAddedRange.value
-  return recentAddedRangeOptions.some((option) => option.value === range) ? range : 'custom'
-})
-const recentAddedRangeSliderValue = ref(recentAddedRangeOptions.length - 1)
-let committedRecentAddedSliderValue = recentAddedRangeSliderValue.value
-const recentAddedRangeSliderFill = computed(
-  () => `${(recentAddedRangeSliderValue.value / (recentAddedRangeOptions.length - 1)) * 100}%`,
-)
-const customRecentAddedDays = ref<number | ''>('')
-let committedCustomRecentAddedDays: number | '' = ''
-let recentAddedRangeNavigationId = 0
-watch(
-  [() => route.name, () => route.query.range],
-  () => {
-    if (route.name === 'recent-added') {
-      syncRecentAddedRange(parseRecentAddedLibraryRange(route.query.range) ?? 'all')
-    }
-  },
-  { immediate: true },
-)
-let recentAddedContextPosition: ReturnType<typeof startFloatingPosition> | undefined
-watch(
-  recentAddedContextMenu,
-  () => {
-    recentAddedContextPosition?.dispose()
-    recentAddedContextPositioned.value = false
-  },
-  { flush: 'sync' },
-)
-watch(
-  [recentAddedContextMenu, recentAddedContextPanel],
-  (_values, _previous, onCleanup) => {
-    const menu = recentAddedContextMenu.value
-    const panel = recentAddedContextPanel.value
-    if (!menu || !panel) return
-    const session = startFloatingPosition({
-      reference: pointReference(menu.x, menu.y),
-      floating: panel,
-      profile: 'point-menu',
-      onPosition: () => {
-        recentAddedContextPositioned.value = true
-      },
-      onError: closeRecentAddedContextMenu,
-    })
-    recentAddedContextPosition = session
-    onCleanup(session.dispose)
-  },
-  { flush: 'post' },
-)
-watch(
-  [deleteError, deletingPlaylist, isDeletingPlaylist],
-  () => {
-    void playlistPosition?.update()
-  },
-  { flush: 'post' },
-)
-const deleteLid = ref<SVGGElement | null>(null)
-let stopDeleteLidAnimation: (() => void) | undefined
-let deleteMotionPreference: MotionQuery | undefined
-
-function updateDeleteLid(): void {
-  stopDeleteLidAnimation?.()
-  if (deleteLid.value) {
-    stopDeleteLidAnimation = animateTrashLid(
-      deleteLid.value,
-      deletingPlaylist.value !== null,
-      deleteMotionPreference?.matches ?? false,
-    )
-  }
-}
-watch([deleteLid, deletingPlaylist], updateDeleteLid, { flush: 'post' })
-const renameDialogRef = ref<HTMLElement | null>(null)
-let unsubscribeLibraryChanged: (() => void) | null = null
-/** Cleans up optimistic nav highlight listeners when a new press starts or the component unmounts. */
-let pendingNavCleanup: (() => void) | null = null
-
-const POINTER_MOVE_TOLERANCE = 6
-
-const activePath = ref(route.path)
-const albumMenuOpen = ref(false)
-
-const primaryNav = computed<
-  Array<{
-    to: string
-    label: string
-    icon: SidebarIconKind
-    routeName?: WarmableRouteName
-  }>
->(() => [
-  {
-    to: '/songs',
-    label: t('nav.songs'),
-    icon: 'song',
-    routeName: 'library',
-  },
-  {
-    to: '/albums',
-    label: t('nav.albums'),
-    icon: 'albums',
-    routeName: 'albums',
-  },
-  {
-    to: '/recent-added',
-    label: t('sidebar.recentAdded'),
-    icon: 'recentAdded',
-    routeName: 'library',
-  },
-  {
-    to: '/archive',
-    label: t('nav.archive'),
-    icon: 'archive',
-    routeName: 'archive',
-  },
-])
-
-function isPrimaryNavActive(path: string): boolean {
-  return (
-    activePath.value === path ||
-    (path === '/archive' && route.name === 'archive-annual-summary') ||
-    (path === '/albums' && route.name === 'album-detail' && activePath.value === route.path)
-  )
-}
-
-function onRouteIntent(routeName?: WarmableRouteName): void {
-  if (routeName) {
-    void prefetchRouteOnIntent(routeName)
-  }
-}
-
-const primaryNavItems = computed(() =>
-  primaryNav.value.map((item) => ({
-    ...item,
-    count:
-      item.to === '/songs'
-        ? libraryStats.value.trackCount
-        : item.to === '/albums'
-          ? libraryStats.value.albumCount
-          : null,
-  })),
-)
-
-function getPrimaryNavTarget(path: string): RouteLocationRaw {
-  if (path !== '/recent-added') return path
-  return {
-    path,
-    query: {
-      ...(route.name === 'recent-added' ? route.query : {}),
-      range: String(recentAddedRange.value),
-    },
-    hash: route.name === 'recent-added' ? route.hash : '',
-  }
-}
-
-function getPlaylistKey(item: { kind: string; id: number }): string {
-  return `${item.kind}:${item.id}`
-}
-
+} = playlistActions
 const {
   pressedPlaylistKey,
   draggingPlaylistKey,
@@ -423,230 +184,30 @@ const {
   persistOrder: (items) => auralis.playlists.reorderSidebarItems(items),
   reload: () => loadSidebarPlaylists(),
 })
-
+function getPlaylistKey(item: { kind: string; id: number }): string {
+  return `${item.kind}:${item.id}`
+}
 function getPlaylistPath(item: SidebarPlaylistItem): string {
   return item.kind === 'playlist' ? `/playlists/${item.id}` : `/smart-playlists/${item.id}`
 }
-
-function getPlaylistIcon(
-  item: SidebarPlaylistItem,
-): 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded' | 'custom' {
-  if (item.kind === 'playlist') return 'playlist'
-  const kind = smartPlaylistKinds.value.get(item.id)
-  return kind === 'recentPlayed' || kind === 'mostListened' || kind === 'recentAdded'
-    ? kind
-    : 'custom'
-}
-
-watch(
-  () => route.path,
-  (path) => {
-    activePath.value = path
-  },
-)
-
-function setPendingActive(path: string): void {
-  activePath.value = path
-}
-
-function syncActivePathToRoute(): void {
-  activePath.value = route.path
-}
-
-/**
- * Optimistic sidebar highlight on press. Must revert when the press does not
- * complete as a navigation (drag, cancel, release outside) so the active tab
- * never desyncs from the actual route.
- */
-function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
-  if (event.button !== 0) {
-    return
-  }
-
-  pendingNavCleanup?.()
-  setPendingActive(path)
-
-  const pointerId = event.pointerId
-  const startX = event.clientX
-  const startY = event.clientY
-  let settled = false
-
-  const cleanupListeners = () => {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    if (pendingNavCleanup === settle) {
-      pendingNavCleanup = null
-    }
-  }
-
-  const revertIfStale = () => {
-    if (activePath.value === path && route.path !== path) {
-      syncActivePathToRoute()
-    }
-  }
-
-  const settle = (shouldRevert: boolean) => {
-    if (settled) return
-    settled = true
-    cleanupListeners()
-    if (shouldRevert) {
-      revertIfStale()
-    }
-  }
-
-  const onMove = (moveEvent: PointerEvent) => {
-    if (moveEvent.pointerId !== pointerId) return
-    const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY)
-    if (distance > POINTER_MOVE_TOLERANCE) {
-      // Drag / long-press move: cancel optimistic highlight; click usually will not navigate.
-      settle(true)
-    }
-  }
-
-  const onUp = (upEvent: PointerEvent) => {
-    if (upEvent.pointerId !== pointerId) return
-    cleanupListeners()
-    // Defer past click + router navigation microtasks; revert if route never matched.
-    window.setTimeout(() => {
-      settled = true
-      revertIfStale()
-    }, 0)
-  }
-
-  const onCancel = (cancelEvent: PointerEvent) => {
-    if (cancelEvent.pointerId !== pointerId) return
-    settle(true)
-  }
-
-  pendingNavCleanup = () => settle(true)
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-}
-
-function onPlaylistClick(event: MouseEvent, path: string): void {
-  if (shouldSuppressClick(event)) {
-    event.preventDefault()
-    event.stopPropagation()
-    return
-  }
-
-  setPendingActive(path)
-}
-
-async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void> {
-  try {
-    const detail =
-      item.kind === 'playlist'
-        ? await auralis.playlists.getDetail(item.id)
-        : await auralis.smartPlaylists.getDetail(item.id)
-    const tracks = detail?.tracks ?? []
-    if (tracks.length === 0) return
-
-    const track = tracks[Math.floor(Math.random() * tracks.length)]
-    await playback.playTrackFromQueue(tracks, track.id, { shufflePool: tracks })
-  } catch (error) {
-    // 播放错误无 UI 消费方，仅打日志（原始 message 不直出，避免英文混排）。
-    rendererDiagnostics.error({
-      scope: 'sidebar.playlist',
-      message: 'Failed to play a random playlist track',
-      cause: error,
-    })
-    playback.clearError()
-  }
-}
-
-function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): void {
-  event.preventDefault()
-  event.stopPropagation()
-  if (shouldSuppressClick(event)) return
-  void playRandomPlaylistTrack(item)
-}
-
-async function loadSidebarPlaylists(): Promise<void> {
-  await sidebarLibraryLoader.loadPlaylists()
-}
-
-async function loadSidebarStats(): Promise<void> {
-  await sidebarLibraryLoader.loadStats()
-}
-
-function onMenuKeydown(event: KeyboardEvent): void {
-  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-  const panel = event.currentTarget as HTMLElement
-  const buttons = Array.from(
-    panel.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
-  ).filter(
-    (button) => button.closest('[role="menu"]') === panel && button.getClientRects().length > 0,
-  )
-  if (!buttons.length) return
-  event.preventDefault()
-  event.stopPropagation()
-  const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
-  const next =
-    event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? buttons.length - 1
-        : index < 0
-          ? event.key === 'ArrowDown'
-            ? 0
-            : buttons.length - 1
-          : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-  buttons[next]?.focus()
-}
-
-function onRecentAddedContextMenuKeydown(event: KeyboardEvent): void {
-  if (!recentAddedRangeSelectorOpen.value) {
-    onMenuKeydown(event)
-  }
-}
-
-useOverlayFocusTrap({
-  isOpen: () => createMenu.value !== null,
-  container: createMenuPanel,
-  onEscape() {
-    if (smartCreateSubmenu.value && smartCreatePanel.value?.contains(document.activeElement)) {
-      smartCreateSubmenu.value = false
-      smartCreateTrigger.value?.focus()
-    } else closeCreateMenu()
-  },
-  restoreFocus: (captured) =>
-    (
-      resolveRestorableFocusTarget(captured) ??
-      resolveRestorableFocusTarget(createPlaylistButton.value)
-    )?.focus(),
-})
-
-useOverlayFocusTrap({
-  isOpen: () => playlistContextMenu.value !== null && playlistContextPositioned.value,
-  container: playlistContextPanel,
-  onEscape: closePlaylistContextMenu,
-  restoreFocus: () =>
-    (
-      resolveRestorableFocusTarget(playlistContextTrigger.value) ??
-      resolveRestorableFocusTarget(createPlaylistButton.value)
-    )?.focus(),
-})
-
-useOverlayFocusTrap({
-  isOpen: () => recentAddedContextMenu.value !== null && recentAddedContextPositioned.value,
-  container: recentAddedContextPanel,
-  initialFocus: () =>
-    recentAddedContextPanel.value?.querySelector<HTMLButtonElement>('button') ??
-    recentAddedContextPanel.value ??
-    undefined,
-  onEscape: closeRecentAddedContextMenu,
-  restoreFocus: () => resolveRestorableFocusTarget(recentAddedContextTrigger.value)?.focus(),
-})
-
+const { onPlaylistClick, onPlaylistDoubleClick, onPlaylistKeydown } =
+  useSidebarPlaylistInteractions({
+    api: auralis,
+    playback,
+    shouldSuppressClick,
+    setPendingActive,
+    cancelPlaylistReorder,
+    movePlaylist,
+    openPlaylistContextMenu,
+    getPlaylistPath,
+  })
+const { createMenuPanel, playlistContextPanel, deleteLid, renameDialogRef } =
+  useSidebarPlaylistMenus(playlistActions)
 watch([() => route.path, isRail], () => {
   closeCreateMenu()
   closePlaylistContextMenu()
   closeRecentAddedContextMenu()
 })
-
 const resizeDisabled = computed(
   () =>
     props.resizeDisabled ||
@@ -672,9 +233,7 @@ const {
   maxWidth: computed(() => props.maxWidth),
   onActiveChange: (active) => emit('resize-active-change', active),
 })
-
 watch([() => route.path, sidebarFullHeight, displayMode], cancelSidebarResize, { flush: 'sync' })
-
 watch(
   [
     () => route.path,
@@ -692,206 +251,10 @@ watch(
   () => cancelPlaylistReorder(true),
   { flush: 'sync' },
 )
-
 function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
   void loadSidebarPlaylists()
   void router.push(`/smart-playlists/${playlist.id}`)
 }
-
-function openRecentAddedContextMenu(x: number, y: number, trigger: HTMLElement | null): void {
-  closeCreateMenu()
-  closePlaylistContextMenu()
-  recentAddedRangeSelectorOpen.value = false
-  recentAddedContextTrigger.value = trigger
-  recentAddedContextMenu.value = { x, y }
-}
-
-function closeRecentAddedContextMenu(): void {
-  recentAddedRangeSelectorOpen.value = false
-  syncRecentAddedRange(recentAddedRange.value)
-  customRecentAddedDays.value = committedCustomRecentAddedDays
-  recentAddedContextMenu.value = null
-}
-
-async function openRecentAddedRangeSelector(): Promise<void> {
-  recentAddedRangeSelectorOpen.value = true
-  await nextTick()
-  recentAddedRangeSelectorPanel.value
-    ?.querySelector<HTMLInputElement>('input[type="range"]')
-    ?.focus()
-}
-
-function syncRecentAddedRange(range: RecentAddedLibraryRange): void {
-  recentAddedRange.value = range
-  recentAddedRangeDraft.value = null
-  const index = recentAddedRangeOptions.findIndex((option) => option.value === range)
-  if (index >= 0) {
-    committedRecentAddedSliderValue = index
-    recentAddedRangeSliderValue.value = index
-  } else if (typeof range === 'number') {
-    recentAddedRangeSliderValue.value = committedRecentAddedSliderValue
-    committedCustomRecentAddedDays = range
-    customRecentAddedDays.value = range
-  }
-}
-
-function applyRecentAddedRange(range: RecentAddedLibraryRange): void {
-  if (route.name !== 'recent-added') {
-    syncRecentAddedRange(range)
-    return
-  }
-  recentAddedRangeDraft.value = range
-  const navigationId = ++recentAddedRangeNavigationId
-  void router
-    .replace({ query: { ...route.query, range: String(range) }, hash: route.hash })
-    .then(() => {
-      if (navigationId === recentAddedRangeNavigationId && route.name === 'recent-added') {
-        syncRecentAddedRange(parseRecentAddedLibraryRange(route.query.range) ?? 'all')
-      }
-    })
-    .catch((error) => {
-      if (navigationId === recentAddedRangeNavigationId && route.name === 'recent-added') {
-        syncRecentAddedRange(parseRecentAddedLibraryRange(route.query.range) ?? 'all')
-      }
-      rendererDiagnostics.error({
-        scope: 'sidebar.recent-added',
-        message: 'Failed to update recently added range',
-        cause: error,
-      })
-    })
-}
-
-function selectRecentAddedRangeBySlider(event: Event): void {
-  const sliderValue = Number((event.target as HTMLInputElement).value)
-  const option = recentAddedRangeOptions[sliderValue]
-  if (!option) {
-    syncRecentAddedRange(recentAddedRange.value)
-    return
-  }
-  if (route.name !== 'recent-added') {
-    syncRecentAddedRange(option.value)
-    return
-  }
-  recentAddedRangeSliderValue.value = sliderValue
-  recentAddedRangeDraft.value = option.value
-}
-
-function commitRecentAddedRangeBySlider(event: Event): void {
-  const option = recentAddedRangeOptions[Number((event.target as HTMLInputElement).value)]
-  if (!option) {
-    syncRecentAddedRange(recentAddedRange.value)
-    return
-  }
-  applyRecentAddedRange(option.value)
-}
-
-function applyCustomRecentAddedRange(): void {
-  const days = parseRecentAddedLibraryRange(customRecentAddedDays.value)
-  if (typeof days === 'number') {
-    committedCustomRecentAddedDays = days
-    applyRecentAddedRange(days)
-  } else {
-    customRecentAddedDays.value = committedCustomRecentAddedDays
-  }
-}
-
-function onPrimaryNavContextMenu(item: { to: string }, event: MouseEvent): void {
-  if (item.to !== '/recent-added') return
-  event.preventDefault()
-  event.stopPropagation()
-  openRecentAddedContextMenu(
-    event.clientX,
-    event.clientY,
-    event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
-  )
-}
-
-function onPrimaryNavKeydown(item: { to: string }, event: KeyboardEvent): void {
-  if (
-    item.to !== '/recent-added' ||
-    (event.key !== 'ContextMenu' && !(event.key === 'F10' && event.shiftKey))
-  )
-    return
-
-  event.preventDefault()
-  event.stopPropagation()
-  const target = event.currentTarget
-  if (!(target instanceof HTMLElement)) return
-  const rect = target.getBoundingClientRect()
-  openRecentAddedContextMenu(rect.left + rect.width / 2, rect.top + rect.height / 2, target)
-}
-
-function onPlaylistKeydown(item: SidebarPlaylistItem, event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
-  if (
-    event.altKey &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.shiftKey &&
-    (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-  ) {
-    event.preventDefault()
-    event.stopPropagation()
-    cancelPlaylistReorder(true)
-    movePlaylist(item, event.key === 'ArrowUp' ? -1 : 1)
-  } else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
-    event.preventDefault()
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    openPlaylistContextMenu(
-      item,
-      new MouseEvent('contextmenu', {
-        clientX: rect.left + rect.width / 2,
-        clientY: rect.top + rect.height / 2,
-      }),
-    )
-  } else if (event.key === 'Enter') setPendingActive(getPlaylistPath(item))
-}
-
-useSidebarOwnedModal({
-  isOpen: () => renamingPlaylist.value !== null,
-  container: renameDialogRef,
-  trigger: sidebarModalTrigger,
-  onEscape: closeRenameDialog,
-})
-
-function onPlaylistsChanged(): void {
-  void loadSidebarStats()
-}
-
-onMounted(() => {
-  deleteMotionPreference = createReducedMotionQuery()
-  deleteMotionPreference.addEventListener('change', updateDeleteLid)
-  void loadSidebarStats()
-  unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
-      void sidebarLibraryLoader.refreshPlayStats().catch((cause: unknown) => {
-        rendererDiagnostics.error({
-          scope: 'sidebar.playlist',
-          message: 'Failed to refresh playback playlist counts',
-          cause,
-        })
-      })
-      return
-    }
-    void loadSidebarStats()
-  })
-  window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)
-  void nextTick(updateFlavorOverflow)
-  window.addEventListener('resize', updateFlavorOverflow)
-})
-
-onBeforeUnmount(() => {
-  sidebarLibraryLoader.dispose()
-  playlistPosition?.dispose()
-  stopDeleteLidAnimation?.()
-  deleteMotionPreference?.removeEventListener('change', updateDeleteLid)
-  pendingNavCleanup?.()
-  pendingNavCleanup = null
-  unsubscribeLibraryChanged?.()
-  unsubscribeLibraryChanged = null
-  window.removeEventListener('auralis-playlists-changed', onPlaylistsChanged)
-  window.removeEventListener('resize', updateFlavorOverflow)
-})
 </script>
 
 <template>

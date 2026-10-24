@@ -8,6 +8,15 @@ import {
   wcagLuminance,
 } from 'culori/fn'
 import type { Hsl, Oklab, Rgb } from 'culori/fn'
+import type { OklabColor } from './types'
+
+export function getOklabDistance(a: OklabColor, b: OklabColor): number {
+  return Math.sqrt((a.l - b.l) ** 2 + (a.a - b.a) ** 2 + (a.b - b.b) ** 2)
+}
+
+export function getOklabChroma(color: OklabColor): number {
+  return Math.sqrt(color.a * color.a + color.b * color.b)
+}
 
 type RgbChannels = Pick<Rgb, 'r' | 'g' | 'b'>
 type OklabChannels = Pick<Oklab, 'l' | 'a' | 'b'>

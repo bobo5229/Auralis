@@ -10,7 +10,7 @@ import {
   ShellTestElement,
   shellTestDocument as doc,
   shellTestRenderer as renderer,
-} from '@renderer/app/layout/appShellTestHost'
+} from '@renderer/testUtils/rendererTestHost'
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import LibraryPage from './LibraryPage.vue'
@@ -63,7 +63,7 @@ vi.mock('@renderer/shared/ipc/client', () => ({
       onChanged: () => () => undefined,
       onScanProgress: () => () => undefined,
     },
-    playlists: { listSidebarItems: async () => [] },
+    playlists: { onChanged: () => () => undefined, listSidebarItems: async () => [] },
     metadata: {
       getTrackMetadata: async () => null,
       getTrackEditState: async () => ({ status: 'editable', version: 1 }),

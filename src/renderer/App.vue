@@ -5,7 +5,7 @@ import { router } from './app/router'
 import './app/styles/cdCanvasTransition.css'
 import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
 import AppSidebar from './app/layout/AppSidebar.vue'
-import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
+import WindowTrafficLights from '@renderer/shared/components/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
@@ -19,6 +19,7 @@ import { useSystemMediaIntegration } from '@renderer/features/playback/composabl
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useAppOverlays } from './app/composables/useAppOverlays'
 import { useAppShellLayout } from './app/composables/useAppShellLayout'
+import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
 const {
   active: startupAlbumActive,
@@ -33,6 +34,7 @@ const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
 const cdViewSwitchRef = ref<InstanceType<typeof CdViewSwitch> | null>(null)
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
+const { sidebarCollapsed } = useSidebarLayout()
 
 const {
   isSettingsOpen,
@@ -129,7 +131,11 @@ const {
         :class="{ 'shell-drag-region--cd': isCdCanvas }"
         aria-hidden="true"
       />
-      <WindowTrafficLights :cd-canvas="isCdCanvas" />
+      <WindowTrafficLights
+        :cd-canvas="isCdCanvas"
+        :sidebar-full-height="sidebarFullHeight"
+        :sidebar-collapsed="sidebarCollapsed"
+      />
 
       <AppSidebar
         v-if="!isCdCanvas"

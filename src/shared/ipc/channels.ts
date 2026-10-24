@@ -41,6 +41,7 @@ export const ipcChannels = {
     reorder: 'smart-playlists:reorder',
   },
   playlists: {
+    changed: 'playlists:changed',
     list: 'playlists:list',
     listTrackCounts: 'playlists:list-track-counts',
     listSidebarItems: 'playlists:list-sidebar-items',

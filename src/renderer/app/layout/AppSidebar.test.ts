@@ -4,7 +4,10 @@ import { createFocusTrap, type FocusTrap } from 'focus-trap'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import AppSidebar from './AppSidebar.vue'
 import { useTheme, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
-import { ShellTestElement as Host, shellTestDocument as doc } from './appShellTestHost'
+import {
+  ShellTestElement as Host,
+  shellTestDocument as doc,
+} from '@renderer/testUtils/rendererTestHost'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
 const fixture = vi.hoisted(() => ({
@@ -18,6 +21,14 @@ const fixture = vi.hoisted(() => ({
   deleteSmart: vi.fn(),
   reorder: vi.fn(),
   push: vi.fn(),
+  replace: vi.fn(),
+  getDetail: vi.fn(),
+  getSmartDetail: vi.fn(),
+  play: vi.fn(),
+  clearPlaybackError: vi.fn(),
+  listItems: vi.fn(),
+  listTrackCounts: vi.fn(),
+  playlistChanged: new Set<(event: { kind: string; reason: string }) => void>(),
   changed: new Set<(event: { reason: string }) => void>(),
   positions: [] as { dispose: ReturnType<typeof vi.fn> }[],
 }))
@@ -34,7 +45,12 @@ vi.mock('@renderer/shared/ipc/client', () => ({
       },
     },
     playlists: {
-      listSidebarItems: async () => structuredClone(fixture.items),
+      onChanged: (callback: (event: { kind: string; reason: string }) => void) => {
+        fixture.playlistChanged.add(callback)
+        return () => fixture.playlistChanged.delete(callback)
+      },
+      listSidebarItems: fixture.listItems,
+      getDetail: fixture.getDetail,
       create: fixture.create,
       rename: fixture.rename,
       delete: fixture.delete,
@@ -45,7 +61,8 @@ vi.mock('@renderer/shared/ipc/client', () => ({
         fixture.items
           .filter((i) => i.kind === 'smart')
           .map((i) => ({ ...i, rule: { preset: 'mostListened' } })),
-      listTrackCounts: async () => [],
+      listTrackCounts: fixture.listTrackCounts,
+      getDetail: fixture.getSmartDetail,
       create: fixture.createSmart,
       rename: fixture.renameSmart,
       delete: fixture.deleteSmart,
@@ -56,13 +73,13 @@ vi.mock('vue-router', async () => {
   const { h } = await import('vue')
   return {
     useRoute: () => fixture.route,
-    useRouter: () => ({ push: fixture.push }),
+    useRouter: () => ({ push: fixture.push, replace: fixture.replace }),
     RouterLink: {
       props: ['to'],
       setup:
-        (_props: unknown, { slots }: { slots: Slots }) =>
+        (props: { to: unknown }, { slots }: { slots: Slots }) =>
         () =>
-          h('a', undefined, slots.default?.()),
+          h('a', { 'data-target': JSON.stringify(props.to) }, slots.default?.()),
     },
   }
 })
@@ -72,7 +89,11 @@ vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { error: vi.fn(), warn: vi.fn() },
 }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
-  usePlayback: () => ({ state: {}, playTrackFromQueue: vi.fn(), clearError: vi.fn() }),
+  usePlayback: () => ({
+    state: {},
+    playTrackFromQueue: fixture.play,
+    clearError: fixture.clearPlaybackError,
+  }),
 }))
 vi.mock('@renderer/features/facets/components/FacetsDialog.vue', () => ({
   default: { render: () => null },
@@ -222,6 +243,17 @@ beforeEach(() => {
     fullPath: '/songs',
   })
   fixture.items = [item(1), item(1, 'smart'), item(2)]
+  fixture.listItems.mockImplementation(async () => structuredClone(fixture.items))
+  fixture.listTrackCounts.mockResolvedValue([])
+  fixture.getDetail.mockResolvedValue({ tracks: [{ id: 41 }, { id: 42 }] })
+  fixture.getSmartDetail.mockResolvedValue({ tracks: [{ id: 51 }, { id: 52 }] })
+  fixture.play.mockResolvedValue(undefined)
+  fixture.replace.mockImplementation(
+    async (target: { query: Record<string, string>; hash: string }) => {
+      fixture.route.query = target.query
+      fixture.route.hash = target.hash
+    },
+  )
   fixture.create.mockImplementation(async () => {
     const p = item(3)
     fixture.items.push(p)
@@ -374,6 +406,7 @@ afterEach(async () => {
   unmount = null
   await settle()
   expect(traps.every((t) => !t.active)).toBe(true)
+  expect(fixture.playlistChanged.size).toBe(0)
   expect(fixture.changed.size).toBe(0)
   for (const [name, descriptor] of Object.entries(extraDescriptors)) {
     if (descriptor) Object.defineProperty(Host.prototype, name, descriptor)
@@ -406,6 +439,11 @@ function find(selector: string) {
 }
 function row(key: string) {
   return find(`[data-sidebar-playlist-key="${key}"]`)
+}
+function navigation(path: string) {
+  return find('.sidebar-primary-section')
+    .querySelectorAll('a')
+    .find((node) => node.props['data-target'] === JSON.stringify(path))!
 }
 function dispatch(node: Host, name: string, fields: object = {}) {
   const event = Object.assign(new Event(name, { cancelable: true }), fields)
@@ -441,7 +479,203 @@ function setInput(node: Host, value: string) {
   dispatch(node, 'input')
 }
 
+async function openRecentRange() {
+  const trigger = find('[aria-keyshortcuts="ContextMenu Shift+F10"]')
+  trigger.focus()
+  dispatch(trigger, 'keydown', { key: 'ContextMenu' })
+  await settle()
+  dispatch(find('#sidebar-recent-added-context-menu').querySelector('button')!, 'click')
+  await settle()
+  return { trigger, slider: find('input[type="range"]'), custom: find('input[type="number"]') }
+}
+
+describe('AppSidebar navigation and data wiring', () => {
+  it.each(['pointercancel', 'pointermove', 'pointerup'])(
+    'restores the actual route after an unfinished navigation ends with %s',
+    async (name) => {
+      await mount()
+      const target = navigation('/archive')
+      dispatch(target, 'pointerdown', { button: 0, pointerId: 8, clientX: 10, clientY: 10 })
+      await settle()
+      expect(target.classList.contains('sidebar-link-active')).toBe(true)
+      window.dispatchEvent(
+        Object.assign(new Event(name), { pointerId: 8, clientX: 20, clientY: 20 }),
+      )
+      await vi.advanceTimersByTimeAsync(0)
+      await settle()
+      expect(target.classList.contains('sidebar-link-active')).toBe(false)
+      expect(navigation('/songs').classList.contains('sidebar-link-active')).toBe(true)
+    },
+  )
+
+  it('releases pending navigation listeners when the sidebar unmounts', async () => {
+    await mount()
+    const added = vi.spyOn(window, 'addEventListener')
+    const removed = vi.spyOn(window, 'removeEventListener')
+    dispatch(navigation('/archive'), 'pointerdown', {
+      button: 0,
+      pointerId: 8,
+      clientX: 10,
+      clientY: 10,
+    })
+    const listeners = added.mock.calls.filter(([name]) => name.startsWith('pointer'))
+    expect(listeners.map(([name]) => name)).toEqual(['pointermove', 'pointerup', 'pointercancel'])
+    unmount!()
+    unmount = null
+    for (const [name, listener] of listeners) expect(removed).toHaveBeenCalledWith(name, listener)
+  })
+
+  it.each(['playlist', 'smart'] as const)(
+    'plays a random track from the double-clicked %s only',
+    async (kind) => {
+      await mount()
+      vi.spyOn(Math, 'random').mockReturnValue(0.999)
+      dispatch(row(`${kind}:1`), 'dblclick')
+      await settle()
+      const tracks = kind === 'playlist' ? [{ id: 41 }, { id: 42 }] : [{ id: 51 }, { id: 52 }]
+      expect(kind === 'playlist' ? fixture.getDetail : fixture.getSmartDetail).toHaveBeenCalledWith(
+        1,
+      )
+      expect(
+        kind === 'playlist' ? fixture.getSmartDetail : fixture.getDetail,
+      ).not.toHaveBeenCalled()
+      expect(fixture.play).toHaveBeenCalledWith(tracks, tracks[1].id, { shufflePool: tracks })
+    },
+  )
+
+  it('clears the playback error after a failed playlist double click', async () => {
+    fixture.getDetail.mockRejectedValueOnce(new Error('read failed'))
+    await mount()
+    dispatch(row('playlist:1'), 'dblclick')
+    await settle()
+    expect(fixture.clearPlaybackError).toHaveBeenCalledOnce()
+    expect(fixture.play).not.toHaveBeenCalled()
+  })
+
+  it('refreshes statistics playlist counts without replacing the mixed sidebar order', async () => {
+    await mount()
+    const loads = fixture.listItems.mock.calls.length
+    fixture.listTrackCounts.mockResolvedValueOnce([{ playlistId: 1, trackCount: 9 }])
+    for (const changed of fixture.changed) changed({ reason: 'play-stats-updated' })
+    await settle()
+    expect(row('smart:1').querySelector('.sidebar-link-count')!.text).toBe('9')
+    expect(row('playlist:1').querySelector('.sidebar-link-count')!.text).toBe('2')
+    expect(fixture.listItems).toHaveBeenCalledTimes(loads)
+    expect(
+      find('.sidebar-playlist-section')
+        .querySelectorAll('[data-sidebar-playlist-key]')
+        .map((node) => node.dataset.sidebarPlaylistKey),
+    ).toEqual(['playlist:1', 'smart:1', 'playlist:2'])
+  })
+})
+
+describe('AppSidebar recently added range', () => {
+  it('previews a slider range, commits it with query and hash preserved, and restores trigger focus', async () => {
+    Object.assign(fixture.route, {
+      path: '/recent-added',
+      name: 'recent-added',
+      query: { range: '30', sort: 'title' },
+      hash: '#track',
+    })
+    await mount()
+    const { trigger, slider } = await openRecentRange()
+    expect(doc.activeElement).toBe(slider)
+    slider.props.value = '2'
+    dispatch(slider, 'input')
+    await settle()
+    expect(slider.props['aria-valuetext']).toBe('sidebar.recentAddedRange90Days')
+    expect(fixture.replace).not.toHaveBeenCalled()
+    dispatch(slider, 'change')
+    await settle()
+    expect(fixture.replace).toHaveBeenCalledWith({
+      query: { range: '90', sort: 'title' },
+      hash: '#track',
+    })
+    const key = dispatch(find('#sidebar-recent-added-context-menu'), 'keydown', {
+      key: 'ArrowDown',
+    })
+    expect(key.defaultPrevented).toBe(false)
+    escape()
+    await settle()
+    expect(doc.body.querySelector('#sidebar-recent-added-context-menu')).toBeNull()
+    expect(doc.activeElement).toBe(trigger)
+  })
+
+  it('discards a draft on Escape and rolls back a failed range navigation', async () => {
+    Object.assign(fixture.route, {
+      path: '/recent-added',
+      name: 'recent-added',
+      query: { range: '30' },
+    })
+    await mount()
+    let { slider } = await openRecentRange()
+    slider.props.value = '2'
+    dispatch(slider, 'input')
+    escape()
+    await settle()
+    ;({ slider } = await openRecentRange())
+    expect(slider.props.value).toBe(1)
+    fixture.replace.mockRejectedValueOnce(new Error('navigation failed'))
+    slider.props.value = '0'
+    dispatch(slider, 'input')
+    dispatch(slider, 'change')
+    await settle()
+    expect(slider.props.value).toBe(1)
+    expect(fixture.route.query).toEqual({ range: '30' })
+  })
+
+  it('keeps a custom range for later navigation from another page and rejects invalid input', async () => {
+    await mount()
+    const { trigger, custom } = await openRecentRange()
+    setInput(custom, '14')
+    dispatch(custom, 'change')
+    await settle()
+    expect(JSON.parse(String(trigger.props['data-target']))).toEqual({
+      path: '/recent-added',
+      query: { range: '14' },
+      hash: '',
+    })
+    expect(fixture.replace).not.toHaveBeenCalled()
+    setInput(custom, '0')
+    dispatch(custom, 'change')
+    await settle()
+    expect(custom.props.value).toBe(14)
+    escape()
+    await settle()
+    expect(find('[aria-keyshortcuts="ContextMenu Shift+F10"]').props['data-target']).toBe(
+      trigger.props['data-target'],
+    )
+  })
+})
+
 describe('AppSidebar playlist operations', () => {
+  it('navigates only enabled items in the current menu with arrows, Home and End', async () => {
+    await mount()
+    const menu = await openCreate()
+    const regular = menu.querySelector('button')!
+    const smart = menu.querySelector('[aria-controls="sidebar-smart-create-submenu"]')!
+    dispatch(smart, 'click')
+    await settle()
+    dispatch(menu, 'keydown', { key: 'End' })
+    expect(doc.activeElement).toBe(smart)
+    dispatch(menu, 'keydown', { key: 'Home' })
+    expect(doc.activeElement).toBe(regular)
+    dispatch(menu, 'keydown', { key: 'ArrowUp' })
+    expect(doc.activeElement).toBe(smart)
+    let finish!: (playlist: SidebarPlaylistItem) => void
+    fixture.create.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    dispatch(regular, 'click')
+    await settle()
+    dispatch(menu, 'keydown', { key: 'Home' })
+    expect(doc.activeElement).toBe(smart)
+    finish(item(3))
+    await settle()
+  })
+
   it('opens nested creation menus, returns focus and keeps resize disabled until closing', async () => {
     await mount()
     const menu = await openCreate()

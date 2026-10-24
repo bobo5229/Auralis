@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   play: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@renderer/app/layout/WindowTrafficLights.vue', () => ({
+vi.mock('@renderer/shared/components/WindowTrafficLights.vue', () => ({
   default: { render: () => null },
 }))
 vi.mock('@renderer/shared/focus/useOverlayFocusTrap', () => ({
