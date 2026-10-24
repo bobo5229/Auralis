@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import { app } from 'electron'
 import { dirname, join } from 'node:path'
-import { createPreMigrationBackup } from './databaseBackupService'
+import { createPreMigrationBackup } from './databaseBackupSnapshots'
 
 import { migrations } from './schemaMigrations'
 

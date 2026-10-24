@@ -1,6 +1,7 @@
 import type { EventEmitter } from 'node:events'
 import { stat } from 'node:fs/promises'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { MetadataRefreshService, type MetadataWriteCoordinator } from './metadataRefreshService'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
@@ -75,7 +76,7 @@ function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () 
   const service = new MetadataRefreshService(
     repo as unknown as MetadataRefreshRepository,
     'cache',
-    send,
+    createMetadataRefreshEvents(send),
     'isolated-bin/ffmpeg.exe',
     coordinator,
     readLibraryRevision,

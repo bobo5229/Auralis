@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { migrateDatabase } from '../../database/schema'
 import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import { MetadataRefreshService } from './metadataRefreshService'
+import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { NativePlaybackService } from '../audio/nativePlaybackService'
 import { PlaybackFileCoordinator } from '../audio/playbackFileCoordinator'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
@@ -131,7 +132,7 @@ describe('M4A publication through native playback, metadata service and real Ele
     const metadata = new MetadataRefreshService(
       repository,
       join(root, 'artwork'),
-      send,
+      createMetadataRefreshEvents(send),
       ffmpegPath,
       coordinator,
     )

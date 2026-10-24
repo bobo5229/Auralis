@@ -14,25 +14,16 @@ import { exportDatabaseBackup, stageDatabaseRestore } from '@main/database/datab
 import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCacheGarbageCollector'
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
 import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
-import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
-import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { NativePlaybackService } from '@main/features/audio/nativePlaybackService'
 import { PlaybackSpectrumService } from '@main/features/audio/playbackSpectrumService'
 import { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
 import { RendererReadLeaseOwner } from '@main/features/audio/rendererReadLeaseOwner'
 import { resolveAudioRuntimePaths } from '@main/features/audio/audioRuntimePaths'
-import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
-import { parseAudioMetadata } from '@main/features/metadata/parseAudioMetadata'
-import {
-  getLyricsSidecarFingerprint,
-  resolveLyricsForFile,
-} from '@main/features/metadata/resolveLyricsForFile'
 import { LrcEditorService } from '@main/features/lyrics/lrcEditorService'
-import { LyricsEditorError } from '@main/features/lyrics/lyricsEditorError'
 import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
@@ -44,6 +35,8 @@ import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryService } from '@main/services/libraryService'
+import { LrcEditorMetadataService } from '@main/services/lrcEditorMetadataService'
+import { PlaybackResourceService } from '@main/services/playbackResourceService'
 import { PlaylistService } from '@main/services/playlistService'
 import { PlayStatsService } from '@main/services/playStatsService'
 import { SmartPlaylistService } from '@main/services/smartPlaylistService'
@@ -55,15 +48,11 @@ import { registerLyricsEditorIpcHandlers } from './registerLyricsEditorIpcHandle
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
 import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
 import { createRendererEventSender } from './rendererEvents'
+import { createMetadataRefreshEvents } from './metadataRefreshEvents'
 import {
   createTrustedMainWindowSourcePolicy,
   createValidatedIpcRegistrar,
 } from './validatedIpcRegistrar'
-
-function isMissingFileError(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException | undefined)?.code
-  return code === 'ENOENT' || code === 'ENOTDIR'
-}
 
 export function registerIpcHandlers(
   db: Database.Database,
@@ -89,7 +78,7 @@ export function registerIpcHandlers(
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
     artworkCacheDir,
-    sendToRenderer,
+    createMetadataRefreshEvents(sendToRenderer),
     audioPaths.ffmpegPath,
     playbackFileCoordinator,
     () => trackRepository.getChangeToken(),
@@ -105,43 +94,13 @@ export function registerIpcHandlers(
     trackIds: number[]
     filePaths: string[]
   }) => sendToRenderer(ipcChannels.library.changed, data)
-  const markTrackFileMissing = (filePath: string) => {
-    const trackIds = trackRepository.markMissingByFilePaths([filePath])
-    if (trackIds.length > 0) {
-      sendToRenderer(ipcChannels.library.changed, {
-        reason: 'track-missing',
-        trackIds,
-        filePaths: [filePath],
-      })
-    }
-  }
-  const getAudioUrl = async (trackId: number) => {
-    const filePath = trackRepository.getFilePathById(trackId)
-
-    if (!filePath || !isPlayableAudioExtension(filePath)) {
-      return null
-    }
-
-    const rootPaths = libraryRootRepository.list().map((root) => root.path)
-    if (!isPathUnderAnyRoot(filePath, rootPaths)) {
-      return null
-    }
-
-    const probeLease = await playbackFileCoordinator.acquireReadLease(filePath, 'audio-probe')
-    try {
-      const fileStats = await stat(filePath)
-      if (!fileStats.isFile()) {
-        markTrackFileMissing(filePath)
-        return null
-      }
-      return { url: buildAudioTrackUrl(trackId), decodeProbe: await probeAudioDecode(filePath) }
-    } catch (error) {
-      if (isMissingFileError(error)) markTrackFileMissing(filePath)
-      return null
-    } finally {
-      playbackFileCoordinator.releaseReadLease(probeLease.leaseId)
-    }
-  }
+  const playbackResources = new PlaybackResourceService({
+    tracks: trackRepository,
+    getRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+    files: playbackFileCoordinator,
+    libraryChanged: (event) => sendToRenderer(ipcChannels.library.changed, event),
+  })
+  const getAudioUrl = (trackId: number) => playbackResources.getAudioUrl(trackId)
   const metadataWatchService = new MetadataWatchService(
     libraryRootRepository,
     trackRepository,
@@ -150,91 +109,19 @@ export function registerIpcHandlers(
     sendToRenderer,
   )
 
+  const lrcEditorMetadata = new LrcEditorMetadataService({
+    tracks: trackRepository,
+    metadata: metadataRefreshService,
+    files: playbackFileCoordinator,
+    libraryChanged: (event) => sendToRenderer(ipcChannels.library.changed, event),
+  })
   const lrcEditorService = new LrcEditorService({
     getFilePath: (id) => trackRepository.getFilePathById(id),
     getRoots: () => libraryRootRepository.list().map((root) => root.path),
-    readSource: async (filePath) => {
-      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lrc-editor')
-      try {
-        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
-        const lyrics = await resolveLyricsForFile(filePath, metadata, true)
-        return lyrics
-          ? {
-              lyricsText: lyrics.text,
-              lyricsFormat: lyrics.format,
-            }
-          : null
-      } finally {
-        playbackFileCoordinator.releaseReadLease(lease.leaseId)
-      }
-    },
-    writeTag: async (trackId, text, beforeCommit) => {
-      let committed = false
-      let result: Awaited<ReturnType<typeof metadataRefreshService.updateTrackLyrics>>
-      try {
-        result = await metadataRefreshService.updateTrackLyrics(trackId, text, beforeCommit, () => {
-          committed = true
-        })
-      } catch (error) {
-        if (committed) return { warning: true }
-        throw error
-      }
-      if (!result.ok && committed) return { warning: true }
-      if (!result.ok)
-        throw new LyricsEditorError(
-          result.reason === 'file-changed' || result.reason === 'file-not-found'
-            ? 'file-changed'
-            : result.reason === 'write-in-progress'
-              ? 'busy'
-              : 'save-failed',
-        )
-      return { warning: false }
-    },
-    reconcile: async (trackId, filePath, text) => {
-      let cacheUpdated = false
-      let active = false
-      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lrc-editor-reconcile')
-      try {
-        if (trackRepository.getFilePathById(trackId) !== filePath) return { cacheUpdated, active }
-        const before = await stat(filePath)
-        const fingerprint = await getLyricsSidecarFingerprint(filePath)
-        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
-        const lyrics = await resolveLyricsForFile(filePath, metadata)
-        const after = await stat(filePath)
-        if (
-          before.size !== after.size ||
-          before.mtimeMs !== after.mtimeMs ||
-          fingerprint !== (await getLyricsSidecarFingerprint(filePath))
-        )
-          return { cacheUpdated, active }
-        trackRepository.patchLyrics([
-          {
-            filePath,
-            lyricsText: lyrics?.text ?? null,
-            lyricsFormat: lyrics?.format ?? null,
-            lyricsCheckedMtimeMs: after.mtimeMs,
-            lyricsSidecarFingerprint: fingerprint,
-          },
-        ])
-        cacheUpdated = true
-        active = (lyrics?.text.trim() ?? '') === text.trim()
-        return { cacheUpdated, active }
-      } finally {
-        playbackFileCoordinator.releaseReadLease(lease.leaseId)
-        sendToRenderer(ipcChannels.library.changed, {
-          reason: 'file-change',
-          trackIds: [trackId],
-          filePaths: [filePath],
-        })
-        if (!cacheUpdated) {
-          try {
-            metadataRefreshService.refreshTracksFromFileChanges([trackId])
-          } catch (error) {
-            logger.warn({ error, trackId }, 'LRC save requires cache reconciliation')
-          }
-        }
-      }
-    },
+    readSource: (filePath) => lrcEditorMetadata.readSource(filePath),
+    writeTag: (trackId, text, beforeCommit) =>
+      lrcEditorMetadata.writeTag(trackId, text, beforeCommit),
+    reconcile: (trackId, filePath, text) => lrcEditorMetadata.reconcile(trackId, filePath, text),
   })
 
   // After user tag writes, suppress watch-driven refresh so mtime churn cannot
@@ -305,12 +192,7 @@ export function registerIpcHandlers(
   })
 
   metadataWatchService.start()
-  const resolvePlaybackTrack = async (trackId: number): Promise<string> => {
-    if (!(await getAudioUrl(trackId))) throw new Error('Audio file is unavailable')
-    const path = trackRepository.getFilePathById(trackId)
-    if (!path) throw new Error('Audio file is unavailable')
-    return path
-  }
+  const resolvePlaybackTrack = (trackId: number) => playbackResources.resolveTrack(trackId)
   const spectrum = new PlaybackSpectrumService({
     ffmpegPath: audioPaths.ffmpegPath,
     resolveTrack: resolvePlaybackTrack,

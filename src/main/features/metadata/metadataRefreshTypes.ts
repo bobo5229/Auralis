@@ -1,6 +1,14 @@
 import type { RefreshedTrackMetadata } from '../../repositories/metadataRefreshRepository'
 import type { ScanFileFingerprint } from '../libraryScan/libraryScanTypes'
 
+export interface MetadataRefreshProgress {
+  jobId: number
+  status: 'running' | 'completed' | 'failed'
+  totalTracks: number
+  processedTracks: number
+  failedTracks: number
+}
+
 export interface StableTrackMetadata extends RefreshedTrackMetadata {
   fileFingerprint: ScanFileFingerprint
 }

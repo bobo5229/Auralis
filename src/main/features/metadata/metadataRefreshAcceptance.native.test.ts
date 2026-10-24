@@ -19,6 +19,7 @@ import { join, relative } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { afterEach, expect, it, vi } from 'vitest'
+import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { migrateDatabase } from '@main/database/schema'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
@@ -109,7 +110,7 @@ async function fixture() {
   db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(?,7)').run(id)
   const repo = new MetadataRefreshRepository(db)
   const send = vi.fn()
-  const service = new MetadataRefreshService(repo, cache, send, ffmpeg)
+  const service = new MetadataRefreshService(repo, cache, createMetadataRefreshEvents(send), ffmpeg)
   owned.service = service
   return { directory, root, source, cache, db, tracks, id, repo, send, service }
 }

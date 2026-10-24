@@ -8,6 +8,7 @@ import type Database from 'better-sqlite3'
 import { migrateDatabase } from '../../database/schema'
 import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import { MetadataRefreshService } from './metadataRefreshService'
+import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { NativePlaybackService } from '../audio/nativePlaybackService'
 import { PlaybackFileCoordinator } from '../audio/playbackFileCoordinator'
 import { parseAudioMetadata } from './parseAudioMetadata'
@@ -102,7 +103,7 @@ describe('buffered file and database commit with real Electron, mpv and isolated
     metadata = new MetadataRefreshService(
       repository,
       join(directory, 'artwork'),
-      () => {},
+      createMetadataRefreshEvents(() => {}),
       ffmpeg,
       coordinator,
     )

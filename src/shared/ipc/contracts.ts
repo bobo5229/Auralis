@@ -3,6 +3,7 @@ import type { UiLocale } from '@shared/uiLocale'
 import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
 import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
+import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
 import type {
   LibraryRoot,
   LibraryScanProgress,
@@ -50,23 +51,7 @@ import type {
   LrcEditorSaved,
 } from '@shared/types/lyricsEditor'
 
-export type LibraryChangedReason =
-  | 'track-added'
-  | 'track-missing'
-  | 'track-restored'
-  | 'track-relocated'
-  | 'metadata-refresh'
-  | 'file-change'
-  | 'play-stats-updated'
-  | 'play-stats-reset'
-
-export interface LibraryChangedEvent {
-  reason: LibraryChangedReason
-  trackIds: number[]
-  filePaths: string[]
-  /** Public catalog version after a verified metadata commit; not a write transaction token. */
-  libraryRevision?: string
-}
+export type { LibraryChangedEvent, LibraryChangedReason } from '@shared/types/libraryEvents'
 
 export interface MetadataRefreshProgressEvent {
   jobId: number

@@ -2,8 +2,9 @@ import { Worker } from 'node:worker_threads'
 import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { MetadataRefreshEvents } from './metadataRefreshEvents'
 import type {
+  MetadataRefreshProgress,
   MetadataRefreshWorkerInput,
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
@@ -14,13 +15,7 @@ function getWorkerPath(): string {
   return join(__dirname, 'features/metadata/metadataRefreshWorker.js')
 }
 
-export interface MetadataRefreshProgress {
-  jobId: number
-  status: 'running' | 'completed' | 'failed'
-  totalTracks: number
-  processedTracks: number
-  failedTracks: number
-}
+export type { MetadataRefreshProgress } from './metadataRefreshTypes'
 
 interface MetadataWriteState {
   generationFor: (trackId: number) => number
@@ -35,7 +30,7 @@ export class MetadataRefreshWorkerHost {
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
-    private readonly sendToRenderer: RendererEventSender,
+    private readonly events: MetadataRefreshEvents,
     private readonly writes: MetadataWriteState,
     private readonly onIdle: () => void,
   ) {}
@@ -270,7 +265,7 @@ export class MetadataRefreshWorkerHost {
       failedTracks,
     }
 
-    this.sendToRenderer('metadata:refresh-progress', progress)
+    this.events.refreshProgress(progress)
   }
 
   private isMissingFileFailure(reason: string): boolean {
@@ -297,7 +292,7 @@ export class MetadataRefreshWorkerHost {
     trackIds: number[],
     reason: 'metadata-refresh' | 'file-change' | 'track-missing',
   ): void {
-    this.sendToRenderer('library:changed', {
+    this.events.libraryChanged({
       trackIds: [...new Set(trackIds)],
       filePaths: [],
       reason,

@@ -12,6 +12,7 @@ import { migrateDatabase } from '../database/schema'
 import { MetadataRefreshRepository, type RefreshedTrackMetadata } from './metadataRefreshRepository'
 import { resolveWatchRefreshPaths } from '../features/metadata/metadataFileChangeFilter'
 import { MetadataRefreshService } from '../features/metadata/metadataRefreshService'
+import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { readStableMetadata } from '../features/metadata/readStableMetadata'
 import { resolveAudioRuntimePaths } from '../features/audio/audioRuntimePaths'
 import { TrackRepository } from './trackRepository'
@@ -212,7 +213,12 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     const original = Buffer.from('file must never be opened by the tag writer')
     await writeFile(filePath, original)
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
+    const service = new MetadataRefreshService(
+      repo,
+      root,
+      createMetadataRefreshEvents(vi.fn()),
+      ffmpegPath,
+    )
     const suppress = vi.fn()
     service.setTagWriteSuccessHandler(suppress)
     await expect(
@@ -251,7 +257,12 @@ describe('isolated FFmpeg tag write and stable readback', () => {
       await originalCopy(source, target, mode)
     })
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
+    const service = new MetadataRefreshService(
+      repo,
+      root,
+      createMetadataRefreshEvents(vi.fn()),
+      ffmpegPath,
+    )
     vi.spyOn(service, 'refreshTracksFromFileChanges').mockReturnValue({ jobId: 999 })
     await expect(service.updateTrackMetadata(edit)).rejects.toThrow('changed during tag writing')
     expect(await readFile(filePath, 'utf8')).toBe('external replacement')
@@ -278,7 +289,12 @@ describe('isolated FFmpeg tag write and stable readback', () => {
         { windowsHide: true },
       )
       const { db, repo } = setup(filePath)
-      const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
+      const service = new MetadataRefreshService(
+        repo,
+        root,
+        createMetadataRefreshEvents(vi.fn()),
+        ffmpegPath,
+      )
       const suppress = vi.fn()
       service.setTagWriteSuccessHandler(suppress)
       const reconcile = vi
@@ -330,7 +346,12 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     const originalRow = stored(db)
     const originalFingerprint = await stat(filePath)
     const send = vi.fn()
-    const service = new MetadataRefreshService(repo, root, send, ffmpegPath)
+    const service = new MetadataRefreshService(
+      repo,
+      root,
+      createMetadataRefreshEvents(send),
+      ffmpegPath,
+    )
     const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
     const reconcile = vi
       .spyOn(service, 'refreshTracksFromFileChanges')
@@ -371,7 +392,12 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     const { db, repo } = setup(filePath)
     const originalRow = stored(db)
     const send = vi.fn()
-    const service = new MetadataRefreshService(repo, root, send, ffmpegPath)
+    const service = new MetadataRefreshService(
+      repo,
+      root,
+      createMetadataRefreshEvents(send),
+      ffmpegPath,
+    )
     const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
     // Hold background reconciliation until the failed transaction is inspected.
     const busy = vi.spyOn(service, 'hasActiveJob').mockReturnValue(true)

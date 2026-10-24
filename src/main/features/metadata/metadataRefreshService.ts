@@ -2,9 +2,8 @@ import type { MetadataRefreshRepository } from '@main/repositories/metadataRefre
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import type { MetadataRefreshWorkerInput } from './metadataRefreshTypes'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { MetadataRefreshEvents } from './metadataRefreshEvents'
 import { MetadataRefreshWorkerHost } from './metadataRefreshWorkerHost'
-import { ipcChannels } from '@shared/ipc/channels'
 import {
   MetadataTagWriteCoordinator,
   type MetadataWriteCoordinator,
@@ -22,7 +21,7 @@ export class MetadataRefreshService {
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly artworkCacheDir: string,
-    sendToRenderer: RendererEventSender,
+    events: MetadataRefreshEvents,
     ffmpegPath: string,
     coordinator?: MetadataWriteCoordinator,
     readLibraryRevision?: () => string,
@@ -37,7 +36,7 @@ export class MetadataRefreshService {
         refreshTracksFromFileChanges: (ids) => this.refreshTracksFromFileChanges(ids),
         onUserEditCommitted: (trackId, filePath) => {
           const libraryRevision = readLibraryRevision?.()
-          sendToRenderer(ipcChannels.library.changed, {
+          events.libraryChanged({
             reason: 'metadata-refresh',
             trackIds: [trackId],
             filePaths: [filePath],
@@ -48,11 +47,8 @@ export class MetadataRefreshService {
       },
       coordinator,
     )
-    this.workerHost = new MetadataRefreshWorkerHost(
-      repository,
-      sendToRenderer,
-      this.tagWrites,
-      () => this.tagWrites.flushReconciliation(),
+    this.workerHost = new MetadataRefreshWorkerHost(repository, events, this.tagWrites, () =>
+      this.tagWrites.flushReconciliation(),
     )
     this.repository.markInterruptedJobs()
   }
