@@ -10,7 +10,7 @@ import {
   type PlaybackSpectrumFrame,
   type SpectrumSubscription,
 } from '@shared/types/playbackSpectrum'
-import type { PlaybackCoordinator } from './nativePlaybackService'
+import type { PlaybackCoordinator } from './nativePlaybackTypes'
 import { normalizeAudioFilePath } from './playbackFileCoordinator'
 
 export interface SpectrumSource {

@@ -1,13 +1,7 @@
-import type { PlaybackMode, PlaybackTrack } from '../types'
-import type { AlbumShuffleContext } from './playbackQueueState'
+import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack, ShuffleCycle } from '../types'
 import { resolveAlbumArtist } from '@shared/utils/albumIdentity'
 
 export type PlaybackAdvanceTrigger = 'manual-next' | 'natural-ended' | 'gapless-prefetch'
-
-export interface ShuffleCycle {
-  remaining: number[]
-  seed: number
-}
 
 export interface PlaybackTransitionPlan {
   queue: PlaybackTrack[]

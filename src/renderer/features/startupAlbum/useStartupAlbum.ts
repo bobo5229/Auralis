@@ -8,7 +8,6 @@ import {
   shallowRef,
   type Component,
 } from 'vue'
-import type { RandomAlbumTracksResult } from '@shared/types/playback'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
@@ -24,14 +23,8 @@ import {
   useStartupAlbumPreference,
 } from './startupAlbumPreference'
 import { startStartupAlbum } from './startupAlbumCoordinator'
-import type { createCardScene } from './rendering/scene'
 import { startupAlbumActionsKey, type StartupAlbumDrawResult } from './startupAlbumActions'
-
-export interface StartupAlbumPresentation {
-  album: RandomAlbumTracksResult
-  cover: HTMLImageElement | null
-  createScene: typeof createCardScene | null
-}
+import type { StartupAlbumPresentation } from './startupAlbumTypes'
 
 function loadCover(url: string | null, signal: AbortSignal): Promise<HTMLImageElement | null> {
   if (!url || signal.aborted) return Promise.resolve(null)

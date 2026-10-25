@@ -10,7 +10,7 @@ import { useSidebarLayout } from '@renderer/features/appearance/composables/useS
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { auralis } from '@renderer/shared/ipc/client'
-import type { StartupAlbumPresentation } from './useStartupAlbum'
+import type { StartupAlbumPresentation } from './startupAlbumTypes'
 import type { createCardScene } from './rendering/scene'
 import { drawCardCanvas, type CardContent } from './rendering/cardArtwork'
 import { createCardAppearance } from './rendering/cardAppearance'

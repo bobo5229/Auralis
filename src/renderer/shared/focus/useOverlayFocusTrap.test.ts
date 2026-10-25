@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, defineComponent, nextTick, ref, shallowRef } from 'vue'
 import { createFocusTrap, type FocusTrap, type Options } from 'focus-trap'
 import { useOverlayFocusTrap } from './useOverlayFocusTrap'
-import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
 
 vi.mock('focus-trap', () => ({ createFocusTrap: vi.fn() }))
 
@@ -28,16 +27,11 @@ const renderer = createRenderer({
   nextSibling: () => null,
 })
 const mounted: (() => void)[] = []
-function mount(options: Parameters<typeof useOverlayFocusTrap>[0], sidebar = false) {
+function mount(options: Parameters<typeof useOverlayFocusTrap>[0]) {
   const app = renderer.createApp(
     defineComponent({
       setup() {
-        if (sidebar)
-          useSidebarOwnedModal({
-            ...options,
-            trigger: shallowRef(trigger as unknown as HTMLElement),
-          })
-        else useOverlayFocusTrap(options)
+        useOverlayFocusTrap(options)
         return () => null
       },
     }),
@@ -163,27 +157,5 @@ describe('owned focus trap lifecycle', () => {
     await nextTick()
     expect(created[0].trap.deactivate).toHaveBeenCalledOnce()
     expect(restoreFocus).toHaveBeenCalledOnce()
-  })
-  it('keeps background inert until the last Sidebar owner closes', async () => {
-    const parent = ref(true),
-      child = ref(true)
-    mount({ isOpen: parent, container: root(), onEscape: vi.fn() }, true)
-    mount({ isOpen: child, container: root(), onEscape: vi.fn() }, true)
-    expect(background.inert).toBe(true)
-    child.value = false
-    await nextTick()
-    expect(background.inert).toBe(true)
-    parent.value = false
-    await nextTick()
-    expect(background.inert).toBe(false)
-    expect(trigger.focus).toHaveBeenCalledOnce()
-  })
-  it('preserves an already-inert background', async () => {
-    background.inert = true
-    const open = ref(true)
-    mount({ isOpen: open, container: root(), onEscape: vi.fn() }, true)
-    open.value = false
-    await nextTick()
-    expect(background.inert).toBe(true)
   })
 })

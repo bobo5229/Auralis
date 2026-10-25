@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, markRaw, nextTick } from 'vue'
 import StartupAlbumOverlay from './StartupAlbumOverlay.vue'
-import type { StartupAlbumPresentation } from './useStartupAlbum'
+import type { StartupAlbumPresentation } from './startupAlbumTypes'
 import type { CardSnapshot, createCardScene } from './rendering/scene'
 
 const mocks = vi.hoisted(() => ({

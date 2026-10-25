@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PlaybackMode, PlaybackTrack } from '../types'
-import type { AlbumShuffleContext } from './playbackQueueState'
+import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack } from '../types'
 import {
   buildAlbumShuffleContexts,
   getAlbumIdentity,

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
 import { SPLASH_FADE_OUT_MS } from './splashController'
 import { SPLASH_FORMATION_MS, SPLASH_RESONANCE_PATH } from './splashMotion'
 

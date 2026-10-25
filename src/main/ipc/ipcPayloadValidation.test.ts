@@ -19,6 +19,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.app.splashReady,
   ipcChannels.library.scanProgress,
   ipcChannels.library.changed,
+  ipcChannels.playlists.changed,
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
   ipcChannels.metadata.refreshProgress,

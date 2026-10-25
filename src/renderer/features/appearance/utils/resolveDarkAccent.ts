@@ -1,4 +1,4 @@
-import type { RgbColor } from '@renderer/features/playback/types'
+import type { RgbColor } from '@renderer/shared/color/types'
 import { getContrastRatio as contrastRatio } from '@renderer/shared/color/colorMath'
 import { DEFAULT_DARK_ACCENT } from '../constants/darkAccent'
 

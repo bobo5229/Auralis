@@ -2,7 +2,7 @@ import { readonly, ref } from 'vue'
 import {
   PLAYING_INDICATOR_PRESETS,
   type PlayingIndicatorPreset,
-} from '@renderer/shared/components/playingIndicatorTypes'
+} from '../components/playingIndicatorTypes'
 
 export const PLAYING_ICON_PRESET_KEY = 'auralis-playing-icon-preset'
 

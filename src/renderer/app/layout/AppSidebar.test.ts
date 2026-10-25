@@ -3,7 +3,7 @@ import { createRenderer, h, nextTick, reactive, type Slots } from 'vue'
 import { createFocusTrap, type FocusTrap } from 'focus-trap'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import AppSidebar from './AppSidebar.vue'
-import { useTheme, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
+import { useTheme, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
 import {
   ShellTestElement as Host,
   shellTestDocument as doc,

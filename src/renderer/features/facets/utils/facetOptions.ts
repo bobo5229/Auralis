@@ -1,12 +1,17 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { cleanDelimitedValues, normalizeDelimitedValue } from '@shared/utils/delimitedValues'
+import {
+  getTrackFacetKey,
+  getTrackFacetLabels,
+  matchesTrackFacetKey,
+  type TrackFacetKind,
+} from '@shared/smartPlaylists/trackFacets'
 
 const collator = new Intl.Collator('zh-Hans-u-co-pinyin', {
   numeric: true,
   sensitivity: 'base',
 })
 
-export type RuleFacetKind = 'genre' | 'albumArtist'
+export type RuleFacetKind = TrackFacetKind
 export interface FacetOption {
   key: string
   label: string
@@ -14,20 +19,9 @@ export interface FacetOption {
   trackCount: number
 }
 
-export function getFacetKey(value: string | null): string {
-  return value === null ? 'unknown' : `value:${normalizeDelimitedValue(value)}`
-}
-
-export function getFacetValues(track: TrackListItem, kind: RuleFacetKind): Array<string | null> {
-  // Match legacy smart-playlist rules, including the album-artist fallback.
-  const raw = kind === 'genre' ? track.genre : track.albumArtist || track.artist
-  const values = cleanDelimitedValues([raw])
-  return values.length ? values : [null]
-}
-
-export function matchesFacet(track: TrackListItem, kind: RuleFacetKind, key: string): boolean {
-  return getFacetValues(track, kind).some((value) => getFacetKey(value) === key)
-}
+export const getFacetKey = getTrackFacetKey
+export const getFacetValues = getTrackFacetLabels
+export const matchesFacet = matchesTrackFacetKey
 
 export function buildFacetOptions(
   tracks: readonly TrackListItem[],
@@ -36,8 +30,8 @@ export function buildFacetOptions(
 ): FacetOption[] {
   const counts = new Map<string, FacetOption>()
   for (const track of tracks) {
-    for (const value of getFacetValues(track, kind)) {
-      const key = getFacetKey(value)
+    for (const value of getTrackFacetLabels(track, kind)) {
+      const key = getTrackFacetKey(value)
       const existing = counts.get(key)
       if (existing) existing.trackCount += 1
       else counts.set(key, { key, label: value ?? unknownLabel, value, trackCount: 1 })

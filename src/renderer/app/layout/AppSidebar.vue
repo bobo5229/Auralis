@@ -14,7 +14,7 @@ import {
   useSidebarLayout,
 } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
-import { useTheme } from '@renderer/composables/useTheme'
+import { useTheme } from '@renderer/features/appearance/composables/useTheme'
 import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
 import { useSidebarPlaylistActions } from '../composables/useSidebarPlaylistActions'

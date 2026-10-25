@@ -1,13 +1,6 @@
-import type { PlaybackTrack } from '../types'
-import type { ShuffleCycle } from './playbackTransitionPlanner'
+import type { AlbumShuffleContext, PlaybackTrack, ShuffleCycle } from '../types'
 
 const DEFAULT_HISTORY_LIMIT = 100
-
-export type AlbumShuffleContext = {
-  albumArtist: string
-  album: string
-  tracks: PlaybackTrack[]
-} | null
 
 export interface PlaybackHistoryContext {
   queue: PlaybackTrack[]

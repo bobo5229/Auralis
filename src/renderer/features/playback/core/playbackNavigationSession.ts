@@ -1,9 +1,8 @@
-import type { PlaybackMode, PlaybackTrack } from '../types'
+import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack, ShuffleCycle } from '../types'
 import {
   insertTrackAfterCurrent as buildSingleTrackInsertion,
   insertTracksAfterCurrent as buildMultiTrackInsertion,
   PlaybackHistory,
-  type AlbumShuffleContext,
   type PlaybackHistoryEntry,
 } from './playbackQueueState'
 import {
@@ -14,7 +13,6 @@ import {
   type PlaybackTransitionPlan,
   type PlaybackTransitionSource,
   type PlaybackTransitionState,
-  type ShuffleCycle,
 } from './playbackTransitionPlanner'
 
 export type PlaybackPreviousDecision =

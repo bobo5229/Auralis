@@ -5,7 +5,8 @@ import type {
   SmartPlaylistRule,
   SmartPlaylistPredicate,
 } from '@shared/types/smartPlaylist'
-import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
+import { normalizeDelimitedValue } from '@shared/utils/delimitedValues'
+import { getTrackFacetMatchValues, type TrackValueField } from '@shared/smartPlaylists/trackFacets'
 import { isExpressionRule } from './smartPlaylistRules'
 
 function parseRelativeDurationMs(value: string): number {
@@ -43,7 +44,7 @@ function compareTracksByCreatedAtDesc(left: TrackListItem, right: TrackListItem)
   return right.id - left.id
 }
 
-type ValueField = 'genre' | 'artist' | 'albumArtist' | 'albumArtistOrArtist'
+type ValueField = TrackValueField
 interface MatchContext {
   track: TrackListItem
   values: Partial<Record<ValueField, string[]>>
@@ -53,11 +54,7 @@ type MatchExpression = (context: MatchContext) => boolean
 function getValues(context: MatchContext, field: ValueField): string[] {
   const cached = context.values[field]
   if (cached) return cached
-  const raw =
-    field === 'albumArtistOrArtist'
-      ? context.track.albumArtist || context.track.artist
-      : context.track[field]
-  const values = splitDelimitedValues(raw).map(normalizeDelimitedValue)
+  const values = getTrackFacetMatchValues(context.track, field)
   context.values[field] = values
   return values
 }

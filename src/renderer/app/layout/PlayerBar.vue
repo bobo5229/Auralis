@@ -29,7 +29,7 @@ import { usePlayerBarResponsiveFocus } from './playerBar/usePlayerBarResponsiveF
 import { shouldOverflowModernUtilities } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolvePlaybarAccent'
 import { animateFrames } from '@renderer/shared/animation/motion'
-import { useTheme } from '@renderer/composables/useTheme'
+import { useTheme } from '@renderer/features/appearance/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
@@ -482,7 +482,6 @@ function handleNext(): void {
             v-if="canDisplayLyricsPanel && !isUtilitiesOverflow"
             ref="lyricsButtonRef"
             class="player-bar-control"
-            :class="{ 'player-bar-control-active': lyricsPanelExpanded }"
             data-testid="player-lyrics-button"
             data-lyrics-toggle
             type="button"
@@ -493,7 +492,9 @@ function handleNext(): void {
             "
             @click="toggleLyrics"
           >
-            <PlayerBarActionIcon icon="i-ph-subtitles" />
+            <PlayerBarActionIcon
+              :icon="lyricsPanelExpanded ? 'i-ph-subtitles' : 'i-ph-subtitles-slash'"
+            />
           </button>
 
           <div v-if="isUtilitiesOverflow" class="player-bar-overflow">

@@ -9,7 +9,7 @@ import { useDarkAccent } from '@renderer/features/appearance/composables/useDark
 import { parseOpaquePickerAccent } from '@renderer/features/appearance/utils/parsePickerAccent'
 import { useLightAccent } from '@renderer/features/appearance/composables/useLightAccent'
 import { DEFAULT_LIGHT_ACCENT } from '@renderer/features/appearance/constants/lightAccent'
-import { useTheme } from '@renderer/composables/useTheme'
+import { useTheme } from '@renderer/features/appearance/composables/useTheme'
 
 const { t, locale } = useI18n()
 const { theme } = useTheme()

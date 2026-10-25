@@ -3,7 +3,7 @@ import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { useStartupAlbumPreference } from '@renderer/features/startupAlbum/startupAlbumPreference'
 import { startupAlbumActionsKey } from '@renderer/features/startupAlbum/startupAlbumActions'
 import { useI18n } from 'vue-i18n'
-import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
+import { useTheme, type ThemeMode } from '@renderer/features/appearance/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useMotionPreference } from '@renderer/features/appearance/composables/useMotionPreference'
 import type { MotionPreference } from '@renderer/shared/animation/motionPreference'
@@ -39,7 +39,7 @@ import {
   type LiquidGlassParameterField,
 } from '@renderer/features/appearance/composables/useLiquidGlassParameters'
 import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
-import SettingsSegmentedControl from '@renderer/shared/components/SettingsSegmentedControl.vue'
+import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
@@ -313,7 +313,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
           />
         </div>
-        <template v-if="playbarStyle === 'liquid'">
+        <div v-if="playbarStyle === 'liquid'" class="liquid-glass-parameters">
           <div class="settings-row settings-row--with-desc liquid-glass-parameter-header">
             <div>
               <strong id="appearance-liquid-glass-label">{{
@@ -364,7 +364,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               }}</output>
             </div>
           </div>
-        </template>
+        </div>
         <div class="settings-row settings-row--with-desc settings-row--control-style">
           <div>
             <strong id="appearance-control-style-label">{{
@@ -576,21 +576,92 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
   margin-left: auto;
 }
 
-/* Liquid glass parameters stay single-line: label left, widened slider, value right. */
-.appearance-settings :deep(.settings-row.liquid-glass-parameter-row) {
-  display: flex;
+/* Keep the optical controls together without changing shared slider layouts. */
+.liquid-glass-parameters {
+  container: liquid-glass-parameters / inline-size;
+  width: 100%;
+  max-width: 760px;
+}
+
+.liquid-glass-parameters,
+.liquid-glass-parameters + .settings-row {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.appearance-settings .liquid-glass-parameter-header {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.liquid-glass-parameter-header > div {
+  flex: 1 1 240px;
+}
+
+.liquid-glass-parameter-header > button {
+  margin-left: auto;
+}
+
+.appearance-settings .settings-row.liquid-glass-parameter-row {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: 128px minmax(0, 1fr) 64px;
+  grid-template-rows: auto;
   align-items: center;
+  gap: 0 16px;
   height: auto;
-  min-height: 48px;
+  min-height: 56px;
   max-height: none;
 }
 
-.appearance-settings :deep(.liquid-glass-parameter-row .settings-range-control input) {
-  width: 160px;
+.appearance-settings .liquid-glass-parameter-row > div:first-child {
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.appearance-settings :deep(.liquid-glass-parameter-row .settings-range-control output) {
-  min-width: 5ch;
+.appearance-settings .liquid-glass-parameter-row > div:first-child > strong {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.appearance-settings .liquid-glass-parameter-row > .settings-range-control {
+  display: contents;
+}
+
+.appearance-settings .liquid-glass-parameter-row .settings-range-control input {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+.appearance-settings .liquid-glass-parameter-row .settings-range-control output {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  justify-self: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@container liquid-glass-parameters (width < 600px) {
+  .appearance-settings .settings-row.liquid-glass-parameter-row {
+    grid-template-columns: minmax(0, 1fr) 64px;
+    grid-template-rows: auto auto;
+    min-height: 64px;
+    row-gap: 4px;
+  }
+
+  .appearance-settings .liquid-glass-parameter-row .settings-range-control input {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .appearance-settings .liquid-glass-parameter-row .settings-range-control output {
+    grid-column: 2;
+  }
 }
 
 .startup-album-actions .startup-album-draw {

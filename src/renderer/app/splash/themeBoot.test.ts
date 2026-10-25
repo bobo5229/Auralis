@@ -11,7 +11,7 @@ import {
   LIGHT_ACCENT_STORAGE_KEY,
 } from '@renderer/features/appearance/constants/lightAccent'
 import { resolveLightAccent } from '@renderer/features/appearance/utils/resolveLightAccent'
-import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
 
 const script = readFileSync(new URL('../../public/splash/theme-boot.js', import.meta.url), 'utf8')
 

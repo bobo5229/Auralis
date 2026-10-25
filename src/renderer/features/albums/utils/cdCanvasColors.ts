@@ -1,4 +1,4 @@
-import type { RgbColor } from '@renderer/features/playback/types'
+import type { RgbColor } from '@renderer/shared/color/types'
 import { getContrastRatio } from '@renderer/shared/color/colorMath'
 
 export const CD_LIGHT_BACKGROUND: RgbColor = { r: 238, g: 238, b: 236 }

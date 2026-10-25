@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
+import PlayingIndicator from './PlayingIndicator.vue'
 import { usePlayingIconPreference } from '../composables/usePlayingIconPreference'
 
 defineProps<{ playing: boolean; size?: number }>()

@@ -4,7 +4,7 @@ import { shellTestRenderer, ShellTestElement } from '@renderer/testUtils/rendere
 import { setPlayingIconPreset } from '../composables/usePlayingIconPreference'
 import PreferredPlayingIndicator from './PreferredPlayingIndicator.vue'
 
-vi.mock('@renderer/shared/components/PlayingIndicator.vue', () => ({
+vi.mock('./PlayingIndicator.vue', () => ({
   default: {
     props: ['playing', 'size', 'preset'],
     setup: (props: { playing: boolean; size?: number; preset: string }) => () =>

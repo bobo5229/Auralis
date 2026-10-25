@@ -28,7 +28,7 @@ vi.mock('@renderer/i18n', () => ({
     setUiLocale: vi.fn(),
   }),
 }))
-vi.mock('@renderer/composables/useTheme', () => ({
+vi.mock('@renderer/features/appearance/composables/useTheme', () => ({
   useTheme: () => ({ theme: ref('light'), setTheme: vi.fn() }),
 }))
 vi.mock('@renderer/features/appearance/composables/useSidebarLayout', () => ({

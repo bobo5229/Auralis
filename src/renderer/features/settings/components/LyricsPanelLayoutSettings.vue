@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import SettingsSegmentedControl from '@renderer/shared/components/SettingsSegmentedControl.vue'
+import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import {
   LYRICS_PANEL_MODES,
   useLyricsPanelMode,

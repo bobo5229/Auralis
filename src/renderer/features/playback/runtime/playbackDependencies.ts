@@ -1,7 +1,6 @@
-import type { PlaybackTrack } from '../types'
+import type { AlbumShuffleContext, PlaybackTrack } from '../types'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { AudioResource } from '@shared/types/audioDecode'
-import type { AlbumShuffleContext } from '../core/playbackQueueState'
 import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'

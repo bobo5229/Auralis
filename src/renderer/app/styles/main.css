@@ -81,7 +81,7 @@
 
   /* Layout dimensions (theme-independent) */
   --auralis-playbar-height: 64px;
-  --auralis-full-playbar-height: 88px;
+  --auralis-full-playbar-height: 80px;
   --auralis-playbar-max-width: 760px;
   --auralis-playbar-safe-area: calc(
     var(--auralis-playbar-height) + var(--auralis-player-bottom-gap)

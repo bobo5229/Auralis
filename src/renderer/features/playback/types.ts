@@ -10,6 +10,17 @@ export interface PlaybackTrack {
 
 export type PlaybackMode = 'sequential' | 'repeat-all' | 'repeat-one' | 'shuffle' | 'album-shuffle'
 
+export interface ShuffleCycle {
+  remaining: number[]
+  seed: number
+}
+
+export type AlbumShuffleContext = {
+  albumArtist: string
+  album: string
+  tracks: PlaybackTrack[]
+} | null
+
 export interface PlaybackState {
   queue: PlaybackTrack[]
   currentIndex: number

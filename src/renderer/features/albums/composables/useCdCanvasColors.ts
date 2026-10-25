@@ -1,5 +1,5 @@
 import { onBeforeUnmount, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
-import type { RgbColor } from '@renderer/features/playback/types'
+import type { RgbColor } from '@renderer/shared/color/types'
 import {
   CD_DARK_BACKGROUND,
   CD_LIGHT_BACKGROUND,
