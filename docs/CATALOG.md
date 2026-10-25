@@ -411,6 +411,7 @@
 
 ### 环境、数据与界面诊断
 
+- [液态玻璃参数设置项：布局审查与建议方案](reviews/2026-10-25-liquid-glass-parameter-layout-review.md) — 基于用户截图的布局问题、三列与窄屏方案、实施边界及待验收清单。
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [mpv 播放中标签保存施工交接](reviews/2026-10-08-mpv-buffered-tag-write.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
