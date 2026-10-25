@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SettingsSegmentedControl from '@renderer/shared/components/SettingsSegmentedControl.vue'
 import {
   LYRICS_PANEL_MODES,
   useLyricsPanelMode,
@@ -9,16 +9,10 @@ import {
 
 const { t } = useI18n()
 const { mode, persistFailed, setMode } = useLyricsPanelMode()
-const optionButtons = ref<HTMLButtonElement[]>([])
-
-function selectMode(value: LyricsPanelMode): void {
-  setMode(value)
-  optionButtons.value[LYRICS_PANEL_MODES.indexOf(value)]?.focus()
-}
-
-function toggleMode(): void {
-  selectMode(mode.value === 'split' ? 'floating' : 'split')
-}
+const options = LYRICS_PANEL_MODES.map((value) => ({
+  value,
+  label: t(`settings.appearance.lyricsPanelLayout.${value}`),
+}))
 </script>
 
 <template>
@@ -34,33 +28,14 @@ function toggleMode(): void {
         t('settings.appearance.lyricsPanelLayout.persistFailed')
       }}</span>
     </div>
-    <div
-      class="settings-segmented-control"
-      role="radiogroup"
-      aria-labelledby="lyrics-panel-layout-label"
-      aria-describedby="lyrics-panel-layout-description"
-    >
-      <button
-        v-for="option in LYRICS_PANEL_MODES"
-        :key="option"
-        ref="optionButtons"
-        type="button"
-        class="settings-segmented-option"
-        role="radio"
-        :aria-checked="mode === option"
-        :tabindex="mode === option ? 0 : -1"
-        :class="{ 'is-selected': mode === option }"
-        @click="selectMode(option)"
-        @keydown.left.prevent="toggleMode"
-        @keydown.right.prevent="toggleMode"
-        @keydown.up.prevent="toggleMode"
-        @keydown.down.prevent="toggleMode"
-        @keydown.home.prevent="selectMode('split')"
-        @keydown.end.prevent="selectMode('floating')"
-      >
-        {{ t(`settings.appearance.lyricsPanelLayout.${option}`) }}
-      </button>
-    </div>
+    <SettingsSegmentedControl
+      id="lyrics-panel-layout"
+      labelledby="lyrics-panel-layout-label"
+      describedby="lyrics-panel-layout-description"
+      :model-value="mode"
+      :options="options"
+      @update:model-value="setMode($event as LyricsPanelMode)"
+    />
   </div>
 </template>
 

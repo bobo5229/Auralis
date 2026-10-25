@@ -7,11 +7,19 @@ const props = withDefaults(
     title: string
     description?: string
     actionLabel?: string
+    actionDisabled?: boolean
     icon?: string
     showIcon?: boolean
     compact?: boolean
   }>(),
-  { description: '', actionLabel: '', icon: '', showIcon: true, compact: false },
+  {
+    description: '',
+    actionLabel: '',
+    actionDisabled: false,
+    icon: '',
+    showIcon: true,
+    compact: false,
+  },
 )
 
 defineEmits<{ action: [] }>()
@@ -42,7 +50,9 @@ const statusIcon = computed(() => {
     </span>
     <h3>{{ title }}</h3>
     <p v-if="description">{{ description }}</p>
-    <button v-if="actionLabel" type="button" @click="$emit('action')">{{ actionLabel }}</button>
+    <button v-if="actionLabel" type="button" :disabled="actionDisabled" @click="$emit('action')">
+      {{ actionLabel }}
+    </button>
   </div>
 </template>
 
@@ -110,6 +120,11 @@ const statusIcon = computed(() => {
 
 .main-page-status button:hover {
   background: var(--auralis-border-subtle);
+}
+
+.main-page-status button:disabled {
+  cursor: default;
+  opacity: 0.65;
 }
 
 .main-page-status button:focus-visible {

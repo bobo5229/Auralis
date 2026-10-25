@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SettingsSegmentedControl from '@renderer/shared/components/SettingsSegmentedControl.vue'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
 
 const { t } = useI18n()
 const {
@@ -18,11 +17,6 @@ const rows = [
   { id: 'songInfo', value: songInfoScript, failed: songInfoPersistFailed, set: setSongInfoScript },
   { id: 'lyrics', value: lyricsScript, failed: lyricsPersistFailed, set: setLyricsScript },
 ] as const
-const buttons = ref<Record<string, HTMLButtonElement | null>>({})
-function select(row: (typeof rows)[number], value: ChineseScript): void {
-  row.set(value)
-  buttons.value[`${row.id}-${value}`]?.focus()
-}
 </script>
 
 <template>
@@ -41,45 +35,19 @@ function select(row: (typeof rows)[number], value: ChineseScript): void {
             t('settings.appearance.textDisplay.persistFailed')
           }}</span>
         </div>
-        <div
-          class="settings-segmented-control"
-          role="radiogroup"
-          :aria-label="t(`settings.appearance.textDisplay.${row.id}`)"
-          :aria-describedby="`text-display-${row.id}-description`"
-        >
-          <button
-            v-for="option in options"
-            :key="option"
-            :ref="
-              (el) => {
-                buttons[`${row.id}-${option}`] = el as HTMLButtonElement | null
-              }
-            "
-            type="button"
-            class="settings-segmented-option"
-            role="radio"
-            :aria-checked="row.value.value === option"
-            :tabindex="row.value.value === option ? 0 : -1"
-            :class="{ 'is-selected': row.value.value === option }"
-            @click="select(row, option)"
-            @keydown.left.prevent="
-              select(row, row.value.value === 'simplified' ? 'traditional' : 'simplified')
-            "
-            @keydown.right.prevent="
-              select(row, row.value.value === 'simplified' ? 'traditional' : 'simplified')
-            "
-            @keydown.up.prevent="
-              select(row, row.value.value === 'simplified' ? 'traditional' : 'simplified')
-            "
-            @keydown.down.prevent="
-              select(row, row.value.value === 'simplified' ? 'traditional' : 'simplified')
-            "
-            @keydown.home.prevent="select(row, 'simplified')"
-            @keydown.end.prevent="select(row, 'traditional')"
-          >
-            {{ t(`settings.appearance.textDisplay.${option}`) }}
-          </button>
-        </div>
+        <SettingsSegmentedControl
+          :id="`text-display-${row.id}`"
+          :label="t(`settings.appearance.textDisplay.${row.id}`)"
+          :describedby="`text-display-${row.id}-description`"
+          :model-value="row.value.value"
+          :options="
+            options.map((value) => ({
+              value,
+              label: t(`settings.appearance.textDisplay.${value}`),
+            }))
+          "
+          @update:model-value="row.set($event as (typeof options)[number])"
+        />
       </div>
     </div>
   </div>

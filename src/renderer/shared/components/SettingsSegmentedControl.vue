@@ -3,7 +3,8 @@ import { ref } from 'vue'
 
 const props = defineProps<{
   id: string
-  labelledby: string
+  labelledby?: string
+  label?: string
   describedby?: string
   modelValue: string
   options: readonly { value: string; label: string }[]
@@ -49,6 +50,7 @@ function onKeydown(event: KeyboardEvent, index: number): void {
     class="settings-segmented-control"
     role="radiogroup"
     :aria-labelledby="labelledby"
+    :aria-label="label"
     :aria-describedby="describedby"
   >
     <button

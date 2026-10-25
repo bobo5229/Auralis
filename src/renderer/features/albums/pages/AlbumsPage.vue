@@ -386,12 +386,7 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
           </div>
         </div>
 
-        <MainPageStatus
-          v-else
-          kind="empty"
-          icon="i-lucide-disc-3"
-          :title="t('albums.status.empty')"
-        />
+        <MainPageStatus v-else kind="empty" :show-icon="false" :title="t('albums.status.empty')" />
       </div>
     </template>
 

@@ -1,4 +1,6 @@
-import { app, BrowserWindow, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, type WebContents } from 'electron'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { createWindow } from '../createWindow'
 import { runSidebarSmokeChecks } from './runSidebarSmokeChecks'
 
@@ -165,6 +167,45 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     await record('main window finishes loading without failure', async () => {
       await waitFor('main window did-finish-load', () => finishedLoads.has(mainWindow.webContents))
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))
+    })
+
+    await record('unconfigured library shows the direct folder entry', async () => {
+      await waitFor(
+        'initial library folder action',
+        async () =>
+          (await mainWindow.webContents.executeJavaScript(
+            `Boolean(document.querySelector('.library-status-state--initial button'))`,
+          )) as boolean,
+      )
+      const probe = (await mainWindow.webContents.executeJavaScript(
+        `(() => {
+          const state = document.querySelector('.library-status-state--initial')
+          const button = state?.querySelector('button')
+          return {
+            title: state?.querySelector('h3')?.textContent?.trim(),
+            label: button?.textContent?.trim(),
+            disabled: button?.disabled,
+            height: button?.getBoundingClientRect().height,
+            settingsOpen: Boolean(document.querySelector('[data-settings-dialog] .settings-surface')),
+          }
+        })()`,
+      )) as {
+        title?: string
+        label?: string
+        disabled?: boolean
+        height?: number
+        settingsOpen: boolean
+      }
+      if (
+        probe.title !== '暂无曲目' ||
+        probe.label !== '选择文件夹' ||
+        probe.disabled ||
+        !probe.height ||
+        probe.height < 40 ||
+        probe.settingsOpen
+      ) {
+        throw new Error(`Initial library folder entry is incorrect: ${JSON.stringify(probe)}`)
+      }
     })
 
     await record('native playback preload and IPC reject invalid capabilities', async () => {
@@ -874,6 +915,67 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         }
       } finally {
         laterWindow.destroy()
+      }
+    })
+
+    await record('initial folder action scans an isolated music folder', async () => {
+      const userData = process.env.AURALIS_SMOKE_USER_DATA
+      if (!userData) throw new Error('Smoke profile is missing')
+      const musicFolder = join(userData, 'initial-music')
+      await mkdir(musicFolder)
+      const samples = 8_000
+      const wav = Buffer.alloc(44 + samples * 2)
+      wav.write('RIFF', 0)
+      wav.writeUInt32LE(wav.length - 8, 4)
+      wav.write('WAVEfmt ', 8)
+      wav.writeUInt32LE(16, 16)
+      wav.writeUInt16LE(1, 20)
+      wav.writeUInt16LE(1, 22)
+      wav.writeUInt32LE(8_000, 24)
+      wav.writeUInt32LE(16_000, 28)
+      wav.writeUInt16LE(2, 32)
+      wav.writeUInt16LE(16, 34)
+      wav.write('data', 36)
+      wav.writeUInt32LE(samples * 2, 40)
+      await writeFile(join(musicFolder, 'Initial Smoke.wav'), wav)
+
+      const originalShowOpenDialog = Object.getOwnPropertyDescriptor(dialog, 'showOpenDialog')
+      Object.defineProperty(dialog, 'showOpenDialog', {
+        configurable: true,
+        value: async (_window: BrowserWindow, options: { properties?: string[] }) => {
+          if (!options.properties?.includes('openDirectory')) {
+            throw new Error('Initial folder action did not request a directory picker')
+          }
+          return { canceled: false, filePaths: [musicFolder] }
+        },
+      })
+      try {
+        await mainWindow.webContents.executeJavaScript(
+          `document.querySelector('.library-status-state--initial button').click()`,
+        )
+        await waitFor(
+          'initial scan and imported track',
+          async () =>
+            (await mainWindow.webContents.executeJavaScript(
+              `(async () => {
+              const [roots, scan] = await Promise.all([
+                window.auralis.library.getRoots(),
+                window.auralis.library.getScanStatus(),
+              ])
+              return roots.length === 1 && scan?.status === 'completed' &&
+                Boolean(document.querySelector('.library-page [data-track-id]')) &&
+                !document.querySelector('.library-status-state--initial')
+            })()`,
+            )) as boolean,
+        )
+        const roots = (await mainWindow.webContents.executeJavaScript(
+          `window.auralis.library.getRoots()`,
+        )) as { path: string }[]
+        if (roots[0]?.path !== musicFolder) throw new Error('Selected root was not saved')
+      } finally {
+        if (originalShowOpenDialog)
+          Object.defineProperty(dialog, 'showOpenDialog', originalShowOpenDialog)
+        else Reflect.deleteProperty(dialog, 'showOpenDialog')
       }
     })
 

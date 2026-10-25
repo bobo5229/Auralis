@@ -820,7 +820,7 @@
     },
     "status": {
       "loading": "Loading albums…",
-      "empty": "No albums yet. Add a music folder in Settings.",
+      "empty": "No albums",
       "loadError": "Could not load albums",
       "retry": "Try again"
     },

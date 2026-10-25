@@ -90,6 +90,19 @@ const showPlayCount = computed(
 )
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
+const rootState = ref<'loading' | 'missing' | 'configured' | 'error'>('loading')
+const rootId = ref<number | null>(null)
+const folderActionPending = ref(false)
+const folderActionError = ref('')
+const scanRetryRootId = ref<number | null>(null)
+let rootReadRevision = 0
+const emptyLibraryAction = computed(() => {
+  if (librarySurfaceKind.value !== 'library') return null
+  if (rootState.value === 'missing') return 'select-folder'
+  if (rootState.value === 'error') return 'retry-roots'
+  if (scanRetryRootId.value !== null) return 'retry-scan'
+  return null
+})
 const scrollRef = ref<HTMLElement | null>(null)
 const flatHeaderRef = ref<{
   beginPointerResize: (handleId: string, event: PointerEvent) => void
@@ -699,8 +712,76 @@ function restoreDefaultFlatColumns(): void {
   flatColumnLayoutState.reset()
 }
 
-function openSettings(): void {
-  useSettingsDialog().openSettings('library')
+async function refreshRootState(): Promise<void> {
+  const revision = ++rootReadRevision
+  try {
+    const roots = await auralis.library.getRoots()
+    if (isPageUnmounted || hasLeftInstanceRoute || revision !== rootReadRevision) return
+    const nextRootId = roots[0]?.id ?? null
+    if (nextRootId !== rootId.value) scanRetryRootId.value = null
+    folderActionError.value = ''
+    rootId.value = nextRootId
+    rootState.value = nextRootId === null ? 'missing' : 'configured'
+  } catch (cause) {
+    if (isPageUnmounted || hasLeftInstanceRoute || revision !== rootReadRevision) return
+    rootState.value = 'error'
+    folderActionError.value = t('settings.library.errors.loadState')
+    rendererDiagnostics.error({
+      scope: 'library.initialFolder',
+      message: 'Failed to read library roots',
+      cause,
+    })
+  }
+}
+
+async function startInitialScan(selectedRootId: number): Promise<void> {
+  folderActionPending.value = true
+  folderActionError.value = ''
+  try {
+    await auralis.library.startScan(selectedRootId)
+    if (isPageUnmounted || hasLeftInstanceRoute) return
+    scanRetryRootId.value = null
+  } catch (cause) {
+    if (isPageUnmounted || hasLeftInstanceRoute) return
+    scanRetryRootId.value = selectedRootId
+    folderActionError.value = t('settings.library.errors.startScan')
+    rendererDiagnostics.error({
+      scope: 'library.initialFolder',
+      message: 'Failed to start initial library scan',
+      cause,
+    })
+  } finally {
+    folderActionPending.value = false
+  }
+}
+
+async function selectInitialFolder(): Promise<void> {
+  if (folderActionPending.value || rootState.value !== 'missing') return
+  folderActionPending.value = true
+  folderActionError.value = ''
+  try {
+    const result = await auralis.library.selectRoot()
+    if (isPageUnmounted || hasLeftInstanceRoute || result.canceled || !result.root) return
+    ++rootReadRevision
+    rootId.value = result.root.id
+    rootState.value = 'configured'
+    await startInitialScan(result.root.id)
+  } catch (cause) {
+    if (isPageUnmounted || hasLeftInstanceRoute) return
+    folderActionError.value = t('settings.library.errors.selectFolder')
+    rendererDiagnostics.error({
+      scope: 'library.initialFolder',
+      message: 'Failed to select initial library folder',
+      cause,
+    })
+  } finally {
+    folderActionPending.value = false
+  }
+}
+
+function retryInitialScan(): void {
+  if (folderActionPending.value || scanRetryRootId.value === null) return
+  void startInitialScan(scanRetryRootId.value)
 }
 
 const {
@@ -793,7 +874,19 @@ onMounted(async () => {
   bindExternalPlaylistEvents()
   subscribeLibraryEvents()
   void loadRegularPlaylistItems()
+  if (librarySurfaceKind.value === 'library') void refreshRootState()
   await loadLibraryData('foreground')
+})
+
+watch(useSettingsDialog().isSettingsOpen, (isOpen, wasOpen) => {
+  if (
+    wasOpen &&
+    !isOpen &&
+    librarySurfaceKind.value === 'library' &&
+    !isPageUnmounted &&
+    !hasLeftInstanceRoute
+  )
+    void refreshRootState()
 })
 
 watch(
@@ -999,10 +1092,15 @@ onBeforeUnmount(() => {
       <LibraryStatusState
         v-else-if="tracks.length === 0"
         kind="empty"
+        :empty-action="emptyLibraryAction"
+        :empty-error="librarySurfaceKind === 'library' ? folderActionError : ''"
+        :action-pending="folderActionPending"
         :is-playlist="playlistId !== null"
         :is-smart-playlist="smartPlaylistId !== null"
         :is-recent-added="isRecentAdded"
-        @open-settings="openSettings"
+        @select-folder="selectInitialFolder"
+        @retry-scan="retryInitialScan"
+        @retry-roots="refreshRootState"
       />
 
       <div

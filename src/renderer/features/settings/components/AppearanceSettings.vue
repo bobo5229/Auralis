@@ -39,7 +39,7 @@ import {
   type LiquidGlassParameterField,
 } from '@renderer/features/appearance/composables/useLiquidGlassParameters'
 import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
-import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
+import SettingsSegmentedControl from '@renderer/shared/components/SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
@@ -173,34 +173,37 @@ const playingIconOptions = computed(() =>
     label: t(`settings.appearance.playingIcon.${value}`),
   })),
 )
-const systemMotionRef = ref<HTMLButtonElement | null>(null)
-const reducedMotionRef = ref<HTMLButtonElement | null>(null)
-const darkOptionRef = ref<HTMLButtonElement | null>(null)
-const lightOptionRef = ref<HTMLButtonElement | null>(null)
-const floatingSidebarOptionRef = ref<HTMLButtonElement | null>(null)
-const fullHeightSidebarOptionRef = ref<HTMLButtonElement | null>(null)
+const themeOptions = computed(() =>
+  (['light', 'dark'] as const).map((value) => ({
+    value,
+    label: t(`settings.appearance.theme${value === 'light' ? 'Light' : 'Dark'}`),
+  })),
+)
+const sidebarLayoutOptions = computed(() =>
+  (['floating', 'fullHeight'] as const).map((value) => ({
+    value,
+    label: t(
+      `settings.appearance.sidebar${value === 'floating' ? 'Floating' : 'FullHeightOption'}`,
+    ),
+  })),
+)
+const motionPreferenceOptions = computed(() =>
+  (['system', 'reduce'] as const).map((value) => ({
+    value,
+    label: t(`settings.appearance.reducedMotion.${value === 'system' ? 'system' : 'enabled'}`),
+  })),
+)
 
 function selectTheme(mode: ThemeMode): void {
   void setTheme(mode)
-  if (mode === 'dark') {
-    darkOptionRef.value?.focus()
-  } else {
-    lightOptionRef.value?.focus()
-  }
 }
 
 function selectSidebarLayout(fullHeight: boolean): void {
   setSidebarFullHeight(fullHeight)
-  if (fullHeight) {
-    fullHeightSidebarOptionRef.value?.focus()
-  } else {
-    floatingSidebarOptionRef.value?.focus()
-  }
 }
 
 function selectMotionPreference(value: MotionPreference): void {
   setMotionPreference(value)
-  ;(value === 'system' ? systemMotionRef : reducedMotionRef).value?.focus()
 }
 
 function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
@@ -244,48 +247,13 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
           <div>
             <strong>{{ t('settings.appearance.theme') }}</strong>
           </div>
-          <div
-            class="settings-segmented-control"
-            role="radiogroup"
-            :aria-label="t('settings.appearance.theme')"
-          >
-            <button
-              ref="lightOptionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="theme === 'light'"
-              :tabindex="theme === 'light' ? 0 : -1"
-              :class="{ 'is-selected': theme === 'light' }"
-              @click="selectTheme('light')"
-              @keydown.left.prevent="selectTheme('dark')"
-              @keydown.up.prevent="selectTheme('dark')"
-              @keydown.right.prevent="selectTheme('dark')"
-              @keydown.down.prevent="selectTheme('dark')"
-              @keydown.home.prevent="selectTheme('light')"
-              @keydown.end.prevent="selectTheme('dark')"
-            >
-              {{ t('settings.appearance.themeLight') }}
-            </button>
-            <button
-              ref="darkOptionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="theme === 'dark'"
-              :tabindex="theme === 'dark' ? 0 : -1"
-              :class="{ 'is-selected': theme === 'dark' }"
-              @click="selectTheme('dark')"
-              @keydown.left.prevent="selectTheme('light')"
-              @keydown.up.prevent="selectTheme('light')"
-              @keydown.right.prevent="selectTheme('light')"
-              @keydown.down.prevent="selectTheme('light')"
-              @keydown.home.prevent="selectTheme('light')"
-              @keydown.end.prevent="selectTheme('dark')"
-            >
-              {{ t('settings.appearance.themeDark') }}
-            </button>
-          </div>
+          <SettingsSegmentedControl
+            id="appearance-theme"
+            :label="t('settings.appearance.theme')"
+            :model-value="theme"
+            :options="themeOptions"
+            @update:model-value="selectTheme($event as ThemeMode)"
+          />
         </div>
         <div class="settings-row settings-row--with-desc">
           <div>
@@ -294,49 +262,14 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               t('settings.appearance.sidebarLayoutDescription')
             }}</span>
           </div>
-          <div
-            class="settings-segmented-control"
-            role="radiogroup"
-            :aria-label="t('settings.appearance.sidebarLayout')"
-            aria-describedby="appearance-sidebar-layout-description"
-          >
-            <button
-              ref="floatingSidebarOptionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="!sidebarFullHeight"
-              :tabindex="sidebarFullHeight ? -1 : 0"
-              :class="{ 'is-selected': !sidebarFullHeight }"
-              @click="selectSidebarLayout(false)"
-              @keydown.left.prevent="selectSidebarLayout(true)"
-              @keydown.up.prevent="selectSidebarLayout(true)"
-              @keydown.right.prevent="selectSidebarLayout(true)"
-              @keydown.down.prevent="selectSidebarLayout(true)"
-              @keydown.home.prevent="selectSidebarLayout(false)"
-              @keydown.end.prevent="selectSidebarLayout(true)"
-            >
-              {{ t('settings.appearance.sidebarFloating') }}
-            </button>
-            <button
-              ref="fullHeightSidebarOptionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="sidebarFullHeight"
-              :tabindex="sidebarFullHeight ? 0 : -1"
-              :class="{ 'is-selected': sidebarFullHeight }"
-              @click="selectSidebarLayout(true)"
-              @keydown.left.prevent="selectSidebarLayout(false)"
-              @keydown.up.prevent="selectSidebarLayout(false)"
-              @keydown.right.prevent="selectSidebarLayout(false)"
-              @keydown.down.prevent="selectSidebarLayout(false)"
-              @keydown.home.prevent="selectSidebarLayout(false)"
-              @keydown.end.prevent="selectSidebarLayout(true)"
-            >
-              {{ t('settings.appearance.sidebarFullHeightOption') }}
-            </button>
-          </div>
+          <SettingsSegmentedControl
+            id="appearance-sidebar-layout"
+            :label="t('settings.appearance.sidebarLayout')"
+            describedby="appearance-sidebar-layout-description"
+            :model-value="sidebarFullHeight ? 'fullHeight' : 'floating'"
+            :options="sidebarLayoutOptions"
+            @update:model-value="selectSidebarLayout($event === 'fullHeight')"
+          />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playbar-layout">
           <div>
@@ -514,49 +447,14 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               t('settings.appearance.reducedMotion.persistFailed')
             }}</span>
           </div>
-          <div
-            class="settings-segmented-control"
-            role="radiogroup"
-            :aria-label="t('settings.appearance.reducedMotion.title')"
-            aria-describedby="appearance-motion-description"
-          >
-            <button
-              ref="systemMotionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="motionPreference === 'system'"
-              :tabindex="motionPreference === 'system' ? 0 : -1"
-              :class="{ 'is-selected': motionPreference === 'system' }"
-              @click="selectMotionPreference('system')"
-              @keydown.left.prevent="selectMotionPreference('reduce')"
-              @keydown.up.prevent="selectMotionPreference('reduce')"
-              @keydown.right.prevent="selectMotionPreference('reduce')"
-              @keydown.down.prevent="selectMotionPreference('reduce')"
-              @keydown.home.prevent="selectMotionPreference('system')"
-              @keydown.end.prevent="selectMotionPreference('reduce')"
-            >
-              {{ t('settings.appearance.reducedMotion.system') }}
-            </button>
-            <button
-              ref="reducedMotionRef"
-              type="button"
-              class="settings-segmented-option"
-              role="radio"
-              :aria-checked="motionPreference === 'reduce'"
-              :tabindex="motionPreference === 'reduce' ? 0 : -1"
-              :class="{ 'is-selected': motionPreference === 'reduce' }"
-              @click="selectMotionPreference('reduce')"
-              @keydown.right.prevent="selectMotionPreference('system')"
-              @keydown.down.prevent="selectMotionPreference('system')"
-              @keydown.left.prevent="selectMotionPreference('system')"
-              @keydown.up.prevent="selectMotionPreference('system')"
-              @keydown.home.prevent="selectMotionPreference('system')"
-              @keydown.end.prevent="selectMotionPreference('reduce')"
-            >
-              {{ t('settings.appearance.reducedMotion.enabled') }}
-            </button>
-          </div>
+          <SettingsSegmentedControl
+            id="appearance-motion"
+            :label="t('settings.appearance.reducedMotion.title')"
+            describedby="appearance-motion-description"
+            :model-value="motionPreference"
+            :options="motionPreferenceOptions"
+            @update:model-value="selectMotionPreference($event as MotionPreference)"
+          />
         </div>
       </div>
     </div>
@@ -678,12 +576,17 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
   margin-left: auto;
 }
 
-/* Leave room above the shared slider's keyboard focus outline. */
+/* Liquid glass parameters stay single-line: label left, widened slider, value right. */
 .appearance-settings :deep(.settings-row.liquid-glass-parameter-row) {
-  height: 72px;
-  min-height: 72px;
-  max-height: 72px;
-  row-gap: 8px;
+  display: flex;
+  align-items: center;
+  height: auto;
+  min-height: 48px;
+  max-height: none;
+}
+
+.appearance-settings :deep(.liquid-glass-parameter-row .settings-range-control input) {
+  width: 160px;
 }
 
 .appearance-settings :deep(.liquid-glass-parameter-row .settings-range-control output) {

@@ -14,6 +14,15 @@ import {
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import LibraryPage from './LibraryPage.vue'
+import zhHans from '../../../locales/zh-Hans.json'
+import en from '../../../locales/en.json'
+
+const folderApi = vi.hoisted(() => ({
+  getRoots: vi.fn(),
+  selectRoot: vi.fn(),
+  startScan: vi.fn(),
+  onScanProgress: vi.fn(),
+}))
 
 const fixture = vi.hoisted(() => ({
   tracks: [] as TrackListItem[],
@@ -53,6 +62,7 @@ vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
 vi.mock('@renderer/shared/ipc/client', () => ({
   auralis: {
     library: {
+      ...folderApi,
       getTrackPage: async () => ({
         snapshotId: 'focus-fixture',
         totalTracks: fixture.tracks.length,
@@ -61,7 +71,6 @@ vi.mock('@renderer/shared/ipc/client', () => ({
         diagnostics: { snapshotBuildMs: 0, pageSliceMs: 0 },
       }),
       onChanged: () => () => undefined,
-      onScanProgress: () => () => undefined,
     },
     playlists: { onChanged: () => () => undefined, listSidebarItems: async () => [] },
     metadata: {
@@ -181,6 +190,12 @@ async function settle() {
 function find(selector: string) {
   return doc.body.querySelector(selector)!
 }
+function text(node: ShellTestElement): string {
+  return node.text + node.children.map(text).join(' ')
+}
+function statusChild(selector: string): ShellTestElement {
+  return find('.library-status-state').querySelector(selector)!
+}
 function row(id: number) {
   return find(`[data-track-id="${id}"]`)
 }
@@ -229,6 +244,10 @@ async function mount(withParameters = false) {
   return parameters
 }
 beforeEach(() => {
+  folderApi.getRoots.mockReset().mockResolvedValue([{ id: 1, path: 'D:\\Music' }])
+  folderApi.selectRoot.mockReset().mockResolvedValue({ canceled: true })
+  folderApi.startScan.mockReset().mockResolvedValue({ jobId: 1 })
+  folderApi.onScanProgress.mockReset().mockReturnValue(() => undefined)
   fixture.tracks = [track(1), track(2), track(3)]
   fixture.state = reactive({ selectedTrackId: null, currentTrackId: null, isPlaying: false })
   fixture.select.mockReset().mockImplementation((id: number) => {
@@ -286,6 +305,113 @@ beforeEach(() => {
     clientHeight: { configurable: true, get: () => 600 },
     clientWidth: { configurable: true, get: () => 900 },
     scrollHeight: { configurable: true, get: () => 5000 },
+  })
+})
+
+describe('LibraryPage initial folder entry', () => {
+  it('shows a translated folder action only when no root is configured', async () => {
+    expect(zhHans.settings.library.selectFolder).toBe('选择文件夹')
+    expect(en.settings.library.selectFolder).toBe('Choose folder')
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    await mount()
+    expect(text(statusChild('h3'))).toBe('library.status.emptyAll')
+    expect(text(statusChild('button'))).toBe('settings.library.selectFolder')
+    expect(find('.library-status-state--initial')).toBeTruthy()
+  })
+
+  it('selects once and starts the initial scan with the selected root', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    let resolveSelection!: (value: { canceled: false; root: { id: number; path: string } }) => void
+    folderApi.selectRoot.mockReturnValue(new Promise((resolve) => (resolveSelection = resolve)))
+    await mount()
+    const action = statusChild('button')
+    fire(action, 'onClick')
+    fire(action, 'onClick')
+    await settle()
+    expect(action.props.disabled).toBe(true)
+    expect(folderApi.selectRoot).toHaveBeenCalledTimes(1)
+    resolveSelection({ canceled: false, root: { id: 8, path: 'D:\\Next' } })
+    await settle()
+    expect(folderApi.startScan).toHaveBeenCalledExactlyOnceWith(8)
+    expect(find('.library-status-state').querySelector('button')).toBeNull()
+  })
+
+  it('keeps the action after cancellation without starting a scan', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    await mount()
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(folderApi.startScan).not.toHaveBeenCalled()
+    expect(text(statusChild('button'))).toBe('settings.library.selectFolder')
+  })
+
+  it('shows a retryable selection error', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    folderApi.selectRoot.mockRejectedValueOnce(new Error('picker failed'))
+    await mount()
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(text(statusChild('p'))).toBe('settings.library.errors.selectFolder')
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(folderApi.selectRoot).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a failed root lookup before offering the folder picker', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockRejectedValueOnce(new Error('roots unavailable')).mockResolvedValue([])
+    await mount()
+    expect(text(statusChild('p'))).toBe('settings.library.errors.loadState')
+    expect(text(statusChild('button'))).toBe('library.status.retry')
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(text(statusChild('button'))).toBe('settings.library.selectFolder')
+    expect(find('.library-status-state').querySelector('p')).toBeNull()
+  })
+
+  it('retries a failed scan without selecting another root', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    folderApi.selectRoot.mockResolvedValue({ canceled: false, root: { id: 8, path: 'D:\\Next' } })
+    folderApi.startScan.mockRejectedValueOnce(new Error('scan failed'))
+    await mount()
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(text(statusChild('p'))).toBe('settings.library.errors.startScan')
+    expect(text(statusChild('button'))).toBe('settings.library.scanLibrary')
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    expect(folderApi.selectRoot).toHaveBeenCalledTimes(1)
+    expect(folderApi.startScan).toHaveBeenCalledTimes(2)
+    expect(folderApi.startScan).toHaveBeenLastCalledWith(8)
+  })
+
+  it('does not offer root replacement for an already configured empty library', async () => {
+    fixture.tracks = []
+    await mount()
+    expect(text(statusChild('h3'))).toBe('library.status.emptyAll')
+    expect(find('.library-status-state').querySelector('button')).toBeNull()
+  })
+
+  it('shows imported tracks after the initial scan completes', async () => {
+    fixture.tracks = []
+    folderApi.getRoots.mockResolvedValue([])
+    folderApi.selectRoot.mockResolvedValue({ canceled: false, root: { id: 8, path: 'D:\\Next' } })
+    await mount()
+    fire(statusChild('button'), 'onClick')
+    await settle()
+    fixture.tracks = [track(1)]
+    const onProgress = folderApi.onScanProgress.mock.calls[0][0] as (progress: {
+      status: string
+    }) => Promise<void>
+    await onProgress({ status: 'completed' })
+    await settle()
+    expect(doc.body.querySelector('[data-track-id="1"]')).toBeTruthy()
+    expect(doc.body.querySelector('.library-status-state')).toBeNull()
   })
 })
 afterEach(async () => {

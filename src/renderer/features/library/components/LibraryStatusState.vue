@@ -10,6 +10,9 @@ const props = withDefaults(
     query?: string
     scanProgressText?: string
     errorMessage?: string
+    emptyError?: string
+    emptyAction?: 'select-folder' | 'retry-scan' | 'retry-roots' | null
+    actionPending?: boolean
     isPlaylist?: boolean
     isSmartPlaylist?: boolean
     isRecentAdded?: boolean
@@ -18,6 +21,9 @@ const props = withDefaults(
     query: '',
     scanProgressText: '',
     errorMessage: '',
+    emptyError: '',
+    emptyAction: null,
+    actionPending: false,
     isPlaylist: false,
     isSmartPlaylist: false,
     isRecentAdded: false,
@@ -25,7 +31,9 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  openSettings: []
+  selectFolder: []
+  retryScan: []
+  retryRoots: []
   clearSearch: []
   retry: []
 }>()
@@ -51,33 +59,52 @@ const title = computed(() => {
 const actionLabel = computed(() => {
   if (props.kind === 'error') return t('library.status.retry')
   if (props.kind === 'no-search-match') return t('library.search.clearSearch')
-  if (
-    props.kind === 'empty' &&
-    !props.isPlaylist &&
-    !props.isSmartPlaylist &&
-    !props.isRecentAdded
-  ) {
-    return t('settings.musicLibrary.addFolder')
-  }
+  if (props.kind === 'empty' && props.emptyAction === 'select-folder')
+    return t('settings.library.selectFolder')
+  if (props.kind === 'empty' && props.emptyAction === 'retry-scan')
+    return t('settings.library.scanLibrary')
+  if (props.kind === 'empty' && props.emptyAction === 'retry-roots')
+    return t('library.status.retry')
   return ''
 })
 
 function onAction(): void {
   if (props.kind === 'error') emit('retry')
   else if (props.kind === 'no-search-match') emit('clearSearch')
-  else emit('openSettings')
+  else if (props.emptyAction === 'select-folder') emit('selectFolder')
+  else if (props.emptyAction === 'retry-scan') emit('retryScan')
+  else if (props.emptyAction === 'retry-roots') emit('retryRoots')
 }
 </script>
 
 <template>
   <MainPageStatus
     class="library-status-state"
+    :class="{
+      'library-status-state--initial': kind === 'empty' && emptyAction === 'select-folder',
+    }"
     :kind="statusKind"
     :title="title"
-    :description="statusKind === 'loading' ? scanProgressText : ''"
+    :description="statusKind === 'loading' ? scanProgressText : emptyError"
     :action-label="actionLabel"
+    :action-disabled="actionPending"
     :show-icon="kind !== 'empty'"
     :icon="kind === 'no-search-match' ? 'i-lucide-search-x' : 'i-lucide-music-4'"
     @action="onAction"
   />
 </template>
+
+<style scoped>
+.library-status-state--initial :deep(button) {
+  min-height: 40px;
+  padding: 0 20px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  color: var(--auralis-control-primary-text);
+  background: var(--auralis-control-primary-bg);
+}
+
+.library-status-state--initial :deep(button:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--auralis-control-primary-bg) 88%, white);
+}
+</style>
