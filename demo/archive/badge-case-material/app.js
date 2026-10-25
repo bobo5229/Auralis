@@ -1,3 +1,6 @@
+import { createPressureSurface } from './pressureSurface.js'
+import { createBadgeInspector } from '/inspector.bundle.js'
+
 const row = document.querySelector('.badge-row')
 const viewport = document.querySelector('.foam-viewport')
 const previous = document.querySelector('.scroll-arrow--previous')
@@ -9,33 +12,25 @@ const categories = [...document.querySelectorAll('[data-series]')]
 const removed = new Set()
 let catalog = [],
   series = 'hours'
+let surface
+const inspector = createBadgeInspector({
+  onLift(badge, button) {
+    button.dataset.inspected = 'true'
+    removed.add(badge.id)
+    refreshRemoved()
+    status.textContent = `${badge.name}正在检视`
+  },
+  onReturn(badge, button) {
+    delete button.dataset.inspected
+    removed.delete(badge.id)
+    refreshRemoved()
+    status.textContent = `${badge.name}已放回`
+  },
+  onError() {
+    status.textContent = '暂时无法打开徽章检视，请重试。'
+  },
+})
 const seriesNames = { hours: '小时', days: '天数', albums: '专辑' }
-
-function pocket(badge) {
-  const id = badge.id
-  // Geometry comes from the badge master, including its rounded corners.
-  return `<svg class="badge-pocket" viewBox="0 0 330 370" aria-hidden="true">
-    <defs>
-      <clipPath id="${id}-cut"><path d="${badge.contour}"/></clipPath>
-      <pattern id="${id}-floor" width="688" height="688" patternUnits="userSpaceOnUse"><image href="/assets/foam.png" width="688" height="688"/></pattern>
-      <linearGradient id="${id}-wall" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#010202"/><stop offset=".45" stop-color="#0d0e0e"/><stop offset="1" stop-color="#54554e"/></linearGradient>
-      <filter id="${id}-inset" x="-.2" y="-.2" width="1.4" height="1.4" color-interpolation-filters="sRGB">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="blur"/>
-        <feOffset in="blur" dx="3" dy="8" result="offset"/>
-        <feComposite in="SourceAlpha" in2="offset" operator="out" result="edge"/>
-        <feFlood flood-color="#000" flood-opacity=".95"/>
-        <feComposite in2="edge" operator="in" result="shadow"/>
-        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="shadow"/></feMerge>
-      </filter>
-    </defs>
-    <path d="${badge.contour}" fill="#070908" stroke="#020303" stroke-width="5"/>
-    <g clip-path="url(#${id}-cut)" filter="url(#${id}-inset)">
-      <path d="${badge.contour}" fill="url(#${id}-floor)"/>
-      <path d="${badge.contour}" fill="#000" opacity=".52"/>
-    </g>
-    <path d="${badge.contour}" fill="none" stroke="url(#${id}-wall)" stroke-width="4"/>
-  </svg>`
-}
 
 function updateArrows() {
   previous.disabled = viewport.scrollLeft < 2
@@ -46,7 +41,9 @@ function refreshRemoved() {
   for (const button of row.querySelectorAll('.badge-button')) {
     const isRemoved = removed.has(button.dataset.badge)
     button.setAttribute('aria-pressed', String(isRemoved))
-    button.setAttribute('aria-label', `${isRemoved ? '放回' : '取出'}${button.dataset.name}`)
+    button.setAttribute('aria-label', `${isRemoved ? '放回' : '检视'}${button.dataset.name}`)
+    button.setAttribute('aria-haspopup', isRemoved ? 'false' : 'dialog')
+    surface?.setRemoved(button.dataset.badge, isRemoved)
   }
   const all = visible.every((badge) => removed.has(badge.id))
   emptyToggle.textContent = all ? '全部放回' : '全部取出'
@@ -66,7 +63,6 @@ function select(value) {
     button.className = 'badge-button'
     button.dataset.badge = badge.id
     button.dataset.name = badge.name
-    button.innerHTML = pocket(badge)
     const image = new Image()
     image.className = 'badge-image'
     image.src = badge.preview
@@ -76,10 +72,11 @@ function select(value) {
     image.height = 370
     button.append(image)
     button.addEventListener('click', () => {
-      if (removed.has(badge.id)) removed.delete(badge.id)
-      else removed.add(badge.id)
-      refreshRemoved()
-      status.textContent = `${badge.name}已${removed.has(badge.id) ? '取出，可查看空槽' : '放回'}`
+      if (removed.has(badge.id)) {
+        removed.delete(badge.id)
+        refreshRemoved()
+        status.textContent = `${badge.name}已放回，轻压海绵`
+      } else void inspector.open(badge, button)
     })
     const label = document.createElement('span')
     label.className = 'badge-name'
@@ -89,6 +86,7 @@ function select(value) {
   }
   viewport.scrollTo({ left: 0, behavior: 'instant' })
   refreshRemoved()
+  surface?.setBadges(catalog.filter((badge) => badge.series === series))
   requestAnimationFrame(updateArrows)
 }
 for (const category of categories)
@@ -128,7 +126,7 @@ emptyToggle.addEventListener('click', () => {
     else removed.add(badge.id)
   }
   refreshRemoved()
-  status.textContent = all ? '本组徽章已全部放回' : '本组徽章已取出，展示海绵凹槽'
+  status.textContent = all ? '本组徽章已放回，轻压海绵' : '本组徽章已拿起，海绵保留压痕'
 })
 environmentToggle.addEventListener('click', () => {
   const light = document.documentElement.dataset.environment !== 'light'
@@ -140,9 +138,20 @@ try {
   const response = await fetch('/catalog.json')
   if (!response.ok) throw new Error('徽章素材加载失败')
   catalog = await response.json()
+  surface = await createPressureSurface(document.querySelector('.foam-sheet'), row)
   select('hours')
+  window.foamMaterial = { snapshot: () => surface.snapshot() }
+  window.badgeInspector = { snapshot: () => inspector.snapshot() }
   document.documentElement.dataset.ready = 'true'
 } catch (error) {
   document.querySelector('#hint').textContent = `${error.message}，请刷新重试。`
   for (const button of document.querySelectorAll('button')) button.disabled = true
 }
+window.addEventListener(
+  'pagehide',
+  () => {
+    inspector.dispose()
+    surface?.dispose()
+  },
+  { once: true },
+)

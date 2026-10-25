@@ -27,6 +27,7 @@
 ## 协作规则
 
 - [施工者规则](rules/implementation.md)
+- [低耦合与高内聚](rules/coupling-cohesion.md)
 - [审查者规则](rules/review.md)
 - [子代理派遣与额度](rules/agent-dispatch.md)
 - [架构与 IPC](rules/architecture.md)
@@ -374,6 +375,7 @@
 
 ## 可复用经验
 
+- [GPT-6.1 Sol 任务与推理档位参考](lessons/gpt-6.1-sol-reasoning-reference.md) — 典型任务映射、升降档条件、分阶段选择与官方依据；作为参考，不修改协作规则。
 - [经验索引](lessons/README.md) — 按任务选择复盘与对应清理证据。
 - [UI 冗余清理经验](lessons/2026-10-06-ui-cleanup-lessons.md) — 入口、生命周期、CSS 匹配、共享边界与验证证据。
 - [CD 浏览页开发复盘](lessons/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。

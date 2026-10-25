@@ -32,7 +32,7 @@ import {
 } from '../constants/libraryLayoutMetrics'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
-import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import { metadataSaveFailureMessageKey } from '../utils/metadataSaveFailure'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'

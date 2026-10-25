@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import type { createCdAlbumCatalogSession } from '../utils/cdAlbumCatalogSession'
 import type { CdAlbumInfo } from '../types/cdAlbumInfo'
 

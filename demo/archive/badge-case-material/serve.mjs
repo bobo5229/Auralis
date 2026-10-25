@@ -3,10 +3,19 @@ import { readFile } from 'node:fs/promises'
 import { resolve, extname, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DOMParser } from '@xmldom/xmldom'
+import { build } from 'esbuild'
 
 const directory = resolve(fileURLToPath(new URL('./', import.meta.url)))
 const root = resolve(directory, '../../..')
 export async function startServer(port = 4198) {
+  const bundle = await build({
+    entryPoints: [resolve(directory, 'badgeInspector.js')],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'browser',
+    target: 'es2022',
+  })
   const materialDirectory = resolve(
     root,
     'src/renderer/features/archive/assets/milestones/materials',
@@ -25,6 +34,17 @@ export async function startServer(port = 4198) {
         series: entry.series,
         contour: doc.getElementsByTagName('path')[0].getAttribute('d'),
         preview: `/badges/${entry.id}-lit.png`,
+        material: {
+          id: entry.id,
+          baseline: entry.baseline,
+          roughness: entry.roughness,
+          maps: Object.fromEntries(
+            ['base', 'material', 'normal', 'ao', 'finish'].map((key) => [
+              key,
+              `/materials/${entry.states.lit[key]}`,
+            ]),
+          ),
+        },
       }
     }),
   )
@@ -35,6 +55,14 @@ export async function startServer(port = 4198) {
         return
       }
       const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname)
+      if (pathname === '/inspector.bundle.js') {
+        response.writeHead(200, {
+          'Content-Type': 'text/javascript; charset=utf-8',
+          'Cache-Control': 'no-store',
+        })
+        response.end(request.method === 'HEAD' ? undefined : bundle.outputFiles[0].contents)
+        return
+      }
       if (pathname === '/catalog.json') {
         response.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
@@ -53,6 +81,10 @@ export async function startServer(port = 4198) {
         )
       else if (/^\/badges\/[a-z0-9-]+-lit\.png$/.test(pathname))
         file = resolve(materialDirectory, 'previews', pathname.slice(8))
+      else if (
+        /^\/materials\/[a-z0-9-]+\/lit-(base|material|normal|ao|finish)\.png$/.test(pathname)
+      )
+        file = resolve(materialDirectory, pathname.slice(11))
       else {
         file = resolve(directory, pathname === '/' ? 'index.html' : pathname.slice(1))
         if (

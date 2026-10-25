@@ -65,6 +65,10 @@ for (const profile of selected) {
     if (!provenance[sourcePath] || provenance[sourcePath] !== sha(source))
       throw new Error(`Source provenance mismatch: ${sourcePath}`)
     const { doc, removed } = prepareSvg(source.toString('utf8'), profile, unlit)
+    if (state === 'lit') {
+      entry.contour = doc.getElementsByTagName('path')[0]?.getAttribute('d')
+      if (!entry.contour) throw new Error(`${profile.id}: missing badge contour`)
+    }
     entry.sources[state] = { path: sourcePath, sha256: sha(source), removed }
     const maps = {}
     let heightBuffer

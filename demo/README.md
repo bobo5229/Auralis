@@ -1,6 +1,6 @@
 # 界面原型
 
-徽章收藏盒：[铝盒外框与黑色海绵内胆](archive/badge-case-material/README.md)。运行 `node demo/archive/badge-case-material/serve.mjs` 后打开 <http://127.0.0.1:4198/>；可切换分类、横向浏览、移开徽章观察浅凹槽，以及切换展示环境。
+徽章收藏盒：[铝盒外框、海绵内胆与徽章检视](archive/badge-case-material/README.md)。运行 `node demo/archive/badge-case-material/serve.mjs` 后打开 <http://127.0.0.1:4198/>；单击徽章移动放大并绕竖轴翻转，悬停观察 GLSL 反光，空白或 Esc 放回；支持分类、横向浏览、残留压痕与深浅展示环境。
 
 封面取色比较：[Wu / 调整后的 Wu / OKLab K-means](playback/palette-comparison/index.html)，离线打开；内置代表性封面，支持三列并排、全样本总览、本地封面导入与单列放大，统一背景适配规则，未接入正式界面。[说明与验证](playback/palette-comparison/README.md)。
 

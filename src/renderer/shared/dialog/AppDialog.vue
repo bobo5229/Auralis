@@ -185,25 +185,27 @@ onBeforeUnmount(cancelEntry)
           tabindex="-1"
           @submit="onSubmit"
         >
-          <header class="auralis-dialog-header">
-            <div class="auralis-dialog-title">
-              <h2 :id="titleId">{{ title }}</h2>
-              <slot name="subtitle" />
-            </div>
-            <div class="auralis-dialog-header-actions">
-              <slot name="header-actions" /><button
-                ref="closeButton"
-                type="button"
-                class="auralis-dialog-close"
-                :class="closeClass"
-                :disabled="!dismissible"
-                :aria-label="closeLabel ?? t('dialog.close')"
-                @click="close('button')"
-              >
-                <span class="i-lucide-x" aria-hidden="true" />
-              </button>
-            </div>
-          </header>
+          <slot name="header">
+            <header class="auralis-dialog-header">
+              <div class="auralis-dialog-title">
+                <h2 :id="titleId">{{ title }}</h2>
+                <slot name="subtitle" />
+              </div>
+              <div class="auralis-dialog-header-actions">
+                <slot name="header-actions" /><button
+                  ref="closeButton"
+                  type="button"
+                  class="auralis-dialog-close"
+                  :class="closeClass"
+                  :disabled="!dismissible"
+                  :aria-label="closeLabel ?? t('dialog.close')"
+                  @click="close('button')"
+                >
+                  <span class="i-lucide-x" aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+          </slot>
           <div
             class="auralis-dialog-body"
             :class="{

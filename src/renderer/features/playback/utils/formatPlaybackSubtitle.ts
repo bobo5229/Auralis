@@ -1,5 +1,5 @@
 import type { PlaybackTrack } from '../types'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { formatArtist } from '@renderer/shared/media/formatArtist'
 import { uiText } from '@renderer/i18n'
 
 export function formatPlaybackSubtitle(track: PlaybackTrack, separator = '-'): string {

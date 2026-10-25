@@ -1,9 +1,10 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
+import { selectLibraryDirectory } from '@main/app/selectLibraryDirectory'
 import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
 import type { Worker } from 'node:worker_threads'
 import type Database from 'better-sqlite3'
 import { dialog } from 'electron'
-import type { BrowserWindow } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
 import type { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
@@ -86,12 +87,13 @@ function harness() {
   const service = new LibraryScanService(
     db,
     'C:\\Cache',
+    selectLibraryDirectory,
+    createLibraryScanEvents(send),
     () => {
       const worker = new FakeWorker()
       workers.push(worker)
       return worker as unknown as Worker
     },
-    () => [{ webContents: { isDestroyed: () => false, send } } as unknown as BrowserWindow],
   )
   vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: false, filePaths: ['C:\\Next'] })
   return { db, service, root, workers, send, repo: new TrackRepository(db) }

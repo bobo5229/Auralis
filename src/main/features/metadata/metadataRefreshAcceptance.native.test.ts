@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import type { EventEmitter } from 'node:events'
 import type { WorkerOptions } from 'node:worker_threads'
@@ -141,7 +142,8 @@ async function holdScan(
   const root = roots.upsertByPath(f.root)
   const job = jobs.create(root.id)
   const persistence =
-    previousPersistence ?? new LibraryScanPersistence(f.db, roots, jobs, f.tracks, f.send)
+    previousPersistence ??
+    new LibraryScanPersistence(f.db, roots, jobs, f.tracks, createLibraryScanEvents(f.send))
   persistence.begin()
   const messages: LibraryScanWorkerMessage[] = []
   // The inventory, reader, parser, reporter, persistence and database are real.

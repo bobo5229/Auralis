@@ -1,6 +1,6 @@
 import { onScopeDispose, watch } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import { usePlayback } from './usePlayback'
 import { uiText } from '@renderer/i18n'
 

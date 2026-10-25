@@ -11,7 +11,7 @@ import {
 import type { RandomAlbumTracksResult } from '@shared/types/playback'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import {
   APP_FAILED_EVENT,
   APP_READY_EVENT,

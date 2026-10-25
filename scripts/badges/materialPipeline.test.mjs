@@ -104,13 +104,13 @@ test('the accepted sample retains its exact de-lit geometry and materials', asyn
   )
   const prepared = prepareSvg(source, profile, false)
   const result = deriveSvg(prepared.doc, profile, false, 'base', 1320, 1480)
-  assert.equal(
-    result,
-    await readFile(
-      new URL('../../demo/archive/enamel-milestone/glsl/assets/lit-base.svg', import.meta.url),
-      'utf8',
-    ),
+  const baseline = await readFile(
+    new URL('../../demo/archive/enamel-milestone/glsl/assets/lit-base.svg', import.meta.url),
+    'utf8',
   )
+  // Serialization whitespace between elements is not badge geometry or paint.
+  const compact = (svg) => svg.replace(/>\s+</g, '><').trim()
+  assert.equal(compact(result), compact(baseline))
 })
 test('selection rejects typos and supports arbitrary subsets of the registry', () => {
   assert.throws(() => selectProfiles('days-300'), /Unknown badge/)

@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -6,7 +7,6 @@ import { tmpdir } from 'node:os'
 import type { Worker, WorkerOptions } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
-import type { BrowserWindow } from 'electron'
 import { migrateDatabase } from '@main/database/schema'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -69,9 +69,13 @@ function createHarness(
     return (workerSequence?.shift() ?? worker) as unknown as Worker
   }
   const send = vi.fn()
-  const service = new LibraryScanService(db, 'C:\\Cache', createWorker, () => [
-    { webContents: { isDestroyed: () => false, send } } as unknown as BrowserWindow,
-  ])
+  const service = new LibraryScanService(
+    db,
+    'C:\\Cache',
+    async () => null,
+    createLibraryScanEvents(send),
+    createWorker,
+  )
 
   return {
     db,

@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import { copyFile, mkdtemp, rename, rm, stat, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -84,7 +85,11 @@ it.each(['stable', 'in-place', 'atomic-same-size-and-mtime'] as const)(
       db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(1,7)').run()
       const repo = new TrackRepository(db)
       const send = vi.fn()
-      const service = new LibraryIncrementalImportService(repo, join(root, 'cache'), send)
+      const service = new LibraryIncrementalImportService(
+        repo,
+        join(root, 'cache'),
+        createLibraryScanEvents(send).changed,
+      )
       if (mode !== 'stable') {
         artwork.hook = async () => {
           if (mode === 'in-place') await copyFile(replacement, incoming)

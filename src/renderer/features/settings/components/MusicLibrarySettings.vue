@@ -1,35 +1,36 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type {
-  LibraryRoot,
-  LibraryScanProgress,
-  LibraryScanStatus,
-  MetadataRefreshFailure,
-} from '@shared/types/libraryScan'
-import { auralis } from '@renderer/shared/ipc/client'
-import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { formatLibraryScanTime } from '../utils/formatLibraryScanTime'
+import { useLibraryScanSettings } from '../composables/useLibraryScanSettings'
+import { useMetadataRefreshFailures } from '../composables/useMetadataRefreshFailures'
 import DatabaseMaintenanceSettings from './DatabaseMaintenanceSettings.vue'
 
 const { t, locale } = useI18n()
-
-const roots = ref<LibraryRoot[]>([])
-const scanStatus = ref<LibraryScanStatus | null>(null)
-const currentProgress = ref<LibraryScanProgress | null>(null)
-const isLoading = ref(false)
-const operationError = ref<string | null>(null)
-const unsubscribe = ref<(() => void) | null>(null)
-const refreshFailures = ref<MetadataRefreshFailure[]>([])
-const refreshErrorMessage = ref<string | null>(null)
-const isClearingRefreshFailures = ref(false)
-const showRefreshFailures = ref(false)
+const scan = useLibraryScanSettings()
+const failures = useMetadataRefreshFailures()
+const {
+  scanStatus,
+  isLoading,
+  operationError,
+  activeRoot,
+  isScanning,
+  totalFiles,
+  scannedFiles,
+  failedFiles,
+  progressPercent,
+  chooseFolder,
+  cancelScan,
+} = scan
+const {
+  refreshFailures,
+  refreshErrorMessage,
+  isClearingRefreshFailures,
+  showRefreshFailures,
+  clearRefreshFailures,
+  toggleFailures,
+} = failures
 const isMounted = ref(false)
-const unsubscribeRefresh = ref<(() => void) | null>(null)
-let scanStatusRevision = 0
-
-const activeRoot = computed(() => roots.value[0] ?? null)
-const isScanning = computed(() => scanStatus.value?.status === 'scanning')
 const folderActionButton = ref<HTMLButtonElement | null>(null)
 const scanActionButton = ref<HTMLButtonElement | null>(null)
 const cancelScanButton = ref<HTMLButtonElement | null>(null)
@@ -49,20 +50,6 @@ async function focusAction(target: Ref<HTMLButtonElement | null>): Promise<void>
   if (!isMounted.value || !el || el.disabled) return
   el.focus({ preventScroll: true })
 }
-
-const totalFiles = computed(
-  () => currentProgress.value?.totalFiles ?? scanStatus.value?.totalFiles ?? 0,
-)
-const scannedFiles = computed(
-  () => currentProgress.value?.scannedFiles ?? scanStatus.value?.scannedFiles ?? 0,
-)
-const failedFiles = computed(
-  () => currentProgress.value?.failedFiles ?? scanStatus.value?.failedFiles ?? 0,
-)
-const progressPercent = computed(() => {
-  if (totalFiles.value === 0) return 0
-  return Math.min(100, Math.round((scannedFiles.value / totalFiles.value) * 100))
-})
 const statusLabel = computed(() => {
   if (isScanning.value) return t('settings.library.scanStatus.scanning')
   if (!scanStatus.value) {
@@ -103,154 +90,31 @@ const libraryMetaText = computed(() => {
 
   return parts.join(' · ')
 })
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  rendererDiagnostics.error({
-    scope: 'settings.library',
-    message: 'Library operation failed',
-    cause: error,
-  })
-  return fallback
-}
-
-async function loadLibraryState(): Promise<void> {
-  try {
-    const [nextRoots, , nextFailures] = await Promise.all([
-      auralis.library.getRoots(),
-      refreshScanStatus(),
-      auralis.metadata.listRefreshFailures(),
-    ])
-
-    if (!isMounted.value) return
-
-    roots.value = nextRoots
-    refreshFailures.value = nextFailures
-  } catch (error) {
-    if (isMounted.value) {
-      operationError.value = getErrorMessage(error, 'settings.library.errors.loadState')
-    }
-  }
-}
-
-async function refreshScanStatus(jobId?: number): Promise<void> {
-  const revision = ++scanStatusRevision
-  const nextStatus = await auralis.library.getScanStatus(jobId)
-  if (!isMounted.value || revision !== scanStatusRevision) return
-  scanStatus.value = nextStatus
-  if (currentProgress.value?.jobId !== nextStatus?.jobId) currentProgress.value = null
-}
-
-async function clearRefreshFailures(): Promise<void> {
-  if (isClearingRefreshFailures.value) return
-
-  isClearingRefreshFailures.value = true
-  refreshErrorMessage.value = null
-  try {
-    await auralis.metadata.clearRefreshFailures()
-    refreshFailures.value = []
-    showRefreshFailures.value = false
-  } catch (error) {
-    refreshErrorMessage.value = getErrorMessage(error, 'settings.library.errors.clearFailures')
-  } finally {
-    isClearingRefreshFailures.value = false
-  }
-}
-
-async function chooseFolder(): Promise<void> {
-  isLoading.value = true
-  operationError.value = null
-
-  try {
-    const result = await auralis.library.selectRoot()
-
-    if (!result.canceled && result.root) {
-      roots.value = [result.root]
-      currentProgress.value = null
-      await refreshScanStatus()
-    }
-  } catch (error) {
-    operationError.value = getErrorMessage(error, 'settings.library.errors.selectFolder')
-  } finally {
-    isLoading.value = false
-  }
-}
-
 async function startScan(): Promise<void> {
   if (!activeRoot.value) return
-
   const hadFocus = document.activeElement === scanActionButton.value
-  isLoading.value = true
-  operationError.value = null
-
-  try {
-    const result = await auralis.library.startScan(activeRoot.value.id)
-    currentProgress.value = null
-    await refreshScanStatus(result.jobId)
-  } catch (error) {
-    operationError.value = getErrorMessage(error, 'settings.library.errors.startScan')
-  } finally {
-    isLoading.value = false
-    if (hadFocus && document.activeElement === document.body) {
-      await focusAction(isScanning.value ? cancelScanButton : scanActionButton)
-    }
+  await scan.startScan()
+  if (hadFocus && document.activeElement === document.body) {
+    await focusAction(isScanning.value ? cancelScanButton : scanActionButton)
   }
 }
-
-async function cancelScan(): Promise<void> {
-  if (!scanStatus.value) return
-
-  operationError.value = null
-  try {
-    await auralis.library.cancelScan(scanStatus.value.jobId)
-    await refreshScanStatus(scanStatus.value.jobId)
-  } catch (error) {
-    operationError.value = getErrorMessage(error, 'settings.library.errors.cancelScan')
-  }
-}
-
 onMounted(async () => {
   isMounted.value = true
-
-  unsubscribe.value = auralis.library.onScanProgress(async (progress) => {
-    if (scanStatus.value && progress.jobId < scanStatus.value.jobId) return
-    try {
-      currentProgress.value = progress
-      if (scanStatus.value?.jobId === progress.jobId) {
-        scanStatus.value = { ...scanStatus.value, ...progress }
-      }
-      await refreshScanStatus(progress.jobId)
-
-      if (progress.status === 'completed') {
-        const nextRoots = await auralis.library.getRoots()
-        if (isMounted.value && scanStatus.value?.jobId === progress.jobId) roots.value = nextRoots
-      }
-    } catch (error) {
-      if (isMounted.value) {
-        operationError.value = getErrorMessage(error, 'settings.library.errors.loadState')
-      }
-    }
-  })
-
-  unsubscribeRefresh.value = auralis.metadata.onRefreshProgress(async (progress) => {
-    if (progress.status === 'completed' || progress.status === 'failed') {
-      try {
-        const failures = await auralis.metadata.listRefreshFailures()
-        if (isMounted.value) refreshFailures.value = failures
-      } catch (error) {
-        if (isMounted.value) {
-          refreshErrorMessage.value = getErrorMessage(error, 'settings.library.errors.loadState')
-        }
-      }
-    }
-  })
-
-  await loadLibraryState()
+  try {
+    // Publish the initial directory and failures together, preserving the existing loading contract.
+    const [nextRoots, , nextFailures] = await Promise.all([
+      scan.readRoots(),
+      scan.refreshScanStatus(),
+      failures.readFailures(),
+    ])
+    scan.publishRoots(nextRoots)
+    failures.publishFailures(nextFailures)
+  } catch (error) {
+    scan.reportLoadError(error)
+  }
 })
-
 onBeforeUnmount(() => {
   isMounted.value = false
-  unsubscribe.value?.()
-  unsubscribeRefresh.value?.()
 })
 </script>
 
@@ -364,7 +228,7 @@ onBeforeUnmount(() => {
             type="button"
             class="failure-toggle"
             :aria-expanded="showRefreshFailures"
-            @click="showRefreshFailures = !showRefreshFailures"
+            @click="toggleFailures()"
           >
             <span class="failure-summary">
               {{ t('settings.library.failuresSummary', { count: refreshFailures.length }) }}

@@ -57,3 +57,7 @@ export function getBadgePreview(catalogId: string, state: BadgeState = 'lit'): s
     originals[`../assets/milestones/${entry.id}${state === 'unlit' ? '-unlit' : ''}.svg`]
   )
 }
+
+export const badgeContours: Record<string, string> = Object.fromEntries(
+  Object.values(manifest.badges).map((entry) => [entry.catalogId, entry.contour]),
+)

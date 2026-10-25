@@ -1,7 +1,7 @@
 // @unocss-include
 import { computed, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import type { PlaybackPublicApi } from './usePlayback'
 import { usePlaybackMetadataDisplay } from './usePlaybackMetadataDisplay'
 import { useFullscreenInfoTypography } from './useFullscreenInfoTypography'

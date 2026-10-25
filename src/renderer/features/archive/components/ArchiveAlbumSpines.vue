@@ -2,7 +2,7 @@
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DailyTopAlbum } from '@shared/types/listeningArchive'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import { createAlbumSpineInteraction } from '../runtime/albumSpineInteraction'
 

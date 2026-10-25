@@ -1,0 +1,5973 @@
+{
+  "scope": "Isolated Electron offscreen renderer. No screenshots, PNG encoding, or throttling during measured runs. Source files unchanged; diagnostic variants exist only in page memory.",
+  "electron": "38.8.6",
+  "chromium": "140.0.7339.249",
+  "featureStatus": {
+    "2d_canvas": "disabled_software",
+    "direct_rendering_display_compositor": "disabled_off_ok",
+    "gpu_compositing": "disabled_software",
+    "multiple_raster_threads": "enabled_on",
+    "opengl": "disabled_off",
+    "rasterization": "disabled_software",
+    "raw_draw": "disabled_off_ok",
+    "skia_graphite": "disabled_off",
+    "trees_in_viz": "disabled_off",
+    "video_decode": "disabled_software",
+    "video_encode": "disabled_software",
+    "vulkan": "disabled_off",
+    "webgl": "disabled_off",
+    "webgl2": "disabled_off",
+    "webgpu": "disabled_off",
+    "webnn": "disabled_off"
+  },
+  "variants": [
+    {
+      "variant": "baseline",
+      "config": {
+        "freezeFoam": false,
+        "noShadow": false,
+        "badgeDpr": 0
+      },
+      "graphics": {
+        "width": 1441,
+        "height": 901,
+        "actualDpr": 1.5,
+        "canvas": [
+          630,
+          706
+        ],
+        "foam": {
+          "renderer": "canvas2d",
+          "running": true,
+          "frames": 211,
+          "width": 1506,
+          "height": 489,
+          "scale": 1.5,
+          "lastDrawMs": 22.599999994039536,
+          "maxDrawMs": 36.20000000298023,
+          "fields": [
+            {
+              "id": "hours-10",
+              "pressure": 1,
+              "target": 1,
+              "velocity": 0
+            },
+            {
+              "id": "hours-100",
+              "pressure": 0.9988986197420117,
+              "target": 1,
+              "velocity": 0.017407357552140516
+            },
+            {
+              "id": "hours-500",
+              "pressure": 1,
+              "target": 1,
+              "velocity": 0
+            },
+            {
+              "id": "hours-1000",
+              "pressure": 1,
+              "target": 1,
+              "velocity": 0
+            }
+          ]
+        },
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      },
+      "runs": [
+        {
+          "kind": "first",
+          "index": 0,
+          "summary": {
+            "loadingToFirstEntering": 201.60000000149012,
+            "totalToSettled": 1305.2000000029802,
+            "intervals": {
+              "count": 63,
+              "total": 1233.4,
+              "mean": 19.57777777777778,
+              "p50": 16.699999999999818,
+              "p95": 16.799999999999955,
+              "max": 150.0000000000001
+            },
+            "intervalsOver25ms": 4,
+            "cadenceFps": 51.078320090805896,
+            "callbacks": {
+              "tick": {
+                "count": 64,
+                "total": 591.4000000283122,
+                "mean": 9.240625000442378,
+                "p50": 15.200000002980232,
+                "p95": 18.5,
+                "max": 36.20000000298023
+              },
+              "draw": {
+                "count": 64,
+                "total": 14.299999967217445,
+                "mean": 0.22343749948777258,
+                "p50": 0.20000000298023224,
+                "p95": 0.3999999985098839,
+                "max": 0.6000000014901161
+              }
+            },
+            "foamDraws": {
+              "count": 34,
+              "total": 590.1000000312924,
+              "mean": 17.355882353861542,
+              "p50": 16,
+              "p95": 19.400000005960464,
+              "max": 36.20000000298023
+            },
+            "glCalls": {
+              "texImage2D": {
+                "count": 7,
+                "total": 0,
+                "max": 0
+              },
+              "compileShader": {
+                "count": 4,
+                "total": 0,
+                "max": 0
+              },
+              "linkProgram": {
+                "count": 2,
+                "total": 0.10000000149011612,
+                "max": 0.10000000149011612
+              },
+              "getProgramParameter": {
+                "count": 6,
+                "total": 0.30000000447034836,
+                "max": 0.10000000149011612
+              },
+              "texSubImage2D": {
+                "count": 6,
+                "total": 58.399999998509884,
+                "max": 17.700000002980232
+              },
+              "generateMipmap": {
+                "count": 6,
+                "total": 0,
+                "max": 0
+              },
+              "drawArrays": {
+                "count": 65,
+                "total": 0.3999999985098839,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 260,
+                "total": 0.30000000447034836,
+                "max": 0.10000000149011612
+              }
+            },
+            "skippedFoam": 0
+          },
+          "raw": {
+            "active": false,
+            "callbacks": [
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.899999998509884,
+                "time": 1018.4,
+                "foam": 18.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.6000000014901161,
+                "time": 1018.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.400000005960464,
+                "time": 1168.4,
+                "foam": 19.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.3999999985098839,
+                "time": 1168.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 1201.8,
+                "foam": 16.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1201.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1218.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1218.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.5,
+                "time": 1235.2,
+                "foam": 18.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1235.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1251.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1251.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 1268.4,
+                "foam": 16.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1268.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1285.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1285.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.099999994039536,
+                "time": 1301.8,
+                "foam": 17.099999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.5,
+                "time": 1301.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1318.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 1318.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.69999999552965,
+                "time": 1335.1,
+                "foam": 16.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1335.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1351.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1351.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 35.79999999701977,
+                "time": 1368.5,
+                "foam": 35.70000000298023
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1368.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 36.20000000298023,
+                "time": 1401.7,
+                "foam": 36.20000000298023
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1401.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.30000000447035,
+                "time": 1435.1,
+                "foam": 17.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1435.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1451.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1451.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.200000002980232,
+                "time": 1468.5,
+                "foam": 15.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1468.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1485.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1485.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 14.899999998509884,
+                "time": 1501.7,
+                "foam": 14.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1501.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1518.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1518.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.399999998509884,
+                "time": 1535.1,
+                "foam": 15.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1535.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1551.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1551.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.800000004470348,
+                "time": 1568.4,
+                "foam": 15.800000004470348
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1568.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1585.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1585.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.800000004470348,
+                "time": 1601.7,
+                "foam": 15.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.3999999985098839,
+                "time": 1601.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1618.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1618.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.5,
+                "time": 1635.1,
+                "foam": 15.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 1635.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1651.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1651.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.700000002980232,
+                "time": 1668.4,
+                "foam": 15.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1668.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1685.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1685.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.19999999552965,
+                "time": 1701.8,
+                "foam": 16.19999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1701.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1718.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1718.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.700000002980232,
+                "time": 1735.1,
+                "foam": 15.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1735.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1751.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1751.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.200000002980232,
+                "time": 1768.5,
+                "foam": 15.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1768.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1785.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1785.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.600000001490116,
+                "time": 1801.7,
+                "foam": 15.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1801.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1818.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1818.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.19999999552965,
+                "time": 1835.1,
+                "foam": 16.19999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 1835.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1851.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.3999999985098839,
+                "time": 1851.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.400000005960464,
+                "time": 1868.4,
+                "foam": 15.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1868.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1885,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1885,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.399999998509884,
+                "time": 1901.8,
+                "foam": 15.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 1901.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1918.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1918.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.200000002980232,
+                "time": 1935.1,
+                "foam": 16.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 1935.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1951.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1951.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.700000002980232,
+                "time": 1968.4,
+                "foam": 16.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 1968.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 1985.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 1985.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.400000005960464,
+                "time": 2001.7,
+                "foam": 15.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 2001.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2018.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 2018.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16,
+                "time": 2035.1,
+                "foam": 16
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 2035.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2051.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 2051.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.399999998509884,
+                "time": 2068.4,
+                "foam": 16.30000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 2068.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2085.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 2085.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.399999998509884,
+                "time": 2101.7,
+                "foam": 15.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 2101.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2118.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 2118.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.300000004470348,
+                "time": 2135,
+                "foam": 15.300000004470348
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 2135,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2151.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 2151.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.100000001490116,
+                "time": 2168.4,
+                "foam": 16.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 2168.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2185.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 2185.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.600000001490116,
+                "time": 2201.8,
+                "foam": 16.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 2201.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2218.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 2218.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.600000001490116,
+                "time": 2235.1,
+                "foam": 15.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 2235.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 2251.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.5,
+                "time": 2251.8,
+                "foam": 0
+              }
+            ],
+            "intervals": [
+              150.0000000000001,
+              33.399999999999864,
+              16.700000000000045,
+              16.700000000000045,
+              16.59999999999991,
+              16.600000000000136,
+              16.699999999999818,
+              16.700000000000045,
+              16.700000000000045,
+              16.59999999999991,
+              16.700000000000045,
+              16.700000000000045,
+              33.200000000000045,
+              33.399999999999864,
+              16.700000000000045,
+              16.700000000000045,
+              16.59999999999991,
+              16.600000000000136,
+              16.700000000000045,
+              16.699999999999818,
+              16.700000000000045,
+              16.600000000000136,
+              16.699999999999818,
+              16.600000000000136,
+              16.700000000000045,
+              16.699999999999818,
+              16.700000000000045,
+              16.600000000000136,
+              16.699999999999818,
+              16.700000000000045,
+              16.600000000000136,
+              16.699999999999818,
+              16.700000000000045,
+              16.700000000000045,
+              16.59999999999991,
+              16.600000000000136,
+              16.799999999999955,
+              16.59999999999991,
+              16.700000000000045,
+              16.600000000000136,
+              16.59999999999991,
+              16.799999999999955,
+              16.600000000000136,
+              16.699999999999818,
+              16.600000000000136,
+              16.700000000000045,
+              16.699999999999818,
+              16.600000000000136,
+              16.700000000000045,
+              16.699999999999818,
+              16.59999999999991,
+              16.700000000000273,
+              16.699999999999818,
+              16.59999999999991,
+              16.700000000000273,
+              16.59999999999991,
+              16.699999999999818,
+              16.700000000000273,
+              16.699999999999818,
+              16.700000000000273,
+              16.59999999999991,
+              16.699999999999818,
+              16.700000000000273
+            ],
+            "calls": {
+              "texImage2D": {
+                "count": 7,
+                "total": 0,
+                "max": 0
+              },
+              "compileShader": {
+                "count": 4,
+                "total": 0,
+                "max": 0
+              },
+              "linkProgram": {
+                "count": 2,
+                "total": 0.10000000149011612,
+                "max": 0.10000000149011612
+              },
+              "getProgramParameter": {
+                "count": 6,
+                "total": 0.30000000447034836,
+                "max": 0.10000000149011612
+              },
+              "texSubImage2D": {
+                "count": 6,
+                "total": 58.399999998509884,
+                "max": 17.700000002980232
+              },
+              "generateMipmap": {
+                "count": 6,
+                "total": 0,
+                "max": 0
+              },
+              "drawArrays": {
+                "count": 65,
+                "total": 0.3999999985098839,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 260,
+                "total": 0.30000000447034836,
+                "max": 0.10000000149011612
+              }
+            },
+            "frames": [
+              {
+                "time": 1018.4,
+                "now": 1165.1999999955297,
+                "progress": 0,
+                "rendered": 1
+              },
+              {
+                "time": 1168.4,
+                "now": 1186,
+                "progress": 0,
+                "rendered": 2
+              },
+              {
+                "time": 1201.8,
+                "now": 1206.3999999985099,
+                "progress": 0.0031481481481482323,
+                "rendered": 3
+              },
+              {
+                "time": 1218.5,
+                "now": 1224.1999999955297,
+                "progress": 0.034074074074074034,
+                "rendered": 4
+              },
+              {
+                "time": 1235.2,
+                "now": 1237.0999999940395,
+                "progress": 0.04953703703703704,
+                "rendered": 5
+              },
+              {
+                "time": 1251.8,
+                "now": 1256.6999999955297,
+                "progress": 0.06500000000000004,
+                "rendered": 6
+              },
+              {
+                "time": 1268.4,
+                "now": 1270,
+                "progress": 0.08037037037037033,
+                "rendered": 7
+              },
+              {
+                "time": 1285.1,
+                "now": 1287.5999999940395,
+                "progress": 0.09574074074074082,
+                "rendered": 8
+              },
+              {
+                "time": 1301.8,
+                "now": 1302.5,
+                "progress": 0.11120370370370362,
+                "rendered": 9
+              },
+              {
+                "time": 1318.5,
+                "now": 1320.5999999940395,
+                "progress": 0.12666666666666662,
+                "rendered": 10
+              },
+              {
+                "time": 1335.1,
+                "now": 1335.3999999985099,
+                "progress": 0.14212962962962963,
+                "rendered": 11
+              },
+              {
+                "time": 1351.8,
+                "now": 1352.7999999970198,
+                "progress": 0.15749999999999992,
+                "rendered": 12
+              },
+              {
+                "time": 1368.5,
+                "now": 1369.5,
+                "progress": 0.17296296296296293,
+                "rendered": 13
+              },
+              {
+                "time": 1401.7,
+                "now": 1406.0999999940395,
+                "progress": 0.1884259259259259,
+                "rendered": 14
+              },
+              {
+                "time": 1435.1,
+                "now": 1443.0999999940395,
+                "progress": 0.2191666666666667,
+                "rendered": 15
+              },
+              {
+                "time": 1451.8,
+                "now": 1461.5999999940395,
+                "progress": 0.25009259259259253,
+                "rendered": 16
+              },
+              {
+                "time": 1468.5,
+                "now": 1469.6999999955297,
+                "progress": 0.2655555555555555,
+                "rendered": 17
+              },
+              {
+                "time": 1485.1,
+                "now": 1485.6999999955297,
+                "progress": 0.2810185185185185,
+                "rendered": 18
+              },
+              {
+                "time": 1501.7,
+                "now": 1502.7999999970198,
+                "progress": 0.2963888888888888,
+                "rendered": 19
+              },
+              {
+                "time": 1518.4,
+                "now": 1518.6999999955297,
+                "progress": 0.3117592592592593,
+                "rendered": 20
+              },
+              {
+                "time": 1535.1,
+                "now": 1535.7999999970198,
+                "progress": 0.3272222222222223,
+                "rendered": 21
+              },
+              {
+                "time": 1551.8,
+                "now": 1553.6999999955297,
+                "progress": 0.3426851851851851,
+                "rendered": 22
+              },
+              {
+                "time": 1568.4,
+                "now": 1568.6999999955297,
+                "progress": 0.3581481481481481,
+                "rendered": 23
+              },
+              {
+                "time": 1585.1,
+                "now": 1585.6999999955297,
+                "progress": 0.3735185185185186,
+                "rendered": 24
+              },
+              {
+                "time": 1601.7,
+                "now": 1603.6999999955297,
+                "progress": 0.3889814814814814,
+                "rendered": 25
+              },
+              {
+                "time": 1618.4,
+                "now": 1620.1999999955297,
+                "progress": 0.4043518518518519,
+                "rendered": 26
+              },
+              {
+                "time": 1635.1,
+                "now": 1636.6999999955297,
+                "progress": 0.4198148148148149,
+                "rendered": 27
+              },
+              {
+                "time": 1651.8,
+                "now": 1653.1999999955297,
+                "progress": 0.4352777777777777,
+                "rendered": 28
+              },
+              {
+                "time": 1668.4,
+                "now": 1669.2999999970198,
+                "progress": 0.4507407407407407,
+                "rendered": 29
+              },
+              {
+                "time": 1685.1,
+                "now": 1685.8999999985099,
+                "progress": 0.4661111111111112,
+                "rendered": 30
+              },
+              {
+                "time": 1701.8,
+                "now": 1703,
+                "progress": 0.481574074074074,
+                "rendered": 31
+              },
+              {
+                "time": 1718.4,
+                "now": 1720,
+                "progress": 0.497037037037037,
+                "rendered": 32
+              },
+              {
+                "time": 1735.1,
+                "now": 1735.6999999955297,
+                "progress": 0.5124074074074075,
+                "rendered": 33
+              },
+              {
+                "time": 1751.8,
+                "now": 1752.5999999940395,
+                "progress": 0.5278703703703703,
+                "rendered": 34
+              },
+              {
+                "time": 1768.5,
+                "now": 1768.5999999940395,
+                "progress": 0.5433333333333333,
+                "rendered": 35
+              },
+              {
+                "time": 1785.1,
+                "now": 1786.5999999940395,
+                "progress": 0.5587962962962963,
+                "rendered": 36
+              },
+              {
+                "time": 1801.7,
+                "now": 1802.8999999985099,
+                "progress": 0.5741666666666666,
+                "rendered": 37
+              },
+              {
+                "time": 1818.5,
+                "now": 1819.1999999955297,
+                "progress": 0.5895370370370371,
+                "rendered": 38
+              },
+              {
+                "time": 1835.1,
+                "now": 1835.8999999985099,
+                "progress": 0.6050925925925926,
+                "rendered": 39
+              },
+              {
+                "time": 1851.8,
+                "now": 1852.7999999970198,
+                "progress": 0.6204629629629629,
+                "rendered": 40
+              },
+              {
+                "time": 1868.4,
+                "now": 1870.5999999940395,
+                "progress": 0.6359259259259259,
+                "rendered": 41
+              },
+              {
+                "time": 1885,
+                "now": 1886.7999999970198,
+                "progress": 0.6512962962962964,
+                "rendered": 42
+              },
+              {
+                "time": 1901.8,
+                "now": 1902.8999999985099,
+                "progress": 0.6666666666666666,
+                "rendered": 43
+              },
+              {
+                "time": 1918.4,
+                "now": 1919.7999999970198,
+                "progress": 0.6822222222222222,
+                "rendered": 44
+              },
+              {
+                "time": 1935.1,
+                "now": 1935.5999999940395,
+                "progress": 0.6975925925925927,
+                "rendered": 45
+              },
+              {
+                "time": 1951.7,
+                "now": 1952.5,
+                "progress": 0.7130555555555554,
+                "rendered": 46
+              },
+              {
+                "time": 1968.4,
+                "now": 1969.1999999955297,
+                "progress": 0.7284259259259259,
+                "rendered": 47
+              },
+              {
+                "time": 1985.1,
+                "now": 1987.1999999955297,
+                "progress": 0.7438888888888889,
+                "rendered": 48
+              },
+              {
+                "time": 2001.7,
+                "now": 2003.0999999940395,
+                "progress": 0.7593518518518517,
+                "rendered": 49
+              },
+              {
+                "time": 2018.4,
+                "now": 2019.2999999970198,
+                "progress": 0.7747222222222223,
+                "rendered": 50
+              },
+              {
+                "time": 2035.1,
+                "now": 2036,
+                "progress": 0.7901851851851853,
+                "rendered": 51
+              },
+              {
+                "time": 2051.7,
+                "now": 2052.7999999970198,
+                "progress": 0.8056481481481481,
+                "rendered": 52
+              },
+              {
+                "time": 2068.4,
+                "now": 2069,
+                "progress": 0.8210185185185184,
+                "rendered": 53
+              },
+              {
+                "time": 2085.1,
+                "now": 2086.2999999970198,
+                "progress": 0.8364814814814816,
+                "rendered": 54
+              },
+              {
+                "time": 2101.7,
+                "now": 2103.1999999955297,
+                "progress": 0.8519444444444444,
+                "rendered": 55
+              },
+              {
+                "time": 2118.4,
+                "now": 2119.39999999851,
+                "progress": 0.8673148148148146,
+                "rendered": 56
+              },
+              {
+                "time": 2135,
+                "now": 2137.0999999940395,
+                "progress": 0.8827777777777779,
+                "rendered": 57
+              },
+              {
+                "time": 2151.7,
+                "now": 2153.2999999970198,
+                "progress": 0.8981481481481481,
+                "rendered": 58
+              },
+              {
+                "time": 2168.4,
+                "now": 2168.89999999851,
+                "progress": 0.9136111111111109,
+                "rendered": 59
+              },
+              {
+                "time": 2185.1,
+                "now": 2185.89999999851,
+                "progress": 0.9290740740740742,
+                "rendered": 60
+              },
+              {
+                "time": 2201.8,
+                "now": 2202.89999999851,
+                "progress": 0.944537037037037,
+                "rendered": 61
+              },
+              {
+                "time": 2218.4,
+                "now": 2220.39999999851,
+                "progress": 0.9600000000000002,
+                "rendered": 62
+              },
+              {
+                "time": 2235.1,
+                "now": 2235.7999999970198,
+                "progress": 0.9753703703703704,
+                "rendered": 63
+              },
+              {
+                "time": 2251.8,
+                "now": 2252.2999999970198,
+                "progress": 0.9908333333333332,
+                "rendered": 64
+              }
+            ],
+            "firstEntering": 1165.1999999955297,
+            "firstInspecting": 2268.7999999970198,
+            "skippedFoam": 0,
+            "clicked": 963.5999999940395
+          }
+        },
+        {
+          "kind": "warm",
+          "index": 1,
+          "summary": {
+            "loadingToFirstEntering": 30.700000002980232,
+            "totalToSettled": 1099.1000000014901,
+            "intervals": {
+              "count": 64,
+              "total": 1066.6999999999998,
+              "mean": 16.667187499999997,
+              "p50": 16.699999999999818,
+              "p95": 16.700000000000273,
+              "max": 16.800000000000182
+            },
+            "intervalsOver25ms": 0,
+            "cadenceFps": 59.99812505859193,
+            "callbacks": {
+              "tick": {
+                "count": 65,
+                "total": 588.7999999895692,
+                "mean": 9.058461538301064,
+                "p50": 14.899999998509884,
+                "p95": 20.200000002980232,
+                "max": 22
+              },
+              "draw": {
+                "count": 65,
+                "total": 10.400000035762787,
+                "mean": 0.16000000055019672,
+                "p50": 0.19999999552965164,
+                "p95": 0.29999999701976776,
+                "max": 0.4000000059604645
+              }
+            },
+            "foamDraws": {
+              "count": 33,
+              "total": 586.7999999821186,
+              "mean": 17.78181818127632,
+              "p50": 17.69999999552965,
+              "p95": 20.69999999552965,
+              "max": 21.899999998509884
+            },
+            "glCalls": {
+              "drawArrays": {
+                "count": 66,
+                "total": 0,
+                "max": 0
+              },
+              "drawElements": {
+                "count": 264,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "skippedFoam": 0
+          },
+          "raw": {
+            "active": false,
+            "callbacks": [
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 14.899999998509884,
+                "time": 3618.3,
+                "foam": 14.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 3618.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3635,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 3635,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.799999997019768,
+                "time": 3651.7,
+                "foam": 19.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3651.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3668.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 3668.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.899999998509884,
+                "time": 3685,
+                "foam": 15.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3685,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3701.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.4000000059604645,
+                "time": 3701.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.899999998509884,
+                "time": 3718.4,
+                "foam": 15.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3718.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3735,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3735,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.19999999552965,
+                "time": 3751.7,
+                "foam": 17.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 3751.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3768.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 3768.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20.899999998509884,
+                "time": 3785,
+                "foam": 20.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3785,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3801.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3801.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 22,
+                "time": 3818.3,
+                "foam": 21.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 3818.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 3835,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3835,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.100000001490116,
+                "time": 3851.6,
+                "foam": 17
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3851.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3868.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3868.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20.799999997019768,
+                "time": 3885,
+                "foam": 20.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3885,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3901.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3901.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.899999998509884,
+                "time": 3918.3,
+                "foam": 17.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3918.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3935,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3935,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.200000002980232,
+                "time": 3951.7,
+                "foam": 18.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 3951.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 3968.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 3968.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18,
+                "time": 3985,
+                "foam": 17.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 3985,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4001.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4001.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.400000005960464,
+                "time": 4018.3,
+                "foam": 18.30000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4018.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4035,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4035,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.100000001490116,
+                "time": 4051.6,
+                "foam": 16.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 4051.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4068.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4068.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20,
+                "time": 4085,
+                "foam": 20
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4085,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4101.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4101.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.700000002980232,
+                "time": 4118.3,
+                "foam": 18.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4118.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4135,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4135,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.800000004470348,
+                "time": 4151.6,
+                "foam": 15.800000004470348
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4151.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4168.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4168.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.5,
+                "time": 4185,
+                "foam": 18.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4185,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4201.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4201.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.100000001490116,
+                "time": 4218.3,
+                "foam": 16
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4218.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4235,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4235,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.5,
+                "time": 4251.7,
+                "foam": 18.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4251.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4268.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4268.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20.5,
+                "time": 4285,
+                "foam": 20.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4285,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4301.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4301.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 4318.3,
+                "foam": 16.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4318.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4335,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4335,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20.200000002980232,
+                "time": 4351.6,
+                "foam": 20.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4351.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4368.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4368.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.600000001490116,
+                "time": 4385,
+                "foam": 18.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4385,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4401.7,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 4401.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.5,
+                "time": 4418.3,
+                "foam": 16.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4418.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4434.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4434.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.399999998509884,
+                "time": 4451.6,
+                "foam": 18.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4451.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4468.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4468.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 4485,
+                "foam": 16.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4485,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4501.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4501.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 4518.4,
+                "foam": 16.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4518.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4535,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4535,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.799999997019768,
+                "time": 4551.6,
+                "foam": 17.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4551.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4568.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4568.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.100000001490116,
+                "time": 4584.9,
+                "foam": 17
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4584.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4601.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4601.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.899999998509884,
+                "time": 4618.3,
+                "foam": 15.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4618.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4634.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 4634.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.799999997019768,
+                "time": 4651.7,
+                "foam": 15.699999995529652
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 4651.7,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 4668.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 4668.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.5,
+                "time": 4685,
+                "foam": 16.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 4685,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "inspecting",
+                "duration": 0,
+                "time": 4701.6,
+                "foam": 0
+              }
+            ],
+            "intervals": [
+              16.699999999999818,
+              16.699999999999818,
+              16.700000000000273,
+              16.59999999999991,
+              16.699999999999818,
+              16.700000000000273,
+              16.59999999999991,
+              16.699999999999818,
+              16.700000000000273,
+              16.59999999999991,
+              16.59999999999991,
+              16.700000000000273,
+              16.699999999999818,
+              16.59999999999991,
+              16.700000000000273,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.59999999999991,
+              16.700000000000273,
+              16.699999999999818,
+              16.59999999999991,
+              16.700000000000273,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.599999999999454,
+              16.700000000000728,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.799999999999272,
+              16.600000000000364,
+              16.600000000000364,
+              16.699999999999818,
+              16.599999999999454,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.800000000000182,
+              16.600000000000364,
+              16.699999999999818
+            ],
+            "calls": {
+              "drawArrays": {
+                "count": 66,
+                "total": 0,
+                "max": 0
+              },
+              "drawElements": {
+                "count": 264,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "frames": [
+              {
+                "time": 3618.3,
+                "now": 3634.39999999851,
+                "progress": 0,
+                "rendered": 93
+              },
+              {
+                "time": 3635,
+                "now": 3636,
+                "progress": 0.012407407408787314,
+                "rendered": 94
+              },
+              {
+                "time": 3651.7,
+                "now": 3671.7999999970198,
+                "progress": 0.02787037037175011,
+                "rendered": 95
+              },
+              {
+                "time": 3668.4,
+                "now": 3672.5,
+                "progress": 0.043333333334712905,
+                "rendered": 96
+              },
+              {
+                "time": 3685,
+                "now": 3701.6999999955297,
+                "progress": 0.05879629629767612,
+                "rendered": 97
+              },
+              {
+                "time": 3701.7,
+                "now": 3703.5999999940395,
+                "progress": 0.0741666666680464,
+                "rendered": 98
+              },
+              {
+                "time": 3718.4,
+                "now": 3734.5999999940395,
+                "progress": 0.08962962963100919,
+                "rendered": 99
+              },
+              {
+                "time": 3735,
+                "now": 3735.39999999851,
+                "progress": 0.10509259259397241,
+                "rendered": 100
+              },
+              {
+                "time": 3751.7,
+                "now": 3770.0999999940395,
+                "progress": 0.1204629629643427,
+                "rendered": 101
+              },
+              {
+                "time": 3768.4,
+                "now": 3770.89999999851,
+                "progress": 0.13592592592730549,
+                "rendered": 102
+              },
+              {
+                "time": 3785,
+                "now": 3807.7999999970198,
+                "progress": 0.15138888889026872,
+                "rendered": 103
+              },
+              {
+                "time": 3801.6,
+                "now": 3808.5999999940395,
+                "progress": 0.166759259260639,
+                "rendered": 104
+              },
+              {
+                "time": 3818.3,
+                "now": 3841.6999999955297,
+                "progress": 0.1821296296310093,
+                "rendered": 105
+              },
+              {
+                "time": 3835,
+                "now": 3842.5999999940395,
+                "progress": 0.1975925925939725,
+                "rendered": 106
+              },
+              {
+                "time": 3851.6,
+                "now": 3870.2999999970198,
+                "progress": 0.21305555555693528,
+                "rendered": 107
+              },
+              {
+                "time": 3868.3,
+                "now": 3871.1999999955297,
+                "progress": 0.22842592592730557,
+                "rendered": 108
+              },
+              {
+                "time": 3885,
+                "now": 3906.0999999940395,
+                "progress": 0.2438888888902688,
+                "rendered": 109
+              },
+              {
+                "time": 3901.7,
+                "now": 3906.7999999970198,
+                "progress": 0.25935185185323156,
+                "rendered": 110
+              },
+              {
+                "time": 3918.3,
+                "now": 3938.0999999940395,
+                "progress": 0.2748148148161944,
+                "rendered": 111
+              },
+              {
+                "time": 3935,
+                "now": 3938.7999999970198,
+                "progress": 0.2901851851865651,
+                "rendered": 112
+              },
+              {
+                "time": 3951.7,
+                "now": 3971.7999999970198,
+                "progress": 0.3056481481495279,
+                "rendered": 113
+              },
+              {
+                "time": 3968.3,
+                "now": 3972.39999999851,
+                "progress": 0.3211111111124907,
+                "rendered": 114
+              },
+              {
+                "time": 3985,
+                "now": 4004.5999999940395,
+                "progress": 0.3364814814828614,
+                "rendered": 115
+              },
+              {
+                "time": 4001.6,
+                "now": 4005.0999999940395,
+                "progress": 0.3519444444458242,
+                "rendered": 116
+              },
+              {
+                "time": 4018.3,
+                "now": 4038,
+                "progress": 0.3673148148161945,
+                "rendered": 117
+              },
+              {
+                "time": 4035,
+                "now": 4038.6999999955297,
+                "progress": 0.38277777777915767,
+                "rendered": 118
+              },
+              {
+                "time": 4051.6,
+                "now": 4068.39999999851,
+                "progress": 0.39824074074212046,
+                "rendered": 119
+              },
+              {
+                "time": 4068.3,
+                "now": 4069.1999999955297,
+                "progress": 0.41361111111249077,
+                "rendered": 120
+              },
+              {
+                "time": 4085,
+                "now": 4105.79999999702,
+                "progress": 0.429074074075454,
+                "rendered": 121
+              },
+              {
+                "time": 4101.7,
+                "now": 4106.39999999851,
+                "progress": 0.4445370370384168,
+                "rendered": 122
+              },
+              {
+                "time": 4118.3,
+                "now": 4138.39999999851,
+                "progress": 0.4600000000013796,
+                "rendered": 123
+              },
+              {
+                "time": 4135,
+                "now": 4139,
+                "progress": 0.4753703703717503,
+                "rendered": 124
+              },
+              {
+                "time": 4151.6,
+                "now": 4168.5999999940395,
+                "progress": 0.4908333333347131,
+                "rendered": 125
+              },
+              {
+                "time": 4168.3,
+                "now": 4169.89999999851,
+                "progress": 0.5062037037050838,
+                "rendered": 126
+              },
+              {
+                "time": 4185,
+                "now": 4204.29999999702,
+                "progress": 0.5216666666680466,
+                "rendered": 127
+              },
+              {
+                "time": 4201.6,
+                "now": 4205,
+                "progress": 0.5371296296310094,
+                "rendered": 128
+              },
+              {
+                "time": 4218.3,
+                "now": 4234.69999999553,
+                "progress": 0.5525000000013801,
+                "rendered": 129
+              },
+              {
+                "time": 4235,
+                "now": 4237.19999999553,
+                "progress": 0.5679629629643429,
+                "rendered": 130
+              },
+              {
+                "time": 4251.7,
+                "now": 4271.5999999940395,
+                "progress": 0.5834259259273057,
+                "rendered": 131
+              },
+              {
+                "time": 4268.4,
+                "now": 4272.29999999702,
+                "progress": 0.5988888888902685,
+                "rendered": 132
+              },
+              {
+                "time": 4285,
+                "now": 4306.39999999851,
+                "progress": 0.6143518518532313,
+                "rendered": 133
+              },
+              {
+                "time": 4301.7,
+                "now": 4307,
+                "progress": 0.629722222223602,
+                "rendered": 134
+              },
+              {
+                "time": 4318.3,
+                "now": 4337.0999999940395,
+                "progress": 0.6451851851865648,
+                "rendered": 135
+              },
+              {
+                "time": 4335,
+                "now": 4337.79999999702,
+                "progress": 0.6605555555569355,
+                "rendered": 136
+              },
+              {
+                "time": 4351.6,
+                "now": 4373.29999999702,
+                "progress": 0.6760185185198982,
+                "rendered": 137
+              },
+              {
+                "time": 4368.3,
+                "now": 4373.79999999702,
+                "progress": 0.691388888890269,
+                "rendered": 138
+              },
+              {
+                "time": 4385,
+                "now": 4404.0999999940395,
+                "progress": 0.7068518518532317,
+                "rendered": 139
+              },
+              {
+                "time": 4401.7,
+                "now": 4404.5999999940395,
+                "progress": 0.7223148148161945,
+                "rendered": 140
+              },
+              {
+                "time": 4418.3,
+                "now": 4435.0999999940395,
+                "progress": 0.7377777777791573,
+                "rendered": 141
+              },
+              {
+                "time": 4434.9,
+                "now": 4435.79999999702,
+                "progress": 0.753148148149528,
+                "rendered": 142
+              },
+              {
+                "time": 4451.6,
+                "now": 4471.39999999851,
+                "progress": 0.7685185185198979,
+                "rendered": 143
+              },
+              {
+                "time": 4468.3,
+                "now": 4472,
+                "progress": 0.7839814814828615,
+                "rendered": 144
+              },
+              {
+                "time": 4485,
+                "now": 4503.19999999553,
+                "progress": 0.7994444444458243,
+                "rendered": 145
+              },
+              {
+                "time": 4501.6,
+                "now": 4503.89999999851,
+                "progress": 0.8149074074087872,
+                "rendered": 146
+              },
+              {
+                "time": 4518.4,
+                "now": 4537.29999999702,
+                "progress": 0.8302777777791579,
+                "rendered": 147
+              },
+              {
+                "time": 4535,
+                "now": 4538.0999999940395,
+                "progress": 0.8458333333347128,
+                "rendered": 148
+              },
+              {
+                "time": 4551.6,
+                "now": 4571.19999999553,
+                "progress": 0.8612037037050835,
+                "rendered": 149
+              },
+              {
+                "time": 4568.3,
+                "now": 4571.79999999702,
+                "progress": 0.8765740740754542,
+                "rendered": 150
+              },
+              {
+                "time": 4584.9,
+                "now": 4603.39999999851,
+                "progress": 0.892037037038417,
+                "rendered": 151
+              },
+              {
+                "time": 4601.6,
+                "now": 4604.0999999940395,
+                "progress": 0.9074074074087868,
+                "rendered": 152
+              },
+              {
+                "time": 4618.3,
+                "now": 4636.19999999553,
+                "progress": 0.9228703703717505,
+                "rendered": 153
+              },
+              {
+                "time": 4634.9,
+                "now": 4636.89999999851,
+                "progress": 0.9383333333347132,
+                "rendered": 154
+              },
+              {
+                "time": 4651.7,
+                "now": 4668.0999999940395,
+                "progress": 0.9537037037050831,
+                "rendered": 155
+              },
+              {
+                "time": 4668.3,
+                "now": 4669.19999999553,
+                "progress": 0.9692592592606388,
+                "rendered": 156
+              },
+              {
+                "time": 4685,
+                "now": 4702,
+                "progress": 0.9846296296310095,
+                "rendered": 157
+              }
+            ],
+            "firstEntering": 3634.39999999851,
+            "firstInspecting": 4702.79999999702,
+            "skippedFoam": 0,
+            "clicked": 3603.6999999955297
+          }
+        },
+        {
+          "kind": "warm",
+          "index": 2,
+          "summary": {
+            "loadingToFirstEntering": 34.80000000447035,
+            "totalToSettled": 1128.3999999985099,
+            "intervals": {
+              "count": 65,
+              "total": 1083.1999999999998,
+              "mean": 16.66461538461538,
+              "p50": 16.699999999999818,
+              "p95": 16.800000000000182,
+              "max": 16.800000000000182
+            },
+            "intervalsOver25ms": 0,
+            "cadenceFps": 60.007385524372246,
+            "callbacks": {
+              "tick": {
+                "count": 66,
+                "total": 615.7999999821186,
+                "mean": 9.3303030300321,
+                "p50": 0.10000000149011612,
+                "p95": 21.399999998509884,
+                "max": 25
+              },
+              "draw": {
+                "count": 66,
+                "total": 9.700000032782555,
+                "mean": 0.14696969746640234,
+                "p50": 0.10000000149011612,
+                "p95": 0.20000000298023224,
+                "max": 0.29999999701976776
+              }
+            },
+            "foamDraws": {
+              "count": 33,
+              "total": 613.9000000059605,
+              "mean": 18.60303030321092,
+              "p50": 18.200000002980232,
+              "p95": 22.799999997019768,
+              "max": 24.899999998509884
+            },
+            "glCalls": {
+              "drawArrays": {
+                "count": 67,
+                "total": 0.10000000149011612,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 268,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "skippedFoam": 0
+          },
+          "raw": {
+            "active": false,
+            "callbacks": [
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 25,
+                "time": 6035,
+                "foam": 24.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6035,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6051.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6051.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.19999999552965,
+                "time": 6068.2,
+                "foam": 17.19999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6068.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6084.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6084.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.600000001490116,
+                "time": 6101.6,
+                "foam": 15.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6101.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6118.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6118.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.399999998509884,
+                "time": 6134.9,
+                "foam": 19.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6134.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6151.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6151.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.80000000447035,
+                "time": 6168.2,
+                "foam": 16.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6168.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6185,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6185,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.799999997019768,
+                "time": 6201.5,
+                "foam": 18.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6201.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6218.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 6218.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 21.399999998509884,
+                "time": 6234.9,
+                "foam": 21.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 6234.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6251.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6251.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.399999998509884,
+                "time": 6268.3,
+                "foam": 17.30000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 6268.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6284.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6284.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 23.100000001490116,
+                "time": 6301.6,
+                "foam": 23
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6301.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6318.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6318.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 22.799999997019768,
+                "time": 6334.9,
+                "foam": 22.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6334.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6351.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6351.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.100000001490116,
+                "time": 6368.2,
+                "foam": 19.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6368.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6384.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6384.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.299999997019768,
+                "time": 6401.6,
+                "foam": 17.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 6401.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6418.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 6418.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.399999998509884,
+                "time": 6434.9,
+                "foam": 18.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6434.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6451.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6451.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.099999994039536,
+                "time": 6468.2,
+                "foam": 16.099999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6468.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6484.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6484.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.200000002980232,
+                "time": 6501.6,
+                "foam": 16.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6501.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6518.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6518.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.800000004470348,
+                "time": 6534.9,
+                "foam": 15.800000004470348
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 6534.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6551.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6551.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18,
+                "time": 6568.2,
+                "foam": 18
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6568.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6584.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6584.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.69999999552965,
+                "time": 6601.5,
+                "foam": 18.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6601.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6618.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6618.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.599999994039536,
+                "time": 6634.9,
+                "foam": 16.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6634.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6651.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6651.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.700000002980232,
+                "time": 6668.3,
+                "foam": 19.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 6668.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6684.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 6684.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.5,
+                "time": 6701.6,
+                "foam": 15.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6701.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6718.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6718.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.200000002980232,
+                "time": 6734.9,
+                "foam": 18.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6734.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6751.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6751.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 22.5,
+                "time": 6768.3,
+                "foam": 22.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6768.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6784.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6784.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.80000000447035,
+                "time": 6801.6,
+                "foam": 17.80000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6801.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6818.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6818.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.399999998509884,
+                "time": 6834.9,
+                "foam": 18.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6834.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6851.6,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6851.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.5,
+                "time": 6868.3,
+                "foam": 19.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6868.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6884.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6884.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.69999999552965,
+                "time": 6901.5,
+                "foam": 19.69999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6901.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6918.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6918.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.100000001490116,
+                "time": 6934.9,
+                "foam": 18.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 6934.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6951.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6951.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.600000001490116,
+                "time": 6968.2,
+                "foam": 17.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 6968.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 6984.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 6984.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.599999994039536,
+                "time": 7001.5,
+                "foam": 19.599999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7001.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 7018.3,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7018.3,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.30000000447035,
+                "time": 7034.8,
+                "foam": 17.30000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7034.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 7051.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7051.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.69999999552965,
+                "time": 7068.2,
+                "foam": 19.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7068.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 7084.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 7084.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.200000002980232,
+                "time": 7101.6,
+                "foam": 18.100000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 7101.6,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 7118.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 7118.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "inspecting",
+                "duration": 18.80000000447035,
+                "time": 7134.8,
+                "foam": 18.80000000447035
+              }
+            ],
+            "intervals": [
+              16.600000000000364,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.599999999999454,
+              16.800000000000182,
+              16.5,
+              16.800000000000182,
+              16.599999999999454,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.700000000000728,
+              16.599999999999454,
+              16.699999999999818,
+              16.700000000000728,
+              16.699999999999818,
+              16.599999999999454,
+              16.600000000000364,
+              16.800000000000182,
+              16.599999999999454,
+              16.600000000000364,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.800000000000182,
+              16.5,
+              16.699999999999818,
+              16.699999999999818,
+              16.600000000000364,
+              16.800000000000182,
+              16.599999999999454
+            ],
+            "calls": {
+              "drawArrays": {
+                "count": 67,
+                "total": 0.10000000149011612,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 268,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "frames": [
+              {
+                "time": 6035,
+                "now": 6060.5,
+                "progress": 0,
+                "rendered": 186
+              },
+              {
+                "time": 6051.6,
+                "now": 6061.5999999940395,
+                "progress": 0.007407407407407408,
+                "rendered": 187
+              },
+              {
+                "time": 6068.2,
+                "now": 6086.19999999553,
+                "progress": 0.022777777777778115,
+                "rendered": 188
+              },
+              {
+                "time": 6084.9,
+                "now": 6086.89999999851,
+                "progress": 0.03814814814814798,
+                "rendered": 189
+              },
+              {
+                "time": 6101.6,
+                "now": 6119.29999999702,
+                "progress": 0.053611111111110776,
+                "rendered": 190
+              },
+              {
+                "time": 6118.2,
+                "now": 6120.19999999553,
+                "progress": 0.06907407407407441,
+                "rendered": 191
+              },
+              {
+                "time": 6134.9,
+                "now": 6156.19999999553,
+                "progress": 0.08444444444444428,
+                "rendered": 192
+              },
+              {
+                "time": 6151.6,
+                "now": 6157,
+                "progress": 0.09990740740740707,
+                "rendered": 193
+              },
+              {
+                "time": 6168.2,
+                "now": 6186.5999999940395,
+                "progress": 0.1153703703703707,
+                "rendered": 194
+              },
+              {
+                "time": 6185,
+                "now": 6187.29999999702,
+                "progress": 0.13074074074074057,
+                "rendered": 195
+              },
+              {
+                "time": 6201.5,
+                "now": 6221.69999999553,
+                "progress": 0.14629629629629629,
+                "rendered": 196
+              },
+              {
+                "time": 6218.3,
+                "now": 6222.39999999851,
+                "progress": 0.16157407407407406,
+                "rendered": 197
+              },
+              {
+                "time": 6234.9,
+                "now": 6257.39999999851,
+                "progress": 0.1771296296296298,
+                "rendered": 198
+              },
+              {
+                "time": 6251.6,
+                "now": 6258.29999999702,
+                "progress": 0.19249999999999967,
+                "rendered": 199
+              },
+              {
+                "time": 6268.3,
+                "now": 6286.89999999851,
+                "progress": 0.2079629629629633,
+                "rendered": 200
+              },
+              {
+                "time": 6284.9,
+                "now": 6287.69999999553,
+                "progress": 0.22342592592592608,
+                "rendered": 201
+              },
+              {
+                "time": 6301.6,
+                "now": 6325.29999999702,
+                "progress": 0.23879629629629595,
+                "rendered": 202
+              },
+              {
+                "time": 6318.2,
+                "now": 6326.19999999553,
+                "progress": 0.2542592592592596,
+                "rendered": 203
+              },
+              {
+                "time": 6334.9,
+                "now": 6358.19999999553,
+                "progress": 0.26962962962962944,
+                "rendered": 204
+              },
+              {
+                "time": 6351.6,
+                "now": 6359,
+                "progress": 0.28509259259259223,
+                "rendered": 205
+              },
+              {
+                "time": 6368.2,
+                "now": 6388.29999999702,
+                "progress": 0.3005555555555559,
+                "rendered": 206
+              },
+              {
+                "time": 6384.9,
+                "now": 6389.0999999940395,
+                "progress": 0.3159259259259258,
+                "rendered": 207
+              },
+              {
+                "time": 6401.6,
+                "now": 6419.79999999702,
+                "progress": 0.33138888888888857,
+                "rendered": 208
+              },
+              {
+                "time": 6418.2,
+                "now": 6420.5,
+                "progress": 0.3468518518518522,
+                "rendered": 209
+              },
+              {
+                "time": 6434.9,
+                "now": 6454.0999999940395,
+                "progress": 0.36222222222222206,
+                "rendered": 210
+              },
+              {
+                "time": 6451.6,
+                "now": 6454.69999999553,
+                "progress": 0.37768518518518485,
+                "rendered": 211
+              },
+              {
+                "time": 6468.2,
+                "now": 6485.0999999940395,
+                "progress": 0.39314814814814847,
+                "rendered": 212
+              },
+              {
+                "time": 6484.9,
+                "now": 6485.69999999553,
+                "progress": 0.40851851851851834,
+                "rendered": 213
+              },
+              {
+                "time": 6501.6,
+                "now": 6518.79999999702,
+                "progress": 0.4239814814814811,
+                "rendered": 214
+              },
+              {
+                "time": 6518.3,
+                "now": 6519.5,
+                "progress": 0.4394444444444448,
+                "rendered": 215
+              },
+              {
+                "time": 6534.9,
+                "now": 6551.5,
+                "progress": 0.4549074074074076,
+                "rendered": 216
+              },
+              {
+                "time": 6551.6,
+                "now": 6553.69999999553,
+                "progress": 0.47027777777777746,
+                "rendered": 217
+              },
+              {
+                "time": 6568.2,
+                "now": 6586.5999999940395,
+                "progress": 0.4857407407407411,
+                "rendered": 218
+              },
+              {
+                "time": 6584.9,
+                "now": 6587.29999999702,
+                "progress": 0.501111111111111,
+                "rendered": 219
+              },
+              {
+                "time": 6601.5,
+                "now": 6621.19999999553,
+                "progress": 0.5165740740740737,
+                "rendered": 220
+              },
+              {
+                "time": 6618.2,
+                "now": 6621.79999999702,
+                "progress": 0.5319444444444444,
+                "rendered": 221
+              },
+              {
+                "time": 6634.9,
+                "now": 6652.0999999940395,
+                "progress": 0.5474074074074072,
+                "rendered": 222
+              },
+              {
+                "time": 6651.6,
+                "now": 6652.69999999553,
+                "progress": 0.56287037037037,
+                "rendered": 223
+              },
+              {
+                "time": 6668.3,
+                "now": 6688.79999999702,
+                "progress": 0.5783333333333337,
+                "rendered": 224
+              },
+              {
+                "time": 6684.9,
+                "now": 6689.5,
+                "progress": 0.5937962962962965,
+                "rendered": 225
+              },
+              {
+                "time": 6701.6,
+                "now": 6717.5,
+                "progress": 0.6091666666666663,
+                "rendered": 226
+              },
+              {
+                "time": 6718.2,
+                "now": 6718.5999999940395,
+                "progress": 0.62462962962963,
+                "rendered": 227
+              },
+              {
+                "time": 6734.9,
+                "now": 6753.79999999702,
+                "progress": 0.6399999999999998,
+                "rendered": 228
+              },
+              {
+                "time": 6751.6,
+                "now": 6754.29999999702,
+                "progress": 0.6554629629629626,
+                "rendered": 229
+              },
+              {
+                "time": 6768.3,
+                "now": 6791.29999999702,
+                "progress": 0.6709259259259263,
+                "rendered": 230
+              },
+              {
+                "time": 6784.9,
+                "now": 6792,
+                "progress": 0.686388888888889,
+                "rendered": 231
+              },
+              {
+                "time": 6801.6,
+                "now": 6821.5999999940395,
+                "progress": 0.701759259259259,
+                "rendered": 232
+              },
+              {
+                "time": 6818.2,
+                "now": 6822.19999999553,
+                "progress": 0.7172222222222225,
+                "rendered": 233
+              },
+              {
+                "time": 6834.9,
+                "now": 6853.79999999702,
+                "progress": 0.7325925925925925,
+                "rendered": 234
+              },
+              {
+                "time": 6851.6,
+                "now": 6854.19999999553,
+                "progress": 0.7480555555555553,
+                "rendered": 235
+              },
+              {
+                "time": 6868.3,
+                "now": 6888.79999999702,
+                "progress": 0.7635185185185188,
+                "rendered": 236
+              },
+              {
+                "time": 6884.9,
+                "now": 6889.5,
+                "progress": 0.7789814814814816,
+                "rendered": 237
+              },
+              {
+                "time": 6901.5,
+                "now": 6922.0999999940395,
+                "progress": 0.7943518518518515,
+                "rendered": 238
+              },
+              {
+                "time": 6918.3,
+                "now": 6922.79999999702,
+                "progress": 0.8097222222222222,
+                "rendered": 239
+              },
+              {
+                "time": 6934.9,
+                "now": 6953.5999999940395,
+                "progress": 0.825277777777778,
+                "rendered": 240
+              },
+              {
+                "time": 6951.5,
+                "now": 6954.0999999940395,
+                "progress": 0.8406481481481478,
+                "rendered": 241
+              },
+              {
+                "time": 6968.2,
+                "now": 6987,
+                "progress": 0.8560185185185185,
+                "rendered": 242
+              },
+              {
+                "time": 6984.9,
+                "now": 6987.79999999702,
+                "progress": 0.8714814814814813,
+                "rendered": 243
+              },
+              {
+                "time": 7001.5,
+                "now": 7022.0999999940395,
+                "progress": 0.8869444444444441,
+                "rendered": 244
+              },
+              {
+                "time": 7018.3,
+                "now": 7022.69999999553,
+                "progress": 0.9023148148148148,
+                "rendered": 245
+              },
+              {
+                "time": 7034.8,
+                "now": 7053.89999999851,
+                "progress": 0.9178703703703706,
+                "rendered": 246
+              },
+              {
+                "time": 7051.5,
+                "now": 7054.5999999940395,
+                "progress": 0.9331481481481483,
+                "rendered": 247
+              },
+              {
+                "time": 7068.2,
+                "now": 7088.69999999553,
+                "progress": 0.9486111111111111,
+                "rendered": 248
+              },
+              {
+                "time": 7084.8,
+                "now": 7089.29999999702,
+                "progress": 0.9640740740740739,
+                "rendered": 249
+              },
+              {
+                "time": 7101.6,
+                "now": 7121.29999999702,
+                "progress": 0.9794444444444446,
+                "rendered": 250
+              },
+              {
+                "time": 7118.2,
+                "now": 7121.79999999702,
+                "progress": 0.9950000000000003,
+                "rendered": 251
+              }
+            ],
+            "firstEntering": 6060.5,
+            "firstInspecting": 7154.0999999940395,
+            "skippedFoam": 0,
+            "clicked": 6025.69999999553
+          }
+        },
+        {
+          "kind": "warm",
+          "index": 3,
+          "summary": {
+            "loadingToFirstEntering": 22,
+            "totalToSettled": 1124.5,
+            "intervals": {
+              "count": 65,
+              "total": 1083.2999999999993,
+              "mean": 16.666153846153836,
+              "p50": 16.69999999999891,
+              "p95": 16.700000000000728,
+              "max": 16.80000000000109
+            },
+            "intervalsOver25ms": 0,
+            "cadenceFps": 60.00184621065267,
+            "callbacks": {
+              "tick": {
+                "count": 66,
+                "total": 598.3999999687076,
+                "mean": 9.066666666192539,
+                "p50": 0.10000000149011612,
+                "p95": 19.899999998509884,
+                "max": 23.899999998509884
+              },
+              "draw": {
+                "count": 66,
+                "total": 9.900000020861626,
+                "mean": 0.15000000031608524,
+                "p50": 0.19999999552965164,
+                "p95": 0.20000000298023224,
+                "max": 0.3999999985098839
+              }
+            },
+            "foamDraws": {
+              "count": 33,
+              "total": 596.8999999836087,
+              "mean": 18.08787878738208,
+              "p50": 18,
+              "p95": 21.299999997019768,
+              "max": 23.799999997019768
+            },
+            "glCalls": {
+              "drawArrays": {
+                "count": 67,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 268,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "skippedFoam": 0
+          },
+          "raw": {
+            "active": false,
+            "callbacks": [
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.5,
+                "time": 8451.5,
+                "foam": 15.400000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8451.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8468.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 8468.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.399999998509884,
+                "time": 8484.8,
+                "foam": 16.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8484.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8501.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8501.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 22.799999997019768,
+                "time": 8518.2,
+                "foam": 22.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8518.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8534.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8534.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.600000001490116,
+                "time": 8551.5,
+                "foam": 17.600000001490116
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.3999999985098839,
+                "time": 8551.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8568.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8568.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.899999998509884,
+                "time": 8584.9,
+                "foam": 15.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8584.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8601.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8601.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.099999994039536,
+                "time": 8618.1,
+                "foam": 15.900000005960464
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8618.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8634.9,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 8634.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.399999998509884,
+                "time": 8651.5,
+                "foam": 16.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8651.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8668.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8668.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.799999997019768,
+                "time": 8684.9,
+                "foam": 16.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8684.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8701.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8701.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.5,
+                "time": 8718.2,
+                "foam": 16.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8718.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8734.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8734.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.100000001490116,
+                "time": 8751.5,
+                "foam": 18
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.30000000447034836,
+                "time": 8751.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8768.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 8768.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 23.899999998509884,
+                "time": 8784.9,
+                "foam": 23.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8784.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8801.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8801.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 20.099999994039536,
+                "time": 8818.1,
+                "foam": 20.099999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8818.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8834.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 8834.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.099999994039536,
+                "time": 8851.5,
+                "foam": 19.099999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8851.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8868.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8868.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17,
+                "time": 8884.8,
+                "foam": 17
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8884.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8901.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 8901.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.799999997019768,
+                "time": 8918.1,
+                "foam": 17.799999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8918.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8934.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 8934.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.899999998509884,
+                "time": 8951.5,
+                "foam": 19.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8951.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8968.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 8968.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.200000002980232,
+                "time": 8984.8,
+                "foam": 18.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 8984.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9001.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9001.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 15.800000004470348,
+                "time": 9018.1,
+                "foam": 15.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9018.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9034.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9034.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18,
+                "time": 9051.4,
+                "foam": 18
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9051.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9068.2,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9068.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.899999998509884,
+                "time": 9084.9,
+                "foam": 16.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9084.9,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 9101.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9101.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 16.599999994039536,
+                "time": 9118.1,
+                "foam": 16.599999994039536
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9118.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9134.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9134.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18,
+                "time": 9151.5,
+                "foam": 18
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9151.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9168.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9168.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.80000000447035,
+                "time": 9184.8,
+                "foam": 17.80000000447035
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 9184.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9201.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9201.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 17.30000000447035,
+                "time": 9218.1,
+                "foam": 17.200000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.09999999403953552,
+                "time": 9218.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9234.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9234.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.700000002980232,
+                "time": 9251.5,
+                "foam": 18.700000002980232
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9251.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9268.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9268.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.5,
+                "time": 9284.8,
+                "foam": 18.5
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9284.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9301.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 9301.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.19999999552965,
+                "time": 9318.1,
+                "foam": 18.19999999552965
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9318.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9334.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9334.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.299999997019768,
+                "time": 9351.5,
+                "foam": 18.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9351.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9368.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 9368.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.399999998509884,
+                "time": 9384.8,
+                "foam": 18.399999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9384.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9401.5,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9401.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.100000001490116,
+                "time": 9418.2,
+                "foam": 18
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9418.2,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9434.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9434.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 19.200000002980232,
+                "time": 9451.5,
+                "foam": 19
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.19999999552965164,
+                "time": 9451.5,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9468.1,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9468.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 18.899999998509884,
+                "time": 9484.8,
+                "foam": 18.899999998509884
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9484.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9501.4,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.10000000149011612,
+                "time": 9501.4,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 21.299999997019768,
+                "time": 9518.1,
+                "foam": 21.299999997019768
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.20000000298023224,
+                "time": 9518.1,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "entering",
+                "duration": 0,
+                "time": 9534.8,
+                "foam": 0
+              },
+              {
+                "name": "draw",
+                "phase": "entering",
+                "duration": 0.29999999701976776,
+                "time": 9534.8,
+                "foam": 0
+              },
+              {
+                "name": "tick",
+                "phase": "inspecting",
+                "duration": 18.19999999552965,
+                "time": 9551.5,
+                "foam": 18.19999999552965
+              }
+            ],
+            "intervals": [
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.700000000000728,
+              16.599999999998545,
+              16.700000000000728,
+              16.700000000000728,
+              16.69999999999891,
+              16.600000000000364,
+              16.600000000000364,
+              16.799999999999272,
+              16.600000000000364,
+              16.700000000000728,
+              16.69999999999891,
+              16.600000000000364,
+              16.700000000000728,
+              16.599999999998545,
+              16.700000000000728,
+              16.600000000000364,
+              16.799999999999272,
+              16.600000000000364,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.600000000000364,
+              16.80000000000109,
+              16.69999999999891,
+              16.600000000000364,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.600000000000364,
+              16.700000000000728,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.600000000000364,
+              16.700000000000728,
+              16.69999999999891,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.700000000000728,
+              16.700000000000728,
+              16.599999999998545,
+              16.700000000000728,
+              16.600000000000364,
+              16.69999999999891,
+              16.600000000000364,
+              16.700000000000728,
+              16.69999999999891
+            ],
+            "calls": {
+              "drawArrays": {
+                "count": 67,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              },
+              "drawElements": {
+                "count": 268,
+                "total": 0.20000000298023224,
+                "max": 0.10000000149011612
+              }
+            },
+            "frames": [
+              {
+                "time": 8451.5,
+                "now": 8468.09999999404,
+                "progress": 0,
+                "rendered": 280
+              },
+              {
+                "time": 8468.1,
+                "now": 8469,
+                "progress": 0.004074074079593023,
+                "rendered": 281
+              },
+              {
+                "time": 8484.8,
+                "now": 8503.09999999404,
+                "progress": 0.01944444444996373,
+                "rendered": 282
+              },
+              {
+                "time": 8501.5,
+                "now": 8503.89999999851,
+                "progress": 0.03490740741292568,
+                "rendered": 283
+              },
+              {
+                "time": 8518.2,
+                "now": 8542.39999999851,
+                "progress": 0.05037037037588932,
+                "rendered": 284
+              },
+              {
+                "time": 8534.8,
+                "now": 8543.19999999553,
+                "progress": 0.06583333333885295,
+                "rendered": 285
+              },
+              {
+                "time": 8551.5,
+                "now": 8569.79999999702,
+                "progress": 0.08120370370922197,
+                "rendered": 286
+              },
+              {
+                "time": 8568.2,
+                "now": 8571,
+                "progress": 0.09666666667218561,
+                "rendered": 287
+              },
+              {
+                "time": 8584.9,
+                "now": 8601.89999999851,
+                "progress": 0.11212962963514925,
+                "rendered": 288
+              },
+              {
+                "time": 8601.5,
+                "now": 8602.69999999553,
+                "progress": 0.1275925925981112,
+                "rendered": 289
+              },
+              {
+                "time": 8618.1,
+                "now": 8635.19999999553,
+                "progress": 0.1429629629684819,
+                "rendered": 290
+              },
+              {
+                "time": 8634.9,
+                "now": 8636,
+                "progress": 0.1583333333388526,
+                "rendered": 291
+              },
+              {
+                "time": 8651.5,
+                "now": 8668.29999999702,
+                "progress": 0.1738888888944075,
+                "rendered": 292
+              },
+              {
+                "time": 8668.2,
+                "now": 8670.29999999702,
+                "progress": 0.1892592592647782,
+                "rendered": 293
+              },
+              {
+                "time": 8684.9,
+                "now": 8702.69999999553,
+                "progress": 0.20472222222774183,
+                "rendered": 294
+              },
+              {
+                "time": 8701.5,
+                "now": 8703.29999999702,
+                "progress": 0.2201851851907038,
+                "rendered": 295
+              },
+              {
+                "time": 8718.2,
+                "now": 8735.5,
+                "progress": 0.2355555555610745,
+                "rendered": 296
+              },
+              {
+                "time": 8734.8,
+                "now": 8736.19999999553,
+                "progress": 0.2510185185240381,
+                "rendered": 297
+              },
+              {
+                "time": 8751.5,
+                "now": 8771.19999999553,
+                "progress": 0.26638888889440715,
+                "rendered": 298
+              },
+              {
+                "time": 8768.1,
+                "now": 8772,
+                "progress": 0.2818518518573708,
+                "rendered": 299
+              },
+              {
+                "time": 8784.9,
+                "now": 8809.89999999851,
+                "progress": 0.29722222222774153,
+                "rendered": 300
+              },
+              {
+                "time": 8801.5,
+                "now": 8810.79999999702,
+                "progress": 0.3127777777832964,
+                "rendered": 301
+              },
+              {
+                "time": 8818.1,
+                "now": 8838.69999999553,
+                "progress": 0.3281481481536671,
+                "rendered": 302
+              },
+              {
+                "time": 8834.8,
+                "now": 8839.5,
+                "progress": 0.3435185185240378,
+                "rendered": 303
+              },
+              {
+                "time": 8851.5,
+                "now": 8871.59999999404,
+                "progress": 0.35898148148699977,
+                "rendered": 304
+              },
+              {
+                "time": 8868.1,
+                "now": 8872.29999999702,
+                "progress": 0.3744444444499634,
+                "rendered": 305
+              },
+              {
+                "time": 8884.8,
+                "now": 8903.29999999702,
+                "progress": 0.3898148148203341,
+                "rendered": 306
+              },
+              {
+                "time": 8901.5,
+                "now": 8904,
+                "progress": 0.40527777778329604,
+                "rendered": 307
+              },
+              {
+                "time": 8918.1,
+                "now": 8938.09999999404,
+                "progress": 0.42074074074625967,
+                "rendered": 308
+              },
+              {
+                "time": 8934.8,
+                "now": 8938.69999999553,
+                "progress": 0.4361111111166304,
+                "rendered": 309
+              },
+              {
+                "time": 8951.5,
+                "now": 8971.69999999553,
+                "progress": 0.4515740740795923,
+                "rendered": 310
+              },
+              {
+                "time": 8968.1,
+                "now": 8972.29999999702,
+                "progress": 0.467037037042556,
+                "rendered": 311
+              },
+              {
+                "time": 8984.8,
+                "now": 9004.29999999702,
+                "progress": 0.4824074074129267,
+                "rendered": 312
+              },
+              {
+                "time": 9001.5,
+                "now": 9004.79999999702,
+                "progress": 0.49787037037588866,
+                "rendered": 313
+              },
+              {
+                "time": 9018.1,
+                "now": 9034.39999999851,
+                "progress": 0.5133333333388522,
+                "rendered": 314
+              },
+              {
+                "time": 9034.8,
+                "now": 9036.19999999553,
+                "progress": 0.528703703709223,
+                "rendered": 315
+              },
+              {
+                "time": 9051.4,
+                "now": 9070.29999999702,
+                "progress": 0.5441666666721849,
+                "rendered": 316
+              },
+              {
+                "time": 9068.2,
+                "now": 9071.09999999404,
+                "progress": 0.5595370370425556,
+                "rendered": 317
+              },
+              {
+                "time": 9084.9,
+                "now": 9102.39999999851,
+                "progress": 0.5750925925981122,
+                "rendered": 318
+              },
+              {
+                "time": 9101.5,
+                "now": 9103.09999999404,
+                "progress": 0.5905555555610742,
+                "rendered": 319
+              },
+              {
+                "time": 9118.1,
+                "now": 9136.19999999553,
+                "progress": 0.6059259259314449,
+                "rendered": 320
+              },
+              {
+                "time": 9134.8,
+                "now": 9136.79999999702,
+                "progress": 0.6212962963018156,
+                "rendered": 321
+              },
+              {
+                "time": 9151.5,
+                "now": 9170.59999999404,
+                "progress": 0.6367592592647775,
+                "rendered": 322
+              },
+              {
+                "time": 9168.1,
+                "now": 9171.39999999851,
+                "progress": 0.6522222222277412,
+                "rendered": 323
+              },
+              {
+                "time": 9184.8,
+                "now": 9203.5,
+                "progress": 0.6675925925981119,
+                "rendered": 324
+              },
+              {
+                "time": 9201.4,
+                "now": 9204.09999999404,
+                "progress": 0.6830555555610738,
+                "rendered": 325
+              },
+              {
+                "time": 9218.1,
+                "now": 9236,
+                "progress": 0.6984259259314446,
+                "rendered": 326
+              },
+              {
+                "time": 9234.8,
+                "now": 9236.69999999553,
+                "progress": 0.7138888888944082,
+                "rendered": 327
+              },
+              {
+                "time": 9251.5,
+                "now": 9270.79999999702,
+                "progress": 0.7293518518573702,
+                "rendered": 328
+              },
+              {
+                "time": 9268.1,
+                "now": 9271.59999999404,
+                "progress": 0.7448148148203337,
+                "rendered": 329
+              },
+              {
+                "time": 9284.8,
+                "now": 9303.79999999702,
+                "progress": 0.7601851851907044,
+                "rendered": 330
+              },
+              {
+                "time": 9301.4,
+                "now": 9304.29999999702,
+                "progress": 0.7756481481536665,
+                "rendered": 331
+              },
+              {
+                "time": 9318.1,
+                "now": 9336.69999999553,
+                "progress": 0.7910185185240372,
+                "rendered": 332
+              },
+              {
+                "time": 9334.8,
+                "now": 9337.29999999702,
+                "progress": 0.8064814814870007,
+                "rendered": 333
+              },
+              {
+                "time": 9351.5,
+                "now": 9370.89999999851,
+                "progress": 0.8219444444499627,
+                "rendered": 334
+              },
+              {
+                "time": 9368.1,
+                "now": 9371.5,
+                "progress": 0.8374074074129264,
+                "rendered": 335
+              },
+              {
+                "time": 9384.8,
+                "now": 9404.09999999404,
+                "progress": 0.8527777777832971,
+                "rendered": 336
+              },
+              {
+                "time": 9401.5,
+                "now": 9404.79999999702,
+                "progress": 0.868240740746259,
+                "rendered": 337
+              },
+              {
+                "time": 9418.2,
+                "now": 9436.69999999553,
+                "progress": 0.8837037037092227,
+                "rendered": 338
+              },
+              {
+                "time": 9434.8,
+                "now": 9437.39999999851,
+                "progress": 0.8991666666721863,
+                "rendered": 339
+              },
+              {
+                "time": 9451.5,
+                "now": 9471.5,
+                "progress": 0.9145370370425553,
+                "rendered": 340
+              },
+              {
+                "time": 9468.1,
+                "now": 9472.09999999404,
+                "progress": 0.930000000005519,
+                "rendered": 341
+              },
+              {
+                "time": 9484.8,
+                "now": 9504.79999999702,
+                "progress": 0.9453703703758897,
+                "rendered": 342
+              },
+              {
+                "time": 9501.4,
+                "now": 9505.69999999553,
+                "progress": 0.9608333333388516,
+                "rendered": 343
+              },
+              {
+                "time": 9518.1,
+                "now": 9540.59999999404,
+                "progress": 0.9762037037092223,
+                "rendered": 344
+              },
+              {
+                "time": 9534.8,
+                "now": 9541.39999999851,
+                "progress": 0.991666666672186,
+                "rendered": 345
+              }
+            ],
+            "firstEntering": 8468.09999999404,
+            "firstInspecting": 9570.59999999404,
+            "skippedFoam": 0,
+            "clicked": 8446.09999999404
+          }
+        }
+      ]
+    }
+  ],
+  "hashes": {
+    "badgeInspector.js": "0e2552777958d76dc582206708e1d3abc5c64428a4ceadfaf6f6b22354b68a18",
+    "inspectRenderer.js": "8e13aa2d39370cbe25ce31cac683e76bb85dbd14ea74d5f52ed3e1ddb191880a",
+    "pressureSurface.js": "486c33ba9841389befd188704a5ced30e8ce4c6b26998bf879be5b15589e8caf",
+    "styles.css": "eab95879fe5e1291789455256a4dea8f7f33d15d8933f3306260ce3b8164204d"
+  }
+}

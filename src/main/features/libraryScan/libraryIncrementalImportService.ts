@@ -16,7 +16,7 @@ import { win32 } from 'node:path'
 import { logger } from '../../logging/logger'
 import type { TrackRepository, MissingTrackCandidate } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
 
 const MAX_STABILITY_RETRIES = 5
 const IMPORT_BATCH_SIZE = 32
@@ -48,7 +48,7 @@ export class LibraryIncrementalImportService {
   constructor(
     private readonly trackRepository: TrackRepository,
     private readonly artworkCacheDir: string,
-    private readonly sendToRenderer: RendererEventSender,
+    private readonly onChanged: (event: LibraryChangedEvent) => void,
   ) {}
 
   /** True while an import pass is in flight (used to gate cache GC). */
@@ -168,7 +168,7 @@ export class LibraryIncrementalImportService {
         }
       }
       if (relocatedIds.length) {
-        this.sendToRenderer('library:changed', {
+        this.onChanged({
           reason: 'track-relocated',
           trackIds: relocatedIds,
           filePaths: relocatedPaths,
@@ -190,7 +190,7 @@ export class LibraryIncrementalImportService {
         }
         const addedPaths = currentAdditions.map((track) => track.filePath)
         result.imported.push(...addedPaths)
-        this.sendToRenderer('library:changed', {
+        this.onChanged({
           reason: 'track-added',
           trackIds: [],
           filePaths: addedPaths,

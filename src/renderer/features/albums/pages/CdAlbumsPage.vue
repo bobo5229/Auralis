@@ -5,8 +5,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { splitDelimitedValues } from '@renderer/features/library/utils/formatDelimitedValues'
+import { formatArtist } from '@renderer/shared/media/formatArtist'
+import { splitDelimitedValues } from '@renderer/shared/media/formatDelimitedValues'
 import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,

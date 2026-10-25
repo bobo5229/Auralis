@@ -2,7 +2,7 @@
 import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatDuration } from '@renderer/features/library/utils/formatDuration'
+import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { resolveAlbumTrackPresentation } from '../utils/albumTrackPresentation'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 

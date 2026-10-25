@@ -21,6 +21,8 @@ import { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordi
 import { RendererReadLeaseOwner } from '@main/features/audio/rendererReadLeaseOwner'
 import { resolveAudioRuntimePaths } from '@main/features/audio/audioRuntimePaths'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { selectLibraryDirectory } from '@main/app/selectLibraryDirectory'
+import { createLibraryScanEvents } from './libraryScanEvents'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
@@ -68,7 +70,13 @@ export function registerIpcHandlers(
   })
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const startupAlbumWorker = new StartupAlbumWorkerHost(db.name)
-  const libraryScanService = new LibraryScanService(db, artworkCacheDir)
+  const scanEvents = createLibraryScanEvents(sendToRenderer)
+  const libraryScanService = new LibraryScanService(
+    db,
+    artworkCacheDir,
+    selectLibraryDirectory,
+    scanEvents,
+  )
   const trackRepository = new TrackRepository(db)
   const libraryRootRepository = new LibraryRootRepository(db)
   const playbackFileCoordinator = new PlaybackFileCoordinator({
@@ -87,7 +95,7 @@ export function registerIpcHandlers(
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,
     artworkCacheDir,
-    sendToRenderer,
+    scanEvents.changed,
   )
 
   const notifyLibraryChanged = (data: {

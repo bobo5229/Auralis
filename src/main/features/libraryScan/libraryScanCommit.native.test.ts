@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import {
   copyFileSync,
@@ -119,7 +120,13 @@ async function fixture(isrc: string | null = null, { alias = false, duplicate = 
   const root = roots.upsertByPath(rootPath)
   const job = jobs.create(root.id)
   const send = vi.fn()
-  const persistence = new LibraryScanPersistence(db, roots, jobs, tracks, send)
+  const persistence = new LibraryScanPersistence(
+    db,
+    roots,
+    jobs,
+    tracks,
+    createLibraryScanEvents(send),
+  )
   persistence.begin()
   const messages: LibraryScanWorkerMessage[] = []
   // Keep the real inventory, reader, metadata parser and reporter. Only delivery

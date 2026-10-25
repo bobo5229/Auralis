@@ -33,7 +33,7 @@ node --test scripts/badges/materialPipeline.test.mjs
 
 ## 新增徽章
 
-1. 保留点亮／未点亮 SVG 和 PNG，放到 `demo/archive/enamel-milestone/<series>/assets/`；当前支持的系列是 `hours`、`days`、`albums`。SVG 几何协议为 `viewBox="0 0 330 370"`。
+1. 保留点亮／未点亮 SVG 和 PNG，放到 `demo/archive/enamel-milestone/<series>/assets/`；当前支持的系列是 `hours`、`days`、`albums`。SVG 几何协议为 `viewBox="0 0 330 370"`；首个 `path` 的 `d` 提供徽章外轮廓，供实体与海绵共用，沿用现有 11 枚的结构。
 2. 在 `source-hashes.json` 登记原始文件 SHA-256。核对新来源后增加记录，不为绕过检查而更新已有来源的哈希。
 3. 在 `profiles.mjs` 增加一条 `profile(...)`，配置底色、渐变语义、特殊图层材料和应移除的旧高光；无须修改生成器、shader、观察台的徽章列表或产品目录。
 4. 按上述命令生成、检查、渲染；在观察台检查两种状态、大图和小图，核对原版几何。
@@ -69,13 +69,17 @@ profile('albums-example', '新纪念', '#245b55', {
 - 每状态 `base`、`material`、`normal`、`ao`、`finish` PNG 为运行贴图。
 - `height` PNG 和 `base.svg` 为生成诊断产物，产品不加载。
 - `finish` 的 RG 为粗糙度、罩层强度；`material` 的 RGB 为金属、介电材料、局部虹彩权重。
-- `manifest.json` 记录身份、尺寸、来源哈希、移除的旧反光、两种状态贴图和参数。
+- `manifest.json` 记录身份、尺寸、来源哈希、移除的旧反光、两种状态贴图、参数和三维实体／海绵共用的 `contour` 外轮廓。
 - `previews/` 保存共享 GLSL 导出的 330×370 PNG 及指纹清单；列表与 WebGL 回退使用这些图。
 
 `badges:render` 的报告和总览位于 `output/badge-glsl-validation/run-<时间戳>/`，`latest.json` 指向最近通过的一轮。每轮检查贴图数量、状态切换、四向倾斜、键盘、静置停止、DPR、减弱动态效果和上下文丢失回退。失败记录留在自己的运行目录。生成与渲染不访问播放器数据库或音乐文件。
 
 ## 产品复用方式
 
-`badgeMaterialRenderer.ts` 管理一个上下文及当前五张纹理，原子替换选择，释放过时加载与旧资源；`badgeShaders.ts` 统一光照和材质。`ArchiveMilestonePreview.vue` 负责输入、尺寸、窗口可见性、动态效果偏好与卸载。收藏匣和图鉴缩略图用导出 PNG，只有当前选中的大图进行实时 GLSL 渲染。
+正式入口为聆听档案的 `ArchiveMilestoneCase.vue` → `ArchiveMilestoneGallery.vue`。展开图鉴使用铝盒与海绵；小徽章始终使用导出 PNG。`useBadgeInspection.ts` 管理取出翻转、悬停、键盘、取消和放回，`badgeInspectRenderer.ts` 管理一个 WebGL 上下文、当前贴图、实体背面与侧边，正面仍复用 `badgeShaders.ts`。点亮／未点亮是外观浏览，不是个人达成记录。
+
+`badgePressureSurface.ts` 管理海绵压力、几何与生命周期；`badgePressurePainter.ts` 是 Worker 与兼容路径共用的局部像素内核，`badgePressure.worker.ts` 合并后台绘制工作。所有模块均留在 archive 功能内。关闭收藏盒会卸载检视与海绵，终止 Worker 并释放 WebGL。
+
+观察台与静态导出继续使用 `badgeMaterialRenderer.ts`，保留已有二维参考视图与指纹检查；正式检视的三维动作不改变静态导出。新增徽章仍通过 profiles／manifest 接入，无需在展示或渲染模块增加徽章 ID 分支。
 
 100 小时「成章」保留兼容基准，其原有 12 份派生产物不变；其他材料通过 finish map 表达差异。旧 `demo/.../glsl` 是历史样板，后续维护使用本工具。完整执行标准见 [GLSL 工作流](../../docs/topics/archive/WORKFLOW-enamel-badge-glsl.md)。

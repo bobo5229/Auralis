@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,7 +46,11 @@ describe('incremental import transactions', () => {
   it('publishes only after all batch rows and their fingerprints are committed', async () => {
     const repo = new TrackRepository(db)
     const send = vi.fn(() => expect(repo.getAll()).toHaveLength(2))
-    const service = new LibraryIncrementalImportService(repo, 'cache', send)
+    const service = new LibraryIncrementalImportService(
+      repo,
+      'cache',
+      createLibraryScanEvents(send).changed,
+    )
     const pending = service.importFiles(['a.flac', 'b.flac'])
     await vi.runAllTimersAsync()
     expect(await pending).toEqual({ imported: ['a.flac', 'b.flac'], failed: [], unstable: [] })
@@ -62,7 +67,11 @@ describe('incremental import transactions', () => {
       WHEN NEW.file_path = 'b.flac' BEGIN SELECT RAISE(ABORT, 'test failure'); END`)
     const repo = new TrackRepository(db)
     const send = vi.fn()
-    const service = new LibraryIncrementalImportService(repo, 'cache', send)
+    const service = new LibraryIncrementalImportService(
+      repo,
+      'cache',
+      createLibraryScanEvents(send).changed,
+    )
     const pending = service.importFiles(['a.flac', 'b.flac'])
     await vi.runAllTimersAsync()
     const result = await pending

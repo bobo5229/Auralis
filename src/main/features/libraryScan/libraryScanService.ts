@@ -1,5 +1,3 @@
-import { BrowserWindow, dialog } from 'electron'
-import { getNativeUiMessages } from '@main/app/uiLocale'
 import { Worker } from 'node:worker_threads'
 import { win32 } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -12,7 +10,7 @@ import { logger } from '@main/logging/logger'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
-import { createRendererEventSender } from '@main/ipc/rendererEvents'
+import type { LibraryScanEvents } from './libraryScanEvents'
 
 import { LibraryScanPersistence } from './libraryScanPersistence'
 import { LibraryScanWorkerHost, type LibraryScanWorkerFactory } from './libraryScanWorkerHost'
@@ -50,8 +48,9 @@ export class LibraryScanService {
   constructor(
     db: Database.Database,
     artworkCacheDir: string,
+    private readonly selectDirectory: () => Promise<string | null>,
+    events: LibraryScanEvents,
     createWorker: LibraryScanWorkerFactory = (fileName, options) => new Worker(fileName, options),
-    getAllWindows: () => BrowserWindow[] = () => BrowserWindow.getAllWindows(),
   ) {
     this.db = db
     this.libraryRootRepository = new LibraryRootRepository(db)
@@ -63,7 +62,7 @@ export class LibraryScanService {
       this.libraryRootRepository,
       this.scanJobRepository,
       this.trackRepository,
-      createRendererEventSender(getAllWindows),
+      events,
     )
     this.workerHost = new LibraryScanWorkerHost(createWorker, {
       onMessage: (message, jobId) => this.persistence.handleMessage(message, jobId),
@@ -91,13 +90,9 @@ export class LibraryScanService {
   }
 
   async selectRoot(): Promise<SelectLibraryRootResult> {
-    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showOpenDialog(window, {
-      properties: ['openDirectory'],
-      title: getNativeUiMessages().selectFolder,
-    })
+    const selectedPath = await this.selectDirectory()
 
-    if (result.canceled || !result.filePaths[0]) {
+    if (selectedPath === null) {
       return { canceled: true }
     }
 
@@ -105,7 +100,6 @@ export class LibraryScanService {
     if (this.stopping || this.rootChanging || this.isScanActive() || this.cancellations.size > 0) {
       throw new Error('Cannot change library root while a scan or library change is active')
     }
-    const selectedPath = result.filePaths[0]
     const existingRoots = this.libraryRootRepository.list()
     if (existingRoots.length === 1 && win32.relative(existingRoots[0].path, selectedPath) === '') {
       return { canceled: false, root: existingRoots[0] }

@@ -20,7 +20,7 @@ vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () =>
     }),
   }
 })
-vi.mock('@renderer/features/library/utils/getArtworkUrl', () => ({ getArtworkUrl: () => null }))
+vi.mock('@renderer/shared/media/getArtworkUrl', () => ({ getArtworkUrl: () => null }))
 
 type TestNode = { props: Record<string, unknown>; children: TestNode[]; text?: string }
 function node(): TestNode {

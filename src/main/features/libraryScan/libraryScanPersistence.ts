@@ -1,13 +1,12 @@
 import { win32 } from 'node:path'
 import type Database from 'better-sqlite3'
-import { ipcChannels } from '@shared/ipc/channels'
 import type { LibraryScanProgress } from '@shared/types/libraryScan'
 import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { MissingTrackCleanupRepository } from '@main/repositories/missingTrackCleanupRepository'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { LibraryScanEvents } from './libraryScanEvents'
 import type {
   LibraryScanWorkerMessage,
   ScannedTrackFile,
@@ -35,7 +34,7 @@ export class LibraryScanPersistence {
     private readonly libraryRootRepository: LibraryRootRepository,
     private readonly scanJobRepository: ScanJobRepository,
     private readonly trackRepository: TrackRepository,
-    private readonly sendToRenderer: RendererEventSender,
+    private readonly events: LibraryScanEvents,
   ) {
     this.scanFailureRepository = new ScanFailureRepository(db)
   }
@@ -314,7 +313,7 @@ export class LibraryScanPersistence {
   }
 
   publishProgress(progress: LibraryScanProgress): void {
-    this.sendToRenderer(ipcChannels.library.scanProgress, progress)
+    this.events.progress(progress)
   }
 
   private publishChanged(
@@ -327,6 +326,6 @@ export class LibraryScanPersistence {
     trackIds: number[],
     filePaths: string[] = [],
   ): void {
-    this.sendToRenderer(ipcChannels.library.changed, { reason, trackIds, filePaths })
+    this.events.changed({ reason, trackIds, filePaths })
   }
 }

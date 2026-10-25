@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseFile } from 'music-metadata'
 import { stat } from 'node:fs/promises'
@@ -28,7 +29,7 @@ function setup() {
   const service = new LibraryIncrementalImportService(
     repo as unknown as TrackRepository,
     'cache',
-    send,
+    createLibraryScanEvents(send).changed,
   )
   return { repo, send, service }
 }

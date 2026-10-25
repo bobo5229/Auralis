@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -29,7 +30,13 @@ it.each(['permanent', 'recovered'] as const)(
       const root = roots.upsertByPath(directory)
       const job = jobs.create(root.id)
       const send = vi.fn()
-      const persistence = new LibraryScanPersistence(db, roots, jobs, repository, send)
+      const persistence = new LibraryScanPersistence(
+        db,
+        roots,
+        jobs,
+        repository,
+        createLibraryScanEvents(send),
+      )
       const tracks: ScannedTrackFile[] = ['One', 'Two'].map((title) => {
         const filePath = join(root.path, `${title}.flac`)
         writeFileSync(filePath, Buffer.alloc(100))

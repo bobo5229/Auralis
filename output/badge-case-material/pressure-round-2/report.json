@@ -1,0 +1,205 @@
+{
+  "passed": true,
+  "scope": "Standalone pressure material prototype, shared Canvas2D; static badge PNGs, no production IPC or database",
+  "checks": [
+    {
+      "name": "four hour badges loaded",
+      "pass": true
+    },
+    {
+      "name": "one shared Canvas2D foam surface and static badge PNGs",
+      "pass": true
+    },
+    {
+      "name": "hard cut-out pockets removed",
+      "pass": true
+    },
+    {
+      "name": "rim surrounds foam with visible material width",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1441,
+          "height": 901,
+          "dpr": 1.5
+        },
+        "rim": {
+          "x": 190.6666717529297,
+          "y": 248.1666717529297,
+          "width": 1060,
+          "height": 382,
+          "top": 248.1666717529297,
+          "right": 1250.6666717529297,
+          "bottom": 630.1666717529297,
+          "left": 190.6666717529297
+        },
+        "foam": {
+          "x": 218.6666717529297,
+          "y": 276.16668701171875,
+          "width": 1004,
+          "height": 326,
+          "top": 276.16668701171875,
+          "right": 1222.6666717529297,
+          "bottom": 602.1666870117188,
+          "left": 218.6666717529297
+        },
+        "bodyOverflow": false
+      }
+    },
+    {
+      "name": "desktop has no horizontal page overflow",
+      "pass": true
+    },
+    {
+      "name": "material stops drawing at rest",
+      "pass": true
+    },
+    {
+      "name": "lifting leaves a temporary soft impression",
+      "pass": true,
+      "detail": {
+        "id": "hours-100",
+        "pressure": 0.632934793080622,
+        "target": 0,
+        "velocity": -1.956186579283325
+      }
+    },
+    {
+      "name": "foam recovers completely after release",
+      "pass": true
+    },
+    {
+      "name": "deep compression darkens the same foam texture",
+      "pass": true,
+      "detail": {
+        "pressedLuminance": 28.2782233190844,
+        "recoveredLuminance": 43.05460116595419,
+        "ratio": 0.6567991005208906
+      }
+    },
+    {
+      "name": "empty control removes every badge in category",
+      "pass": true
+    },
+    {
+      "name": "all removed badges leave a continuous recovered surface",
+      "pass": true
+    },
+    {
+      "name": "days category contains all five designs",
+      "pass": true
+    },
+    {
+      "name": "next arrow actually scrolls",
+      "pass": true
+    },
+    {
+      "name": "vertical wheel supports horizontal browsing",
+      "pass": true
+    },
+    {
+      "name": "albums category contains both designs",
+      "pass": true
+    },
+    {
+      "name": "light environment preserves black foam",
+      "pass": true
+    },
+    {
+      "name": "compact page fits, tray scrolls",
+      "pass": true
+    },
+    {
+      "name": "narrow page fits while badges retain size",
+      "pass": true
+    },
+    {
+      "name": "native keyboard can remove and replace badge",
+      "pass": true
+    },
+    {
+      "name": "rapid toggles settle without overshoot or residual deformation",
+      "pass": true
+    },
+    {
+      "name": "reduced motion updates pressure immediately without a loop",
+      "pass": true
+    },
+    {
+      "name": "no runtime errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "errors": [],
+  "geometry": {
+    "viewport": {
+      "width": 1441,
+      "height": 901,
+      "dpr": 1.5
+    },
+    "rim": {
+      "x": 190.6666717529297,
+      "y": 248.1666717529297,
+      "width": 1060,
+      "height": 382,
+      "top": 248.1666717529297,
+      "right": 1250.6666717529297,
+      "bottom": 630.1666717529297,
+      "left": 190.6666717529297
+    },
+    "foam": {
+      "x": 218.6666717529297,
+      "y": 276.16668701171875,
+      "width": 1004,
+      "height": 326,
+      "top": 276.16668701171875,
+      "right": 1222.6666717529297,
+      "bottom": 602.1666870117188,
+      "left": 218.6666717529297
+    },
+    "bodyOverflow": false
+  },
+  "material": {
+    "renderer": "canvas2d",
+    "running": false,
+    "frames": 165,
+    "width": 1635,
+    "height": 489,
+    "scale": 1.5,
+    "lastDrawMs": 34.20000000298023,
+    "maxDrawMs": 104.70000000298023,
+    "fields": [
+      {
+        "id": "days-7",
+        "pressure": 1,
+        "target": 1,
+        "velocity": 0
+      },
+      {
+        "id": "days-30",
+        "pressure": 1,
+        "target": 1,
+        "velocity": 0
+      },
+      {
+        "id": "days-100",
+        "pressure": 1,
+        "target": 1,
+        "velocity": 0
+      },
+      {
+        "id": "days-365",
+        "pressure": 1,
+        "target": 1,
+        "velocity": 0
+      },
+      {
+        "id": "days-520",
+        "pressure": 1,
+        "target": 1,
+        "velocity": 0
+      }
+    ]
+  }
+}

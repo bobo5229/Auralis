@@ -46,6 +46,7 @@ export default defineConfig({
         '**/AppearanceSettings.playingIcon.test.ts',
         '**/SettingsDialog.test.ts',
         '**/PlaybackSettings.test.ts',
+        '**/MusicLibrarySettings.test.ts',
         '**/AppDialog.test.ts',
         '**/LyricsSaveMenu.test.ts',
         '**/LyricsEditPanel.test.ts',

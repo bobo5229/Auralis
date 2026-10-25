@@ -10,10 +10,8 @@ const { t, te } = useI18n()
 const titleId = useId()
 const noteId = useId()
 const galleryOpen = ref(false)
-const galleryLoaded = ref(false)
 const galleryTrigger = ref<HTMLButtonElement | null>(null)
 function openGallery() {
-  galleryLoaded.value = true
   galleryOpen.value = true
 }
 </script>
@@ -69,7 +67,7 @@ function openGallery() {
     </div>
   </section>
   <ArchiveMilestoneGallery
-    v-if="galleryLoaded"
+    v-if="galleryOpen"
     :open="galleryOpen"
     :return-focus-to="galleryTrigger"
     @close="galleryOpen = false"

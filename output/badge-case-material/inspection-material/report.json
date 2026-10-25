@@ -1,0 +1,222 @@
+{
+  "passed": true,
+  "scope": "Standalone pressure material prototype, shared Canvas2D; static badge PNGs, no production IPC or database",
+  "checks": [
+    {
+      "name": "four hour badges loaded",
+      "pass": true
+    },
+    {
+      "name": "one shared Canvas2D foam surface and static badge PNGs",
+      "pass": true
+    },
+    {
+      "name": "hard cut-out pockets removed",
+      "pass": true
+    },
+    {
+      "name": "rim surrounds foam with visible material width",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1441,
+          "height": 901,
+          "dpr": 1.5
+        },
+        "rim": {
+          "x": 190.6666717529297,
+          "y": 248.1666717529297,
+          "width": 1060,
+          "height": 382,
+          "top": 248.1666717529297,
+          "right": 1250.6666717529297,
+          "bottom": 630.1666717529297,
+          "left": 190.6666717529297
+        },
+        "foam": {
+          "x": 218.6666717529297,
+          "y": 276.16668701171875,
+          "width": 1004,
+          "height": 326,
+          "top": 276.16668701171875,
+          "right": 1222.6666717529297,
+          "bottom": 602.1666870117188,
+          "left": 218.6666717529297
+        },
+        "bodyOverflow": false
+      }
+    },
+    {
+      "name": "desktop has no horizontal page overflow",
+      "pass": true
+    },
+    {
+      "name": "material stops drawing at rest",
+      "pass": true
+    },
+    {
+      "name": "lifting only partially releases the compression",
+      "pass": true,
+      "detail": {
+        "id": "hours-100",
+        "pressure": 0.9339282627545119,
+        "target": 0.82,
+        "velocity": -0.35211358427099865
+      }
+    },
+    {
+      "name": "foam settles with an obvious retained impression",
+      "pass": true
+    },
+    {
+      "name": "retained impression stays darker than nearby unpressed foam",
+      "pass": true,
+      "detail": {
+        "pressedLuminance": {
+          "deep": 28.2782233190844,
+          "unpressed": 42.848178955822625
+        },
+        "retainedLuminance": {
+          "deep": 32.99242585827415,
+          "unpressed": 42.848178955822625
+        }
+      }
+    },
+    {
+      "name": "retained impression stays visible without continuous drawing",
+      "pass": true
+    },
+    {
+      "name": "category changes preserve removed badges and their impressions",
+      "pass": true
+    },
+    {
+      "name": "empty control removes every badge in category",
+      "pass": true
+    },
+    {
+      "name": "all removed badges retain their soft impressions",
+      "pass": true
+    },
+    {
+      "name": "days category contains all five designs",
+      "pass": true
+    },
+    {
+      "name": "next arrow actually scrolls",
+      "pass": true
+    },
+    {
+      "name": "vertical wheel supports horizontal browsing",
+      "pass": true
+    },
+    {
+      "name": "albums category contains both designs",
+      "pass": true
+    },
+    {
+      "name": "light environment preserves black foam",
+      "pass": true
+    },
+    {
+      "name": "compact page fits, tray scrolls",
+      "pass": true
+    },
+    {
+      "name": "narrow page fits while badges retain size",
+      "pass": true
+    },
+    {
+      "name": "native keyboard can inspect and return a badge",
+      "pass": true
+    },
+    {
+      "name": "rapid toggles settle at the retained depth without overshoot",
+      "pass": true
+    },
+    {
+      "name": "reduced motion updates pressure immediately without a loop",
+      "pass": true
+    },
+    {
+      "name": "reduced motion also retains the impression when removed",
+      "pass": true
+    },
+    {
+      "name": "no runtime errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "errors": [],
+  "geometry": {
+    "viewport": {
+      "width": 1441,
+      "height": 901,
+      "dpr": 1.5
+    },
+    "rim": {
+      "x": 190.6666717529297,
+      "y": 248.1666717529297,
+      "width": 1060,
+      "height": 382,
+      "top": 248.1666717529297,
+      "right": 1250.6666717529297,
+      "bottom": 630.1666717529297,
+      "left": 190.6666717529297
+    },
+    "foam": {
+      "x": 218.6666717529297,
+      "y": 276.16668701171875,
+      "width": 1004,
+      "height": 326,
+      "top": 276.16668701171875,
+      "right": 1222.6666717529297,
+      "bottom": 602.1666870117188,
+      "left": 218.6666717529297
+    },
+    "bodyOverflow": false
+  },
+  "material": {
+    "renderer": "canvas2d",
+    "running": false,
+    "frames": 184,
+    "width": 1635,
+    "height": 489,
+    "scale": 1.5,
+    "lastDrawMs": 17.799999997019768,
+    "maxDrawMs": 37.69999999552965,
+    "fields": [
+      {
+        "id": "days-7",
+        "pressure": 0.82,
+        "target": 0.82,
+        "velocity": 0
+      },
+      {
+        "id": "days-30",
+        "pressure": 0.82,
+        "target": 0.82,
+        "velocity": 0
+      },
+      {
+        "id": "days-100",
+        "pressure": 0.82,
+        "target": 0.82,
+        "velocity": 0
+      },
+      {
+        "id": "days-365",
+        "pressure": 0.82,
+        "target": 0.82,
+        "velocity": 0
+      },
+      {
+        "id": "days-520",
+        "pressure": 0.82,
+        "target": 0.82,
+        "velocity": 0
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatGenreParts } from '@renderer/features/library/utils/formatGenre'
+import { formatGenreParts } from '@renderer/shared/media/formatGenre'
 import { rankAlbumGenres } from '@shared/utils/albumGenres'
 import { formatAlbumReleaseDate } from '../utils/formatAlbumReleaseDate'
 

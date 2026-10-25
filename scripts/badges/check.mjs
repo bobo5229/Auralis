@@ -39,6 +39,7 @@ for (const [file, hash] of Object.entries(provenance))
 for (const profile of selected) {
   const entry = manifest.badges[profile.id]
   assert.ok(entry, `Missing ${profile.id}`)
+  assert.ok(entry.contour?.length > 10, `${profile.id}: missing contour`)
   if (previews) {
     assert.equal(
       previews.fingerprints[profile.id],

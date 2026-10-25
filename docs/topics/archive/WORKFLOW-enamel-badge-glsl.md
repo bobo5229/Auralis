@@ -1,6 +1,6 @@
 # 珐琅徽章 GLSL 美化工作流
 
-版本：2.0；更新日期：2026-10-24。
+版本：2.1；更新日期：2026-10-25。
 
 目标：复用已认可的「100 小时·成章」材质方向，让后续徽章按同一流程完成反光替换。固定渲染、生成与验证方法，每枚只适配自身的图层语义和材质参数。
 
@@ -9,7 +9,7 @@
 - 已适配现有全部 11 枚、22 个外观状态：小时系列 10／100／500／1000，天数系列 7／30／100／365／520，专辑系列 1／live。
 - 视觉基准是 `hours-100`「100 小时·成章」；此前样板不是 100 天徽章。它的原有 12 份派生产物保持逐字节一致。
 - [通用工具](../../../scripts/badges/README.md)将单枚适配、生成、观察、导出和检查分离。配置入口为 [profiles.mjs](../../../scripts/badges/profiles.mjs)，运行清单由 manifest 生成，无须维护另一份 11 枚文件列表。
-- [收藏匣](../../../src/renderer/features/archive/components/ArchiveMilestoneCase.vue)与图鉴缩略图使用 GLSL 导出图；[选中预览](../../../src/renderer/features/archive/components/ArchiveMilestonePreview.vue)使用同一套实时 GLSL。每个打开的图鉴只有一个徽章上下文。
+- [收藏匣](../../../src/renderer/features/archive/components/ArchiveMilestoneCase.vue)与图鉴缩略图使用 GLSL 导出图；[三维检视](../../../src/renderer/features/archive/runtime/badgeInspectRenderer.ts)使用同一套实时 GLSL。每个打开的图鉴只有一个徽章上下文。
 
 当前是设计图鉴，点亮／未点亮切换用于查看外观，不代表真实解锁；本次未新增成就统计或修改用户数据。
 
@@ -135,3 +135,22 @@ node --test scripts/badges/materialPipeline.test.mjs
 自动化固定重复劳动，每枚仍需确认图层语义和视觉结果。新增现有系列徽章只需补源文件、哈希与 profile；首页精选按产品需要人工选择，图鉴自动读取 manifest，缺少翻译时使用配置名称。
 
 排查遇到问题时，参考[珐琅徽章 GLSL 复盘](../../lessons/2026-10-24-enamel-glsl-debugging-lessons.md)：从首轮记录执行阶段；最小探针成功后比较验收脚本差异；输入后先等待状态变化；分别检查初始化、DPR 和法线精度。
+
+## 收藏盒与三维检视
+
+正式路径：聆听档案 → 聆听纪念的“查看全部” → 小时／天数／专辑 → 单击徽章。
+
+- 陈列与页面小尺寸徽章使用同一批静态 GLSL PNG；只有被取出的一枚实时渲染。
+- `ArchiveMilestoneGallery.vue` 负责分类、外观与 UI 组合，铝盒直接作为整个弹层，分类、外观和关闭操作整合进盒沿；没有额外标题栏、说明段落或 middle dot 拼接标题。AppDialog 通过可选 header 插槽保留背景隔离和焦点管理，其他弹窗沿用默认标题栏。检视无详情文字；Esc／空白／关闭先放回，随后 Esc 关闭盒子。
+- `useBadgeInspection.ts` 负责约 1080ms 的移动放大与自身竖轴整周翻转、鼠标微倾斜、方向键调整和约 420ms 的归还。左右按钮连续检视同类徽章。减弱动效偏好下直接到达最终状态。
+- `badgeInspectRenderer.ts` 负责模型、五张正面材质贴图和一个共享 WebGL 上下文，复用既有 badgeShaders；加载并行、纹理上传与预编译先于翻转，切换和取消丢弃过期结果。
+- `badgePressureSurface.ts` 拥有海绵压力、画布和 Worker，像素内核只更新变化区域；取出后保留 82% 压缩。静置停帧，离开页面或关闭盒子释放资源。
+- 外轮廓由已有 badges:build 写入同一 manifest 的 contour 字段，海绵与三维几何共同消费。纹理是功能内资源，不依赖 demo 路径或本地 HTTP 服务。
+
+材质内核的历史像素／性能证据见原型 README；正式集成须另以构建后 Electron 的实际入口检查分类、22 种外观、检视与放回、焦点和资源释放，性能测量期间不截图。已有有效静态资产检查继续复用。
+
+2026-10-25 正式接入验收：完整 build（含类型、语言键、构建预算）、徽章资产 11 枚／22 状态、定向 Lint 与格式检查通过；像素缓存单测 2 项和材质流水线单测 9 项通过。构建后完整应用的 55 项运行检查通过，覆盖实际 Preload／IPC、原生播放隔离 PCM 样本、22 种外观、取消、焦点、DPR、900×620 最小窗口、离页释放和失败回退；[运行报告与源码快照标识](../../../output/badge-player-integration/report.json)。没有访问真实曲库或音乐文件。
+
+同机原生窗口、DPR 1.5、630×706 检视画布下，原型与正式播放器的两次热启动各采集 519 个 GL 提交更新间隔，P95 均约 4.3ms；最长分别 5.2ms／12.9ms，超过 25ms 均为 0。正式播放器同时原生播放隔离样本。原生回调节奏约 240Hz，不等同屏幕呈现 FPS；窗口与海绵尺寸略有差别，不能与旧 60Hz 离屏报告直接作数值比较。[性能对照与环境](../../../output/badge-player-performance/comparison.json)。首次准备 176ms 是单次样本，不作统计性提速结论。
+
+容器收敛的实际 Electron 检查覆盖铝盒与弹层边界一致、无外层底板和说明文字、盒沿操作、最小窗口、检视／连续切换／两级退出、错误图标与重试，以及设置弹窗默认标题栏；见 [容器检查报告](../../../output/badge-case-shell/report.json)。

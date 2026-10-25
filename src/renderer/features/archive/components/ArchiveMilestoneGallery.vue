@@ -1,263 +1,336 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
-import { milestoneBadges, milestoneGroups } from '../constants/milestoneBadges'
-import { getBadgePreview } from '../utils/badgeMaterials'
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
+import { milestoneBadges, milestoneGroups, type MilestoneGroup } from '../constants/milestoneBadges'
+import { badgeContours, badgeMaterialDescriptors, getBadgePreview } from '../utils/badgeMaterials'
+import { useBadgeInspection } from '../composables/useBadgeInspection'
+import { createPressureSurface } from '../runtime/badgePressureSurface'
 import type { BadgeState } from '../runtime/badgeMaterialRenderer'
-import ArchiveMilestonePreview from './ArchiveMilestonePreview.vue'
+import type { InspectBadge } from '../runtime/badgeInspectRenderer'
+import '../styles/badgeGallery.css'
 
 defineProps<{ open: boolean; returnFocusTo: HTMLElement | null }>()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
 const { t, te } = useI18n()
 const titleId = useId()
-const noteId = useId()
-const selectedId = ref('hours100')
-const selectedState = ref<BadgeState>('lit')
-const selected = computed(
-  () => milestoneBadges.find((badge) => badge.id === selectedId.value) ?? milestoneBadges[0],
-)
-const previewStates: readonly BadgeState[] = ['lit', 'unlit']
+const caseClose = ref<HTMLButtonElement | null>(null)
+const canvasRevision = ref(0)
+const group = ref<MilestoneGroup>('hours'),
+  appearance = ref<BadgeState>('lit')
+const badges = computed(() => milestoneBadges.filter((badge) => badge.group === group.value))
+const viewport = ref<HTMLElement | null>(null),
+  sheet = ref<HTMLElement | null>(null),
+  row = ref<HTMLElement | null>(null)
+const stage = ref<HTMLElement | null>(null),
+  canvas = ref<HTMLCanvasElement | null>(null)
+const canPrevious = ref(false),
+  canNext = ref(false),
+  failed = ref(false),
+  foamFailed = ref(false)
+const lifetime = new AbortController()
+const motion = createReducedMotionQuery()
+let surface: Awaited<ReturnType<typeof createPressureSurface>> | undefined
+let observer: ResizeObserver | undefined
+const inspection = useBadgeInspection({
+  stage,
+  canvas,
+  onLift: (id) => surface?.setRemoved(id, true),
+  onReturn: (id) => surface?.setRemoved(id, false),
+  onError: () => {
+    failed.value = true
+    // A lost WebGL context remains attached to its canvas; retries need a fresh node.
+    canvasRevision.value++
+  },
+})
+const { phase, badgeId, liftedId, active } = inspection
+const index = computed(() => badges.value.findIndex((badge) => badge.id === badgeId.value))
+const currentName = computed(() => {
+  const badge = milestoneBadges.find((item) => item.id === badgeId.value)
+  return badge ? badgeName(badge) : ''
+})
 function badgeName(badge: (typeof milestoneBadges)[number]) {
   const key = `archive.milestones.names.${badge.id}`
   return te(key) ? t(key) : badge.name
 }
-function albumLabel(badge: (typeof milestoneBadges)[number]) {
-  const key = `archive.milestones.labels.${badge.id}`
-  return te(key) ? t(key) : badgeName(badge)
+function descriptor(id: string): InspectBadge {
+  return {
+    id,
+    contour: badgeContours[id],
+    material: badgeMaterialDescriptors[id],
+    state: appearance.value,
+  }
 }
+function buttonFor(id: string) {
+  return row.value?.querySelector<HTMLButtonElement>(`[data-badge="${id}"]`)
+}
+function inspect(id: string) {
+  const button = buttonFor(id)
+  if (!button) return
+  failed.value = false
+  void inspection.open(descriptor(id), button)
+}
+function switchBadge(delta: number) {
+  const badge = badges.value[index.value + delta]
+  const button = badge && buttonFor(badge.id)
+  if (button) inspection.switchTo(descriptor(badge.id), button)
+}
+function close() {
+  if (active.value) inspection.close()
+  else emit('close')
+}
+function updateArrows() {
+  const element = viewport.value
+  if (!element) return
+  canPrevious.value = element.scrollLeft > 2
+  canNext.value = element.scrollLeft < element.scrollWidth - element.clientWidth - 2
+}
+function scroll(delta: number) {
+  viewport.value?.scrollBy({ left: delta * 222, behavior: motion.matches ? 'instant' : 'smooth' })
+}
+function wheel(event: WheelEvent) {
+  if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || !viewport.value) return
+  const movement =
+    event.deltaY *
+    (event.deltaMode === 1 ? 20 : event.deltaMode === 2 ? viewport.value.clientWidth : 1)
+  if (movement > 0 ? !canNext.value : !canPrevious.value) return
+  event.preventDefault()
+  viewport.value.scrollLeft += movement
+}
+function rebuild() {
+  surface?.setBadges(
+    badges.value.map((badge) => ({ id: badge.id, contour: badgeContours[badge.id] })),
+  )
+  updateArrows()
+}
+watch(group, async () => {
+  await nextTick()
+  if (lifetime.signal.aborted) return
+  viewport.value?.scrollTo({ left: 0, behavior: 'instant' })
+  rebuild()
+})
+onMounted(async () => {
+  observer = new ResizeObserver(updateArrows)
+  observer.observe(viewport.value!)
+  viewport.value!.addEventListener('wheel', wheel, { passive: false, signal: lifetime.signal })
+  try {
+    surface = await createPressureSurface(sheet.value!, row.value!, lifetime.signal)
+    rebuild()
+  } catch {
+    if (!lifetime.signal.aborted) foamFailed.value = true
+  }
+})
+onBeforeUnmount(() => {
+  lifetime.abort()
+  observer?.disconnect()
+})
+defineExpose({
+  snapshot: () => ({ inspection: inspection.snapshot(), foam: surface?.snapshot() ?? null }),
+  forceContextLoss: inspection.forceContextLoss,
+})
 </script>
 
 <template>
   <AppDialog
     :open="open"
-    :title="t('archive.milestones.catalogTitle')"
+    :title="t('archive.milestones.title')"
     :title-id="titleId"
-    :described-by="noteId"
+    :padded="false"
+    :initial-focus="() => caseClose ?? undefined"
     :return-focus-to="returnFocusTo"
-    @close="$emit('close')"
+    panel-class="archive-badge-dialog"
+    @close="close"
   >
-    <template #subtitle>
-      <p :id="noteId" class="archive-milestone-gallery__note auralis-type-caption">
-        {{ t('archive.milestones.catalogNote') }}
-      </p>
+    <template #header>
+      <h2 :id="titleId" class="sr-only">{{ t('archive.milestones.title') }}</h2>
     </template>
-    <div class="archive-milestone-gallery-container">
-      <div class="archive-milestone-gallery">
-        <div class="archive-milestone-gallery__inspection">
-          <ArchiveMilestonePreview :badge-id="selected.id" :state="selectedState" />
-          <div class="archive-milestone-gallery__detail">
-            <h3 class="auralis-type-section">{{ badgeName(selected) }}</h3>
-            <p class="auralis-type-caption">
-              {{
-                selected.group === 'albums'
-                  ? albumLabel(selected)
-                  : t(`archive.milestones.${selected.group}Label`, { count: selected.amount })
-              }}
-            </p>
-            <div
-              class="archive-milestone-gallery__states"
-              role="group"
-              :aria-label="t('archive.milestones.appearance')"
-            >
+    <div class="archive-badge-gallery" :inert="active" :data-foam-failed="foamFailed || undefined">
+      <section class="collection-case" :aria-label="t('archive.milestones.collectionCase')">
+        <div class="case-foot" aria-hidden="true"></div>
+        <div class="aluminium-rim">
+          <div class="rim-grain" aria-hidden="true"></div>
+          <div class="case-toolbar">
+            <nav class="categories" :aria-label="t('archive.milestones.categories')">
               <button
-                v-for="state in previewStates"
-                :key="state"
+                v-for="item in milestoneGroups"
+                :key="item"
                 type="button"
-                :aria-pressed="selectedState === state"
-                @click="selectedState = state"
+                :data-series="item"
+                :aria-pressed="group === item"
+                @click="group = item"
               >
-                {{ t(`archive.milestones.${state}`) }}
+                {{ t(`archive.milestones.groups.${item}`) }}
               </button>
-            </div>
-            <p class="archive-milestone-gallery__instructions auralis-type-caption">
-              {{ t('archive.milestones.instructions') }}
-            </p>
-          </div>
-        </div>
-        <div class="archive-milestone-gallery__groups">
-          <section
-            v-for="group in milestoneGroups"
-            :key="group"
-            :aria-labelledby="`${titleId}-${group}`"
-            class="archive-milestone-gallery__group"
-          >
-            <h3 :id="`${titleId}-${group}`" class="auralis-type-control">
-              {{ t(`archive.milestones.groups.${group}`) }}
-            </h3>
-            <ul class="archive-milestone-gallery__badges">
-              <li
-                v-for="badge in milestoneBadges.filter((item) => item.group === group)"
-                :key="badge.id"
+            </nav>
+            <div class="case-actions">
+              <div
+                class="case-appearance auralis-type-caption"
+                role="group"
+                :aria-label="t('archive.milestones.appearance')"
               >
                 <button
+                  v-for="state in ['lit', 'unlit'] as const"
+                  :key="state"
                   type="button"
-                  class="archive-milestone-gallery__badge-button"
-                  :aria-pressed="selectedId === badge.id"
-                  :data-badge-select="badge.id"
-                  @click="selectedId = badge.id"
+                  :data-badge-state="state"
+                  :aria-pressed="appearance === state"
+                  @click="appearance = state"
                 >
-                  <img
-                    :src="getBadgePreview(badge.id, selectedState)"
-                    alt=""
-                    width="120"
-                    height="135"
-                    loading="lazy"
-                    draggable="false"
-                  />
-                  <span class="archive-milestone-gallery__badge-name auralis-type-control">
-                    {{ badgeName(badge) }}
-                  </span>
-                  <span class="archive-milestone-gallery__badge-label auralis-type-caption">
-                    {{
-                      badge.amount && badge.group !== 'albums'
-                        ? t(`archive.milestones.${group}Label`, { count: badge.amount })
-                        : albumLabel(badge)
-                    }}
-                  </span>
+                  {{ t(`archive.milestones.${state}`) }}
                 </button>
-              </li>
-            </ul>
-          </section>
+              </div>
+              <span
+                v-if="failed"
+                class="case-error-icon"
+                role="img"
+                :aria-label="t('archive.milestones.inspectError')"
+                :title="t('archive.milestones.inspectError')"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v6m0 3h.01" />
+                </svg>
+              </span>
+              <button
+                ref="caseClose"
+                class="case-close"
+                type="button"
+                :aria-label="t('dialog.close')"
+                @click="close"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="inner-channel">
+            <div
+              ref="viewport"
+              class="foam-viewport"
+              tabindex="0"
+              :aria-label="t('archive.milestones.browse')"
+              @scroll="updateArrows"
+            >
+              <div ref="sheet" class="foam-sheet">
+                <ul
+                  ref="row"
+                  class="badge-row"
+                  :aria-label="t(`archive.milestones.groups.${group}`)"
+                >
+                  <li v-for="badge in badges" :key="badge.id" class="badge-item">
+                    <button
+                      type="button"
+                      class="badge-button"
+                      :data-badge="badge.id"
+                      :data-badge-select="badge.id"
+                      :data-inspected="liftedId === badge.id ? 'true' : undefined"
+                      :aria-pressed="liftedId === badge.id"
+                      :aria-label="t('archive.milestones.inspectBadge', { name: badgeName(badge) })"
+                      aria-haspopup="dialog"
+                      @click="inspect(badge.id)"
+                    >
+                      <img
+                        class="badge-image"
+                        :src="getBadgePreview(badge.id, appearance)"
+                        alt=""
+                        width="330"
+                        height="370"
+                        draggable="false"
+                      />
+                    </button>
+                    <span class="badge-name">{{ badgeName(badge) }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <button
+            class="scroll-arrow scroll-arrow--previous"
+            type="button"
+            :disabled="!canPrevious"
+            :aria-label="t('archive.milestones.browsePrevious')"
+            @click="scroll(-1)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
+          </button>
+          <button
+            class="scroll-arrow scroll-arrow--next"
+            type="button"
+            :disabled="!canNext"
+            :aria-label="t('archive.milestones.browseNext')"
+            @click="scroll(1)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5" /></svg>
+          </button>
         </div>
-      </div>
+      </section>
+      <p v-if="failed" class="sr-only" role="status">
+        {{ t('archive.milestones.inspectError') }}
+      </p>
     </div>
+    <template #overlay>
+      <div
+        v-show="active"
+        class="badge-inspector"
+        :class="{
+          'is-active': active,
+          'is-present': phase === 'entering' || phase === 'inspecting',
+        }"
+        :data-inspection-phase="phase"
+        :data-inspection-badge="badgeId"
+        :data-leaving="phase === 'leaving' ? '' : undefined"
+        :aria-busy="phase === 'loading'"
+        @click.self="inspection.close"
+      >
+        <div
+          ref="stage"
+          class="inspect-object"
+          tabindex="0"
+          role="img"
+          :aria-label="t('archive.milestones.previewFor', { name: currentName })"
+          :aria-describedby="`${titleId}-instructions`"
+          @pointermove="inspection.pointer"
+          @pointerleave="inspection.reset"
+          @pointercancel="inspection.reset"
+          @keydown="inspection.keydown"
+        >
+          <canvas
+            :key="canvasRevision"
+            ref="canvas"
+            class="inspect-canvas"
+            aria-hidden="true"
+          ></canvas>
+          <p :id="`${titleId}-instructions`" class="sr-only">
+            {{ t('archive.milestones.instructions') }}
+          </p>
+        </div>
+        <button
+          class="inspect-close"
+          type="button"
+          :aria-label="t('archive.milestones.returnBadge')"
+          @click="inspection.close"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        <button
+          class="inspect-switch inspect-switch--previous"
+          type="button"
+          :disabled="phase !== 'inspecting' || index <= 0"
+          :aria-label="t('archive.milestones.previousBadge')"
+          @click="switchBadge(-1)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
+        </button>
+        <button
+          class="inspect-switch inspect-switch--next"
+          type="button"
+          :disabled="phase !== 'inspecting' || index >= badges.length - 1"
+          :aria-label="t('archive.milestones.nextBadge')"
+          @click="switchBadge(1)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5" /></svg>
+        </button>
+      </div>
+    </template>
   </AppDialog>
 </template>
-
-<style scoped>
-.archive-milestone-gallery__note {
-  max-width: 56ch;
-  margin: 4px 0 0;
-  color: var(--auralis-text-muted);
-}
-.archive-milestone-gallery {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-.archive-milestone-gallery-container {
-  container-type: inline-size;
-}
-.archive-milestone-gallery__groups {
-  display: grid;
-  gap: 24px;
-  min-width: 0;
-}
-.archive-milestone-gallery__inspection {
-  position: sticky;
-  top: 0;
-  min-width: 0;
-}
-.archive-milestone-gallery__detail {
-  text-align: center;
-}
-.archive-milestone-gallery__detail h3 {
-  margin: 12px 0 4px;
-  color: var(--auralis-text);
-  font-weight: 500;
-}
-.archive-milestone-gallery__detail p {
-  margin: 4px 0;
-  color: var(--auralis-text-muted);
-}
-.archive-milestone-gallery__states {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 16px;
-}
-.archive-milestone-gallery__states button {
-  padding: 5px 10px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 5px;
-  color: var(--auralis-text-muted);
-  background: transparent;
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  cursor: pointer;
-}
-.archive-milestone-gallery__states button[aria-pressed='true'] {
-  color: var(--auralis-text);
-  background: var(--auralis-control-hover-bg);
-}
-.archive-milestone-gallery__detail .archive-milestone-gallery__instructions {
-  margin-top: 14px;
-}
-.archive-milestone-gallery__badge-button {
-  display: block;
-  width: 100%;
-  padding: 8px 4px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-}
-.archive-milestone-gallery__badge-button:hover {
-  background: var(--auralis-control-hover-bg);
-}
-.archive-milestone-gallery__badge-button[aria-pressed='true'] {
-  border-color: var(--auralis-border-strong);
-  background: var(--auralis-surface-raised);
-}
-.archive-milestone-gallery__badge-button:focus-visible,
-.archive-milestone-gallery__states button:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring);
-  outline-offset: 2px;
-}
-@container (max-width:640px) {
-  .archive-milestone-gallery {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .archive-milestone-gallery__inspection {
-    position: static;
-    display: grid;
-    grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
-    align-items: center;
-    gap: 16px;
-  }
-  .archive-milestone-gallery__detail {
-    text-align: left;
-  }
-  .archive-milestone-gallery__states {
-    justify-content: flex-start;
-  }
-}
-.archive-milestone-gallery__group > h3 {
-  margin: 0 0 12px;
-  color: var(--auralis-text-muted);
-  font-weight: 500;
-}
-.archive-milestone-gallery__badges {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 16px 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.archive-milestone-gallery__badges li {
-  min-width: 0;
-  text-align: center;
-}
-.archive-milestone-gallery__badges img {
-  display: block;
-  width: min(120px, 100%);
-  height: auto;
-  aspect-ratio: 330 / 370;
-  margin: 0 auto 8px;
-  filter: drop-shadow(0 3px 3px rgb(0 0 0 / 16%));
-}
-.archive-milestone-gallery__badge-name {
-  display: block;
-  margin: 0;
-  color: var(--auralis-text);
-  font-weight: 500;
-}
-.archive-milestone-gallery__badge-label {
-  display: block;
-  margin: 4px 0 0;
-  color: var(--auralis-text-muted);
-}
-</style>

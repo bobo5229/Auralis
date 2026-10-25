@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { i18n } from '@renderer/i18n'
 import type { PlaybackTrack } from '../types'
 import { formatPlaybackSubtitle } from './formatPlaybackSubtitle'
-import { formatGenre } from '../../library/utils/formatGenre'
+import { formatGenre } from '@renderer/shared/media/formatGenre'
 
 describe('playback multi-value display', () => {
   afterEach(() => {

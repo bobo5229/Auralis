@@ -29,7 +29,7 @@
 
 这支持将调用顺序作为本次有效修正，但没有单独分离 `debugger.attach()` 和 `Emulation.setDeviceMetricsOverride` 两个变量，也没有原生崩溃栈，不能据此规定所有 Electron 版本都禁止导航前使用这些 API。
 
-以后从第一版验收器就记录这些阶段：配置隔离 profile、Electron ready、窗口创建、页面导航完成、调试器接入、设备模拟完成、材质准备完成和首帧完成。失败时保留最后阶段和原始错误，避免只留下进程退出码。
+从第一版验收器就按实际执行路径记录关键阶段，例如 Electron ready、服务与窗口创建、页面导航、调试器接入和首帧；设备模拟、材质准备仅在该路径涉及时记录。失败时保留最后完成阶段和原始错误，避免只留下进程退出码。
 
 本轮还将隔离 profile 的设置移到主进程同步启动阶段，避免异步文件操作让默认 session 先初始化。这是防止配置时序竞争的配套调整，现有证据不足以认定它曾是本次原生退出的原因。
 
@@ -79,4 +79,4 @@
 
 每轮失败使用独立输出目录或运行编号，保留启动条件、最后阶段、错误和结果；将最新通过结果单独索引。本轮多次覆盖同名日志，增加了回顾成本，后续应在首次失败时就保留证据。
 
-本轮最终在 Electron 38.8.6、NVIDIA RTX 5060 Laptop / ANGLE D3D11、GPU 沙箱开启的条件下通过隔离验收。最终报告与画面位于[本地验证目录](../../output/enamel-glsl-validation/)，使用及验证入口见[原型说明](../../demo/archive/enamel-milestone/glsl/README.md)。这些结果说明本次原型可运行，不能替代后续其他徽章或其他机器的验证。
+本轮最终在 Electron 38.8.6、NVIDIA RTX 5060 Laptop / ANGLE D3D11、GPU 沙箱开启的条件下通过隔离验收。最终报告与画面位于[本地验证目录](../../output/enamel-glsl-validation/)；代码和验证入口见[历史原型说明](../../demo/archive/enamel-milestone/glsl/README.md)，徽章后续维护使用[通用 GLSL 工具](../../scripts/badges/README.md)。这些结果说明本次原型可运行，不能替代其他徽章或其他机器的验证。
