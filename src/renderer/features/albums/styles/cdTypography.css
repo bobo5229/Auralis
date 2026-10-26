@@ -115,7 +115,7 @@
  * Chinese retains the existing GenRyuMin2TC resources. */
 .cd-page,
 .cd-view-switch {
-  --cd-font-cjk: 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  --cd-font-cjk: 'Auralis Serif SC', 'SimSun', 'Yu Mincho', serif;
   --cd-font-display: 'Auralis CD Numerals', 'Auralis CD Display', var(--cd-font-cjk);
   --cd-font-text: 'Auralis CD Text', var(--cd-font-cjk);
   --cd-font-number: 'Auralis CD Text', var(--cd-font-cjk);

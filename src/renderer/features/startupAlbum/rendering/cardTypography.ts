@@ -2,9 +2,9 @@ import './cardTypography.css'
 import { cardLayout } from './cardLayout'
 
 export const cardTitleFamily =
-  '"Auralis Card Title", "Auralis Desktop Lyrics SC", "SimSun", "Yu Mincho", serif'
+  '"Auralis Card Title", "Auralis Serif SC", "SimSun", "Yu Mincho", serif'
 export const cardArtistFamily =
-  '"Auralis Card Signature", "Auralis Desktop Lyrics SC", "SimSun", "Yu Mincho", serif'
+  '"Auralis Card Signature", "Auralis Serif SC", "SimSun", "Yu Mincho", serif'
 
 // Subtle same-colour reinforcement, in the card's logical print coordinates.
 export const cardArtistStrokeWidth = 0.8
