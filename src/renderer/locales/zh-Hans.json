@@ -439,6 +439,11 @@
         "equalizer": "三柱均衡器",
         "blocks-wave": "方块律动"
       },
+      "englishFont": {
+        "title": "英文字体",
+        "description": "选择界面英文与数字使用的字体。",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
       "themeDark": "深色",
       "themeLight": "浅色",
       "accent": {

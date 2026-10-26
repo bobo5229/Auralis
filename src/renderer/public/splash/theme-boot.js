@@ -1,6 +1,7 @@
 /*
  * 开屏首帧主题引导：在首次绘制前按上次退出时的主题设置根节点 data-theme 与 color-scheme。
- * 有效值规则须与 src/renderer/composables/useTheme.ts 保持一致，
+ * 有效值规则须与 src/renderer/features/appearance/composables/useTheme.ts、
+ * useEnglishFont.ts 保持一致，
  * 一致性由 src/renderer/app/splash/splashContract.test.ts 检查。
  * 同步经典脚本，不得改为 type="module"（module 会延迟到解析完成后执行）。
  */
@@ -8,6 +9,12 @@
   var AURALIS_THEME_STORAGE_KEY = 'auralis-theme'
   var AURALIS_THEME_VALUES = ['light', 'dark']
   var AURALIS_THEME_DEFAULT = 'dark'
+  var AURALIS_ENGLISH_FONT_STORAGE_KEY = 'auralis-english-font'
+  var AURALIS_ENGLISH_FONT_VALUES = ['plusJakartaSans', 'inter']
+  var AURALIS_ENGLISH_FONT_FAMILIES = {
+    plusJakartaSans: 'Plus Jakarta Sans',
+    inter: 'Inter',
+  }
   var AURALIS_DARK_ACCENT_STORAGE_KEY = 'auralis-dark-accent'
   var AURALIS_DARK_ACCENT_DEFAULT = '#1DD55F'
   var AURALIS_LIGHT_ACCENT_STORAGE_KEY = 'auralis-light-accent'
@@ -208,6 +215,16 @@
   }
   var resolvedLightAccent = resolveLightAccent(lightAccent)
 
+  var storedEnglishFont = null
+  try {
+    var fontCandidate = window.localStorage.getItem(AURALIS_ENGLISH_FONT_STORAGE_KEY)
+    if (AURALIS_ENGLISH_FONT_VALUES.indexOf(fontCandidate) !== -1) {
+      storedEnglishFont = fontCandidate
+    }
+  } catch {
+    // 存储不可用（受限上下文）时沿用样式表默认英文字体。
+  }
+
   var root = document.documentElement
   var reduceMotion =
     typeof window.matchMedia === 'function' &&
@@ -228,6 +245,12 @@
   root.style.setProperty('--auralis-light-accent', resolvedLightAccent.display)
   root.style.setProperty('--auralis-light-accent-soft', resolvedLightAccent.soft)
   root.style.setProperty('--auralis-light-on-accent', resolvedLightAccent.onAccent)
+  if (storedEnglishFont) {
+    root.style.setProperty(
+      '--auralis-font-latin',
+      "'" + AURALIS_ENGLISH_FONT_FAMILIES[storedEnglishFont] + "'",
+    )
+  }
   // 强制刷新同样属于 reload，在模块加载前隐藏开屏，避免首帧闪现。
   var navigation = window.performance.getEntriesByType('navigation')[0]
   if (navigation && navigation.type === 'reload') {

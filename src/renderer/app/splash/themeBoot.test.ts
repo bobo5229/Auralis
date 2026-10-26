@@ -11,7 +11,14 @@ import {
   LIGHT_ACCENT_STORAGE_KEY,
 } from '@renderer/features/appearance/constants/lightAccent'
 import { resolveLightAccent } from '@renderer/features/appearance/utils/resolveLightAccent'
-import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
+import {
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useTheme'
+import {
+  ENGLISH_FONT_CSS_VARIABLE,
+  ENGLISH_FONT_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useEnglishFont'
 
 const script = readFileSync(new URL('../../public/splash/theme-boot.js', import.meta.url), 'utf8')
 
@@ -58,6 +65,26 @@ function runBoot(options: BootOptions = {}) {
 
   return { root, styleValues, storageWrites }
 }
+
+describe('boot english font preference', () => {
+  it('applies the saved family before the main bundle loads', () => {
+    const inter = runBoot({ values: { [ENGLISH_FONT_STORAGE_KEY]: 'inter' } })
+    expect(inter.styleValues.get(ENGLISH_FONT_CSS_VARIABLE)).toBe("'Inter'")
+    const jakarta = runBoot({ values: { [ENGLISH_FONT_STORAGE_KEY]: 'plusJakartaSans' } })
+    expect(jakarta.styleValues.get(ENGLISH_FONT_CSS_VARIABLE)).toBe("'Plus Jakarta Sans'")
+  })
+  it('keeps the stylesheet default for absent or invalid stored values', () => {
+    for (const value of [undefined, 'system', 'roboto']) {
+      const values: Record<string, string> = value ? { [ENGLISH_FONT_STORAGE_KEY]: value } : {}
+      expect(runBoot({ values }).styleValues.has(ENGLISH_FONT_CSS_VARIABLE)).toBe(false)
+    }
+  })
+  it('keeps the stylesheet default when storage cannot be read', () => {
+    expect(
+      runBoot({ failReads: [ENGLISH_FONT_STORAGE_KEY] }).styleValues.has(ENGLISH_FONT_CSS_VARIABLE),
+    ).toBe(false)
+  })
+})
 
 describe('boot motion preference', () => {
   it('applies the saved preference before the main bundle loads', () => {

@@ -7,6 +7,7 @@ import './app/styles/main.css'
 import { useTheme } from './features/appearance/composables/useTheme'
 import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { useLightAccent } from './features/appearance/composables/useLightAccent'
+import { initEnglishFont } from './features/appearance/composables/useEnglishFont'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
 import { initLyricsScrollPreset } from './features/lyrics/lyricsScrollPreset'
@@ -30,6 +31,7 @@ const { initDarkAccent } = useDarkAccent()
 initDarkAccent()
 const { initLightAccent } = useLightAccent()
 initLightAccent()
+initEnglishFont()
 const disposeMotionPreference = initMotionPreference()
 if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
 const disposeLyricsScrollPreset = initLyricsScrollPreset()

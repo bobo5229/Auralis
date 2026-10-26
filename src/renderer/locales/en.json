@@ -439,6 +439,11 @@
         "equalizer": "Equalizer",
         "blocks-wave": "Blocks wave"
       },
+      "englishFont": {
+        "title": "English font",
+        "description": "Choose the font used for English text and numerals.",
+        "persistFailed": "Applied, but could not save this preference."
+      },
       "themeDark": "Dark",
       "themeLight": "Light",
       "accent": {

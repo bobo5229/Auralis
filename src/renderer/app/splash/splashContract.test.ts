@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
+import {
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useTheme'
+import {
+  ENGLISH_FONT_FAMILIES,
+  ENGLISH_FONT_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useEnglishFont'
 import { SPLASH_FADE_OUT_MS } from './splashController'
 import { SPLASH_FORMATION_MS, SPLASH_RESONANCE_PATH } from './splashMotion'
 
@@ -193,5 +200,15 @@ describe('theme boot contract', () => {
     expect(themeBootJs).toContain('localStorage.getItem')
     expect(themeBootJs).toContain('dataset.theme')
     expect(themeBootJs).toContain('colorScheme')
+  })
+
+  it('follows the useEnglishFont storage key, values and family mapping', () => {
+    expect(themeBootJs).toContain(`'${ENGLISH_FONT_STORAGE_KEY}'`)
+    expect(themeBootJs).toMatch(
+      /AURALIS_ENGLISH_FONT_VALUES\s*=\s*\['plusJakartaSans',\s*'inter'\]/,
+    )
+    for (const [choice, family] of Object.entries(ENGLISH_FONT_FAMILIES)) {
+      expect(themeBootJs).toContain(`${choice}: '${family}'`)
+    }
   })
 })

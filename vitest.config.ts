@@ -42,6 +42,7 @@ export default defineConfig({
         '**/StartupAlbumOverlay.test.ts',
         '**/AppearanceSettings.lyricsScroll.test.ts',
         '**/AppearanceSettings.controlStyle.test.ts',
+        '**/AppearanceSettings.englishFont.test.ts',
         '**/AlbumDetailPage.controlStyle.test.ts',
         '**/AppearanceSettings.playingIcon.test.ts',
         '**/SettingsDialog.test.ts',

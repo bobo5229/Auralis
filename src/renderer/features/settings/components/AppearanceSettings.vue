@@ -28,6 +28,10 @@ import {
   type ControlStyle,
 } from '@renderer/features/appearance/composables/useControlStyle'
 import {
+  useEnglishFont,
+  type EnglishFontChoice,
+} from '@renderer/features/appearance/composables/useEnglishFont'
+import {
   PLAYBAR_LAYOUTS,
   usePlaybarLayout,
   type PlaybarLayout,
@@ -173,6 +177,15 @@ const playingIconOptions = computed(() =>
     label: t(`settings.appearance.playingIcon.${value}`),
   })),
 )
+const {
+  font: englishFont,
+  persistFailed: englishFontPersistFailed,
+  setEnglishFont,
+} = useEnglishFont()
+const englishFontOptions = [
+  { value: 'plusJakartaSans', label: 'Plus Jakarta Sans' },
+  { value: 'inter', label: 'Inter' },
+] as const
 const themeOptions = computed(() =>
   (['light', 'dark'] as const).map((value) => ({
     value,
@@ -402,6 +415,28 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :model-value="playingIcon"
             :options="playingIconOptions"
             @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--english-font">
+          <div>
+            <strong id="appearance-english-font-label">{{
+              t('settings.appearance.englishFont.title')
+            }}</strong>
+            <span id="appearance-english-font-description">{{
+              t('settings.appearance.englishFont.description')
+            }}</span>
+            <span v-if="englishFontPersistFailed" role="status">{{
+              t('settings.appearance.englishFont.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-english-font"
+            labelledby="appearance-english-font-label"
+            describedby="appearance-english-font-description"
+            :model-value="englishFont"
+            :options="englishFontOptions"
+            :show-value-title="false"
+            @update:model-value="setEnglishFont($event as EnglishFontChoice)"
           />
         </div>
       </div>
