@@ -205,6 +205,7 @@ watch(
   <button
     :id="id"
     ref="trigger"
+    v-tooltip="showValueTitle ? options[selectedIndex]?.label : ''"
     type="button"
     role="combobox"
     class="settings-select"
@@ -221,13 +222,9 @@ watch(
     @click="open ? close() : show()"
     @keydown="onKeydown"
   >
-    <span
-      :id="`${id}-value`"
-      class="settings-select-value"
-      :lang="options[selectedIndex]?.lang"
-      :title="showValueTitle ? options[selectedIndex]?.label : undefined"
-      >{{ options[selectedIndex]?.label }}</span
-    >
+    <span :id="`${id}-value`" class="settings-select-value" :lang="options[selectedIndex]?.lang">{{
+      options[selectedIndex]?.label
+    }}</span>
     <span
       class="settings-select-chevron i-lucide-chevron-down h-3.5 w-3.5"
       aria-hidden="true"

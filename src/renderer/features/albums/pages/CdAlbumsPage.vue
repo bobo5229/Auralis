@@ -523,16 +523,19 @@ onBeforeUnmount(() => {
               aria-hidden="true"
             ></span>
           </button>
-          <span class="cd-browsing-playback-song" :title="browsingPlayback.song" dir="auto">{{
-            browsingPlayback.song
-          }}</span>
+          <span
+            v-tooltip.overflow="browsingPlayback.song"
+            class="cd-browsing-playback-song"
+            dir="auto"
+            >{{ browsingPlayback.song }}</span
+          >
         </div>
         <button
           v-if="browsingPlayback.album"
+          v-tooltip.fast="browsingPlayback.album"
           type="button"
           class="cd-browsing-playback-album"
           :disabled="browsingPlaybackAlbumIndex < 0"
-          :title="browsingPlayback.album"
           @click="focusBrowsingPlaybackAlbum"
         >
           <span class="cd-browsing-playback-album-name" dir="auto">{{

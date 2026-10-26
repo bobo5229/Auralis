@@ -192,10 +192,10 @@ defineExpose({ close })
           <h2>{{ t('fullscreen.settings') }}</h2>
           <button
             ref="closeButtonRef"
+            v-tooltip.fast="t('fullscreen.closeSettings')"
             class="background-controls-close parameter-panel-close"
             type="button"
             :aria-label="t('fullscreen.closeSettings')"
-            :title="t('fullscreen.closeSettings')"
             @click="close()"
           >
             <span class="i-lucide-chevron-right h-5 w-5" aria-hidden="true" />
