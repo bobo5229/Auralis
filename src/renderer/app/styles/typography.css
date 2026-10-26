@@ -45,8 +45,14 @@
   /* 颜色数值：HEX、RGB 输入与显示，数字和字母统一使用现有英文字体。 */
   --auralis-font-color-value: var(--auralis-font-latin), ui-sans-serif, system-ui, sans-serif;
 
-  /* 碟片标题：歌曲封面视图、专辑详情与设置预览共用。 */
+  /* 碟片标题：歌曲封面视图、专辑详情与设置预览共用。
+   * 特意设计：Georgia 提供西文衬线质感，中文固定使用 HarmonyOS Sans SC，
+   * 与主界面无衬线栈形成对比。不要随主界面字体或英文字体选择器联动修改；
+   * 确需调整时先与用户确认。 */
   --auralis-font-disc-heading: Georgia, 'HarmonyOS Sans SC', sans-serif;
+
+  /* 唱片室的字体体系（--cd-font-*）独立维护于 features/albums/styles/cdTypography.css，
+   * 刻意不依赖本文件的字体角色；主界面字体调整不要联动唱片室。 */
 }
 
 /* Vue 模板可直接使用这些类；CSS 规则也可引用对应 token。 */

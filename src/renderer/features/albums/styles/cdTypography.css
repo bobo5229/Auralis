@@ -112,7 +112,10 @@
 /* CD room typography: families, sizes and line heights are local semantic roles.
  * Display: titles, names and lyrics. Text: navigation, labels and fine print.
  * Numerals: Source Serif even inside display text; standalone data uses lining/tabular figures.
- * Chinese retains the existing GenRyuMin2TC resources. */
+ * Chinese retains the existing GenRyuMin2TC resources.
+ * This font system is intentionally independent of the main UI fonts
+ * (--auralis-font-*, the English font selector and --auralis-font-disc-heading).
+ * Do not propagate main-interface font changes here, and vice versa. */
 .cd-page,
 .cd-view-switch {
   --cd-font-cjk: 'Auralis Serif SC', 'SimSun', 'Yu Mincho', serif;
