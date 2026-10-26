@@ -163,7 +163,6 @@ it('shows playing icon choices and persists keyboard and pointer selections', as
   expect(options[1].props['aria-checked']).toBe(true)
   expect(options[1].props.tabindex).toBe(0)
   expect(options[1].focused).toBe(true)
-
   ;(options[0].props.onClick as () => void)()
   await nextTick()
   expect(getPlayingIconPreset()).toBe('equalizer')

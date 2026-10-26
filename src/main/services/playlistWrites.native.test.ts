@@ -70,7 +70,9 @@ describe('atomic playlist writes', () => {
     repository.updateViewMode(1, 'flat')
     smart.updateViewMode(1, 'flat')
     const regular = service.create('New regular')
-    const intelligent = smart.create('New smart', { conditions: [{ field: 'genre', value: 'Jazz' }] })
+    const intelligent = smart.create('New smart', {
+      conditions: [{ field: 'genre', value: 'Jazz' }],
+    })
     expect(regular.viewMode).toBe('cover')
     expect(intelligent.viewMode).toBe('cover')
     db.close()

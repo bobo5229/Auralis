@@ -15,10 +15,7 @@ export function animatePageParameterPanel(
     DURATION_MS * Math.min(1, Math.abs(toY - fromY) / Math.max(1, height)),
   )
   const movement = panel.animate(
-    [
-      { transform: `translate3d(0, ${fromY}px, 0)` },
-      { transform: `translate3d(0, ${toY}px, 0)` },
-    ],
+    [{ transform: `translate3d(0, ${fromY}px, 0)` }, { transform: `translate3d(0, ${toY}px, 0)` }],
     { duration, easing: EASING, fill: 'forwards' },
   )
   const fade = panel.animate(

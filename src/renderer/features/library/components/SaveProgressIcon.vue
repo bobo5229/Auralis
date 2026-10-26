@@ -21,19 +21,22 @@ function spinOuter(): void {
   if (stopped || succeeding) return
   const segment = segments[0]
   segment.draw('15%', '25%', 0.2, {
-    callback: () => segment.draw('75%', '150%', 0.3, {
-      circular: true,
-      callback: () => segment.draw('70%', '75%', 0.3, {
+    callback: () =>
+      segment.draw('75%', '150%', 0.3, {
         circular: true,
-        callback: () => segment.draw('100%', '100% + 0.1', 0.4, {
-          circular: true,
-          callback: () => {
-            segment.draw(0, 0.1)
-            spinOuter()
-          },
-        }),
+        callback: () =>
+          segment.draw('70%', '75%', 0.3, {
+            circular: true,
+            callback: () =>
+              segment.draw('100%', '100% + 0.1', 0.4, {
+                circular: true,
+                callback: () => {
+                  segment.draw(0, 0.1)
+                  spinOuter()
+                },
+              }),
+          }),
       }),
-    }),
   })
 }
 
@@ -108,11 +111,7 @@ defineExpose({ complete })
 <template>
   <svg class="save-progress-icon" viewBox="0 0 120 120" aria-hidden="true">
     <path ref="outer" d="M 60 60 m 0 -50 a 50 50 0 1 1 0 100 a 50 50 0 1 1 0 -100" />
-    <path
-      ref="check"
-      class="save-progress-icon-check"
-      d="M 15 60 L 48 93 L 105 27"
-    />
+    <path ref="check" class="save-progress-icon-check" d="M 15 60 L 48 93 L 105 27" />
   </svg>
 </template>
 

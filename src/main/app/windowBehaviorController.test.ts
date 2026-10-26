@@ -29,20 +29,17 @@ function harness(initial: WindowCloseBehavior = 'quit', available = true) {
 }
 
 describe('window close behavior', () => {
-  it.each(['quit', 'tray'] as const)(
-    'handles %s without destroying the window',
-    (behavior) => {
-      const { controller, window, quit } = harness(behavior)
-      const event = { preventDefault: vi.fn() }
-      window.emit('close', event)
-      expect(event.preventDefault).toHaveBeenCalledOnce()
-      expect(quit).toHaveBeenCalledTimes(behavior === 'quit' ? 1 : 0)
-      expect(window.hide).toHaveBeenCalledTimes(behavior === 'tray' ? 1 : 0)
-      expect(window.minimize).not.toHaveBeenCalled()
-      controller.dispose()
-      expect(window.listenerCount('close')).toBe(0)
-    },
-  )
+  it.each(['quit', 'tray'] as const)('handles %s without destroying the window', (behavior) => {
+    const { controller, window, quit } = harness(behavior)
+    const event = { preventDefault: vi.fn() }
+    window.emit('close', event)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(quit).toHaveBeenCalledTimes(behavior === 'quit' ? 1 : 0)
+    expect(window.hide).toHaveBeenCalledTimes(behavior === 'tray' ? 1 : 0)
+    expect(window.minimize).not.toHaveBeenCalled()
+    controller.dispose()
+    expect(window.listenerCount('close')).toBe(0)
+  })
 
   it('keeps the window accessible for an unavailable saved tray mode and rejects selecting it', () => {
     const { controller, window, preference } = harness('tray', false)

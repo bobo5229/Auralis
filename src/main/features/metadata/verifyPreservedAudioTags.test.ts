@@ -75,8 +75,12 @@ describe('preserved native tags', () => {
 
   it('rejects a changed private binary value even when common tags agree', async () => {
     vi.mocked(parseAudioMetadata)
-      .mockResolvedValueOnce(tags({ iTunes: [{ id: 'PRIVATE', value: { data: Uint8Array.of(1, 2) } }] }))
-      .mockResolvedValueOnce(tags({ iTunes: [{ id: 'PRIVATE', value: { data: Uint8Array.of(1, 3) } }] }))
+      .mockResolvedValueOnce(
+        tags({ iTunes: [{ id: 'PRIVATE', value: { data: Uint8Array.of(1, 2) } }] }),
+      )
+      .mockResolvedValueOnce(
+        tags({ iTunes: [{ id: 'PRIVATE', value: { data: Uint8Array.of(1, 3) } }] }),
+      )
     await expect(verifyPreservedAudioTags('source', 'staging')).rejects.toThrow(
       'did not preserve a native tag',
     )

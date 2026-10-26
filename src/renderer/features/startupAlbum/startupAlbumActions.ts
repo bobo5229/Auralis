@@ -7,4 +7,5 @@ export interface StartupAlbumActions {
   draw(signal: AbortSignal, returnFocusTo?: HTMLElement): Promise<StartupAlbumDrawResult>
 }
 
-export const startupAlbumActionsKey: InjectionKey<StartupAlbumActions> = Symbol('startupAlbumActions')
+export const startupAlbumActionsKey: InjectionKey<StartupAlbumActions> =
+  Symbol('startupAlbumActions')

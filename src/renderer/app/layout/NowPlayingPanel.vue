@@ -62,9 +62,9 @@ const contentStyle = computed<CSSProperties>(() => ({
   >
     <div
       v-if="!isCollapsed && isInteractive"
+      v-tooltip.fast="t('player.resizeLyricsPanelHint')"
       class="lyrics-resize-handle"
       :class="{ 'is-resizing': isWidthDragging }"
-      v-tooltip.fast="t('player.resizeLyricsPanelHint')"
       role="separator"
       aria-orientation="vertical"
       aria-controls="now-playing-panel-content"

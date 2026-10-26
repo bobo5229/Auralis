@@ -108,20 +108,23 @@ describe('library page Escape', () => {
     expect(scrollToTrackIndex).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('does not close on a held Escape after clearing (focused=%s)', (focused) => {
-    const { session } = createSession()
-    session.searchQuery.value = 'al'
-    if (focused) session.onSearchInputFocus()
-    const handleKeydown = focused ? session.onSearchKeydown : session.onWindowKeyDown
-    handleKeydown(createKeydown('Escape'))
-    const repeatedEscape = createKeydown('Escape')
-    Object.assign(repeatedEscape, { repeat: true })
-    handleKeydown(repeatedEscape)
-    expect(session.searchQuery.value).toBe('')
-    expect(session.shouldRenderSearchBar.value).toBe(true)
-    handleKeydown(createKeydown('Escape'))
-    expect(session.shouldRenderSearchBar.value).toBe(false)
-  })
+  it.each([false, true])(
+    'does not close on a held Escape after clearing (focused=%s)',
+    (focused) => {
+      const { session } = createSession()
+      session.searchQuery.value = 'al'
+      if (focused) session.onSearchInputFocus()
+      const handleKeydown = focused ? session.onSearchKeydown : session.onWindowKeyDown
+      handleKeydown(createKeydown('Escape'))
+      const repeatedEscape = createKeydown('Escape')
+      Object.assign(repeatedEscape, { repeat: true })
+      handleKeydown(repeatedEscape)
+      expect(session.searchQuery.value).toBe('')
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+      handleKeydown(createKeydown('Escape'))
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    },
+  )
 
   it('still yields to overlays and editors while waiting for the second Escape', () => {
     const { session } = createSession()
@@ -140,18 +143,15 @@ describe('library page Escape', () => {
     expect(session.shouldRenderSearchBar.value).toBe(false)
   })
 
-  it.each(['clear', 'outside-click'])(
-    'releases the retained empty search bar on %s',
-    (action) => {
-      const { session } = createSession()
-      session.searchQuery.value = 'al'
-      session.onWindowKeyDown(createKeydown('Escape'))
-      expect(session.shouldRenderSearchBar.value).toBe(true)
-      if (action === 'clear') session.clearSearch()
-      else session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
-      expect(session.shouldRenderSearchBar.value).toBe(false)
-    },
-  )
+  it.each(['clear', 'outside-click'])('releases the retained empty search bar on %s', (action) => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    if (action === 'clear') session.clearSearch()
+    else session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
 
   it.each([
     { defaultPrevented: true },

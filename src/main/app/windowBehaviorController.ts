@@ -3,14 +3,7 @@ import type { WindowCloseBehavior, WindowBehaviorState } from '@shared/types/win
 
 type ManagedWindow = Pick<
   BrowserWindow,
-  | 'isDestroyed'
-  | 'isMinimized'
-  | 'restore'
-  | 'show'
-  | 'focus'
-  | 'hide'
-  | 'on'
-  | 'removeListener'
+  'isDestroyed' | 'isMinimized' | 'restore' | 'show' | 'focus' | 'hide' | 'on' | 'removeListener'
 >
 
 export function createWindowBehaviorController(options: {

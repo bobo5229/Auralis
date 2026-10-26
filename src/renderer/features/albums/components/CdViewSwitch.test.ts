@@ -109,7 +109,10 @@ async function mountSwitch() {
   app.mount(root)
   cleanup = () => app.unmount()
   await nextTick()
-  const indicator = findAll(root, (element) => element.props.class === 'cd-view-switch-indicator')[0]
+  const indicator = findAll(
+    root,
+    (element) => element.props.class === 'cd-view-switch-indicator',
+  )[0]
   return { root, props, component, indicator }
 }
 

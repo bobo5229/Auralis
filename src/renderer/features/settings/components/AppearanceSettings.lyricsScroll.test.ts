@@ -272,7 +272,6 @@ it('shows scroll presets and preserves keyboard navigation, persistence and fail
   expect(options[1].props['aria-checked']).toBe(true)
   expect(options[1].props.tabindex).toBe(0)
   expect(options[1].focused).toBe(true)
-
   ;(options[1].props.onKeydown as (event: unknown) => void)({ key: 'End', preventDefault })
   await nextTick()
   expect(getLyricsScrollPreset()).toBe('emphasized')

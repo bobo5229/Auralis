@@ -77,11 +77,11 @@ describe('m4a text tag reader', () => {
     expect(metadata.common.picture).toBeUndefined()
     const overlaps = (start: number, end: number, region: [number, number]) =>
       start < region[1] && end > region[0]
-    expect(
-      reads.some(([position, length]) => overlaps(position, position + length, cover)),
-    ).toBe(false)
-    expect(
-      reads.some(([position, length]) => overlaps(position, position + length, audio)),
-    ).toBe(false)
+    expect(reads.some(([position, length]) => overlaps(position, position + length, cover))).toBe(
+      false,
+    )
+    expect(reads.some(([position, length]) => overlaps(position, position + length, audio))).toBe(
+      false,
+    )
   })
 })
