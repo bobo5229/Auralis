@@ -3,7 +3,7 @@ import { readonly, ref } from 'vue'
 export const ENGLISH_FONT_STORAGE_KEY = 'auralis-english-font'
 /** 覆盖 typography.css 的根级英文字体变量；引导脚本 theme-boot.js 在首帧前写同一变量。 */
 export const ENGLISH_FONT_CSS_VARIABLE = '--auralis-font-latin'
-export const ENGLISH_FONTS = ['plusJakartaSans', 'inter', 'publicSans', 'geist'] as const
+export const ENGLISH_FONTS = ['plusJakartaSans', 'inter', 'publicSans', 'geist', 'rubik'] as const
 export type EnglishFontChoice = (typeof ENGLISH_FONTS)[number]
 export const DEFAULT_ENGLISH_FONT: EnglishFontChoice = 'plusJakartaSans'
 
@@ -13,6 +13,7 @@ export const ENGLISH_FONT_FAMILIES: Record<EnglishFontChoice, string> = {
   inter: 'Inter',
   publicSans: 'Public Sans',
   geist: 'Geist',
+  rubik: 'Rubik',
 }
 
 export function isEnglishFontChoice(value: unknown): value is EnglishFontChoice {

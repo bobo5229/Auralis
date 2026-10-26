@@ -205,7 +205,7 @@ describe('theme boot contract', () => {
   it('follows the useEnglishFont storage key, values and family mapping', () => {
     expect(themeBootJs).toContain(`'${ENGLISH_FONT_STORAGE_KEY}'`)
     expect(themeBootJs).toMatch(
-      /AURALIS_ENGLISH_FONT_VALUES\s*=\s*\['plusJakartaSans',\s*'inter',\s*'publicSans',\s*'geist'\]/,
+      /AURALIS_ENGLISH_FONT_VALUES\s*=\s*\['plusJakartaSans',\s*'inter',\s*'publicSans',\s*'geist',\s*'rubik'\]/,
     )
     for (const [choice, family] of Object.entries(ENGLISH_FONT_FAMILIES)) {
       expect(themeBootJs).toContain(`${choice}: '${family}'`)
