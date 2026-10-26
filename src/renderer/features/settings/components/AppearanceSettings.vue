@@ -185,6 +185,8 @@ const {
 const englishFontOptions = [
   { value: 'plusJakartaSans', label: 'Plus Jakarta Sans' },
   { value: 'inter', label: 'Inter' },
+  { value: 'publicSans', label: 'Public Sans' },
+  { value: 'geist', label: 'Geist' },
 ] as const
 const themeOptions = computed(() =>
   (['light', 'dark'] as const).map((value) => ({

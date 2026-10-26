@@ -25,7 +25,29 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Public Sans';
+  src: url('../../assets/fonts/Public_Sans/PublicSans-latin-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../assets/fonts/Geist/Geist-latin-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.woff2') format('woff2');
   font-weight: 200;
   font-style: normal;
@@ -33,7 +55,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
@@ -41,7 +63,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
@@ -49,7 +71,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
@@ -57,7 +79,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
@@ -65,7 +87,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
@@ -73,7 +95,7 @@
 }
 
 @font-face {
-  font-family: 'Auralis Desktop Lyrics SC';
+  font-family: 'Auralis Serif SC';
   src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.woff2') format('woff2');
   font-weight: 800 900;
   font-style: normal;

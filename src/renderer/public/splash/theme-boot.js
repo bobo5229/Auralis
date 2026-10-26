@@ -10,10 +10,12 @@
   var AURALIS_THEME_VALUES = ['light', 'dark']
   var AURALIS_THEME_DEFAULT = 'dark'
   var AURALIS_ENGLISH_FONT_STORAGE_KEY = 'auralis-english-font'
-  var AURALIS_ENGLISH_FONT_VALUES = ['plusJakartaSans', 'inter']
+  var AURALIS_ENGLISH_FONT_VALUES = ['plusJakartaSans', 'inter', 'publicSans', 'geist']
   var AURALIS_ENGLISH_FONT_FAMILIES = {
     plusJakartaSans: 'Plus Jakarta Sans',
     inter: 'Inter',
+    publicSans: 'Public Sans',
+    geist: 'Geist',
   }
   var AURALIS_DARK_ACCENT_STORAGE_KEY = 'auralis-dark-accent'
   var AURALIS_DARK_ACCENT_DEFAULT = '#1DD55F'

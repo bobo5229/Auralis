@@ -137,10 +137,15 @@ it('lists bundled English fonts and persists the selection', async () => {
   ;(trigger.props.onClick as () => void)()
   await nextTick()
   expect(trigger.props['aria-expanded']).toBe(true)
-  const options = [0, 1].map((index) =>
+  const options = [0, 1, 2, 3].map((index) =>
     find(body, (node) => node.props.id === `appearance-english-font-option-${index}`),
   )
-  expect(options.map((option) => textOf(option!))).toEqual(['Plus Jakarta Sans', 'Inter'])
+  expect(options.map((option) => textOf(option!))).toEqual([
+    'Plus Jakarta Sans',
+    'Inter',
+    'Public Sans',
+    'Geist',
+  ])
   expect(options[0]!.props['aria-selected']).toBe(true)
   ;(options[1]!.props.onClick as () => void)()
   await nextTick()
@@ -148,6 +153,16 @@ it('lists bundled English fonts and persists the selection', async () => {
   expect(setItem).toHaveBeenCalledWith(ENGLISH_FONT_STORAGE_KEY, 'inter')
   expect(textOf(find(trigger, (node) => node.props.id === 'appearance-english-font-value')!)).toBe(
     'Inter',
+  )
+  ;(trigger.props.onClick as () => void)()
+  await nextTick()
+  const geist = find(body, (node) => node.props.id === 'appearance-english-font-option-3')!
+  expect(geist.props['aria-selected']).toBe(false)
+  ;(geist.props.onClick as () => void)()
+  await nextTick()
+  expect(setItem).toHaveBeenLastCalledWith(ENGLISH_FONT_STORAGE_KEY, 'geist')
+  expect(textOf(find(trigger, (node) => node.props.id === 'appearance-english-font-value')!)).toBe(
+    'Geist',
   )
   ;(trigger.props.onClick as () => void)()
   await nextTick()
