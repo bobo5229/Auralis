@@ -73,6 +73,10 @@ export async function createPressureSurface(
     previous = 0,
     disposed = false,
     frames = 0
+  let resolveReady!: () => void
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve
+  })
   let worker: Worker | null = null
   let generation = 0,
     inFlight = false,
@@ -226,6 +230,7 @@ export async function createPressureSurface(
     lastMainPaintMs = performance.now() - started
     totalMainPaintMs += lastMainPaintMs
     frames++
+    resolveReady()
     lastDrawMs = computeMs + lastMainPaintMs
     maxDrawMs = Math.max(maxDrawMs, lastDrawMs)
     lastDrawPixels = patch.width * patch.height
@@ -329,8 +334,10 @@ export async function createPressureSurface(
     motion.removeEventListener('change', preference)
     signal.removeEventListener('abort', dispose)
     canvas.remove()
+    resolveReady()
   }
   return {
+    ready,
     setBadges(next: PressureBadge[]) {
       stop()
       entries = next

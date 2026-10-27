@@ -1014,6 +1014,7 @@
       "nextBadge": "Inspect next badge",
       "inspectError": "Inspection is unavailable. Try again; static badges remain available.",
       "previewError": "Badge images could not load. Switch categories or reopen the case to retry.",
+      "caseError": "Case materials could not load. Reopen the case to retry.",
       "title": "Listening mementos",
       "viewAll": "View all",
       "preview": "Badge catalogue preview",

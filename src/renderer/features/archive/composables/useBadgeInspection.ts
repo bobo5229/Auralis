@@ -2,7 +2,15 @@ import { computed, nextTick, onBeforeUnmount, readonly, ref, type Ref } from 'vu
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { InspectBadge, createInspectRenderer } from '../runtime/badgeInspectRenderer'
 
-type Phase = 'closed' | 'loading' | 'entering' | 'inspecting' | 'leaving'
+type Phase =
+  | 'closed'
+  | 'loading'
+  | 'entering'
+  | 'inspecting'
+  | 'switch-loading'
+  | 'switch-out'
+  | 'switch-in'
+  | 'leaving'
 interface Selection {
   entry: InspectBadge
   button: HTMLButtonElement
@@ -16,10 +24,14 @@ interface Flight {
   x: number
   y: number
   endY: number
+  from?: { left: number; top: number; width: number; opacity: number }
 }
 const TAU = Math.PI * 2
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const ease = (t: number) => 1 - (1 - t) ** 3
+const switchEase = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
+const SWITCH_DURATION = 220
+const SWITCH_DISTANCE = 64
 
 /** Owns the inspection session, pose, cancellation and animation clock. */
 export function useBadgeInspection(options: {
@@ -28,6 +40,7 @@ export function useBadgeInspection(options: {
   onLift: (id: string) => void
   onReturn: (id: string) => void
   onError: () => void
+  onSwitchError: () => void
 }) {
   const phase = ref<Phase>('closed')
   const badgeId = ref<string | null>(null)
@@ -36,7 +49,8 @@ export function useBadgeInspection(options: {
   const motion = createReducedMotionQuery()
   let graphics: ReturnType<typeof createInspectRenderer> | undefined
   let current: Selection | undefined
-  let pending: { entry: InspectBadge; button: HTMLButtonElement } | undefined
+  let pending: { entry: InspectBadge; button: HTMLButtonElement; direction: -1 | 1 } | undefined
+  let slide: { start: number; direction: -1 | 1; x: number; y: number } | undefined
   let flight: Flight | undefined
   let frame = 0,
     previous = 0,
@@ -72,12 +86,10 @@ export function useBadgeInspection(options: {
     if (current?.lifted) options.onReturn(current.entry.id)
     const button = current?.button
     current = flight = undefined
+    slide = pending = undefined
     badgeId.value = liftedId.value = null
     phase.value = 'closed'
-    const next = pending
-    pending = undefined
-    if (next && !disposed) void open(next.entry, next.button)
-    else if (restoreFocus) {
+    if (restoreFocus) {
       const owner = revision
       void nextTick(() => {
         if (!disposed && owner === revision && phase.value === 'closed' && button?.isConnected)
@@ -97,6 +109,10 @@ export function useBadgeInspection(options: {
       finishClose()
       return
     }
+    stop()
+    current!.button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    current!.source = current!.button.querySelector('img')!.getBoundingClientRect()
+    const box = options.stage.value!.getBoundingClientRect()
     flight = {
       start: performance.now(),
       duration: 420,
@@ -104,6 +120,12 @@ export function useBadgeInspection(options: {
       x: pose.x,
       y: pose.y,
       endY: Math.round(pose.y / TAU) * TAU,
+      from: {
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        opacity: Number(options.stage.value!.style.opacity || 1),
+      },
     }
     phase.value = 'leaving'
     requestDraw()
@@ -115,10 +137,61 @@ export function useBadgeInspection(options: {
     graphics = undefined
     options.onError()
   }
+  function activateNext() {
+    if (!pending || !current || !graphics?.activatePrepared()) return false
+    if (current.lifted) options.onReturn(current.entry.id)
+    const next = pending
+    pending = undefined
+    next.button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    current = {
+      entry: next.entry,
+      button: next.button,
+      source: next.button.querySelector('img')!.getBoundingClientRect(),
+      lifted: true,
+    }
+    badgeId.value = liftedId.value = next.entry.id
+    options.onLift(next.entry.id)
+    pose.x = pose.targetX = 0
+    pose.y = pose.targetY = TAU
+    return true
+  }
   function draw(time: number) {
     frame = 0
     if (!current || disposed || document.hidden) {
       previous = 0
+      return
+    }
+    if (phase.value === 'switch-out' || phase.value === 'switch-in') {
+      const turn = slide!
+      const t = motion.matches ? 1 : clamp((time - turn.start) / SWITCH_DURATION, 0, 1)
+      const p = switchEase(t)
+      const outgoing = phase.value === 'switch-out'
+      place(1)
+      const x = turn.direction * SWITCH_DISTANCE * (outgoing ? -p : 1 - p)
+      options.stage.value!.style.transform += ` translateX(${x}px)`
+      options.stage.value!.style.opacity = String(outgoing ? 1 - p : p)
+      pose.x = outgoing ? turn.x * (1 - p) : 0
+      pose.y = outgoing ? turn.y + (TAU - turn.y) * p : TAU
+      graphics?.render(pose.x, pose.y)
+      if (t === 1) {
+        if (outgoing) {
+          if (!activateNext()) {
+            fail()
+            return
+          }
+          if (motion.matches) {
+            finishInspecting()
+            graphics?.render(0, TAU)
+            return
+          }
+          phase.value = 'switch-in'
+          slide = { ...turn, start: time }
+          place(1)
+          options.stage.value!.style.transform += ` translateX(${turn.direction * SWITCH_DISTANCE}px)`
+          graphics?.render(0, TAU)
+          requestDraw()
+        } else finishInspecting()
+      } else requestDraw()
       return
     }
     if (phase.value === 'entering' || phase.value === 'leaving') {
@@ -131,20 +204,25 @@ export function useBadgeInspection(options: {
         pose.y = TAU * t * t * (3 - 2 * t)
         graphics?.render(pose.x, pose.y)
         if (t === 1) {
-          phase.value = 'inspecting'
-          flight = undefined
-          pose.x = pose.targetX = 0
-          pose.y = pose.targetY = TAU
-          options.stage.value?.focus({ preventScroll: true })
+          finishInspecting()
         } else requestDraw()
       } else {
-        place(turn.progress * (1 - ease(t)))
+        const from = turn.from!,
+          source = current.source,
+          p = ease(t)
+        options.stage.value!.style.transform = `translate(${from.left + (source.left - from.left) * p}px, ${from.top + (source.top - from.top) * p}px) scale(${(from.width + (source.width - from.width) * p) / width})`
+        options.stage.value!.style.opacity = String(from.opacity + (1 - from.opacity) * p)
         pose.x = turn.x * (1 - ease(t))
         pose.y = turn.y + (turn.endY - turn.y) * ease(t)
         graphics?.render(pose.x, pose.y)
         if (t === 1) finishClose()
         else requestDraw()
       }
+      return
+    }
+    if (phase.value === 'switch-loading') {
+      place(1)
+      graphics?.render(pose.x, pose.y)
       return
     }
     if (phase.value !== 'inspecting') return
@@ -167,6 +245,17 @@ export function useBadgeInspection(options: {
   function requestDraw() {
     if (!frame && !disposed && !document.hidden) frame = requestAnimationFrame(draw)
   }
+  function finishInspecting() {
+    phase.value = 'inspecting'
+    flight = slide = undefined
+    pose.x = pose.targetX = 0
+    pose.y = pose.targetY = TAU
+    place(1)
+    if (options.stage.value) {
+      options.stage.value.style.opacity = '1'
+      options.stage.value.focus({ preventScroll: true })
+    }
+  }
   async function open(entry: InspectBadge, button: HTMLButtonElement) {
     if (disposed || phase.value !== 'closed') return
     const owner = ++revision
@@ -188,6 +277,7 @@ export function useBadgeInspection(options: {
       resize()
       if (!(await graphics.load(entry)) || disposed || owner !== revision) return
       place(0)
+      options.stage.value!.style.opacity = '1'
       graphics.render(0, 0)
       current!.lifted = true
       liftedId.value = entry.id
@@ -199,10 +289,36 @@ export function useBadgeInspection(options: {
       if (owner === revision && !disposed) fail()
     }
   }
-  function switchTo(entry: InspectBadge, button: HTMLButtonElement) {
-    if (phase.value !== 'inspecting') return
-    pending = { entry, button }
-    beginClose()
+  async function switchTo(entry: InspectBadge, button: HTMLButtonElement, direction: -1 | 1) {
+    if (phase.value !== 'inspecting' || entry.id === current?.entry.id || !graphics) return
+    const owner = ++revision
+    stop()
+    pending = { entry, button, direction }
+    phase.value = 'switch-loading'
+    options.stage.value?.focus({ preventScroll: true })
+    try {
+      if (!(await graphics.prepare(entry)) || disposed || owner !== revision) return
+      if (motion.matches) {
+        if (!activateNext()) {
+          fail()
+          return
+        }
+        finishInspecting()
+        graphics.render(0, TAU)
+        return
+      }
+      slide = { start: performance.now(), direction, x: pose.x, y: pose.y }
+      phase.value = 'switch-out'
+      requestDraw()
+    } catch {
+      if (!disposed && owner === revision) {
+        pending = undefined
+        graphics.cancelLoad()
+        finishInspecting()
+        graphics.render(0, TAU)
+        options.onSwitchError()
+      }
+    }
   }
   function reset() {
     pose.targetX = 0

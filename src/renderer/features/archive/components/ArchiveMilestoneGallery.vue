@@ -9,6 +9,7 @@ import { useBadgeInspection } from '../composables/useBadgeInspection'
 import { createPressureSurface } from '../runtime/badgePressureSurface'
 import type { BadgeState } from '../runtime/badgeMaterialRenderer'
 import type { InspectBadge } from '../runtime/badgeInspectRenderer'
+import aluminiumTexture from '../assets/milestones/case/brushed-aluminium.png?url'
 import '../styles/badgeGallery.css'
 
 defineProps<{ open: boolean; returnFocusTo: HTMLElement | null }>()
@@ -25,6 +26,10 @@ const previewSources = computed(() =>
 )
 const previewsReady = ref(false),
   previewsFailed = ref(false)
+const casePresented = ref(false),
+  aluminiumReady = ref(false),
+  pressureReady = ref(false),
+  aluminiumFailed = ref(false)
 watch(
   previewSources,
   async (sources, _previous, onCleanup) => {
@@ -61,12 +66,24 @@ const canPrevious = ref(false),
 const caseError = computed(() =>
   previewsFailed.value
     ? t('archive.milestones.previewError')
-    : failed.value
-      ? t('archive.milestones.inspectError')
-      : '',
+    : foamFailed.value || aluminiumFailed.value
+      ? t('archive.milestones.caseError')
+      : failed.value
+        ? t('archive.milestones.inspectError')
+        : '',
 )
 const lifetime = new AbortController()
 const motion = createReducedMotionQuery()
+watch([previewsReady, aluminiumReady, pressureReady, caseError], async () => {
+  if (
+    casePresented.value ||
+    (!caseError.value && !(previewsReady.value && aluminiumReady.value && pressureReady.value))
+  )
+    return
+  casePresented.value = true
+  await nextTick()
+  if (!lifetime.signal.aborted && !active.value) caseClose.value?.focus({ preventScroll: true })
+})
 let surface: Awaited<ReturnType<typeof createPressureSurface>> | undefined
 let observer: ResizeObserver | undefined
 const inspection = useBadgeInspection({
@@ -78,6 +95,9 @@ const inspection = useBadgeInspection({
     failed.value = true
     // A lost WebGL context remains attached to its canvas; retries need a fresh node.
     canvasRevision.value++
+  },
+  onSwitchError: () => {
+    failed.value = true
   },
 })
 const { phase, badgeId, liftedId, active } = inspection
@@ -110,7 +130,10 @@ function inspect(id: string) {
 function switchBadge(delta: number) {
   const badge = badges.value[index.value + delta]
   const button = badge && buttonFor(badge.id)
-  if (button) inspection.switchTo(descriptor(badge.id), button)
+  if (button) {
+    failed.value = false
+    void inspection.switchTo(descriptor(badge.id), button, delta < 0 ? -1 : 1)
+  }
 }
 function close() {
   if (active.value) inspection.close()
@@ -150,9 +173,21 @@ onMounted(async () => {
   observer = new ResizeObserver(updateArrows)
   observer.observe(viewport.value!)
   viewport.value!.addEventListener('wheel', wheel, { passive: false, signal: lifetime.signal })
+  void (async () => {
+    try {
+      const image = new Image()
+      image.src = aluminiumTexture
+      await image.decode()
+      if (!lifetime.signal.aborted) aluminiumReady.value = true
+    } catch {
+      if (!lifetime.signal.aborted) aluminiumFailed.value = true
+    }
+  })()
   try {
     surface = await createPressureSurface(sheet.value!, row.value!, lifetime.signal)
     rebuild()
+    await surface.ready
+    if (!lifetime.signal.aborted) pressureReady.value = true
   } catch {
     if (!lifetime.signal.aborted) foamFailed.value = true
   }
@@ -173,7 +208,8 @@ defineExpose({
     :title="t('archive.milestones.title')"
     :title-id="titleId"
     :padded="false"
-    :initial-focus="() => caseClose ?? undefined"
+    :initial-focus="() => (casePresented ? (caseClose ?? undefined) : undefined)"
+    :busy="!casePresented"
     :return-focus-to="returnFocusTo"
     panel-class="archive-badge-dialog"
     @close="close"
@@ -181,7 +217,12 @@ defineExpose({
     <template #header>
       <h2 :id="titleId" class="sr-only">{{ t('archive.milestones.title') }}</h2>
     </template>
-    <div class="archive-badge-gallery" :inert="active" :data-foam-failed="foamFailed || undefined">
+    <div
+      class="archive-badge-gallery"
+      :class="{ 'is-ready': casePresented }"
+      :inert="active || !casePresented"
+      :data-foam-failed="foamFailed || undefined"
+    >
       <section class="collection-case" :aria-label="t('archive.milestones.collectionCase')">
         <div class="case-foot" aria-hidden="true"></div>
         <div class="aluminium-rim">
@@ -313,7 +354,7 @@ defineExpose({
         class="badge-inspector"
         :class="{
           'is-active': active,
-          'is-present': phase === 'entering' || phase === 'inspecting',
+          'is-present': active && phase !== 'loading' && phase !== 'leaving',
         }"
         :data-inspection-phase="phase"
         :data-inspection-badge="badgeId"
@@ -352,6 +393,7 @@ defineExpose({
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
         <button
+          v-show="phase === 'inspecting'"
           class="inspect-switch inspect-switch--previous"
           type="button"
           :disabled="phase !== 'inspecting' || index <= 0"
@@ -361,6 +403,7 @@ defineExpose({
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
         </button>
         <button
+          v-show="phase === 'inspecting'"
           class="inspect-switch inspect-switch--next"
           type="button"
           :disabled="phase !== 'inspecting' || index >= badges.length - 1"

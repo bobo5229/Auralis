@@ -142,9 +142,10 @@ node --test scripts/badges/materialPipeline.test.mjs
 
 - 陈列与页面小尺寸徽章使用同一批静态 GLSL PNG；只有被取出的一枚实时渲染。
 - `ArchiveMilestoneGallery.vue` 负责分类、外观与 UI 组合，铝盒直接作为整个弹层，分类、外观和关闭操作整合进盒沿；没有额外标题栏、说明段落或 middle dot 拼接标题。AppDialog 通过可选 header 插槽保留背景隔离和焦点管理，其他弹窗沿用默认标题栏。检视无详情文字；Esc／空白／关闭先放回，随后 Esc 关闭盒子。
-- `useBadgeInspection.ts` 负责约 1080ms 的移动放大与自身竖轴整周翻转、鼠标微倾斜、方向键调整和约 420ms 的归还。左右按钮连续检视同类徽章。减弱动效偏好下直接到达最终状态。
-- `badgeInspectRenderer.ts` 负责模型、五张正面材质贴图和一个共享 WebGL 上下文，复用既有 badgeShaders；加载并行、纹理上传与预编译先于翻转，切换和取消丢弃过期结果。
-- `badgePressureSurface.ts` 拥有海绵压力、画布和 Worker，像素内核只更新变化区域；取出后保留 82% 压缩。静置停帧，离开页面或关闭盒子释放资源。
+- 面板首次呈现同时等待当前分类 PNG 解码、铝盒与海绵纹理解码及压痕首帧提交，随后整盒以 140ms 淡入；准备期间保留布局、隔离交互并允许 Esc／遮罩取消。分类或外观切换只等待当前组图片，不再次隐藏盒体；失败显示可关闭的错误状态。
+- `useBadgeInspection.ts` 负责约 1080ms 的移动放大与自身竖轴整周翻转、鼠标微倾斜、方向键调整和约 420ms 的归还。连续检视先准备目标，再以同一 easeInOutCubic 曲线执行两段各 220ms、64px 的横移淡出／淡入，不回槽或重播翻转；上一枚反向。52px 左右按钮仅在 inspecting 阶段显示，过场由检视对象接住焦点。减弱动效偏好下等待资源后直接替换。
+- `badgeInspectRenderer.ts` 负责模型、五张正面材质贴图和一个共享 WebGL 上下文，复用既有 badgeShaders；prepare 保留当前模型并完成目标纹理上传与预编译，activatePrepared 在交接处替换。只持有当前和一枚待切换模型，切换和取消释放多余资源并丢弃过期结果；目标加载失败保留当前检视。
+- `badgePressureSurface.ts` 拥有海绵压力、画布和 Worker，ready 在压痕首帧提交后完成；像素内核只更新变化区域，取出后保留 82% 压缩。静置停帧，离开页面或关闭盒子释放资源。
 - 外轮廓由已有 badges:build 写入同一 manifest 的 contour 字段，海绵与三维几何共同消费。纹理是功能内资源，不依赖 demo 路径或本地 HTTP 服务。
 
 材质内核的历史像素／性能证据见原型 README；正式集成须另以构建后 Electron 的实际入口检查分类、22 种外观、检视与放回、焦点和资源释放，性能测量期间不截图。已有有效静态资产检查继续复用。

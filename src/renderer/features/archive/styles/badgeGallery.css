@@ -16,6 +16,15 @@
 
   --foam-texture: url('../assets/milestones/case/foam.png');
   --brush-texture: url('../assets/milestones/case/brushed-aluminium.png');
+  .archive-badge-gallery {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease;
+  }
+  .archive-badge-gallery.is-ready {
+    opacity: 1;
+    pointer-events: auto;
+  }
   .categories {
     display: flex;
     gap: 24px;
@@ -410,21 +419,25 @@
   .inspect-switch {
     position: absolute;
     top: 50%;
-    width: 44px;
-    height: 44px;
-    border: 0;
+    width: 52px;
+    height: 52px;
+    border: 1px solid rgb(235 241 244 / 55%);
     border-radius: 50%;
-    background: rgb(27 32 34 / 85%);
-    color: #e5e7e5;
+    background: #c3cbcf;
+    color: #172126;
+    box-shadow: 0 3px 12px rgb(0 0 0 / 45%);
     display: grid;
     place-items: center;
   }
   .inspect-switch svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
+  }
+  .inspect-switch:hover:not(:disabled) {
+    background: #edf1f3;
   }
   .inspect-switch:disabled {
-    opacity: 0.3;
+    opacity: 0.35;
   }
   .inspect-switch--previous {
     left: max(24px, calc(50% - 290px));
@@ -477,6 +490,9 @@
   }
 }
 html[data-reduced-motion='true'] .archive-badge-dialog {
+  .archive-badge-gallery {
+    transition: none;
+  }
   .foam-viewport {
     scroll-behavior: auto;
   }

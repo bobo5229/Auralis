@@ -68,8 +68,8 @@ export function createInspectRenderer(
     onError(new Error('Badge inspection shader compilation failed'))
   const camera = new THREE.OrthographicCamera(-165, 165, 185, -185, 0.1, 2000)
   camera.position.z = 1000
-  const scene = new THREE.Scene(),
-    object = new THREE.Group()
+  const scene = new THREE.Scene()
+  let object = new THREE.Group()
   scene.add(object)
   const loader = new THREE.TextureLoader()
   let settleGrain!: (ready: boolean) => void
@@ -116,26 +116,39 @@ export function createInspectRenderer(
       roughness: { value: new THREE.Vector4(0.22, 0.12, 0.18, 0.65) },
     },
   })
-  let textures: THREE.Texture[] = []
+  interface Model {
+    key: string
+    group: THREE.Group
+    textures: THREE.Texture[]
+    front: THREE.ShaderMaterial
+  }
+  let current: Model | undefined, prepared: Model | undefined
   let revision = 0,
     disposed = false,
     ready = false,
     badgeId = '',
     frames = 0
   const pose = { x: 0, y: 0 }
-  function clearModel() {
-    for (const mesh of [...object.children]) {
+  function release(model: Model | undefined) {
+    if (!model) return
+    for (const mesh of [...model.group.children]) {
       if (mesh instanceof THREE.Mesh) mesh.geometry.dispose()
-      object.remove(mesh)
+      model.group.remove(mesh)
     }
-    for (const texture of textures) texture.dispose()
-    textures = []
-    ready = false
+    for (const texture of model.textures) texture.dispose()
+    model.front.dispose()
   }
-  function mesh(geometry: THREE.BufferGeometry, material = metal, x = 0, y = 0, z = 0) {
+  function mesh(
+    group: THREE.Group,
+    geometry: THREE.BufferGeometry,
+    material = metal,
+    x = 0,
+    y = 0,
+    z = 0,
+  ) {
     const part = new THREE.Mesh(geometry, material)
     part.position.set(x, y, z)
-    object.add(part)
+    group.add(part)
     return part
   }
   function contextLost(event: Event) {
@@ -143,86 +156,124 @@ export function createInspectRenderer(
     if (!disposed) onError(new Error('Badge inspection WebGL context lost'))
   }
   canvas.addEventListener('webglcontextlost', contextLost)
-  return {
-    async load(entry: InspectBadge) {
-      if (disposed) return false
-      if (ready && badgeId === `${entry.id}:${entry.state}`) return true
-      const owner = ++revision,
-        next: THREE.Texture[] = []
-      try {
-        const keys = ['base', 'material', 'normal', 'ao', 'finish'] as const
-        // Decode independent maps concurrently; retain ownership of every fulfilled
-        // texture so cancellation or one failed request cannot leak the others.
-        const [loaded, grainLoaded] = await Promise.all([
-          Promise.allSettled(
-            keys.map((key) => loader.loadAsync(entry.material.states[entry.state][key])),
-          ),
-          grainReady,
-        ])
-        for (const result of loaded) if (result.status === 'fulfilled') next.push(result.value)
-        if (disposed || owner !== revision) {
-          for (const texture of next) texture.dispose()
-          return false
-        }
-        if (!grainLoaded) throw new Error('Badge back texture failed to load')
-        const failure = loaded.find((result) => result.status === 'rejected')
-        if (failure) throw failure.reason
-        for (const [i, key] of keys.entries()) {
-          const texture = next[i]
-          texture.colorSpace = key === 'base' ? THREE.SRGBColorSpace : THREE.NoColorSpace
-          texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4)
-        }
-        clearModel()
-        textures = next
-        for (const [i, key] of [
-          'baseMap',
-          'materialMap',
-          'normalMap',
-          'occlusionMap',
-          'finishMap',
-        ].entries())
-          front.uniforms[key].value = textures[i]
-        front.uniforms.unlit.value = entry.state === 'unlit' ? 1 : 0
-        front.uniforms.useFinish.value = entry.material.baseline ? 0 : 1
-        front.uniforms.roughness.value.fromArray(entry.material.roughness)
-        const paths = new SVGLoader().parse(
-          `<svg xmlns="http://www.w3.org/2000/svg"><path d="${entry.contour}"/></svg>`,
-        ).paths
-        const points = SVGLoader.createShapes(paths[0])[0]
-          .getPoints(16)
-          .map((point) => new THREE.Vector2(point.x - 165, 185 - point.y))
-        const shape = new THREE.Shape(points)
-        const body = new THREE.ExtrudeGeometry(shape, {
-          depth: 6,
-          bevelEnabled: true,
-          bevelThickness: 1.3,
-          bevelSize: 0.8,
-          bevelSegments: 3,
-          steps: 1,
-        })
-        body.translate(0, 0, -3)
-        mesh(body)
-        mesh(new THREE.PlaneGeometry(330, 370), front, 0, 0, 4.5)
-        // A plain, unlettered metal back with a small brooch fastening.
-        for (const x of [-62, 62]) {
-          const mounting = mesh(new THREE.CylinderGeometry(7, 8, 3.5, 24), fastening, x, 12, -6.5)
-          mounting.rotation.x = Math.PI / 2
-        }
-        const pin = mesh(new THREE.CylinderGeometry(1.8, 1.8, 124, 16), fastening, 0, 12, -9)
-        pin.rotation.z = Math.PI / 2
-        // Finish uploads and prepare the programs before starting the authored
-        // turn, using the existing renderer's texture/program caches.
-        for (const texture of [...textures, grain]) renderer.initTexture(texture)
-        await renderer.compileAsync(scene, camera)
-        if (disposed || owner !== revision) return false
-        badgeId = `${entry.id}:${entry.state}`
-        ready = true
-        return true
-      } catch (error) {
-        for (const loaded of next) loaded.dispose()
-        if (!disposed && owner === revision) throw error
+  function cancelLoad() {
+    revision++
+    release(prepared)
+    prepared = undefined
+  }
+  function activatePrepared() {
+    if (disposed || !prepared) return false
+    scene.remove(object)
+    release(current)
+    current = prepared
+    prepared = undefined
+    object = current.group
+    scene.add(object)
+    badgeId = current.key
+    ready = true
+    return true
+  }
+  async function prepare(entry: InspectBadge) {
+    if (disposed) return false
+    cancelLoad()
+    const owner = ++revision,
+      next: THREE.Texture[] = []
+    let model: Model | undefined
+    try {
+      const keys = ['base', 'material', 'normal', 'ao', 'finish'] as const
+      // Decode independent maps concurrently; retain ownership of every fulfilled
+      // texture so cancellation or one failed request cannot leak the others.
+      const [loaded, grainLoaded] = await Promise.all([
+        Promise.allSettled(
+          keys.map((key) => loader.loadAsync(entry.material.states[entry.state][key])),
+        ),
+        grainReady,
+      ])
+      for (const result of loaded) if (result.status === 'fulfilled') next.push(result.value)
+      if (disposed || owner !== revision) {
+        for (const texture of next) texture.dispose()
         return false
       }
+      if (!grainLoaded) throw new Error('Badge back texture failed to load')
+      const failure = loaded.find((result) => result.status === 'rejected')
+      if (failure) throw failure.reason
+      for (const [i, key] of keys.entries()) {
+        const texture = next[i]
+        texture.colorSpace = key === 'base' ? THREE.SRGBColorSpace : THREE.NoColorSpace
+        texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4)
+      }
+      const group = new THREE.Group()
+      const material = front.clone()
+      model = { key: `${entry.id}:${entry.state}`, group, textures: next, front: material }
+      for (const [i, key] of [
+        'baseMap',
+        'materialMap',
+        'normalMap',
+        'occlusionMap',
+        'finishMap',
+      ].entries())
+        material.uniforms[key].value = next[i]
+      material.uniforms.unlit.value = entry.state === 'unlit' ? 1 : 0
+      material.uniforms.useFinish.value = entry.material.baseline ? 0 : 1
+      material.uniforms.roughness.value.fromArray(entry.material.roughness)
+      const paths = new SVGLoader().parse(
+        `<svg xmlns="http://www.w3.org/2000/svg"><path d="${entry.contour}"/></svg>`,
+      ).paths
+      const points = SVGLoader.createShapes(paths[0])[0]
+        .getPoints(16)
+        .map((point) => new THREE.Vector2(point.x - 165, 185 - point.y))
+      const shape = new THREE.Shape(points)
+      const body = new THREE.ExtrudeGeometry(shape, {
+        depth: 6,
+        bevelEnabled: true,
+        bevelThickness: 1.3,
+        bevelSize: 0.8,
+        bevelSegments: 3,
+        steps: 1,
+      })
+      body.translate(0, 0, -3)
+      mesh(group, body)
+      mesh(group, new THREE.PlaneGeometry(330, 370), material, 0, 0, 4.5)
+      // A plain, unlettered metal back with a small brooch fastening.
+      for (const x of [-62, 62]) {
+        const mounting = mesh(
+          group,
+          new THREE.CylinderGeometry(7, 8, 3.5, 24),
+          fastening,
+          x,
+          12,
+          -6.5,
+        )
+        mounting.rotation.x = Math.PI / 2
+      }
+      const pin = mesh(group, new THREE.CylinderGeometry(1.8, 1.8, 124, 16), fastening, 0, 12, -9)
+      pin.rotation.z = Math.PI / 2
+      // Finish uploads and prepare the programs before starting the authored
+      // turn, using the existing renderer's texture/program caches.
+      for (const texture of [...next, grain]) renderer.initTexture(texture)
+      const preparation = new THREE.Scene()
+      preparation.add(group)
+      await renderer.compileAsync(preparation, camera)
+      preparation.remove(group)
+      if (disposed || owner !== revision) {
+        release(model)
+        return false
+      }
+      prepared = model
+      return true
+    } catch (error) {
+      if (model) release(model)
+      else for (const loaded of next) loaded.dispose()
+      if (!disposed && owner === revision) throw error
+      return false
+    }
+  }
+  return {
+    prepare,
+    activatePrepared,
+    async load(entry: InspectBadge) {
+      if (ready && badgeId === `${entry.id}:${entry.state}`) return true
+      return (await prepare(entry)) && activatePrepared()
     },
     resize(width: number, height: number) {
       renderer.setPixelRatio(Math.min(2, Math.max(1, devicePixelRatio || 1)))
@@ -239,16 +290,16 @@ export function createInspectRenderer(
     forceContextLoss() {
       renderer.forceContextLoss()
     },
-    cancelLoad() {
-      revision++
-    },
+    cancelLoad,
     snapshot() {
       return {
         badgeId,
         ready,
         frames,
         pose: { ...pose },
-        textures: textures.length + 1,
+        textures: (current?.textures.length ?? 0) + (prepared?.textures.length ?? 0) + 1,
+        preparedBadgeId: prepared?.key ?? null,
+        models: Number(!!current) + Number(!!prepared),
         meshes: object.children.length,
       }
     },
@@ -257,7 +308,10 @@ export function createInspectRenderer(
       disposed = true
       revision++
       canvas.removeEventListener('webglcontextlost', contextLost)
-      clearModel()
+      release(current)
+      release(prepared)
+      current = prepared = undefined
+      ready = false
       grain.dispose()
       metal.dispose()
       fastening.dispose()
