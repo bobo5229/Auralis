@@ -84,6 +84,7 @@
     "@types/three": "0.180.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/eslint-config-prettier": "^10.2.0",
+    "@xmldom/xmldom": "0.9.12",
     "electron": "^38.0.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^3.0.0",
