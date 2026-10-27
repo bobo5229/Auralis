@@ -32,6 +32,10 @@ import {
   type EnglishFontChoice,
 } from '@renderer/features/appearance/composables/useEnglishFont'
 import {
+  useChineseFont,
+  type ChineseFontChoice,
+} from '@renderer/features/appearance/composables/useChineseFont'
+import {
   PLAYBAR_LAYOUTS,
   usePlaybarLayout,
   type PlaybarLayout,
@@ -188,6 +192,15 @@ const englishFontOptions = [
   { value: 'publicSans', label: 'Public Sans' },
   { value: 'geist', label: 'Geist' },
   { value: 'rubik', label: 'Rubik' },
+] as const
+const {
+  font: chineseFont,
+  persistFailed: chineseFontPersistFailed,
+  setChineseFont,
+} = useChineseFont()
+const chineseFontOptions = [
+  { value: 'harmonyOsSans', label: 'HarmonyOS Sans SC' },
+  { value: 'misans', label: 'MiSans' },
 ] as const
 const themeOptions = computed(() =>
   (['light', 'dark'] as const).map((value) => ({
@@ -440,6 +453,28 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :options="englishFontOptions"
             :show-value-title="false"
             @update:model-value="setEnglishFont($event as EnglishFontChoice)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--chinese-font">
+          <div>
+            <strong id="appearance-chinese-font-label">{{
+              t('settings.appearance.chineseFont.title')
+            }}</strong>
+            <span id="appearance-chinese-font-description">{{
+              t('settings.appearance.chineseFont.description')
+            }}</span>
+            <span v-if="chineseFontPersistFailed" role="status">{{
+              t('settings.appearance.chineseFont.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-chinese-font"
+            labelledby="appearance-chinese-font-label"
+            describedby="appearance-chinese-font-description"
+            :model-value="chineseFont"
+            :options="chineseFontOptions"
+            :show-value-title="false"
+            @update:model-value="setChineseFont($event as ChineseFontChoice)"
           />
         </div>
       </div>

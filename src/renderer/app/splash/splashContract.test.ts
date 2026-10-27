@@ -9,6 +9,10 @@ import {
   ENGLISH_FONT_FAMILIES,
   ENGLISH_FONT_STORAGE_KEY,
 } from '@renderer/features/appearance/composables/useEnglishFont'
+import {
+  CHINESE_FONT_FAMILIES,
+  CHINESE_FONT_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useChineseFont'
 import { SPLASH_FADE_OUT_MS } from './splashController'
 import { SPLASH_FORMATION_MS, SPLASH_RESONANCE_PATH } from './splashMotion'
 
@@ -121,14 +125,16 @@ describe('splash typography contract', () => {
   it('mirrors the --auralis-font-ui stack for the brand text', () => {
     const uiStack = readCustomProperty(typographyCss, '--auralis-font-ui')
     const latinFont = readCustomProperty(typographyCss, '--auralis-font-latin')
+    const cjkFont = readCustomProperty(typographyCss, '--auralis-font-cjk')
     const brandBlock = extractCssBlock(splashCss, /#splash-brand\s*\{/)
     expect(readCustomProperty(splashCss, '--auralis-font-latin')).toBe(latinFont)
+    expect(readCustomProperty(splashCss, '--auralis-font-cjk')).toBe(cjkFont)
     expect(readCustomProperty(splashCss, '--splash-font-ui')).toBe(uiStack)
     expect(readCustomProperty(brandBlock, 'font-family')).toBe('var(--splash-font-ui)')
 
     const errorBlock = extractCssBlock(splashCss, /\.splash-startup-error\s*\{/)
     expect(readCustomProperty(errorBlock, 'font-family')).toBe(
-      "var(--auralis-font-latin), 'HarmonyOS Sans SC', sans-serif",
+      'var(--auralis-font-latin), var(--auralis-font-cjk), sans-serif',
     )
   })
 })
@@ -208,6 +214,14 @@ describe('theme boot contract', () => {
       /AURALIS_ENGLISH_FONT_VALUES\s*=\s*\['plusJakartaSans',\s*'inter',\s*'publicSans',\s*'geist',\s*'rubik'\]/,
     )
     for (const [choice, family] of Object.entries(ENGLISH_FONT_FAMILIES)) {
+      expect(themeBootJs).toContain(`${choice}: '${family}'`)
+    }
+  })
+
+  it('follows the useChineseFont storage key, values and family mapping', () => {
+    expect(themeBootJs).toContain(`'${CHINESE_FONT_STORAGE_KEY}'`)
+    expect(themeBootJs).toMatch(/AURALIS_CHINESE_FONT_VALUES\s*=\s*\['harmonyOsSans',\s*'misans'\]/)
+    for (const [choice, family] of Object.entries(CHINESE_FONT_FAMILIES)) {
       expect(themeBootJs).toContain(`${choice}: '${family}'`)
     }
   })

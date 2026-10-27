@@ -8,8 +8,9 @@
 :root,
 [data-theme='dark'] {
   --auralis-font-latin: 'Plus Jakarta Sans';
+  --auralis-font-cjk: 'HarmonyOS Sans SC';
   --splash-font-ui:
-    var(--auralis-font-latin), 'HarmonyOS Sans SC', 'Arial Unicode MS', 'Nirmala UI',
+    var(--auralis-font-latin), var(--auralis-font-cjk), 'Arial Unicode MS', 'Nirmala UI',
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --splash-bg: #121212;
@@ -98,7 +99,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  font-family: var(--auralis-font-latin), 'HarmonyOS Sans SC', sans-serif;
+  font-family: var(--auralis-font-latin), var(--auralis-font-cjk), sans-serif;
   text-align: center;
 }
 

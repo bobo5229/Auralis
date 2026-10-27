@@ -49,7 +49,8 @@ export function drawCardCanvas(
   appearance: CardAppearance,
   mask?: HTMLCanvasElement,
 ) {
-  const c = canvas.getContext('2d')!
+  // Text contrast is sampled repeatedly from the finished background.
+  const c = canvas.getContext('2d', { willReadFrequently: true })!
   const ink = mask?.getContext('2d')
   // Artwork uses 720 × 1032 logical units; rasterize type at twice that precision.
   // Restore the transform so content redraws never accumulate scale.

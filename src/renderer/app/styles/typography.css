@@ -36,9 +36,13 @@
   /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
   --auralis-font-latin: 'Plus Jakarta Sans';
 
+  /* 中文界面字体：默认鸿蒙黑体，可在设置的中文字体选择器中切换。
+   * 碟片标题与唱片室的字体体系是特意设计的，不随此选择联动。 */
+  --auralis-font-cjk: 'HarmonyOS Sans SC';
+
   /* 通用界面：根节点继承，覆盖设置、音乐来源路径与常规控件。 */
   --auralis-font-ui:
-    var(--auralis-font-latin), 'HarmonyOS Sans SC', 'Arial Unicode MS', 'Nirmala UI',
+    var(--auralis-font-latin), var(--auralis-font-cjk), 'Arial Unicode MS', 'Nirmala UI',
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 

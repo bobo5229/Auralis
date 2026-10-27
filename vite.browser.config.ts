@@ -6,9 +6,11 @@ import UnoCSS from 'unocss/vite'
 export default defineConfig({
   root: resolve('src/renderer'),
   plugins: [vue(), UnoCSS()],
+  // Keep this mode's optimized dependencies separate from the other dev server.
+  cacheDir: resolve('node_modules/.vite/browser-preview'),
   optimizeDeps: {
-    // The palette worker loads this dependency only when the first cover is rendered.
-    include: ['image-q'],
+    // Pre-bundle worker and page dependencies before their first runtime import.
+    include: ['image-q', 'pinyin-pro', 'vue-color'],
   },
   resolve: {
     alias: {

@@ -19,6 +19,10 @@ import {
   ENGLISH_FONT_CSS_VARIABLE,
   ENGLISH_FONT_STORAGE_KEY,
 } from '@renderer/features/appearance/composables/useEnglishFont'
+import {
+  CHINESE_FONT_CSS_VARIABLE,
+  CHINESE_FONT_STORAGE_KEY,
+} from '@renderer/features/appearance/composables/useChineseFont'
 
 const script = readFileSync(new URL('../../public/splash/theme-boot.js', import.meta.url), 'utf8')
 
@@ -82,6 +86,26 @@ describe('boot english font preference', () => {
   it('keeps the stylesheet default when storage cannot be read', () => {
     expect(
       runBoot({ failReads: [ENGLISH_FONT_STORAGE_KEY] }).styleValues.has(ENGLISH_FONT_CSS_VARIABLE),
+    ).toBe(false)
+  })
+})
+
+describe('boot chinese font preference', () => {
+  it('applies the saved family before the main bundle loads', () => {
+    const misans = runBoot({ values: { [CHINESE_FONT_STORAGE_KEY]: 'misans' } })
+    expect(misans.styleValues.get(CHINESE_FONT_CSS_VARIABLE)).toBe("'MiSans'")
+    const harmony = runBoot({ values: { [CHINESE_FONT_STORAGE_KEY]: 'harmonyOsSans' } })
+    expect(harmony.styleValues.get(CHINESE_FONT_CSS_VARIABLE)).toBe("'HarmonyOS Sans SC'")
+  })
+  it('keeps the stylesheet default for absent or invalid stored values', () => {
+    for (const value of [undefined, 'system', 'notoSansSc']) {
+      const values: Record<string, string> = value ? { [CHINESE_FONT_STORAGE_KEY]: value } : {}
+      expect(runBoot({ values }).styleValues.has(CHINESE_FONT_CSS_VARIABLE)).toBe(false)
+    }
+  })
+  it('keeps the stylesheet default when storage cannot be read', () => {
+    expect(
+      runBoot({ failReads: [CHINESE_FONT_STORAGE_KEY] }).styleValues.has(CHINESE_FONT_CSS_VARIABLE),
     ).toBe(false)
   })
 })

@@ -1,7 +1,7 @@
 /*
  * 开屏首帧主题引导：在首次绘制前按上次退出时的主题设置根节点 data-theme 与 color-scheme。
  * 有效值规则须与 src/renderer/features/appearance/composables/useTheme.ts、
- * useEnglishFont.ts 保持一致，
+ * useEnglishFont.ts、useChineseFont.ts 保持一致，
  * 一致性由 src/renderer/app/splash/splashContract.test.ts 检查。
  * 同步经典脚本，不得改为 type="module"（module 会延迟到解析完成后执行）。
  */
@@ -17,6 +17,12 @@
     publicSans: 'Public Sans',
     geist: 'Geist',
     rubik: 'Rubik',
+  }
+  var AURALIS_CHINESE_FONT_STORAGE_KEY = 'auralis-chinese-font'
+  var AURALIS_CHINESE_FONT_VALUES = ['harmonyOsSans', 'misans']
+  var AURALIS_CHINESE_FONT_FAMILIES = {
+    harmonyOsSans: 'HarmonyOS Sans SC',
+    misans: 'MiSans',
   }
   var AURALIS_DARK_ACCENT_STORAGE_KEY = 'auralis-dark-accent'
   var AURALIS_DARK_ACCENT_DEFAULT = '#1DD55F'
@@ -228,6 +234,16 @@
     // 存储不可用（受限上下文）时沿用样式表默认英文字体。
   }
 
+  var storedChineseFont = null
+  try {
+    var chineseFontCandidate = window.localStorage.getItem(AURALIS_CHINESE_FONT_STORAGE_KEY)
+    if (AURALIS_CHINESE_FONT_VALUES.indexOf(chineseFontCandidate) !== -1) {
+      storedChineseFont = chineseFontCandidate
+    }
+  } catch {
+    // 存储不可用（受限上下文）时沿用样式表默认中文字体。
+  }
+
   var root = document.documentElement
   var reduceMotion =
     typeof window.matchMedia === 'function' &&
@@ -252,6 +268,12 @@
     root.style.setProperty(
       '--auralis-font-latin',
       "'" + AURALIS_ENGLISH_FONT_FAMILIES[storedEnglishFont] + "'",
+    )
+  }
+  if (storedChineseFont) {
+    root.style.setProperty(
+      '--auralis-font-cjk',
+      "'" + AURALIS_CHINESE_FONT_FAMILIES[storedChineseFont] + "'",
     )
   }
   // 强制刷新同样属于 reload，在模块加载前隐藏开屏，避免首帧闪现。

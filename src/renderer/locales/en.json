@@ -444,6 +444,11 @@
         "description": "Choose the font used for English text and numerals.",
         "persistFailed": "Applied, but could not save this preference."
       },
+      "chineseFont": {
+        "title": "Chinese font",
+        "description": "Choose the font used for Chinese text. Disc headings and the CD room keep their dedicated fonts.",
+        "persistFailed": "Applied, but could not save this preference."
+      },
       "themeDark": "Dark",
       "themeLight": "Light",
       "accent": {

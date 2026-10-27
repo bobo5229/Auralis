@@ -444,6 +444,11 @@
         "description": "选择界面英文与数字使用的字体。",
         "persistFailed": "已应用，本次保存未完成。"
       },
+      "chineseFont": {
+        "title": "中文字体",
+        "description": "选择界面中文使用的字体；碟片标题与唱片室保留专用字体。",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
       "themeDark": "深色",
       "themeLight": "浅色",
       "accent": {

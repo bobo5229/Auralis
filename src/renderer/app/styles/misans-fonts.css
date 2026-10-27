@@ -1,0 +1,80 @@
+/* MiSans 中文字体：小米官方发布，授权协议见 assets/fonts/MiSans/MiSans-License-Agreement.pdf。
+ * 字重覆盖 300–900，与 HarmonyOS Sans SC 的字重范围保持一致；100–200 请求回退到 Light。
+ * 家族名与 useChineseFont.ts 的登记保持一致，由 --auralis-font-cjk 按需启用。 */
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Demibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('../../assets/fonts/MiSans/MiSans-Heavy.ttf') format('truetype');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}

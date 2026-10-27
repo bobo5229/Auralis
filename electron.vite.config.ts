@@ -55,9 +55,11 @@ export default defineConfig({
   },
   renderer: {
     root: resolve('src/renderer'),
+    // Keep this mode's optimized dependencies separate from the other dev server.
+    cacheDir: resolve('node_modules/.vite/electron-renderer'),
     optimizeDeps: {
-      // The palette worker loads this dependency only when the first cover is rendered.
-      include: ['image-q'],
+      // Pre-bundle worker and page dependencies before their first runtime import.
+      include: ['image-q', 'pinyin-pro', 'vue-color'],
     },
     resolve: {
       alias: {
