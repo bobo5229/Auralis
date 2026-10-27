@@ -170,9 +170,6 @@
   padding: 0 16px 4px;
   color: var(--auralis-text-muted);
 }
-.song-font-controls :deep(.settings-select) {
-  justify-self: end;
-}
 
 .song-font-weight-row {
   flex-wrap: wrap;

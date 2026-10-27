@@ -30,7 +30,7 @@ describe('album list parameter preferences', () => {
     }
     expect(parseAlbumListParameters(JSON.stringify(raw))).toEqual({
       sizes: { title: 24 },
-      weights: { title: 600 },
+      weights: { title: 600, artist: 900 },
       rounded: false,
       radius: 18,
     })
@@ -60,6 +60,18 @@ describe('album list parameter preferences', () => {
     expect(restarted.preference.value.radius).toBe(20)
     expect(restarted.sizes.value.title).toBe(24)
     expect(restarted.preference.value.weights.artist).toBe(600)
+  })
+
+  it('persists expanded weights and clears an override when the default is selected', async () => {
+    const { useAlbumListParameters } = await import('./useAlbumListParameters')
+    const state = useAlbumListParameters()
+    state.setWeight('title', 900)
+    state.setWeight('artist', 800)
+    vi.resetModules()
+    const restored = (await import('./useAlbumListParameters')).useAlbumListParameters()
+    expect(restored.preference.value.weights).toEqual({ title: 900, artist: 800 })
+    restored.setWeight('title', 700)
+    expect(restored.preference.value.weights).toEqual({ artist: 800 })
   })
 
   it('resets only album parameters and rejects invalid updates', async () => {

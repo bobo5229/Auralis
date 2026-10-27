@@ -2,7 +2,7 @@ export const SONG_FONT_WEIGHT_STORAGE_KEY = 'auralis-song-font-weights'
 export const SONG_FONT_WEIGHT_VERSION = 1
 export const SONG_FONT_WEIGHT_DIAGNOSTIC_SCOPE = 'appearance.song-font-weight'
 
-export const SONG_FONT_WEIGHT_OPTIONS = [400, 500, 600, 700] as const
+export const SONG_FONT_WEIGHT_OPTIONS = [400, 500, 600, 700, 800, 900] as const
 export type SongFontWeightValue = (typeof SONG_FONT_WEIGHT_OPTIONS)[number]
 export type SongFontWeightChoice = 'default' | SongFontWeightValue
 

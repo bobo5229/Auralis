@@ -8,7 +8,7 @@ export const ALBUM_LIST_SIZE_RANGES = {
   artist: { min: 10, max: 20 },
   year: { min: 9, max: 18 },
 } as const
-export const ALBUM_LIST_FONT_WEIGHTS = [400, 500, 600, 700] as const
+export const ALBUM_LIST_FONT_WEIGHTS = [400, 500, 600, 700, 800, 900] as const
 export type AlbumListFontWeight = (typeof ALBUM_LIST_FONT_WEIGHTS)[number]
 export const ALBUM_LIST_DEFAULT_RADIUS = 12
 export const ALBUM_LIST_METADATA_GAP = 12

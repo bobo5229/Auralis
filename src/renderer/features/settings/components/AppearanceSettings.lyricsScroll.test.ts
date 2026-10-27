@@ -1,7 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref } from 'vue'
 import AppearanceSettings from './AppearanceSettings.vue'
-import SongFontWeightSelect from './SongFontWeightSelect.vue'
+import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
+import SongFontWeightSettings from './SongFontWeightSettings.vue'
 import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
 import {
   getLyricsScrollPreset,
@@ -336,43 +337,81 @@ it('uses the existing locale setter from the language dropdown and retains store
   app.unmount()
 })
 
-it('keeps song font weight selections typed when using the shared listbox', async () => {
-  body = new TestNode('body')
+it('adjusts weight by 100 and rejects invalid drafts', async () => {
   vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
-  vi.stubGlobal('window', {
-    innerWidth: 300,
-    innerHeight: 300,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  })
   const selected = vi.fn()
   const root = new TestNode('root')
+  const value = ref(500)
   const app = renderer.createApp({
     render: () =>
-      h(SongFontWeightSelect, {
+      h(SongFontSizeInput, {
         id: 'weight',
-        labelledby: 'weight-label',
-        modelValue: 500,
-        defaultWeight: 400,
+        label: 'Title',
+        modelValue: value.value,
+        min: 400,
+        max: 900,
+        step: 100,
+        kind: 'weight',
         'onUpdate:modelValue': selected,
       }),
   })
   app.mount(root)
-  const trigger = find(root, (node) => node.props.role === 'combobox')!
-  expect(find(trigger, (node) => node.props.id === 'weight-value')?.text).toBe(
-    'settings.appearance.songFontWeight.options.500',
-  )
-  ;(trigger.props.onClick as () => void)()
+  const input = find(root, (node) => node.props.role === 'spinbutton')!
+  const buttons = root.children[0].children.filter((node) => node.type === 'button')
+  ;(buttons[0].props.onClick as () => void)()
+  expect(selected).toHaveBeenLastCalledWith(400)
+  ;(buttons[1].props.onClick as () => void)()
+  expect(selected).toHaveBeenLastCalledWith(600)
+  ;(input.props.onInput as (event: unknown) => void)({ target: { value: '850' } })
+  expect(selected).toHaveBeenCalledTimes(2)
+  ;(input.props.onBlur as () => void)()
   await nextTick()
-  const defaultOption = find(body, (node) => node.props.id === 'weight-option-0')!
-  expect(String(defaultOption.props.class)).not.toContain('is-default')
-  const weight700 = find(body, (node) => node.props.id === 'weight-option-4')!
-  ;(weight700.props.onClick as () => void)()
-  expect(selected).toHaveBeenLastCalledWith(700)
-  ;(trigger.props.onClick as () => void)()
+  expect(input.props.value).toBe('500')
+  ;(input.props.onInput as (event: unknown) => void)({ target: { value: '900' } })
+  expect(selected).toHaveBeenLastCalledWith(900)
+  expect(find(root, (node) => node.text === 'px')).toBeUndefined()
+  const keydown = input.props.onKeydown as ((event: unknown) => void)[]
+  for (const handler of keydown)
+    handler({ key: 'ArrowUp', preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  expect(selected).toHaveBeenLastCalledWith(600)
+  value.value = 400
   await nextTick()
-  const defaultOptionAgain = find(body, (node) => node.props.id === 'weight-option-0')!
-  ;(defaultOptionAgain.props.onClick as () => void)()
-  expect(selected).toHaveBeenLastCalledWith('default')
+  expect(buttons[0].props.disabled).toBe(true)
+  value.value = 900
+  await nextTick()
+  expect(buttons[1].props.disabled).toBe(true)
+  app.unmount()
+})
+
+it('changes each cover information gap using the numeric controls', async () => {
+  vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  const storage = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    setItem: (key: string, value: string) => storage.set(key, value),
+  })
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    render: () => h(SongFontWeightSettings, { view: 'cover', inactive: false }),
+  })
+  app.mount(root)
+  for (const [field, value] of [
+    ['artworkGap', '30'],
+    ['albumArtistGap', '8'],
+    ['artistDateGap', '12'],
+  ]) {
+    const input = find(root, (node) => node.props.id === `song-cover-info-${field}`)!
+    expect(input.props.role).toBe('spinbutton')
+    ;(input.props.onInput as (event: unknown) => void)({ target: { value } })
+    await nextTick()
+    expect(input.props['aria-valuenow']).toBe(Number(value))
+  }
+  const saved = JSON.parse(storage.get('auralis-song-cover-info-layout')!)
+  expect(saved).toMatchObject({ artworkGap: 30, albumArtistGap: 8, artistDateGap: 12 })
+  const input = find(root, (node) => node.props.id === 'song-cover-info-artworkGap')!
+  ;(input.props.onInput as (event: unknown) => void)({ target: { value: '41' } })
+  ;(input.props.onBlur as () => void)()
+  await nextTick()
+  expect(input.props.value).toBe('30')
   app.unmount()
 })

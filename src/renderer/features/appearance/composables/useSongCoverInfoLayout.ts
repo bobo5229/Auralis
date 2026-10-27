@@ -2,7 +2,6 @@ import { computed, readonly, ref, toValue, type MaybeRefOrGetter } from 'vue'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { DEFAULT_COVER_METADATA_LAYOUT } from '@renderer/features/library/constants/libraryLayoutMetrics'
 import {
-  COVER_INFO_SPACING_RANGES,
   DEFAULT_SONG_COVER_INFO_LAYOUT,
   SONG_COVER_INFO_LAYOUT_STORAGE_KEY,
   isCoverInfoAlignment,
@@ -90,10 +89,6 @@ export function useSongCoverInfoLayout(enabled: MaybeRefOrGetter<boolean> = true
     '--library-cover-meta-date-line-height': `${metadataLayout.value.dateLineHeight}px`,
     '--library-cover-meta-align': applied.value.alignment,
   }))
-  function spacingProgress(field: CoverInfoSpacingField) {
-    const range = COVER_INFO_SPACING_RANGES[field]
-    return `${((preference.value[field] - range.min) / (range.max - range.min)) * 100}%`
-  }
   return {
     preference: readonly(preference),
     persistFailed: readonly(persistFailed),
@@ -101,7 +96,6 @@ export function useSongCoverInfoLayout(enabled: MaybeRefOrGetter<boolean> = true
     style,
     setSpacing,
     setAlignment,
-    spacingProgress,
     reset,
   }
 }

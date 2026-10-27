@@ -247,10 +247,10 @@ onBeforeUnmount(() => {
   right: var(--page-parameter-inline-inset);
   bottom: auto;
   border-radius: 0 0 16px 16px;
-  width: auto;
+  width: min(720px, calc(100% - 2 * var(--page-parameter-inline-inset)));
   height: auto;
   max-height: min(50vh, 100%);
-  margin: 0;
+  margin: 0 auto;
   background: var(--auralis-parameter-surface-bg);
   -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
   backdrop-filter: var(--auralis-parameter-surface-filter);
@@ -348,14 +348,8 @@ onBeforeUnmount(() => {
 .page-parameter-panel :deep(.song-font-size-unit) {
   font-size: var(--page-parameter-control-size);
 }
-.page-parameter-panel :deep(.song-font-controls .settings-select) {
-  width: 100%;
-  padding-inline: 5px;
-  gap: 3px;
-  font-size: var(--page-parameter-control-size);
-  white-space: nowrap;
-}
-.page-parameter-panel :deep(.song-cover-info-alignment) {
+.page-parameter-panel :deep(.song-cover-info-alignment),
+.page-parameter-panel :deep(.song-cover-info-spacing) {
   flex: 0 0 var(--page-parameter-field-width);
   width: var(--page-parameter-field-width);
 }

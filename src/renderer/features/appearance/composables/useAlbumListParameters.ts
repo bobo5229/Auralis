@@ -14,7 +14,6 @@ import {
   isAlbumListWeight,
   isAlbumListRadius,
   type AlbumListFontField,
-  type AlbumListFontWeight,
 } from '../constants/albumListParameters'
 
 function readInitial() {
@@ -102,10 +101,10 @@ export function useAlbumListParameters() {
       preference.value = { ...preference.value, sizes: overrides }
       persist()
     },
-    setWeight(field: AlbumListFontField, value: 'default' | AlbumListFontWeight) {
+    setWeight(field: AlbumListFontField, value: 'default' | number) {
       if (value !== 'default' && !isAlbumListWeight(value)) return
       const overrides = { ...preference.value.weights }
-      if (value === 'default') delete overrides[field]
+      if (value === 'default' || value === defaultWeights.value[field]) delete overrides[field]
       else overrides[field] = value
       preference.value = { ...preference.value, weights: overrides }
       persist()

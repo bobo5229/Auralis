@@ -7,7 +7,6 @@ import {
   ALBUM_LIST_SIZE_RANGES,
 } from '@renderer/features/appearance/constants/albumListParameters'
 import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
-import SongFontWeightSelect from './SongFontWeightSelect.vue'
 
 const { t } = useI18n()
 defineProps<{ inactive: boolean }>()
@@ -149,11 +148,14 @@ defineExpose({ reset: onReset })
                         }
                       "
                     />
-                    <SongFontWeightSelect
+                    <SongFontSizeInput
                       :id="`album-font-${field}-weight`"
-                      :labelledby="`album-font-${field}-label`"
-                      :model-value="preference.weights[field] ?? 'default'"
-                      :default-weight="defaultWeights[field]"
+                      :label="t(`settings.appearance.albumParameters.fields.${field}`)"
+                      :model-value="preference.weights[field] ?? defaultWeights[field]"
+                      :min="400"
+                      :max="900"
+                      :step="100"
+                      kind="weight"
                       :disabled="inactive"
                       @update:model-value="
                         (value) => {

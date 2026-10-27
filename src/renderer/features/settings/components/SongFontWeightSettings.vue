@@ -5,7 +5,7 @@ import {
   SONG_COVER_FONT_FIELDS,
   SONG_LIST_FONT_FIELDS,
   defaultSongFontWeight,
-  type SongFontWeightChoice,
+  isSongFontWeightValue,
   type SongFontWeightView,
 } from '@renderer/features/appearance/constants/songFontWeights'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
@@ -13,7 +13,6 @@ import {
   DEFAULT_COVER_ARTWORK_RADIUS,
   useCoverArtworkCorners,
 } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
-import SongFontWeightSelect from './SongFontWeightSelect.vue'
 import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { songFontSizeRange } from '@renderer/features/appearance/constants/songFontSizes'
@@ -95,9 +94,10 @@ function defaultWeight(field: string): number {
   return defaultSongFontWeight(activeView.value, field) ?? 400
 }
 
-function onWeightChange(field: string, choice: SongFontWeightChoice): void {
+function onWeightChange(field: string, value: number): void {
+  if (!isSongFontWeightValue(value)) return
   clearResetStatus()
-  setSongFontWeight(activeView.value, field, choice)
+  setSongFontWeight(activeView.value, field, value === defaultWeight(field) ? 'default' : value)
 }
 
 function onSizeChange(field: string, size: number): void {
@@ -223,23 +223,22 @@ defineExpose({ reset: onReset })
                   t(`pageParameters.coverInfo.${field}`)
                 }}</strong>
               </div>
-              <div class="settings-range-control">
-                <input
+              <div class="song-cover-info-spacing">
+                <SongFontSizeInput
                   :id="`song-cover-info-${field}`"
-                  type="range"
+                  :label="t(`pageParameters.coverInfo.${field}`)"
+                  :model-value="coverInfo.preference.value[field]"
                   :min="range.min"
                   :max="range.max"
-                  step="1"
-                  :value="coverInfo.preference.value[field]"
-                  :style="{ '--settings-range-progress': coverInfo.spacingProgress(field) }"
-                  :aria-labelledby="`song-cover-info-${field}-label`"
-                  @input="
-                    coverInfo.setSpacing(field, Number(($event.target as HTMLInputElement).value))
+                  kind="spacing"
+                  :disabled="inactive"
+                  @update:model-value="
+                    (value) => {
+                      clearResetStatus()
+                      coverInfo.setSpacing(field, value)
+                    }
                   "
                 />
-                <output :for="`song-cover-info-${field}`"
-                  >{{ coverInfo.preference.value[field] }} px</output
-                >
               </div>
             </div>
             <div class="settings-row song-font-weight-row">
@@ -301,11 +300,18 @@ defineExpose({ reset: onReset })
                       :max="songFontSizeRange(activeView, field).max"
                       @update:model-value="onSizeChange(field, $event)"
                     />
-                    <SongFontWeightSelect
+                    <SongFontSizeInput
                       :id="fieldId(field)"
-                      :labelledby="`${fieldId(field)}-label`"
-                      :model-value="songFontWeightChoice(activeView, field)"
-                      :default-weight="defaultWeight(field)"
+                      :label="t(`settings.appearance.songFontWeight.fields.${field}`)"
+                      :model-value="
+                        songFontWeightChoice(activeView, field) === 'default'
+                          ? defaultWeight(field)
+                          : Number(songFontWeightChoice(activeView, field))
+                      "
+                      :min="400"
+                      :max="900"
+                      :step="100"
+                      kind="weight"
                       :disabled="inactive"
                       @update:model-value="onWeightChange(field, $event)"
                     />

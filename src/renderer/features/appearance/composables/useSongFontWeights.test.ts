@@ -75,6 +75,20 @@ describe('useSongFontWeights', () => {
     })
   })
 
+  it('persists expanded weights and restores them alongside existing values', async () => {
+    const state = await load()
+    state.setSongFontWeight('list', 'title', 800)
+    state.setSongFontWeight('cover', 'title', 900)
+    state.setSongFontWeight('cover', 'artist', 500)
+    vi.resetModules()
+    const restored = await load()
+    expect(restored.songFontWeightChoice('list', 'title')).toBe(800)
+    expect(restored.songFontWeightChoice('cover', 'title')).toBe(900)
+    expect(restored.songFontWeightChoice('cover', 'artist')).toBe(500)
+    restored.setSongFontWeight('list', 'title', 'default')
+    expect(stored().list).toEqual({})
+  })
+
   it('resets only the current view', async () => {
     const state = await load()
     state.setSongFontWeight('list', 'album', 500)

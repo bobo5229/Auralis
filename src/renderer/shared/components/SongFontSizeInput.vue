@@ -3,13 +3,19 @@ import { ref, watch } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 
-const props = defineProps<{
-  id: string
-  label: string
-  modelValue: number
-  min: number
-  max: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    id: string
+    label: string
+    modelValue: number
+    min: number
+    max: number
+    step?: number
+    kind?: 'size' | 'weight' | 'spacing' | 'percent'
+    disabled?: boolean
+  }>(),
+  { step: 1, kind: 'size', disabled: false },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 const { t } = useI18n()
 const draft = ref(String(props.modelValue))
@@ -33,13 +39,14 @@ function onInput(event: Event) {
   draft.value = (event.target as HTMLInputElement).value
   if (!/^\d+$/.test(draft.value)) return
   const value = Number(draft.value)
-  if (value >= props.min && value <= props.max) emit('update:modelValue', value)
+  if (value >= props.min && value <= props.max && (value - props.min) % props.step === 0)
+    emit('update:modelValue', value)
 }
 
 function restore() {
   draft.value = String(props.modelValue)
 }
-function step(delta: number) {
+function adjust(delta: number) {
   const value = Math.min(props.max, Math.max(props.min, props.modelValue + delta))
   draft.value = String(value)
   if (value !== props.modelValue) emit('update:modelValue', value)
@@ -54,9 +61,14 @@ function step(delta: number) {
   >
     <button
       type="button"
-      :disabled="modelValue <= min"
-      :aria-label="t('settings.appearance.songFontWeight.decreaseSize', { field: label })"
-      @click="step(-1)"
+      :disabled="disabled || modelValue <= min"
+      :aria-label="
+        t(
+          `settings.appearance.songFontWeight.${kind === 'size' ? 'decreaseSize' : kind === 'weight' ? 'decreaseWeight' : 'decreaseSpacing'}`,
+          { field: label },
+        )
+      "
+      @click="adjust(-step)"
     >
       <span class="i-lucide-minus" aria-hidden="true" />
     </button>
@@ -66,28 +78,46 @@ function step(delta: number) {
         type="text"
         inputmode="numeric"
         role="spinbutton"
-        :aria-label="`${label} ${t('settings.appearance.songFontWeight.sizeLabel')}`"
+        :aria-label="
+          kind === 'spacing' || kind === 'percent'
+            ? label
+            : `${label} ${t(`settings.appearance.songFontWeight.${kind === 'size' ? 'sizeLabel' : 'weightSection'}`)}`
+        "
         :aria-valuemin="min"
         :aria-valuemax="max"
         :aria-valuenow="modelValue"
-        :aria-valuetext="`${modelValue} px`"
+        :aria-valuetext="
+          kind === 'weight'
+            ? String(modelValue)
+            : kind === 'percent'
+              ? `${modelValue}%`
+              : `${modelValue} px`
+        "
+        :disabled="disabled"
         :value="draft"
         autocomplete="off"
         spellcheck="false"
         @input="onInput"
         @blur="restore"
-        @keydown.up.prevent="step(1)"
-        @keydown.down.prevent="step(-1)"
+        @keydown.up.prevent="adjust(step)"
+        @keydown.down.prevent="adjust(-step)"
         @keydown.enter.prevent="restore"
         @keydown.esc.prevent.stop="restore"
       />
-      <span class="song-font-size-unit" aria-hidden="true">px</span>
+      <span v-if="kind !== 'weight'" class="song-font-size-unit" aria-hidden="true">{{
+        kind === 'percent' ? '%' : 'px'
+      }}</span>
     </div>
     <button
       type="button"
-      :disabled="modelValue >= max"
-      :aria-label="t('settings.appearance.songFontWeight.increaseSize', { field: label })"
-      @click="step(1)"
+      :disabled="disabled || modelValue >= max"
+      :aria-label="
+        t(
+          `settings.appearance.songFontWeight.${kind === 'size' ? 'increaseSize' : kind === 'weight' ? 'increaseWeight' : 'increaseSpacing'}`,
+          { field: label },
+        )
+      "
+      @click="adjust(step)"
     >
       <span class="i-lucide-plus" aria-hidden="true" />
     </button>
