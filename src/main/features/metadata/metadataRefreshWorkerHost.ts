@@ -40,7 +40,7 @@ export class MetadataRefreshWorkerHost {
     return this.activeJobId
   }
 
-  async shutdown(): Promise<void> {
+  async shutdown(reason = 'Application shutdown interrupted refresh'): Promise<void> {
     const worker = this.activeWorker
     const jobId = this.activeJobId
     const finalize = this.activeJobFinalizer
@@ -58,7 +58,7 @@ export class MetadataRefreshWorkerHost {
       }
     }
     while (this.pendingMessages.size > 0) await Promise.allSettled([...this.pendingMessages])
-    finalize?.('Application shutdown interrupted refresh', true)
+    finalize?.(reason, true)
   }
 
   start(input: MetadataRefreshWorkerInput): void {

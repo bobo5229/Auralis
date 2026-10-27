@@ -25,11 +25,13 @@ export class MetadataRefreshService {
   private legacyRecoveryAttempt = 0
   private legacyRecoveryTimer: ReturnType<typeof setTimeout> | null = null
   private legacyRecoveryWaiters: Array<() => void> = []
+  private pendingManualJob: number | null = null
+  private preemption: Promise<void> | null = null
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly artworkCacheDir: string,
-    events: MetadataRefreshEvents,
+    private readonly events: MetadataRefreshEvents,
     ffmpegPath: string,
     coordinator?: MetadataWriteCoordinator,
     readLibraryRevision?: () => string,
@@ -57,10 +59,7 @@ export class MetadataRefreshService {
     )
     this.workerHost = new MetadataRefreshWorkerHost(repository, events, this.tagWrites, () => {
       this.tagWrites.flushReconciliation()
-      if (this.legacyRecoveryJob !== null) {
-        this.legacyRecoveryJob = null
-        for (const resolve of this.legacyRecoveryWaiters.splice(0)) resolve()
-      }
+      this.finishLegacyRecovery()
       this.scheduleLegacyRecovery(0)
     })
     this.repository.markInterruptedJobs()
@@ -150,7 +149,7 @@ export class MetadataRefreshService {
   }
 
   hasActiveJob(): boolean {
-    return this.workerHost.jobId !== null
+    return this.pendingManualJob !== null || this.workerHost.jobId !== null
   }
 
   async shutdown(): Promise<void> {
@@ -158,6 +157,7 @@ export class MetadataRefreshService {
     if (this.legacyRecoveryTimer) clearTimeout(this.legacyRecoveryTimer)
     this.legacyRecoveryTimer = null
     try {
+      if (this.preemption) await this.preemption
       await this.tagWrites.drain()
       await this.workerHost.shutdown()
       await this.tagWrites.awaitReconciliation()
@@ -169,6 +169,47 @@ export class MetadataRefreshService {
 
   private assertRunning(): void {
     if (this.stopping) throw new Error('Metadata refresh service is shutting down')
+  }
+
+  private finishLegacyRecovery(): void {
+    if (this.legacyRecoveryJob === null) return
+    this.legacyRecoveryJob = null
+    for (const resolve of this.legacyRecoveryWaiters.splice(0)) resolve()
+  }
+
+  private startUserRefresh(input: MetadataRefreshWorkerInput): void {
+    if (this.legacyRecoveryJob === null) {
+      this.workerHost.start(input)
+      return
+    }
+
+    this.pendingManualJob = input.jobId
+    this.legacyRecoveryCursor = 0
+    const preemption = (async () => {
+      try {
+        await this.workerHost.shutdown('Background lyric recovery yielded to user refresh')
+        this.finishLegacyRecovery()
+        if (this.stopping) throw new Error('Metadata refresh service is shutting down')
+        this.workerHost.start(input)
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Unable to start metadata refresh'
+        this.repository.completeJob(input.jobId, reason)
+        this.events.refreshProgress({
+          jobId: input.jobId,
+          status: 'failed',
+          totalTracks: input.tracks.length,
+          processedTracks: 0,
+          failedTracks: 0,
+        })
+      } finally {
+        this.pendingManualJob = null
+        this.scheduleLegacyRecovery(0)
+      }
+    })()
+    this.preemption = preemption
+    void preemption.finally(() => {
+      if (this.preemption === preemption) this.preemption = null
+    })
   }
 
   refreshTrack(trackId: number): { jobId: number } {
@@ -185,8 +226,9 @@ export class MetadataRefreshService {
 
   private refreshTracksForScope(trackIds: number[], scope: string): { jobId: number } {
     this.assertRunning()
-    if (this.workerHost.jobId !== null && this.repository.getActiveJob()) {
-      throw new Error(`A refresh job is already running (job ${this.workerHost.jobId})`)
+    const activeJob = this.pendingManualJob ?? this.workerHost.jobId
+    if (activeJob !== null && (activeJob !== this.legacyRecoveryJob || scope === 'file-change')) {
+      throw new Error(`A refresh job is already running (job ${activeJob})`)
     }
 
     const tracks = this.repository.getTracksByIds(trackIds)
@@ -203,15 +245,16 @@ export class MetadataRefreshService {
       writeMode: 'metadata',
     }
 
-    this.workerHost.start(workerInput)
+    this.startUserRefresh(workerInput)
 
     return { jobId }
   }
 
   refreshLyricsForMissing(limit = 5000): { jobId: number } {
     this.assertRunning()
-    if (this.workerHost.jobId !== null && this.repository.getActiveJob()) {
-      throw new Error(`A refresh job is already running (job ${this.workerHost.jobId})`)
+    const activeJob = this.pendingManualJob ?? this.workerHost.jobId
+    if (activeJob !== null && activeJob !== this.legacyRecoveryJob) {
+      throw new Error(`A refresh job is already running (job ${activeJob})`)
     }
 
     const tracks = this.repository.getTracksWithMissingLyrics(limit)
@@ -221,7 +264,7 @@ export class MetadataRefreshService {
     }
 
     const jobId = this.repository.createJob('missing-lyrics', tracks.length)
-    this.workerHost.start({
+    this.startUserRefresh({
       jobId,
       tracks,
       artworkCacheDir: this.artworkCacheDir,

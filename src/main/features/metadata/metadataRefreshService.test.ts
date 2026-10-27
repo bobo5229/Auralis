@@ -1065,6 +1065,60 @@ describe('metadata refresh partial completion', () => {
 })
 
 describe('legacy lyric cache recovery', () => {
+  it.each(['tracks', 'missing-lyrics'] as const)(
+    'yields to a manual %s refresh and retries the interrupted recovery',
+    async (scope) => {
+      const { service, repo, send } = setup()
+      repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+      vi.spyOn(lyricsSidecars, 'getLyricsSidecarFingerprintSync').mockReturnValue('[null,null]')
+      service.startLegacyLyricsRecovery()
+      await vi.waitFor(() => expect(workers).toHaveLength(1))
+      workers[0].emit('message', {
+        type: 'result',
+        payload: { ...payload, lyricsSidecarFingerprint: '[null,null]' },
+      })
+      await vi.waitFor(() => expect(repo.updateLegacyTtmlLyrics).toHaveBeenCalledOnce())
+
+      const result =
+        scope === 'tracks' ? service.refreshTrack(1) : service.refreshLyricsForMissing()
+      expect(result.jobId).toBe(2)
+      expect(service.hasActiveJob()).toBe(true)
+      expect(() => service.refreshTrack(1)).toThrow('already running')
+      await vi.waitFor(() => expect(workers).toHaveLength(2))
+      expect(repo.completeJob).toHaveBeenCalledWith(1, expect.stringContaining('yielded'))
+      expect(send).toHaveBeenCalledWith(
+        'library:changed',
+        expect.objectContaining({ trackIds: [1] }),
+      )
+      workers[1].emit('message', { type: 'complete' })
+      await vi.waitFor(() => expect(workers).toHaveLength(3))
+      expect(repo.getLegacyTtmlTracks).toHaveBeenLastCalledWith(0, 128)
+      await service.shutdown()
+      vi.restoreAllMocks()
+    },
+  )
+
+  it('reserves the worker during preemption and releases scan pause on shutdown', async () => {
+    const { service, repo } = setup()
+    repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    const gate = deferred<number>()
+    vi.mocked(
+      (workers[0] as EventEmitter & { terminate: () => Promise<number> }).terminate,
+    ).mockReturnValueOnce(gate.promise)
+    const paused = service.pauseLegacyLyricsRecovery()
+    expect(service.refreshTrack(1).jobId).toBe(2)
+    expect(service.hasActiveJob()).toBe(true)
+    expect(() => service.refreshLyricsForMissing()).toThrow('already running')
+    const shuttingDown = service.shutdown()
+    gate.resolve(1)
+    await Promise.all([paused, shuttingDown])
+    expect(workers).toHaveLength(1)
+    expect(repo.completeJob).toHaveBeenCalledWith(2, expect.stringContaining('shutting down'))
+    expect(service.hasActiveJob()).toBe(false)
+  })
+
   it('replaces legacy lyrics with a guarded result and publishes the change', async () => {
     const { service, repo, send } = setup()
     repo.getLegacyTtmlTracks.mockImplementation((afterId) =>
