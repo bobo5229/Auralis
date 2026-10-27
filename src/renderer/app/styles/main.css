@@ -1901,7 +1901,7 @@ input[type='range'].volume-overlay-slider {
 
 /* Sidebar */
 .app-sidebar {
-  --sidebar-icon-size: 18px;
+  --sidebar-icon-size: 16px;
   position: relative;
   isolation: isolate;
   min-width: 0;
@@ -2003,7 +2003,7 @@ input[type='range'].volume-overlay-slider {
 
 /* 收起图标栏：仅保留入口图标，名称经悬停/聚焦 tooltip 与 aria-label 提供。 */
 .app-sidebar.app-sidebar--collapsed {
-  --sidebar-icon-size: 20px;
+  --sidebar-icon-size: 18px;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-header {
@@ -2101,14 +2101,14 @@ input[type='range'].volume-overlay-slider {
 
 .app-sidebar.app-sidebar--collapsed .sidebar-link {
   justify-content: center;
-  height: 42px;
-  margin-block: 5px;
+  height: 40px;
+  margin-block: 4px;
   padding: 0;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-link-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-link-icon > span {
@@ -2145,7 +2145,7 @@ input[type='range'].volume-overlay-slider {
 
 .sidebar-header {
   flex-shrink: 0;
-  padding: 54px 16px 14px;
+  padding: 54px 16px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
   background: transparent;
 }
@@ -2222,8 +2222,8 @@ input[type='range'].volume-overlay-slider {
     var(--auralis-sidebar-active-indicator)
   );
   color: var(--sidebar-brand-ink);
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 700;
   line-height: 22px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -2541,7 +2541,7 @@ input[type='range'].volume-overlay-slider {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px 0;
+  padding: 10px 0;
 }
 
 .sidebar-navigation--empty {
@@ -2557,7 +2557,7 @@ input[type='range'].volume-overlay-slider {
 
 .sidebar-primary-section {
   flex-shrink: 0;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .sidebar-playlist-section {
@@ -2587,10 +2587,10 @@ input[type='range'].volume-overlay-slider {
   padding: 0 16px 8px;
   padding-left: 24px;
   color: var(--auralis-text-faint);
-  font-size: var(--auralis-type-overline-size);
-  line-height: var(--auralis-type-overline-line-height);
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -2611,9 +2611,10 @@ input[type='range'].volume-overlay-slider {
   position: relative;
   display: flex;
   align-items: center;
-  height: 38px;
-  margin: 3px 10px;
+  height: 36px;
+  margin: 2px 10px;
   padding: 0 12px;
+  gap: 8px;
   border-radius: 10px;
   border: 1px solid transparent;
   color: var(--auralis-text-muted);
@@ -2654,15 +2655,16 @@ input[type='range'].volume-overlay-slider {
 
 .sidebar-link .sidebar-link-icon > span {
   /* 拖拽预览挂在 body，无法继承侧栏变量。 */
-  width: var(--sidebar-icon-size, 18px);
-  height: var(--sidebar-icon-size, 18px);
+  width: var(--sidebar-icon-size, 16px);
+  height: var(--sidebar-icon-size, 16px);
 }
 
 .sidebar-link-label {
   flex: 1;
   overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2670,8 +2672,9 @@ input[type='range'].volume-overlay-slider {
 /* Counts inside active links */
 .sidebar-link-count {
   color: var(--auralis-text-faint);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
   font-family: var(--auralis-font-ui);
   opacity: 0;
   transform: translateX(12px);
@@ -2716,6 +2719,10 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-control-primary-text) !important;
 }
 
+.sidebar-link-active .sidebar-link-label {
+  font-weight: 600;
+}
+
 .sidebar-link-active:hover {
   background: var(--auralis-theme-accent) !important;
   border-color: transparent !important;
@@ -2729,7 +2736,7 @@ input[type='range'].volume-overlay-slider {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 8px;
+  padding: 12px 16px 8px;
   padding-left: 24px;
 }
 
@@ -2851,13 +2858,13 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-playlist-drag-preview--rail .sidebar-link-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .sidebar-playlist-drag-preview--rail .sidebar-link-icon > span {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .sidebar-playlist-drop-marker {

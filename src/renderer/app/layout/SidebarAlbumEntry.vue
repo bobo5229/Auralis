@@ -184,8 +184,8 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-cd-shortcut :deep(.sidebar-symbol) {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .is-active > .sidebar-cd-shortcut {
