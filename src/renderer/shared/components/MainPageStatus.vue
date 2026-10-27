@@ -25,7 +25,6 @@ const props = withDefaults(
 defineEmits<{ action: [] }>()
 
 const statusIcon = computed(() => {
-  if (props.kind === 'loading') return 'i-lucide-loader-2'
   if (props.kind === 'error') return 'i-lucide-alert-circle'
   return props.icon || 'i-lucide-music-4'
 })
@@ -39,14 +38,12 @@ const statusIcon = computed(() => {
     aria-live="polite"
   >
     <span
-      v-if="showIcon"
+      v-if="showIcon && kind !== 'loading'"
       class="main-page-status-icon"
       :class="{ 'main-page-status-icon--error': kind === 'error' }"
       aria-hidden="true"
     >
-      <span
-        :class="[statusIcon, { 'animate-spin main-page-status-spinner': kind === 'loading' }]"
-      ></span>
+      <span :class="statusIcon"></span>
     </span>
     <h3>{{ title }}</h3>
     <p v-if="description">{{ description }}</p>
@@ -130,9 +127,5 @@ const statusIcon = computed(() => {
 .main-page-status button:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 2px;
-}
-
-:where([data-reduced-motion='true']) .main-page-status-spinner {
-  animation: none;
 }
 </style>
