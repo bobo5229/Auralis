@@ -298,6 +298,7 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
           >
             <div
               class="library-search-bar"
+              :class="{ 'library-search-bar--parameters': hasPageParameters }"
               @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
             >
               <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
@@ -327,8 +328,10 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
               >
                 {{ searchFeedback }}
               </span>
+              <span v-if="hasPageParameters" class="page-search-parameters">
+                <PageParameterTrigger @pointerdown.stop />
+              </span>
             </div>
-            <PageParameterTrigger v-if="hasPageParameters" />
           </div>
         </div>
       </Transition>

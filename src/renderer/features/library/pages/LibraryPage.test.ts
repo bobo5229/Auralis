@@ -504,49 +504,53 @@ describe('LibraryPage focus wiring', () => {
 })
 
 async function openFlatSearch(): Promise<void> {
-  fire(find('.library-flat-search-launcher'), 'onClick')
+  fire(find('.library-search-input'), 'onFocus')
   await settle()
 }
 
 describe('LibraryPage flat search entry', () => {
-  it('opens from the corner launcher and leaves the top hover zone idle', async () => {
+  it('keeps the search bar visible without a corner launcher', async () => {
     await mount(true)
     fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
     await settle()
-    expect(doc.body.querySelector('.library-search-input')).toBeNull()
+    expect(find('.library-search-input')).toBeDefined()
     expect(doc.body.querySelector('.library-search-zone')).toBeNull()
-    expect(find('.library-flat-search-launcher').props['aria-expanded']).toBe(false)
-    await openFlatSearch()
+    expect(doc.body.querySelector('.library-flat-search-launcher')).toBeNull()
     const bar = find('.library-search-bar')
-    expect(bar.querySelector('.i-lucide-search')).toBeNull()
-    expect(find('.i-lucide-search').parent).toBe(find('.library-flat-search-launcher'))
-    expect(find('[data-page-parameters-trigger]').parent).toBe(find('.page-search-tools'))
+    expect(bar.querySelector('.i-lucide-search')).toBeDefined()
+    expect(bar.contains(find('[data-page-parameters-trigger]'))).toBe(true)
+    expect(find('[data-page-parameters-trigger]').parent).toBe(find('.page-search-parameters'))
     expect(bar.parent).toBe(find('.page-search-tools'))
-    expect(find('.library-flat-search-launcher').props['aria-expanded']).toBe(true)
   })
 
   it('keeps cover search on the centered hover zone', async () => {
     storage.set('auralis-library-view-mode', 'cover')
-    await mount()
+    const parameters = (await mount(true))!
     expect(doc.body.querySelector('.library-flat-search-launcher')).toBeNull()
+    expect(doc.body.querySelector('.library-search-bar')).toBeNull()
     fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
     await settle()
     expect(find('.library-search-zone')).toBeDefined()
-    expect(find('.library-search-bar').querySelector('.i-lucide-search')).toBeDefined()
+    const bar = find('.library-search-bar')
+    expect(bar.querySelector('.i-lucide-search')).toBeDefined()
+    const trigger = find('[data-page-parameters-trigger]')
+    expect(bar.contains(trigger)).toBe(true)
+    fire(trigger, 'onClick', { currentTarget: trigger })
+    expect(parameters.open.value).toBe(true)
   })
 })
 
 describe('LibraryPage page parameter entry', () => {
-  it('keeps search and the external button together, preserves the query and returns focus', async () => {
+  it('keeps the parameter button inside search, preserves the query and returns focus', async () => {
     const parameters = (await mount(true))!
     await openFlatSearch()
     const tools = find('.page-search-tools')
     const bar = find('.library-search-bar')
     const input = find('.library-search-input')
     const trigger = find('[data-page-parameters-trigger]')
-    expect(trigger.parent).toBe(tools)
+    expect(trigger.parent).toBe(find('.page-search-parameters'))
     expect(bar.parent).toBe(tools)
-    expect(bar.contains(trigger)).toBe(false)
+    expect(bar.contains(trigger)).toBe(true)
     Reflect.set(input, 'value', 'al')
     fire(input, 'onUpdate:modelValue', 'al')
     await settle()
@@ -572,7 +576,7 @@ describe('LibraryPage page parameter entry', () => {
     fire(trigger, 'onClick', { currentTarget: trigger })
     expect(parameters.open.value).toBe(true)
   })
-  it('retains an empty search toolbar through panel closure and releases it after focus leaves', async () => {
+  it('retains the search toolbar after panel closure and focus leaves', async () => {
     const parameters = (await mount(true))!
     await openFlatSearch()
     const trigger = find('[data-page-parameters-trigger]')
@@ -587,6 +591,6 @@ describe('LibraryPage page parameter entry', () => {
     fire(bar, 'onFocusout', { currentTarget: bar, relatedTarget: row(1) })
     fire(tools, 'onFocusout', { currentTarget: tools, relatedTarget: row(1) })
     await settle()
-    expect(doc.body.querySelector('.page-search-tools')).toBeNull()
+    expect(doc.body.querySelector('.page-search-tools')).toBeDefined()
   })
 })

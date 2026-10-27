@@ -14,7 +14,6 @@ import { useSongCoverInfoLayout } from '@renderer/features/appearance/composable
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
 import PageParameterTrigger from '@renderer/features/appearance/components/PageParameterTrigger.vue'
-import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
 import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
@@ -571,13 +570,6 @@ watch(isCoverView, (cover) => {
   clearSearchHover()
 })
 
-function openFlatSearch(): void {
-  isSearchFocused.value = true
-  void nextTick(() => {
-    searchInputRef.value?.focus()
-  })
-}
-
 function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
   flatColumnLayoutState.preview(widths)
 }
@@ -956,6 +948,7 @@ onBeforeUnmount(() => {
           >
             <div
               class="library-search-bar"
+              :class="{ 'library-search-bar--parameters': hasPageParameters }"
               @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
               @focusout="onSearchBarFocusOut"
             >
@@ -997,87 +990,75 @@ onBeforeUnmount(() => {
                   </span>
                 </template>
               </span>
+              <span v-if="hasPageParameters" class="page-search-parameters">
+                <PageParameterTrigger @pointerdown.stop />
+              </span>
             </div>
-            <PageParameterTrigger v-if="hasPageParameters" />
           </div>
         </div>
       </Transition>
     </div>
 
     <div class="library-list-frame relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div
-        v-if="isSearchEnabled && !isCoverView"
-        ref="searchRootRef"
-        class="library-flat-search"
-        :class="{
-          'library-flat-search--below-header':
-            !isLoading && tracks.length > 0 && !(initialLoadError && !pageIdentity),
-        }"
-      >
-        <Transition name="library-flat-search" :duration="160">
-          <div
-            v-if="shouldRenderSearchBar || keepSearchToolsVisible"
-            class="page-search-tools library-flat-search-tools"
-            :class="{ 'page-search-tools--parameters': hasPageParameters }"
-            @focusin="onSearchToolsFocusIn"
-            @focusout="onSearchToolsFocusOut"
-          >
-            <PageParameterTrigger v-if="hasPageParameters" />
-            <div
-              class="library-search-bar"
-              @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
-              @focusout="onSearchBarFocusOut"
-            >
-              <input
-                ref="searchInputRef"
-                v-model="searchQuery"
-                type="text"
-                class="library-search-input"
-                :disabled="isLoading || tracks.length === 0"
-                :placeholder="t('library.search.placeholder')"
-                :aria-label="t('library.search.ariaLabel')"
-                spellcheck="false"
-                @focus="onSearchInputFocus"
-                @keydown="onSearchKeydown"
-              />
-              <span
-                v-if="searchOutcome.kind !== 'idle'"
-                class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
-                role="status"
-                aria-live="polite"
-              >
-                <template v-if="searchOutcome.kind === 'matched'">
-                  {{
-                    searchOutcome.wrapped
-                      ? t('library.search.wrapped', {
-                          index: String(searchOutcome.index).padStart(2, '0'),
-                          total: String(searchOutcome.total).padStart(2, '0'),
-                        })
-                      : t('library.search.matched', {
-                          index: String(searchOutcome.index).padStart(2, '0'),
-                          total: String(searchOutcome.total).padStart(2, '0'),
-                        })
-                  }}
-                </template>
-                <template v-else-if="searchOutcome.kind === 'not-found'">
-                  <span class="text-[var(--auralis-danger)] font-medium">
-                    {{ t('library.search.notFound') }}
-                  </span>
-                </template>
-              </span>
-            </div>
-          </div>
-        </Transition>
-        <button
-          type="button"
-          class="library-flat-search-launcher"
-          :aria-label="t('library.search.ariaLabel')"
-          :aria-expanded="shouldRenderSearchBar || keepSearchToolsVisible"
-          @click="openFlatSearch"
+      <div v-if="isSearchEnabled && !isCoverView" ref="searchRootRef" class="library-flat-search">
+        <div
+          class="page-search-tools library-flat-search-tools"
+          :class="{ 'page-search-tools--parameters': hasPageParameters }"
+          @focusin="onSearchToolsFocusIn"
+          @focusout="onSearchToolsFocusOut"
         >
-          <FrostedSurface />
-          <span class="i-lucide-search" aria-hidden="true"></span>
-        </button>
+          <div
+            class="library-search-bar"
+            :class="{ 'library-search-bar--parameters': hasPageParameters }"
+            @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
+            @focusout="onSearchBarFocusOut"
+          >
+            <span
+              class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"
+              aria-hidden="true"
+            ></span>
+            <input
+              ref="searchInputRef"
+              v-model="searchQuery"
+              type="text"
+              class="library-search-input"
+              :disabled="isLoading || tracks.length === 0"
+              :placeholder="t('library.search.placeholder')"
+              :aria-label="t('library.search.ariaLabel')"
+              spellcheck="false"
+              @focus="onSearchInputFocus"
+              @keydown="onSearchKeydown"
+            />
+            <span
+              v-if="searchOutcome.kind !== 'idle'"
+              class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
+              role="status"
+              aria-live="polite"
+            >
+              <template v-if="searchOutcome.kind === 'matched'">
+                {{
+                  searchOutcome.wrapped
+                    ? t('library.search.wrapped', {
+                        index: String(searchOutcome.index).padStart(2, '0'),
+                        total: String(searchOutcome.total).padStart(2, '0'),
+                      })
+                    : t('library.search.matched', {
+                        index: String(searchOutcome.index).padStart(2, '0'),
+                        total: String(searchOutcome.total).padStart(2, '0'),
+                      })
+                }}
+              </template>
+              <template v-else-if="searchOutcome.kind === 'not-found'">
+                <span class="text-[var(--auralis-danger)] font-medium">
+                  {{ t('library.search.notFound') }}
+                </span>
+              </template>
+            </span>
+            <span v-if="hasPageParameters" class="page-search-parameters">
+              <PageParameterTrigger @pointerdown.stop />
+            </span>
+          </div>
+        </div>
       </div>
 
       <LibraryStatusState v-if="isLoading" kind="loading" />

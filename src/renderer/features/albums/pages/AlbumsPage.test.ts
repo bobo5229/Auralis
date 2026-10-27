@@ -717,9 +717,10 @@ describe('AlbumsPage layout transition participant', () => {
 })
 
 describe('AlbumsPage page parameter entry', () => {
-  it('opens parameters from outside the input and restores the empty toolbar focus', async () => {
+  it('opens parameters inside the search bar and restores the empty toolbar focus', async () => {
     await mountPage(true)
     await setAlbums(4)
+    expect(find('library-search-bar')).toBeUndefined()
     const page = find('albums-page')!
     ;(page.props.onMousemove as (event: object) => void)({
       currentTarget: page,
@@ -730,8 +731,8 @@ describe('AlbumsPage page parameter entry', () => {
     const tools = find('page-search-tools')!
     const bar = find('library-search-bar')!
     const trigger = find('page-parameter-trigger')!
-    expect(trigger.parent).toBe(tools)
-    expect(bar.contains(trigger)).toBe(false)
+    expect(bar.parent).toBe(tools)
+    expect(bar.contains(trigger)).toBe(true)
     ;(trigger.props.onClick as (event: object) => void)({ currentTarget: trigger })
     expect(parameters!.open.value).toBe(true)
     ;(page.props.onMouseleave as () => void)()

@@ -3045,6 +3045,42 @@ input[type='range'].volume-overlay-slider {
   cursor: default;
 }
 
+.library-search-bar--parameters {
+  padding-right: 4px;
+}
+
+.page-search-parameters {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-search-parameters::before {
+  width: 1px;
+  height: 20px;
+  background: var(--auralis-border-strong);
+  content: '';
+}
+
+.page-search-parameters .page-parameter-trigger {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.page-search-parameters .page-parameter-trigger:hover,
+.page-search-parameters .page-parameter-trigger--active {
+  background: var(--auralis-control-hover-bg);
+}
+
+.page-search-parameters .page-parameter-trigger:focus-visible {
+  outline-offset: 0;
+}
+
 .library-search-input {
   flex: 1;
   min-width: 0;
