@@ -1,3 +1,4 @@
+import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
 import { createRequire } from 'node:module'
 import { mkdtemp, mkdir, rename, readFile, copyFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -54,7 +55,11 @@ async function fixture() {
   migrateDatabase(db)
   const repo = new TrackRepository(db)
   const send = vi.fn()
-  const service = new LibraryIncrementalImportService(repo, join(root, 'artwork'), send)
+  const service = new LibraryIncrementalImportService(
+    repo,
+    join(root, 'artwork'),
+    createLibraryScanEvents(send).changed,
+  )
   expect((await service.importFiles([oldPath])).failed).toEqual([])
   const id = db.prepare('SELECT id FROM tracks').pluck().get() as number
   db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(?,7)').run(id)

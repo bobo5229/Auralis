@@ -1,4 +1,5 @@
 import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
+import { getLyricsSidecarFingerprintSync } from '../metadata/resolveLyricsForFile'
 import { selectLibraryDirectory } from '@main/app/selectLibraryDirectory'
 import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
@@ -53,7 +54,7 @@ function track(filePath: string): ScannedTrackFile {
   return {
     filePath,
     fileFingerprint: { size: 10, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1 },
-    lyricsSidecarFingerprint: '[null,null,null,null]',
+    lyricsSidecarFingerprint: getLyricsSidecarFingerprintSync(filePath),
     title: filePath,
     fileSize: 10,
     fileMtimeMs: 1,

@@ -1,4 +1,5 @@
 import { createLibraryScanEvents } from '@main/ipc/libraryScanEvents'
+import { getLyricsSidecarFingerprintSync } from '../metadata/resolveLyricsForFile'
 import { createRequire } from 'node:module'
 import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -44,7 +45,7 @@ it.each(['permanent', 'recovered'] as const)(
         return {
           filePath,
           fileFingerprint: fingerprint,
-          lyricsSidecarFingerprint: '[null,null,null,null]',
+          lyricsSidecarFingerprint: getLyricsSidecarFingerprintSync(filePath),
           title,
           artist: 'Artist',
           album: 'Album',
