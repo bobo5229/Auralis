@@ -182,6 +182,10 @@
     padding: 38px 44px 35px;
     list-style: none;
   }
+  /* Preserve the foam geometry while the current set decodes, then reveal it together. */
+  .badge-row.is-loading {
+    visibility: hidden;
+  }
   .badge-item {
     position: relative;
     flex: 0 0 184px;

@@ -20,6 +20,35 @@ const canvasRevision = ref(0)
 const group = ref<MilestoneGroup>('hours'),
   appearance = ref<BadgeState>('lit')
 const badges = computed(() => milestoneBadges.filter((badge) => badge.group === group.value))
+const previewSources = computed(() =>
+  badges.value.map((badge) => getBadgePreview(badge.id, appearance.value)),
+)
+const previewsReady = ref(false),
+  previewsFailed = ref(false)
+watch(
+  previewSources,
+  async (sources, _previous, onCleanup) => {
+    let cancelled = false
+    onCleanup(() => {
+      cancelled = true
+    })
+    previewsReady.value = false
+    previewsFailed.value = false
+    try {
+      await Promise.all(
+        sources.map(async (src) => {
+          const image = new Image()
+          image.src = src
+          await image.decode()
+        }),
+      )
+      if (!cancelled) previewsReady.value = true
+    } catch {
+      if (!cancelled) previewsFailed.value = true
+    }
+  },
+  { immediate: true, flush: 'sync' },
+)
 const viewport = ref<HTMLElement | null>(null),
   sheet = ref<HTMLElement | null>(null),
   row = ref<HTMLElement | null>(null)
@@ -29,6 +58,13 @@ const canPrevious = ref(false),
   canNext = ref(false),
   failed = ref(false),
   foamFailed = ref(false)
+const caseError = computed(() =>
+  previewsFailed.value
+    ? t('archive.milestones.previewError')
+    : failed.value
+      ? t('archive.milestones.inspectError')
+      : '',
+)
 const lifetime = new AbortController()
 const motion = createReducedMotionQuery()
 let surface: Awaited<ReturnType<typeof createPressureSurface>> | undefined
@@ -181,11 +217,11 @@ defineExpose({
                 </button>
               </div>
               <span
-                v-if="failed"
+                v-if="caseError"
                 class="case-error-icon"
                 role="img"
-                :aria-label="t('archive.milestones.inspectError')"
-                :title="t('archive.milestones.inspectError')"
+                :aria-label="caseError"
+                :title="caseError"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" />
@@ -215,6 +251,9 @@ defineExpose({
                 <ul
                   ref="row"
                   class="badge-row"
+                  :class="{ 'is-loading': !previewsReady }"
+                  :inert="!previewsReady"
+                  :aria-busy="!previewsReady && !previewsFailed"
                   :aria-label="t(`archive.milestones.groups.${group}`)"
                 >
                   <li v-for="badge in badges" :key="badge.id" class="badge-item">
@@ -264,8 +303,8 @@ defineExpose({
           </button>
         </div>
       </section>
-      <p v-if="failed" class="sr-only" role="status">
-        {{ t('archive.milestones.inspectError') }}
+      <p v-if="caseError" class="sr-only" role="status">
+        {{ caseError }}
       </p>
     </div>
     <template #overlay>
