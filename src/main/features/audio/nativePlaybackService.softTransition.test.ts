@@ -39,10 +39,8 @@ it('drains file analysis for saving and resumes deferred refinement without rebu
 })
 
 async function setup(coordinator?: PlaybackCoordinator) {
-  const liveBoundary = vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary').mockResolvedValue({
-    live: false,
-    boundary: null,
-  })
+  const liveBoundary = vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary').mockResolvedValue(null)
+  const isLiveAlbum = vi.fn<(id: number) => boolean>(() => false)
   const plan: SoftTransition = {
     path: 'bridge.wav',
     outgoingEnd: 118,
@@ -161,6 +159,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
     warn: (e) => warnings.push(e),
     onBoundaryStatus: (e) => statuses.push(e.status),
     coordinator,
+    isLiveAlbum,
   })
   await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
   const schedule = (id = 2, durationSeconds = 2) =>
@@ -196,6 +195,7 @@ async function setup(coordinator?: PlaybackCoordinator) {
     command,
     prepare,
     liveBoundary,
+    isLiveAlbum,
     resolve,
     reject,
     schedule,
@@ -207,7 +207,8 @@ async function setup(coordinator?: PlaybackCoordinator) {
 
 it('replaces crossfade with a direct Live boundary even when digital trimming is off', async () => {
   const test = await setup()
-  test.liveBoundary.mockResolvedValue({ live: true, boundary: { start: 1.5, end: 117 } })
+  test.isLiveAlbum.mockReturnValue(true)
+  test.liveBoundary.mockResolvedValue({ start: 1.5, end: 117 })
   await test.schedule()
   await vi.waitFor(() => expect(test.statuses).toContain('applied'))
   expect(test.prepare).not.toHaveBeenCalled()
@@ -221,7 +222,8 @@ it('replaces crossfade with a direct Live boundary even when digital trimming is
 
 it('keeps ordinary gapless playback for Live without edge silence', async () => {
   const test = await setup()
-  test.liveBoundary.mockResolvedValue({ live: true, boundary: null })
+  test.isLiveAlbum.mockReturnValue(true)
+  test.liveBoundary.mockResolvedValue(null)
   await test.schedule()
   await vi.waitFor(() => expect(test.statuses).toContain('unchanged'))
   expect(test.prepare).not.toHaveBeenCalled()
@@ -237,7 +239,8 @@ it.each(['cancel-next', 'stop'] as const)(
   'discards a pending Live scan after %s',
   async (action) => {
     const test = await setup()
-    let finish!: (result: { live: boolean; boundary: { start: number; end: number } }) => void
+    test.isLiveAlbum.mockReturnValue(true)
+    let finish!: (result: { start: number; end: number }) => void
     test.liveBoundary.mockReturnValue(
       new Promise((resolve) => {
         finish = resolve
@@ -246,7 +249,7 @@ it.each(['cancel-next', 'stop'] as const)(
     await test.schedule()
     await test.service.command({ action, session: 1 })
     const calls = test.command.mock.calls.length
-    finish({ live: true, boundary: { start: 1.5, end: 117 } })
+    finish({ start: 1.5, end: 117 })
     await vi.waitFor(() => expect(test.statuses).toContain('cancelled'))
     expect(test.command).toHaveBeenCalledTimes(calls)
     expect(test.prepare).not.toHaveBeenCalled()
@@ -741,5 +744,57 @@ it('retains a new duration request when cancellation waits behind transport duri
   )
   test.resolve(null)
   await scheduler.drainAnalysis()
+  await test.service.dispose()
+})
+
+it.each([
+  [true, true],
+  [true, false],
+  [false, true],
+  [false, false],
+])('uses album classification for the boundary: %s -> %s', async (left, right) => {
+  const test = await setup()
+  test.isLiveAlbum.mockImplementation((id) => (id === 1 ? left : right))
+  await test.schedule()
+  if (left && right) {
+    await vi.waitFor(() => expect(test.statuses).toContain('unchanged'))
+    expect(test.liveBoundary).toHaveBeenCalledOnce()
+    expect(test.prepare).not.toHaveBeenCalled()
+  } else {
+    await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledOnce())
+    expect(test.liveBoundary).not.toHaveBeenCalled()
+    test.resolve(null)
+  }
+  expect(test.isLiveAlbum).toHaveBeenCalledWith(1)
+  if (left) expect(test.isLiveAlbum).toHaveBeenCalledWith(2)
+  await test.service.dispose()
+})
+
+it('honors disabled soft transitions without starting Live analysis', async () => {
+  const test = await setup()
+  test.isLiveAlbum.mockReturnValue(true)
+  await test.service.command({
+    action: 'next',
+    session: 1,
+    trackId: 2,
+    trimDigitalSilence: false,
+    softTransition: false,
+  })
+  expect(test.liveBoundary).not.toHaveBeenCalled()
+  expect(test.prepare).not.toHaveBeenCalled()
+  await test.service.dispose()
+})
+
+it('reads updated album classification when a metadata write releases deferred analysis', async () => {
+  const test = await setup()
+  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
+  const resume = await scheduler.suspendMetadataAnalysis()
+  await test.schedule()
+  expect(test.isLiveAlbum).not.toHaveBeenCalled()
+  test.isLiveAlbum.mockReturnValue(true)
+  resume()
+  await vi.waitFor(() => expect(test.statuses).toContain('unchanged'))
+  expect(test.isLiveAlbum.mock.calls.map(([id]) => id)).toEqual([1, 2])
+  expect(test.prepare).not.toHaveBeenCalled()
   await test.service.dispose()
 })

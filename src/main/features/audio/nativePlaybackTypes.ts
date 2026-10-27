@@ -35,6 +35,8 @@ export interface NativePlaybackOptions {
   mpvPath: string
   ffmpegPath: string
   resolveTrack: (id: number) => Promise<string>
+  /** No catalog resolver means album classification is unknown. */
+  isLiveAlbum?: (trackId: number) => boolean
   coordinator?: PlaybackCoordinator
   emit: (event: NativePlaybackEvent) => void
   warn: (error: unknown) => void
@@ -46,6 +48,7 @@ export interface NativePlaybackOptions {
 
 /** A fresh read of the facade's logical song, never a mutable shared snapshot. */
 export interface LogicalPlaybackView {
+  readonly trackId: number | null
   readonly loaded: boolean
   readonly path: string
   readonly paused: boolean

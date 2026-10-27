@@ -1,6 +1,5 @@
 import { spawn } from 'node:child_process'
 import { stat } from 'node:fs/promises'
-import { cleanDelimitedValues } from '@shared/utils/delimitedValues'
 import { parseAudioMetadata } from '../metadata/parseAudioMetadata'
 import { parseFirstPcmTimestamp, readMpvTimestampOrigin } from './audioTimestamp'
 import type { DigitalBoundary } from './digitalSilence'
@@ -8,21 +7,12 @@ import type { DigitalBoundary } from './digitalSilence'
 export const LIVE_SILENCE_DB = -60
 export const LIVE_SILENCE_MINIMUM_SECONDS = 1
 
-export function hasLiveGenre(genres: readonly string[] | undefined): boolean {
-  return cleanDelimitedValues([...(genres ?? [])]).some((genre) => genre.toLowerCase() === 'live')
-}
-
 interface EdgeScan {
   frames: number
   leading: number
   trailing: number
   origin: number
   rate: number
-}
-
-export interface LiveBoundaryResult {
-  live: boolean
-  boundary: DigitalBoundary | null
 }
 
 /** Keep only edge candidates, never remove an interval inside a song. */
@@ -68,7 +58,11 @@ export class LiveSilenceAnalyzer {
     private readonly mpvExecutable: string,
   ) {}
 
-  async boundary(left: string, right: string, signal: AbortSignal): Promise<LiveBoundaryResult> {
+  async boundary(
+    left: string,
+    right: string,
+    signal: AbortSignal,
+  ): Promise<DigitalBoundary | null> {
     signal.throwIfAborted()
     const readers = [left, right].map((path) => parseAudioMetadata(path, { skipCovers: true }))
     let metadata: Awaited<(typeof readers)[number]>[]
@@ -79,9 +73,7 @@ export class LiveSilenceAnalyzer {
       throw error
     }
     signal.throwIfAborted()
-    if (!metadata.some((entry) => hasLiveGenre(entry.common.genre)))
-      return { live: false, boundary: null }
-    // Live always suppresses crossfade, including unsupported/entirely silent files.
+    // The scheduler owns album eligibility; unsupported files keep their original boundary.
     if (
       metadata.some(
         ({ format }) =>
@@ -92,7 +84,7 @@ export class LiveSilenceAnalyzer {
           (format.duration !== undefined && format.duration > 7200),
       )
     )
-      return { live: true, boundary: null }
+      return null
     const lifetime = new AbortController()
     const scanSignal = AbortSignal.any([signal, lifetime.signal])
     const scans = [left, right].map((path, index) =>
@@ -114,14 +106,10 @@ export class LiveSilenceAnalyzer {
     }
     const [a, b] = pair as [EdgeScan, EdgeScan]
     signal.throwIfAborted()
-    if (a.leading === a.frames || b.leading === b.frames || (!a.trailing && !b.leading))
-      return { live: true, boundary: null }
+    if (a.leading === a.frames || b.leading === b.frames || (!a.trailing && !b.leading)) return null
     return {
-      live: true,
-      boundary: {
-        start: b.leading ? b.origin + (b.leading + 0.25) / b.rate : 0,
-        end: a.trailing ? a.origin + (a.frames - a.trailing + 0.25) / a.rate : null,
-      },
+      start: b.leading ? b.origin + (b.leading + 0.25) / b.rate : 0,
+      end: a.trailing ? a.origin + (a.frames - a.trailing + 0.25) / a.rate : null,
     }
   }
 

@@ -76,7 +76,14 @@ async function setup() {
   io.snapshot.mockResolvedValue(source)
   io.buffer.mockResolvedValue(pcm)
   io.prepare.mockResolvedValue(prepared)
-  const view = { loaded: true, path: filePath, paused: false, currentTime: 0, duration: 30 }
+  const view = {
+    trackId: 1,
+    loaded: true,
+    path: filePath,
+    paused: false,
+    currentTime: 0,
+    duration: 30,
+  }
   const decoder = { path: filePath, time: 0 }
   const client: MpvClient = {
     command: vi.fn(async (name: unknown, ...args: unknown[]) => {

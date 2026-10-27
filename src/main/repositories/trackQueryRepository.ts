@@ -48,6 +48,29 @@ export class TrackQueryRepository extends BaseRepository {
       .get() as string
   }
 
+  isLiveAlbum(trackId: number): boolean {
+    const identity = this.db
+      .prepare(
+        `SELECT ${albumArtistIdentityExpr} AS albumArtist, album
+         FROM library_track_display WHERE id = ?`,
+      )
+      .get(trackId) as { albumArtist: string; album: string | null } | undefined
+    if (!identity?.album?.trim()) return false
+    // Include unavailable members: a partial playable queue cannot classify an album.
+    const members = this.db
+      .prepare(
+        `SELECT genre FROM library_track_display
+         WHERE ${albumArtistIdentityExpr} = ? AND album = ?`,
+      )
+      .all(identity.albumArtist, identity.album) as { genre: string | null }[]
+    return (
+      members.length > 0 &&
+      members.every(({ genre }) =>
+        splitDelimitedValues(genre).some((value) => normalizeDelimitedValue(value) === 'live'),
+      )
+    )
+  }
+
   getFilePathById(trackId: number): string | null {
     const row = this.db
       .prepare(`SELECT file_path AS filePath FROM tracks WHERE id = ?`)

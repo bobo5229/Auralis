@@ -53,7 +53,14 @@ function signal(segments: { seconds: number; level: number; rightOnly?: boolean 
     }),
   )
 }
-async function fixture(dir: string, name: string, extension: string, pcm: Buffer, genre: string) {
+async function fixture(
+  dir: string,
+  name: string,
+  extension: string,
+  pcm: Buffer,
+  genre: string,
+  album = 'Concert',
+) {
   const path = join(dir, `${name}.${extension}`)
   const codec =
     extension === 'wav'
@@ -81,7 +88,7 @@ async function fixture(dir: string, name: string, extension: string, pcm: Buffer
       '-metadata',
       `genre=${genre}`,
       '-metadata',
-      'album=Concert',
+      `album=${album}`,
       ...(extension === 'mp3' ? ['-id3v2_version', '3'] : []),
       path,
     ],
@@ -116,19 +123,19 @@ const silence = (seconds: number) => tone(seconds, 0)
 
 describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live playback', () => {
   it.each([
-    ['wav', 'Live', 'Pop'],
-    ['flac', 'Pop', ' LIVE '],
-    ['mp3', 'Live;Cantopop', 'Pop'],
-    ['m4a', 'Pop', 'Pop; Live'],
+    ['wav', 'Live', 'Live', 'Concert'],
+    ['flac', 'Live', ' LIVE ', 'Other concert'],
+    ['mp3', 'Live;Cantopop', 'Live', 'Other concert'],
+    ['m4a', 'Live', 'Pop; Live', 'Concert'],
   ])(
-    'joins %s edges with genres %s / %s without mixing or losing inner pauses',
-    async (extension, leftGenre, rightGenre) => {
+    'joins %s edges with genres %s / %s into %s without mixing or losing inner pauses',
+    async (extension, leftGenre, rightGenre, rightAlbum) => {
       const dir = await directory()
       const a = signal([tone(3), silence(1.25), tone(3), silence(2)])
       const b = signal([silence(1.5), tone(3, 0.3), silence(1.25), tone(3, 0.3)])
       const paths = [
         await fixture(dir, 'a', extension, a, leftGenre),
-        await fixture(dir, 'b', extension, b, rightGenre),
+        await fixture(dir, 'b', extension, b, rightGenre, rightAlbum),
       ]
       const hashes = await Promise.all(
         paths.map(async (path) =>
@@ -142,9 +149,8 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
         paths[1],
         new AbortController().signal,
       )
-      expect(plan.live).toBe(true)
-      expect(plan.boundary).not.toBeNull()
-      const boundary = plan.boundary!
+      expect(plan).not.toBeNull()
+      const boundary = plan!
       expect(boundary.start).toBeCloseTo(1.5, 1)
       expect(boundary.end).toBeCloseTo(7.25, 1)
       const output = join(dir, 'joined.pcm')
@@ -157,6 +163,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
         ffmpegPath: ffmpeg,
         mpvArgs: ['--ao=pcm', '--ao-pcm-waveheader=no', `--ao-pcm-file=${output}`, '--pause=yes'],
         resolveTrack: async (id) => paths[id - 1],
+        isLiveAlbum: () => true,
         emit: (event) => events.push(event),
         warn: (error) => warnings.push(error),
         onBoundaryStatus: (event) => statuses.push(event.status),
@@ -225,6 +232,88 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
     20000,
   )
 
+  it.each([true, false])(
+    'crossfades Live and ordinary albums in either direction: Live first %s',
+    async (liveFirst) => {
+      const dir = await directory()
+      const paths = [
+        await fixture(
+          dir,
+          'a',
+          'wav',
+          signal([tone(8)]),
+          liveFirst ? 'Live' : 'Pop',
+          'First album',
+        ),
+        await fixture(
+          dir,
+          'b',
+          'wav',
+          signal([tone(8, 0.3)]),
+          liveFirst ? 'Pop' : 'Live',
+          'Second album',
+        ),
+      ]
+      const statuses: string[] = [],
+        warnings: unknown[] = [],
+        events: NativePlaybackEvent[] = []
+      const output = join(dir, 'crossfade.pcm')
+      const prepare = vi.spyOn(SoftTransitionPreparer.prototype, 'prepare')
+      const liveScan = vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary')
+      const service = new NativePlaybackService({
+        mpvPath: mpv,
+        ffmpegPath: ffmpeg,
+        mpvArgs: [
+          '--ao=pcm',
+          '--ao-pcm-waveheader=no',
+          `--ao-pcm-file=${output}`,
+          '--audio-format=float',
+          '--pause=yes',
+        ],
+        resolveTrack: async (id) => paths[id - 1],
+        isLiveAlbum: (id) => id === (liveFirst ? 1 : 2),
+        emit: (event) => events.push(event),
+        warn: (error) => warnings.push(error),
+        onBoundaryStatus: (event) => statuses.push(event.status),
+      })
+      services.push(service)
+      try {
+        await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+        await service.command({
+          action: 'next',
+          session: 1,
+          trackId: 2,
+          trimDigitalSilence: false,
+          softTransition: true,
+          softTransitionDurationSeconds: 2,
+        })
+        await until(
+          () => statuses.includes('applied'),
+          () => ({ statuses, warnings }),
+        )
+        expect(prepare).toHaveBeenCalledOnce()
+        expect(liveScan).not.toHaveBeenCalled()
+        await service.command({ action: 'resume', session: 1 })
+        await until(
+          () => events.some((event) => event.kind === 'ended'),
+          () => ({ events: events.slice(-6), warnings }),
+        )
+        await service.dispose()
+        const actual = await readFile(output)
+        expect(actual.length / 8 / rate).toBeCloseTo(14, 1)
+        expect(
+          events.filter((event) => event.kind === 'boundary').map((event) => event.trackId),
+        ).toEqual([2])
+        expect(warnings).toEqual([])
+      } finally {
+        await service.dispose()
+        prepare.mockRestore()
+        liveScan.mockRestore()
+      }
+    },
+    20000,
+  )
+
   it('keeps short silence, audible quiet tails, single-channel sound and all-silent files', async () => {
     const dir = await directory()
     const analyzer = new LiveSilenceAnalyzer(ffmpeg, mpv)
@@ -235,16 +324,10 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
       ['right', { ...tone(2), rightOnly: true }],
     ] as const) {
       const a = await fixture(dir, name, 'flac', signal([tone(3), tail]), 'Live')
-      expect(await analyzer.boundary(a, b, new AbortController().signal)).toEqual({
-        live: true,
-        boundary: null,
-      })
+      expect(await analyzer.boundary(a, b, new AbortController().signal)).toBeNull()
     }
     const allSilent = await fixture(dir, 'silent', 'flac', signal([silence(3)]), 'Live')
-    expect(await analyzer.boundary(allSilent, b, new AbortController().signal)).toEqual({
-      live: true,
-      boundary: null,
-    })
+    expect(await analyzer.boundary(allSilent, b, new AbortController().signal)).toBeNull()
     const lastSample = await fixture(
       dir,
       'last-sample',
@@ -252,10 +335,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
       signal([tone(3), silence(2), tone(1 / rate)]),
       'Live',
     )
-    expect(await analyzer.boundary(lastSample, b, new AbortController().signal)).toEqual({
-      live: true,
-      boundary: null,
-    })
+    expect(await analyzer.boundary(lastSample, b, new AbortController().signal)).toBeNull()
     const noise = await fixture(
       dir,
       'low',
@@ -263,9 +343,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
       signal([tone(3), tone(2, 10 ** (-75 / 20))]),
       'Live',
     )
-    expect(
-      (await analyzer.boundary(noise, b, new AbortController().signal)).boundary?.end,
-    ).toBeCloseTo(3, 2)
+    expect((await analyzer.boundary(noise, b, new AbortController().signal))?.end).toBeCloseTo(3, 2)
   }, 15000)
 
   it('streams a long file and invalidates its cached edge after file replacement', async () => {
@@ -274,11 +352,11 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
     const b = await fixture(dir, 'b', 'flac', signal([tone(4)]), 'Pop')
     const analyzer = new LiveSilenceAnalyzer(ffmpeg, mpv)
     const scan = () => analyzer.boundary(a, b, new AbortController().signal)
-    expect((await scan()).boundary?.end).toBeCloseTo(90, 2)
-    expect((await scan()).boundary?.end).toBeCloseTo(90, 2)
+    expect((await scan())?.end).toBeCloseTo(90, 2)
+    expect((await scan())?.end).toBeCloseTo(90, 2)
     const replacement = await fixture(dir, 'replacement', 'flac', signal([tone(5)]), 'Live')
     await writeFile(a, await readFile(replacement))
-    expect(await scan()).toEqual({ live: true, boundary: null })
+    expect(await scan()).toBeNull()
   }, 20000)
 
   it('honors cancellation without poisoning the next scan', async () => {
@@ -291,9 +369,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
     const work = analyzer.boundary(paths[0], paths[1], controller.signal)
     controller.abort()
     await expect(work).rejects.toThrow()
-    expect(
-      (await analyzer.boundary(paths[0], paths[1], new AbortController().signal)).boundary,
-    ).not.toBeNull()
+    expect(await analyzer.boundary(paths[0], paths[1], new AbortController().signal)).not.toBeNull()
   }, 15000)
 
   it('pauses and seeks back into B after its Live intro was skipped on muted WASAPI', async () => {
@@ -310,6 +386,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
       ffmpegPath: ffmpeg,
       mpvArgs: ['--ao=wasapi', '--pause=yes'],
       resolveTrack: async (id) => paths[id - 1],
+      isLiveAlbum: () => true,
       emit: (event) => events.push(event),
       warn: (error) => warnings.push(error),
       onBoundaryStatus: (event) => statuses.push(event.status),

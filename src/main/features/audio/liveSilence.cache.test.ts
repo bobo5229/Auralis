@@ -65,7 +65,7 @@ it('shares concurrent scans and reuses timestamped edges until the file fingerpr
     second = scan()
   await finish(0, 36000)
   await finish(1, 60000)
-  const expected = { live: true, boundary: { start: 2.75 + 0.25 / 48000, end: 8.5 + 0.25 / 48000 } }
+  const expected = { start: 2.75 + 0.25 / 48000, end: 8.5 + 0.25 / 48000 }
   expect(await first).toEqual(expected)
   expect(await second).toEqual(expected)
   expect(await scan()).toEqual(expected)
@@ -91,7 +91,7 @@ it('kills an active decoder on cancellation and permits a new lifetime to retry'
   const retry = analyzer.boundary('left', 'right', new AbortController().signal)
   await finish(1)
   await finish(2)
-  expect((await retry).boundary).not.toBeNull()
+  expect(await retry).not.toBeNull()
 })
 
 it('does not cache scans cancelled during the mpv timestamp query', async () => {
@@ -135,28 +135,14 @@ it('rejects file changes during analysis and does not cache those results', asyn
   const retry = analyzer.boundary('left', 'right', new AbortController().signal)
   await finish(retryIndex)
   await finish(retryIndex + 1)
-  expect((await retry).boundary).not.toBeNull()
+  expect(await retry).not.toBeNull()
 })
 
-it('returns non-Live without starting a decoder, and keeps unsupported Live out of crossfade', async () => {
+it('keeps unsupported audio unchanged without starting a decoder', async () => {
   const analyzer = new LiveSilenceAnalyzer('ffmpeg', 'mpv')
-  const metadata = vi.mocked(parseAudioMetadata)
-  metadata.mockResolvedValueOnce({ common: { genre: ['Pop'] }, format: {} } as Awaited<
+  vi.mocked(parseAudioMetadata).mockResolvedValue({ common: {}, format: {} } as Awaited<
     ReturnType<typeof parseAudioMetadata>
   >)
-  metadata.mockResolvedValueOnce({ common: { genre: ['Rock'] }, format: {} } as Awaited<
-    ReturnType<typeof parseAudioMetadata>
-  >)
-  expect(await analyzer.boundary('left', 'right', new AbortController().signal)).toEqual({
-    live: false,
-    boundary: null,
-  })
-  metadata.mockResolvedValue({ common: { genre: ['Live'] }, format: {} } as Awaited<
-    ReturnType<typeof parseAudioMetadata>
-  >)
-  expect(await analyzer.boundary('left', 'right', new AbortController().signal)).toEqual({
-    live: true,
-    boundary: null,
-  })
+  expect(await analyzer.boundary('left', 'right', new AbortController().signal)).toBeNull()
   expect(spawn).not.toHaveBeenCalled()
 })

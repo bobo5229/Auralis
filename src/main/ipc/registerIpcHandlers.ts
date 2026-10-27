@@ -248,6 +248,7 @@ export function registerIpcHandlers(
   })
   const nativePlayback = new NativePlaybackService({
     ...audioPaths,
+    isLiveAlbum: (trackId) => trackRepository.isLiveAlbum(trackId),
     resolveTrack: resolvePlaybackTrack,
     coordinator: playbackFileCoordinator,
     suspendFileReaders: (filePath) => spectrum.suspendFileReaders(filePath),

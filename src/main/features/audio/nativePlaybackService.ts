@@ -41,6 +41,7 @@ export class NativePlaybackService {
   constructor(private readonly options: NativePlaybackOptions) {
     this.runtime = new NativePlaybackSession(options.coordinator)
     const read = (): LogicalPlaybackView => ({
+      trackId: this.snapshot.trackId,
       loaded: this.loaded,
       path: this.path,
       paused: this.paused,

@@ -35,6 +35,10 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getChangeToken()
   }
 
+  isLiveAlbum(trackId: number): boolean {
+    return this.queries.isLiveAlbum(trackId)
+  }
+
   getFilePathById(trackId: number): string | null {
     return this.queries.getFilePathById(trackId)
   }

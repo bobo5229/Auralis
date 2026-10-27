@@ -45,7 +45,13 @@ export class NativeNextTrackScheduler {
   constructor(
     private readonly options: Pick<
       NativePlaybackOptions,
-      'mpvPath' | 'ffmpegPath' | 'resolveTrack' | 'coordinator' | 'warn' | 'onBoundaryStatus'
+      | 'mpvPath'
+      | 'ffmpegPath'
+      | 'resolveTrack'
+      | 'isLiveAlbum'
+      | 'coordinator'
+      | 'warn'
+      | 'onBoundaryStatus'
     >,
     private readonly runtime: NativePlaybackSession,
     private readonly read: () => LogicalPlaybackView,
@@ -422,13 +428,16 @@ export class NativeNextTrackScheduler {
       this.options.onBoundaryStatus?.({ trackId: request.trackId, status })
     try {
       report('analyzing')
-      const live = await this.liveSilence.boundary(currentPath, nextPath, signal)
-      if (!isCurrent()) return report('cancelled')
-      if (live.live) {
-        if (!live.boundary) return report('unchanged')
-        report(
-          await this.boundaryUpdater.updateBoundary(client, nextPath, live.boundary, isCurrent),
-        )
+      const currentTrackId = this.read().trackId
+      const liveBoundary =
+        currentTrackId !== null &&
+        this.options.isLiveAlbum?.(currentTrackId) === true &&
+        this.options.isLiveAlbum(request.trackId)
+      if (liveBoundary) {
+        const boundary = await this.liveSilence.boundary(currentPath, nextPath, signal)
+        if (!isCurrent()) return report('cancelled')
+        if (!boundary) return report('unchanged')
+        report(await this.boundaryUpdater.updateBoundary(client, nextPath, boundary, isCurrent))
       } else if (request.softTransition)
         await this.refineSoftTransition(client, currentPath, nextPath, request, signal, isCurrent)
       else

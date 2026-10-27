@@ -1,21 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasLiveGenre, LiveSilenceEdges } from './liveSilence'
-
-describe('Live genre policy', () => {
-  it.each([['Live'], [' Pop;  LIVE '], ['Rock', ' live ']].map((genres) => ({ genres })))(
-    'matches a complete Live item: $genres',
-    ({ genres }) => {
-      expect(hasLiveGenre(genres)).toBe(true)
-    },
-  )
-  it.each(
-    [undefined, [], ['Pop'], ['Live Electronic'], ['Olive'], ['Pop/Live']].map((genres) => ({
-      genres,
-    })),
-  )('keeps other genre labels unchanged: $genres', ({ genres }) => {
-    expect(hasLiveGenre(genres)).toBe(false)
-  })
-})
+import { LiveSilenceEdges } from './liveSilence'
 
 describe('Live silence edge selection', () => {
   it('selects both edges and preserves an internal pause', () => {
