@@ -237,7 +237,7 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     ])
 
     trigger(
-      find((node) => node.props['data-lyrics-typography'] === 'font-size'),
+      find((node) => node.props.id === 'fullscreen-lyrics-font-size'),
       'Input',
       { target: { value: '125' } },
     )
@@ -280,6 +280,24 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     ])
   })
 
+  it('steps lyric size by five percent and rejects invalid input', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-lyrics-font-size')!
+    expect(input.props.role).toBe('spinbutton')
+    expect(input.props['aria-valuetext']).toBe('100%')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    trigger(buttons[1], 'Click', {})
+    await flush()
+    expect(typographyState.setPreference).toHaveBeenLastCalledWith({ fontSizePercent: 105 })
+    trigger(input, 'Input', { target: { value: '106' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('105')
+    typographyState.preference.value = { ...typographyState.preference.value, fontSizePercent: 150 }
+    await flush()
+    expect(buttons[1].props.disabled).toBe(true)
+  })
+
   it('resets only lyrics, preserves paused background and shows save feedback', async () => {
     await mount()
     typographyState.preference.value = { fontSizePercent: 125, fontWeight: 600, lineGapPercent: 80 }
@@ -290,7 +308,7 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
       {},
     )
     await flush()
-    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-size')).toBeDefined()
 
     trigger(
       find((node) => node.props['data-lyrics-typography-reset'] !== undefined),
@@ -351,34 +369,17 @@ describe('FullscreenBackgroundControls info typography group', () => {
     trigger(titleSize, 'Input', { target: { value: '32' } })
     trigger(
       find((node) => node.props.id === 'fullscreen-info-subtitle-font-weight'),
-      'Click',
-      {},
-    )
-    await flush()
-    trigger(
-      find(
-        (node) =>
-          node.props.role === 'option' && node.textContent === 'fullscreen.info.weights.500',
-      ),
-      'Click',
-      {},
+      'Input',
+      { target: { value: '500' } },
     )
     await flush()
     trigger(subtitleSize, 'Input', { target: { value: '16' } })
     trigger(
       find((node) => node.props.id === 'fullscreen-info-title-font-weight'),
-      'Click',
-      {},
+      'Input',
+      { target: { value: '600' } },
     )
     await flush()
-    trigger(
-      find(
-        (node) =>
-          node.props.role === 'option' && node.textContent === 'fullscreen.info.weights.600',
-      ),
-      'Click',
-      {},
-    )
 
     expect(infoTypographyState.setPreference.mock.calls).toEqual([
       [{ titleFontSizePx: 32 }],
@@ -396,6 +397,41 @@ describe('FullscreenBackgroundControls info typography group', () => {
     expect(infoTypographyState.setPreference.mock.calls.at(-1)).toEqual([
       { subtitleFontSizePx: 17 },
     ])
+  })
+
+  it('steps title weight within the existing range', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-info-title-font-weight')!
+    expect(input.props.role).toBe('spinbutton')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    expect(buttons[1].props.disabled).toBe(true)
+    trigger(buttons[0], 'Click', {})
+    await flush()
+    expect(infoTypographyState.setPreference).toHaveBeenLastCalledWith({ titleFontWeight: 700 })
+    trigger(input, 'Input', { target: { value: '650' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('700')
+  })
+
+  it('steps subtitle weight and rejects invalid values', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-info-subtitle-font-weight')!
+    expect(input.props.role).toBe('spinbutton')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    trigger(buttons[0], 'Click', {})
+    await flush()
+    expect(infoTypographyState.setPreference).toHaveBeenLastCalledWith({ subtitleFontWeight: 600 })
+    trigger(input, 'Input', { target: { value: '650' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('600')
+    infoTypographyState.preference.value = {
+      ...infoTypographyState.preference.value,
+      subtitleFontWeight: 400,
+    }
+    await flush()
+    expect(buttons[0].props.disabled).toBe(true)
   })
 
   it('resets only track information and keeps lyrics plus paused background', async () => {
@@ -450,6 +486,9 @@ describe('FullscreenBackgroundControls background motion', () => {
         (node) =>
           node.type === 'input' &&
           node.props['data-lyrics-typography'] === undefined &&
+          node.props.id !== 'fullscreen-lyrics-font-size' &&
+          node.props.id !== 'fullscreen-info-title-font-weight' &&
+          node.props.id !== 'fullscreen-info-subtitle-font-weight' &&
           node.props.id !== 'fullscreen-info-title-font-size' &&
           node.props.id !== 'fullscreen-info-subtitle-font-size',
       ),
@@ -476,7 +515,7 @@ describe('FullscreenBackgroundControls background motion', () => {
     expect(
       find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
     ).toBe(true)
-    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-size')).toBeDefined()
     trigger(
       find((node) => node.props['data-background-pause'] !== undefined),
       'Click',

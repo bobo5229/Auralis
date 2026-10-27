@@ -82,12 +82,7 @@ const lyricsFontWeightOptions = computed(() =>
     label: t(`fullscreen.lyrics.weights.${weight}`),
   })),
 )
-const infoFontWeightOptions = computed(() =>
-  FULLSCREEN_INFO_FONT_WEIGHTS.map((weight) => ({
-    value: String(weight),
-    label: t(`fullscreen.info.weights.${weight}`),
-  })),
-)
+const lyricsSizeRange = FULLSCREEN_LYRICS_TYPOGRAPHY_RANGES.fontSizePercent
 const infoTitleSizeRange = FULLSCREEN_INFO_TYPOGRAPHY_RANGES.titleFontSizePx
 const infoSubtitleSizeRange = FULLSCREEN_INFO_TYPOGRAPHY_RANGES.subtitleFontSizePx
 
@@ -114,7 +109,7 @@ function lyricsParameterFill(field: 'fontSizePercent' | 'lineGapPercent'): strin
   return `${((lyricsTypography.value[field] - min) / (max - min)) * 100}%`
 }
 
-function updateLyricsPercent(field: 'fontSizePercent' | 'lineGapPercent', event: Event): void {
+function updateLyricsPercent(field: 'lineGapPercent', event: Event): void {
   lyricsResetStatus.clear()
   setLyricsTypographyPreference({ [field]: Number((event.target as HTMLInputElement).value) })
 }
@@ -142,10 +137,10 @@ function updateInfoFontSize(field: 'titleFontSizePx' | 'subtitleFontSizePx', val
 
 function updateInfoFontWeight(
   field: 'titleFontWeight' | 'subtitleFontWeight',
-  selected: string,
+  selected: number,
 ): void {
   infoResetStatus.clear()
-  const value = Number(selected)
+  const value = selected
   if (isFullscreenInfoFontWeight(value))
     setInfoTypographyPreference({ [field]: value } satisfies Partial<FullscreenInfoTypography>)
 }
@@ -258,14 +253,18 @@ defineExpose({ close })
                     t('fullscreen.info.titleFontWeight')
                   }}</strong>
                 </div>
-                <SettingsSelect
-                  id="fullscreen-info-title-font-weight"
-                  labelledby="fullscreen-info-title-font-weight-label"
-                  :model-value="String(infoTypography.titleFontWeight)"
-                  :options="infoFontWeightOptions"
-                  :teleport-to="rootRef ?? undefined"
-                  @update:model-value="updateInfoFontWeight('titleFontWeight', $event)"
-                />
+                <div class="fullscreen-info-size-control">
+                  <SongFontSizeInput
+                    id="fullscreen-info-title-font-weight"
+                    :label="t('fullscreen.info.title')"
+                    :model-value="infoTypography.titleFontWeight"
+                    :min="FULLSCREEN_INFO_FONT_WEIGHTS[0]"
+                    :max="FULLSCREEN_INFO_FONT_WEIGHTS[FULLSCREEN_INFO_FONT_WEIGHTS.length - 1]"
+                    :step="100"
+                    kind="weight"
+                    @update:model-value="updateInfoFontWeight('titleFontWeight', $event)"
+                  />
+                </div>
               </div>
               <div class="settings-row fullscreen-info-typography-row">
                 <div>
@@ -288,14 +287,18 @@ defineExpose({ close })
                     t('fullscreen.info.subtitleFontWeight')
                   }}</strong>
                 </div>
-                <SettingsSelect
-                  id="fullscreen-info-subtitle-font-weight"
-                  labelledby="fullscreen-info-subtitle-font-weight-label"
-                  :model-value="String(infoTypography.subtitleFontWeight)"
-                  :options="infoFontWeightOptions"
-                  :teleport-to="rootRef ?? undefined"
-                  @update:model-value="updateInfoFontWeight('subtitleFontWeight', $event)"
-                />
+                <div class="fullscreen-info-size-control">
+                  <SongFontSizeInput
+                    id="fullscreen-info-subtitle-font-weight"
+                    :label="t('fullscreen.info.subtitle')"
+                    :model-value="infoTypography.subtitleFontWeight"
+                    :min="FULLSCREEN_INFO_FONT_WEIGHTS[0]"
+                    :max="FULLSCREEN_INFO_FONT_WEIGHTS[FULLSCREEN_INFO_FONT_WEIGHTS.length - 1]"
+                    :step="100"
+                    kind="weight"
+                    @update:model-value="updateInfoFontWeight('subtitleFontWeight', $event)"
+                  />
+                </div>
               </div>
               <div
                 v-if="infoTypographyStatus"
@@ -327,25 +330,22 @@ defineExpose({ close })
                     t('fullscreen.lyrics.fontSize')
                   }}</strong>
                 </div>
-                <div class="settings-range-control">
-                  <input
+                <div class="fullscreen-info-size-control">
+                  <SongFontSizeInput
                     id="fullscreen-lyrics-font-size"
-                    type="range"
-                    min="75"
-                    max="150"
-                    step="5"
-                    :value="lyricsTypography.fontSizePercent"
-                    :aria-labelledby="'fullscreen-lyrics-font-size-label'"
-                    :aria-valuetext="`${lyricsTypography.fontSizePercent}%`"
-                    :style="{
-                      '--settings-range-progress': lyricsParameterFill('fontSizePercent'),
-                    }"
-                    data-lyrics-typography="font-size"
-                    @input="updateLyricsPercent('fontSizePercent', $event)"
+                    :label="t('fullscreen.lyrics.fontSize')"
+                    :model-value="lyricsTypography.fontSizePercent"
+                    :min="lyricsSizeRange.min"
+                    :max="lyricsSizeRange.max"
+                    :step="lyricsSizeRange.step"
+                    kind="percent"
+                    @update:model-value="
+                      (value) => {
+                        lyricsResetStatus.clear()
+                        setLyricsTypographyPreference({ fontSizePercent: value })
+                      }
+                    "
                   />
-                  <output for="fullscreen-lyrics-font-size"
-                    >{{ lyricsTypography.fontSizePercent }}%</output
-                  >
                 </div>
               </div>
               <div class="settings-row fullscreen-lyrics-typography-row">
@@ -431,6 +431,11 @@ defineExpose({ close })
 .background-controls-toggle:hover {
   color: var(--auralis-text);
 }
+.background-controls-panel {
+  background: var(--auralis-parameter-surface-bg);
+  -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
+  backdrop-filter: var(--auralis-parameter-surface-filter);
+}
 .background-controls-panel .settings-row {
   box-sizing: border-box;
   min-height: 48px;
@@ -464,17 +469,18 @@ defineExpose({ close })
 }
 .background-controls-panel .fullscreen-info-size-control {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 112px;
+  width: 112px;
+  max-width: 100%;
   justify-content: flex-end;
 }
-/* The shared stepper is 148px so it lines up with the song-page weight column. */
 .background-controls-panel :deep(.fullscreen-info-size-control .song-font-size-input) {
-  width: max-content;
-}
-.background-controls-panel :deep(.fullscreen-info-size-control .song-font-size-value) {
-  flex: 0 0 auto;
+  width: 100%;
 }
 .background-controls-panel :deep(.settings-select) {
+  flex: 0 1 112px;
+  width: 112px;
+  justify-content: space-between;
   line-height: var(--auralis-type-caption-line-height);
 }
 .fullscreen-background-controls :deep(.settings-select-menu) {

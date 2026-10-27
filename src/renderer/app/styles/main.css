@@ -1279,8 +1279,8 @@ body.is-column-resizing * {
   transition: none;
 }
 
-/* Page parameter panel material, also used by both frosted Playbar layouts. */
-:is(.page-parameter-panel, .player-bar, .frosted-surface) {
+/* Shared material for page parameters, fullscreen settings and frosted Playbar surfaces. */
+:is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
   --auralis-parameter-surface-alpha: 0.68;
   --auralis-parameter-surface-bg: rgb(
     from var(--auralis-frosted-surface-bg) r g b / var(--auralis-parameter-surface-alpha)
@@ -1288,7 +1288,7 @@ body.is-column-resizing * {
   --auralis-parameter-surface-filter: blur(14px) saturate(1.15);
 }
 
-:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
   --auralis-parameter-surface-alpha: 0.64;
 }
 
@@ -1382,7 +1382,7 @@ body.is-column-resizing * {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
     --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
     --auralis-parameter-surface-filter: none;
   }
@@ -1402,7 +1402,7 @@ body.is-column-resizing * {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
     --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
     --auralis-parameter-surface-filter: none;
   }
@@ -3021,7 +3021,7 @@ input[type='range'].volume-overlay-slider {
   width: 38px;
   height: 38px;
   padding: 0;
-  border-radius: 11px;
+  border-radius: 50%;
   border: 1px solid var(--auralis-search-border);
   background: var(--auralis-search-bg);
   box-shadow: var(--auralis-search-shadow);
