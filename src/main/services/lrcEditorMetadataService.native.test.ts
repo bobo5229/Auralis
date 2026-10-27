@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
@@ -155,3 +155,43 @@ it.each(['tag', 'file'] as const)(
   },
   30_000,
 )
+
+it('protects embedded TTML while allowing an LRC sidecar on a real audio file', async () => {
+  const ttml = '<tt xmlns="http://www.w3.org/ns/ttml"><body><p>Protected</p></body></tt>'
+  const replacement = join(directory, 'with-ttml.flac')
+  await promisify(execFile)(
+    ffmpeg,
+    [
+      '-nostdin',
+      '-v',
+      'error',
+      '-y',
+      '-i',
+      source,
+      '-c:a',
+      'copy',
+      '-metadata',
+      `lyrics=${ttml}`,
+      replacement,
+    ],
+    { windowsHide: true },
+  )
+  await rename(replacement, source)
+  const before = await readFile(source)
+  const state = await editor.open(10, 1)
+  expect(state).toMatchObject({ canSaveTag: false, tagWriteProtected: true, text: '' })
+  const save = {
+    sessionId: state.sessionId,
+    expectedRevision: state.revision,
+    text: updated,
+    target: 'tag' as const,
+  }
+  await expect(editor.save(10, save)).rejects.toMatchObject({ code: 'unsupported-format' })
+  expect(await readFile(source)).toEqual(before)
+  await expect(editor.save(10, { ...save, target: 'file' })).resolves.toMatchObject({
+    cacheUpdated: true,
+  })
+  expect(await readFile(join(directory, 'source.lrc'), 'utf8')).toBe(updated)
+  expect(await readFile(source)).toEqual(before)
+  expect(JSON.stringify((await parseAudioMetadata(source)).common.lyrics)).toContain('Protected')
+}, 30_000)

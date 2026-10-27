@@ -9,6 +9,7 @@ import type {
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
 import { assertMetadataFingerprint } from './readStableMetadata'
+import { getLyricsSidecarFingerprintSync } from './resolveLyricsForFile'
 import { logger } from '@main/logging/logger'
 
 function getWorkerPath(): string {
@@ -153,11 +154,21 @@ export class MetadataRefreshWorkerHost {
               r.generation === this.writes.generationFor(r.trackId) &&
               !this.writes.isWriting(r.trackId) &&
               this.activeWorker === worker &&
-              this.repository.getTrackFilePath(r.trackId) === r.sourceFilePath
+              (input.writeMode === 'legacy-ttml'
+                ? this.repository.getLegacyTtmlFilePath(r.trackId)
+                : this.repository.getTrackFilePath(r.trackId)) === r.sourceFilePath
             if (!matches()) throw new Error('Stale metadata result or changed track identity')
             await assertMetadataFingerprint(r)
             if (!matches()) throw new Error('Stale metadata result or changed track identity')
-            if (input.writeMode === 'lyrics') this.repository.updateTrackLyrics(r)
+            if (input.writeMode === 'legacy-ttml') {
+              if (
+                !r.lyricsSidecarFingerprint ||
+                r.lyricsSidecarFingerprint !== getLyricsSidecarFingerprintSync(r.sourceFilePath)
+              )
+                throw new Error('Lyrics sidecar changed before commit')
+              if (!this.repository.updateLegacyTtmlLyrics(r, r.lyricsSidecarFingerprint))
+                throw new Error('Legacy lyrics already changed')
+            } else if (input.writeMode === 'lyrics') this.repository.updateTrackLyrics(r)
             else this.repository.updateTrackMetadata(r)
             committed++
             committedTrackIds.push(r.trackId)
@@ -186,6 +197,7 @@ export class MetadataRefreshWorkerHost {
             !this.writes.isWriting(f.trackId) &&
             this.repository.getTrackFilePath(f.trackId) === f.filePath
           if (
+            input.writeMode !== 'legacy-ttml' &&
             this.isMissingFileFailure(f.reason) &&
             matches() &&
             (await this.isConfirmedMissing(f.filePath)) &&

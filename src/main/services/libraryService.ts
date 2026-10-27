@@ -7,7 +7,6 @@ import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libra
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 import { rankAlbumGenres } from '@shared/utils/albumGenres'
-import { readTtmlPlayback } from '@main/features/lyrics/ttmlPlayback'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -60,9 +59,7 @@ export class LibraryService {
 
   getLyrics(trackId: number): TrackLyrics | null {
     const result = this.trackRepository.getLyricsByTrackId(trackId)
-    if (result?.lyricsFormat === 'ttml' && result.lyricsText) {
-      return { ...result, ttmlPlayback: readTtmlPlayback(result.lyricsText) }
-    }
+    if (result?.lyricsFormat === 'ttml') return { ...result, lyricsText: null, lyricsFormat: null }
     return result
   }
 

@@ -9,7 +9,11 @@ import {
   normalizeIdentityText,
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
-import { getLyricsSidecarFingerprint, readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
+import {
+  getLyricsSidecarFingerprint,
+  readLyricsSnapshot,
+  sameLyricsSidecarFingerprint,
+} from '../metadata/resolveLyricsForFile'
 import { LibraryScanArtwork } from './libraryScanArtwork'
 import { readM4aTextMetadata } from './m4aTextTags'
 import { hasSameScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
@@ -80,7 +84,10 @@ export class LibraryScanTrackReader {
     try {
       const lyricsChecked =
         knownFile?.lyricsCheckedMtimeMs === fileMtimeMs &&
-        knownFile.lyricsSidecarFingerprint === (await getLyricsSidecarFingerprint(filePath))
+        sameLyricsSidecarFingerprint(
+          knownFile.lyricsSidecarFingerprint,
+          await getLyricsSidecarFingerprint(filePath),
+        )
       const needsLyricsBackfill = Boolean(fileUnchanged && !lyricsChecked)
 
       // Audio and sidecar fingerprints are independent. Old rows without a

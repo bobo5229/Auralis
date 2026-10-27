@@ -7,6 +7,8 @@ export interface LrcEditorState {
   text: string
   format: 'plain' | 'lrc'
   canSaveTag: boolean
+  /** Embedded TTML is protected from tag replacement; LRC sidecar saves remain available. */
+  tagWriteProtected?: boolean
 }
 
 export interface SaveLrcEditor {
@@ -23,21 +25,6 @@ export interface LrcEditorSaved {
   /** Another higher-priority source may still be selected by the existing resolver. */
   active: boolean
   writeWarning: boolean
-}
-
-export interface PlaybackLyricLine {
-  id: string
-  /** Source paragraph identity; multiple displayed lines may belong to one paragraph. */
-  editorLineId: string
-  timeSeconds: number
-  endTimeSeconds: number | null
-  text: string
-  performer: 1 | 2 | null
-}
-
-export interface TtmlPlaybackLyrics {
-  lines: PlaybackLyricLine[]
-  error: 'invalid-ttml' | 'unsupported-timing' | null
 }
 
 export type LyricsEditorErrorCode =

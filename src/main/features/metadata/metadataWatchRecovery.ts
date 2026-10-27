@@ -2,7 +2,7 @@ import { normalize, win32 } from 'node:path'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import { collectAudioFiles } from '../libraryScan/libraryScanInventory'
-import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
+import { getLyricsSidecarFingerprint, sameLyricsSidecarFingerprint } from './resolveLyricsForFile'
 import type { MetadataWatchState } from './metadataWatchState'
 
 const RECOVERY_BATCH_SIZE = 128
@@ -96,7 +96,10 @@ export class MetadataWatchRecovery {
             const track = knownByPath.get(pathKey(path))
             if (!track) return false
             try {
-              return (await getLyricsSidecarFingerprint(path)) !== track.lyricsSidecarFingerprint
+              return !sameLyricsSidecarFingerprint(
+                track.lyricsSidecarFingerprint,
+                await getLyricsSidecarFingerprint(path),
+              )
             } catch (error) {
               needsRetry = true
               logger.warn(

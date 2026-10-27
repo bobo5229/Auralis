@@ -30,14 +30,9 @@ describe('resolveAudioCandidatesForLyricSidecar', () => {
     }
   })
 
-  it.each(['.ttml', '.TTML', '.TtMl'])(
-    'maps %s sidecars onto the same audio candidates as LRC',
-    (extension) => {
-      expect(resolveAudioCandidatesForLyricSidecar(`D:\\lib\\song${extension}`)).toEqual(
-        expectedCandidatesForBase('D:\\lib\\song'),
-      )
-    },
-  )
+  it.each(['.ttml', '.TTML', '.TtMl'])('ignores %s sidecars', (extension) => {
+    expect(resolveAudioCandidatesForLyricSidecar(`D:\\lib\\song${extension}`)).toEqual([])
+  })
 
   it('returns [] when the extension is not a lyric sidecar', () => {
     expect(resolveAudioCandidatesForLyricSidecar('D:\\lib\\song.mp3')).toEqual([])

@@ -167,6 +167,106 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     }
     expect((await readdir(directory)).some((name) => name.includes('auralis-'))).toBe(false)
   })
+  it.each([
+    ['flac', 'flac'],
+    ['mp3', 'libmp3lame'],
+    ['m4a', 'aac'],
+    ['ogg', 'libvorbis'],
+    ['opus', 'libopus'],
+  ])(
+    'refuses to overwrite embedded TTML in %s before creating a staging file',
+    async (extension, codec) => {
+      const target = join(directory, `embedded-ttml.${extension}`)
+      const ttml = '<tt xmlns="http://www.w3.org/ns/ttml"><body><p>Protected</p></body></tt>'
+      execFileSync(
+        ffmpeg,
+        [
+          '-nostdin',
+          '-v',
+          'error',
+          '-y',
+          '-i',
+          file,
+          '-c:a',
+          codec,
+          '-metadata',
+          `lyrics=${ttml}`,
+          target,
+        ],
+        { windowsHide: true },
+      )
+      const before = await readFile(target)
+      await expect(
+        prepareAudioTagWrite(target, { ...edit, lyricsText: '[00:01]New' }, ffmpeg),
+      ).rejects.toMatchObject({ reason: 'tag-write-failed' })
+      expect(await readFile(target)).toEqual(before)
+      expect(
+        (await readdir(directory)).some((name) =>
+          name.startsWith(`embedded-ttml.${extension}.auralis-replacement-`),
+        ),
+      ).toBe(false)
+    },
+  )
+
+  it('protects real ID3v2.2 ULT TTML when common lyrics are absent', async () => {
+    const target = join(directory, 'legacy-ult.mp3')
+    execFileSync(
+      ffmpeg,
+      [
+        '-nostdin',
+        '-v',
+        'error',
+        '-y',
+        '-i',
+        file,
+        '-map_metadata',
+        '-1',
+        '-id3v2_version',
+        '0',
+        '-write_id3v1',
+        '0',
+        '-c:a',
+        'libmp3lame',
+        target,
+      ],
+      { windowsHide: true },
+    )
+    const ttml = '<tt xmlns="http://www.w3.org/ns/ttml"><body>Protected</body></tt>'
+    const body = Buffer.concat([
+      Buffer.from([0]),
+      Buffer.from('eng'),
+      Buffer.from([0]),
+      Buffer.from(ttml, 'latin1'),
+    ])
+    const frame = Buffer.alloc(6)
+    frame.write('ULT', 0, 'ascii')
+    frame.writeUIntBE(body.length, 3, 3)
+    const size = frame.length + body.length
+    const header = Buffer.from([
+      0x49,
+      0x44,
+      0x33,
+      2,
+      0,
+      0,
+      (size >> 21) & 0x7f,
+      (size >> 14) & 0x7f,
+      (size >> 7) & 0x7f,
+      size & 0x7f,
+    ])
+    await writeFile(target, Buffer.concat([header, frame, body, await readFile(target)]))
+    const before = await readFile(target)
+    const parsed = await metadataParser.parseAudioMetadata(target)
+    expect(parsed.native['ID3v2.2']).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'ULT' })]),
+    )
+    expect(parsed.common.lyrics).toBeUndefined()
+    await expect(
+      prepareAudioTagWrite(target, { ...edit, lyricsText: '[00:01]New' }, ffmpeg),
+    ).rejects.toMatchObject({ reason: 'tag-write-failed' })
+    expect(await readFile(target)).toEqual(before)
+  })
+
   it('writes raw timed lyrics to FLAC without changing unrelated metadata or the original before commit', async () => {
     const before = await readFile(file)
     const lyrics = '\n [ar:Artist]\n[00:01.20]Line one\nUntimed line  \n\n'

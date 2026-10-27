@@ -414,6 +414,20 @@ it('offers only tag and LRC destinations in the real save menu', async () => {
   expect(menu.children.filter((node) => node.type === 'button')).toHaveLength(2)
 })
 
+it('explains protected embedded TTML and offers only LRC saving', async () => {
+  api.openLrcEditor.mockResolvedValue({
+    ok: true,
+    value: { ...lrc(), canSaveTag: false, tagWriteProtected: true },
+  })
+  await mount()
+  expect(textContent(body)).toContain('lyricsEditor.tagTtmlProtected')
+  await edit('[00:01]Updated')
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  expect(button('lyricsEditor.tag').props.disabled).toBe(true)
+  expect(button('lyricsEditor.file').props.disabled).toBe(false)
+})
+
 it('reports unsupported TTML without enabling editing or saving', async () => {
   api.openLrcEditor.mockResolvedValue({ ok: false, code: 'unsupported-format' })
   await mount()

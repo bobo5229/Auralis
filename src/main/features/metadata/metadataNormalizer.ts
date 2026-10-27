@@ -2,7 +2,7 @@ import type { IAudioMetadata } from 'music-metadata'
 import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
 import type { LyricsFormat } from '@shared/types/libraryScan'
-import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
+import { classifyLyrics, isTtmlLike, type ResolvedLyrics } from './classifyLyrics'
 
 export interface NormalizedMetadata {
   title: string
@@ -109,7 +109,6 @@ function getNativeTagGroups(metadata: MetadataTags): NativeTag[][] {
 
 function isNativeLyricsTag(id: string): boolean {
   const normalized = id.replace(/[^a-zA-Z]/g, '').toUpperCase()
-
   return NATIVE_LYRICS_KEYS.has(normalized) || normalized.endsWith('LYRICS')
 }
 
@@ -160,7 +159,7 @@ export function resolveCopyright(metadata: MetadataTags): string[] {
   return native.length > 0 ? native : cleanDelimitedValues([metadata.common.copyright])
 }
 
-export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
+function lyricCandidates(metadata: MetadataTags, preserveText = false): string[] {
   const nativeCandidates: string[] = []
 
   for (const tags of getNativeTagGroups(metadata)) {
@@ -174,19 +173,30 @@ export function resolveLyrics(metadata: MetadataTags, preserveText = false): Res
   // Common lyrics may already be trimmed or decoded from LRC by music-metadata.
   // Raw editing and write verification need the original native field first.
   const commonCandidates = getTextValuesFromUnknown(metadata.common.lyrics)
-  const candidates = preserveText
+  return preserveText
     ? [...nativeCandidates, ...commonCandidates]
     : [...commonCandidates, ...nativeCandidates]
+}
+
+export function hasEmbeddedTtml(metadata: MetadataTags): boolean {
+  if (getTextValuesFromUnknown(metadata.common.lyrics).some(isTtmlLike)) return true
+  return getNativeTagGroups(metadata).some((tags) =>
+    tags.some((tag) => {
+      const id = tag.id.replace(/[^a-zA-Z]/g, '').toUpperCase()
+      const lyricTag =
+        isNativeLyricsTag(tag.id) || id.includes('USLT') || id.includes('SYLT') || id === 'ULT'
+      return lyricTag && getTextValuesFromUnknown(tag.value).some(isTtmlLike)
+    }),
+  )
+}
+
+export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
+  const candidates = lyricCandidates(metadata, preserveText)
   const resolved = [...new Set(candidates)].flatMap((candidate) => {
     const lyrics = classifyLyrics(candidate)
     return lyrics ? [{ ...lyrics, text: preserveText ? candidate : lyrics.text }] : []
   })
-  return (
-    resolved.find((lyrics) => lyrics.format === 'ttml') ??
-    resolved.find((lyrics) => lyrics.format === 'lrc') ??
-    resolved[0] ??
-    null
-  )
+  return resolved.find((lyrics) => lyrics.format === 'lrc') ?? resolved[0] ?? null
 }
 
 export function resolveGenres(metadata: MetadataTags): string[] {

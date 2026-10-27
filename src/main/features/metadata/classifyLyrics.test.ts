@@ -1,44 +1,37 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { classifyLyrics } from './classifyLyrics'
-import { resolveLyrics } from './metadataNormalizer'
+import { hasEmbeddedTtml, resolveLyrics } from './metadataNormalizer'
 import type { IAudioMetadata } from 'music-metadata'
 
 const ttml = readFileSync(new URL('./__fixtures__/duet.ttml', import.meta.url), 'utf8')
 
 describe('classifyLyrics', () => {
-  it('preserves complete TTML XML, including artists, extensions and word timings', () => {
-    const original = `\uFEFF${ttml}\r\n`
-    expect(classifyLyrics(original)).toEqual({ text: original, format: 'ttml' })
+  it('ignores TTML and malformed TTML instead of exposing XML as lyrics', () => {
+    expect(classifyLyrics(ttml)).toBeNull()
+    expect(classifyLyrics('<t:tt xmlns:t="http://www.w3.org/ns/ttml"><t:body/></t:tt>')).toBeNull()
+    expect(classifyLyrics('<tt broken')).toBeNull()
   })
 
-  it('supports namespace prefixes and untimed TTML', () => {
-    const xml =
-      '<t:tt xmlns:t="http://www.w3.org/ns/ttml"><t:body><t:div><t:p>你好</t:p></t:div></t:body></t:tt>'
-    expect(classifyLyrics(xml)?.format).toBe('ttml')
-  })
-
-  it.each([
-    '<tt xmlns="http://www.w3.org/ns/ttml"><body></tt>',
-    '<tt xmlns="http://www.w3.org/ns/ttml"><body/><body></tt>',
-    '<tt xmlns="http://www.w3.org/ns/ttml"><body><p begin=1s>Hi</p></body></tt>',
-    '<tt xmlns="urn:unrelated"><body/></tt>',
-    '<tt><body/></tt>',
-    '<tt xmlns="http://www.w3.org/ns/ttml"><head/></tt>',
-    '<!DOCTYPE tt [<!ENTITY x SYSTEM "file:///private">]><tt xmlns="http://www.w3.org/ns/ttml"><body>&x;</body></tt>',
-    '<tt xmlns="http://www.w3.org/ns/ttml"><body>&unknown;</body></tt>',
-  ])('rejects malformed or unrelated XML instead of exposing it as plain lyrics', (xml) => {
-    expect(classifyLyrics(xml)).toBeNull()
-  })
-
-  it('rejects non-TTML content in a TTML sidecar and oversized XML', () => {
-    expect(classifyLyrics('[00:01]LRC', true)).toBeNull()
-    expect(classifyLyrics('<html/>', true)).toBeNull()
+  it('detects TTML in all embedded lyric candidates without changing playback selection', () => {
+    const metadata = {
+      common: { lyrics: ['[00:01]Playable'] },
+      native: { 'ID3v2.3': [{ id: 'USLT:description', value: { text: ttml } }] },
+    } as unknown as IAudioMetadata
+    expect(hasEmbeddedTtml(metadata)).toBe(true)
+    expect(resolveLyrics(metadata)).toEqual({ text: '[00:01]Playable', format: 'lrc' })
     expect(
-      classifyLyrics(
-        `<tt xmlns="http://www.w3.org/ns/ttml"><body>${'a'.repeat(8 * 1024 * 1024)}</body></tt>`,
-      ),
-    ).toBeNull()
+      hasEmbeddedTtml({ common: { lyrics: ['plain'] }, native: {} } as unknown as IAudioMetadata),
+    ).toBe(false)
+  })
+
+  it('detects ID3v2.2 ULT lyrics absent from common metadata', () => {
+    const metadata = {
+      common: {},
+      native: { 'ID3v2.2': [{ id: 'ULT', value: { text: ttml } }] },
+    } as unknown as IAudioMetadata
+    expect(hasEmbeddedTtml(metadata)).toBe(true)
+    expect(resolveLyrics(metadata)).toBeNull()
   })
 
   it('keeps LRC and plain-text classification unchanged', () => {
@@ -57,12 +50,12 @@ describe('classifyLyrics', () => {
     })
   })
 
-  it('prefers embedded TTML over LRC/plain and retains its original XML', () => {
+  it('ignores embedded TTML and prefers embedded LRC over plain text', () => {
     const metadata = {
       common: { lyrics: ['Plain', '[00:01]LRC', ttml] },
       native: {},
     } as unknown as IAudioMetadata
-    expect(resolveLyrics(metadata)).toEqual({ text: ttml, format: 'ttml' })
+    expect(resolveLyrics(metadata)).toEqual({ text: '[00:01]LRC', format: 'lrc' })
     metadata.common.lyrics = [
       '<tt broken',
       '[00:01]LRC',

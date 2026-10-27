@@ -371,7 +371,7 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it.each(['lrc', 'ttml', 'TTML'])(
+  it.each(['lrc'])(
     'refreshes unchanged audio on %s sidecar intent only after tag-write suppression expires',
     async (extension) => {
       const { service, notify, refresh } = setup()
@@ -387,6 +387,14 @@ describe('metadata watcher component boundaries', () => {
       await service.stop()
     },
   )
+
+  it.each(['ttml', 'TTML'])('ignores %s sidecar events', async (extension) => {
+    const { service, notify, refresh } = setup()
+    notify('change', `sample.${extension}`)
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(refresh).not.toHaveBeenCalled()
+    await service.stop()
+  })
 
   it('adopts a Windows case-only path and keeps suppression on that file', async () => {
     const stored = path

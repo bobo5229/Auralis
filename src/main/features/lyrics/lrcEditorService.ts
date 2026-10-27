@@ -22,6 +22,7 @@ export interface LrcEditorDependencies {
   readSource(path: string): Promise<{
     lyricsText: string
     lyricsFormat: 'lrc' | 'plain' | 'ttml'
+    hasEmbeddedTtml?: boolean
   } | null>
   writeTag(
     id: number,
@@ -45,6 +46,7 @@ interface Session {
   sidecars: LyricFile[]
   revision: string
   format: LrcEditorState['format']
+  tagWriteProtected: boolean
   touched: number
   busy: boolean
 }
@@ -103,6 +105,7 @@ export class LrcEditorService {
         sidecars,
         revision: createHash('sha256').update(text).digest('hex'),
         format: source?.lyricsFormat ?? 'plain',
+        tagWriteProtected: source?.hasEmbeddedTtml === true,
         touched: this.now(),
         busy: false,
       }
@@ -117,7 +120,9 @@ export class LrcEditorService {
         revision: session.revision,
         text,
         format: session.format,
-        canSaveTag: LYRICS_TAG_EXTENSIONS.has(extname(path).toLowerCase()),
+        canSaveTag:
+          LYRICS_TAG_EXTENSIONS.has(extname(path).toLowerCase()) && !session.tagWriteProtected,
+        ...(session.tagWriteProtected ? { tagWriteProtected: true } : {}),
       }
     } finally {
       this.opening--
@@ -138,6 +143,8 @@ export class LrcEditorService {
       /<\s*(?:\w+:)?tt\b/i.test(request.text)
     )
       throw new LyricsEditorError('invalid-request')
+    if (request.target === 'tag' && session.tagWriteProtected)
+      throw new LyricsEditorError('unsupported-format')
     if (request.target === 'tag' && !LYRICS_TAG_EXTENSIONS.has(extname(session.path).toLowerCase()))
       throw new LyricsEditorError('unsupported-file')
     session.busy = true

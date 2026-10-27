@@ -162,3 +162,98 @@ describe('metadata repository writer transaction boundaries', () => {
     expect(second.db.prepare('SELECT source FROM track_metadata').pluck().get()).toBe('file_tag')
   })
 })
+
+it('only replaces still-current legacy lyrics and preserves unrelated metadata', () => {
+  const { db, repository } = setup()
+  db.prepare("INSERT INTO library_roots(path) VALUES ('C:\\isolated')").run()
+  db.prepare("UPDATE tracks SET lyrics_format = 'ttml', lyrics_text = '<tt />' WHERE id = 1").run()
+  db.prepare(
+    "UPDATE track_metadata SET lyrics_format = 'ttml', lyrics_text = '<tt />' WHERE track_id = 1",
+  ).run()
+  const beforeTitle = db.prepare('SELECT title FROM tracks WHERE id = 1').get()
+  expect(repository.getLegacyTtmlTracks(0, 128)).toEqual([
+    { trackId: 1, filePath: refreshed().sourceFilePath },
+  ])
+  expect(
+    repository.updateLegacyTtmlLyrics(
+      refreshed({ lyricsText: '[00:01]Fallback', lyricsFormat: 'lrc' }),
+      '[null,null]',
+    ),
+  ).toBe(true)
+  expect(
+    db
+      .prepare(
+        'SELECT lyrics_text, lyrics_format, lyrics_sidecar_fingerprint FROM tracks WHERE id = 1',
+      )
+      .get(),
+  ).toEqual({
+    lyrics_text: '[00:01]Fallback',
+    lyrics_format: 'lrc',
+    lyrics_sidecar_fingerprint: '[null,null]',
+  })
+  expect(db.prepare('SELECT title FROM tracks WHERE id = 1').get()).toEqual(beforeTitle)
+  expect(
+    repository.updateLegacyTtmlLyrics(
+      refreshed({ lyricsText: null, lyricsFormat: null }),
+      '[null,null]',
+    ),
+  ).toBe(false)
+  expect(repository.getLegacyTtmlTracks(0, 128)).toEqual([])
+})
+
+it('retries legacy lyrics for missing tracks without changing availability', () => {
+  const { db, repository } = setup()
+  db.prepare("INSERT INTO library_roots(path) VALUES ('C:\\isolated')").run()
+  db.prepare(
+    "UPDATE tracks SET availability = 'missing', lyrics_format = 'ttml', lyrics_text = '<tt />' WHERE id = 1",
+  ).run()
+  expect(repository.getLegacyTtmlTracks(0, 128)).toEqual([
+    { trackId: 1, filePath: refreshed().sourceFilePath },
+  ])
+  expect(repository.getLegacyTtmlFilePath(1)).toBe(refreshed().sourceFilePath)
+  expect(
+    repository.updateLegacyTtmlLyrics(
+      refreshed({ lyricsText: null, lyricsFormat: null }),
+      '[null,null]',
+    ),
+  ).toBe(true)
+  expect(db.prepare('SELECT availability, lyrics_format FROM tracks WHERE id = 1').get()).toEqual({
+    availability: 'missing',
+    lyrics_format: null,
+  })
+})
+
+it('excludes legacy lyrics outside configured roots, including prefix siblings', () => {
+  const { db, repository } = setup()
+  db.prepare("INSERT INTO library_roots(path) VALUES ('C:\\isolate')").run()
+  db.prepare(
+    "UPDATE tracks SET availability = 'missing', lyrics_format = 'ttml' WHERE id = 1",
+  ).run()
+  expect(repository.getLegacyTtmlTracks(0, 128)).toEqual([])
+  expect(repository.getLegacyTtmlFilePath(1)).toBeNull()
+  expect(repository.updateLegacyTtmlLyrics(refreshed(), '[null,null]')).toBe(false)
+})
+
+it('prunes completed legacy retry records without touching other refresh jobs', () => {
+  const { repository } = setup()
+  const legacy = repository.createJob('legacy-lyrics', 1)
+  repository.addFailure(legacy, 1, refreshed().sourceFilePath, 'unavailable')
+  repository.completeJob(legacy)
+  const other = repository.createJob('tracks', 1)
+  repository.addFailure(other, 1, refreshed().sourceFilePath, 'other')
+  repository.completeJob(other)
+  repository.pruneLegacyLyricsJobs()
+  expect(repository.getJobById(legacy)).toBeNull()
+  expect(repository.getJobById(other)).not.toBeNull()
+  expect(repository.listFailures()).toMatchObject([{ jobId: other, reason: 'other' }])
+})
+
+it('matches Windows roots with non-ASCII case differences without matching sibling folders', () => {
+  const { db, repository } = setup()
+  const root = process.platform === 'win32' ? 'C:\\MÜSIC' : '/müsic'
+  const file = process.platform === 'win32' ? 'C:\\müsic\\song.flac' : '/müsic/song.flac'
+  db.prepare('INSERT INTO library_roots(path) VALUES (?)').run(root)
+  db.prepare("UPDATE tracks SET file_path = ?, lyrics_format = 'ttml' WHERE id = 1").run(file)
+  expect(repository.getLegacyTtmlTracks(0, 128)).toEqual([{ trackId: 1, filePath: file }])
+  expect(repository.getLegacyTtmlFilePath(1)).toBe(file)
+})

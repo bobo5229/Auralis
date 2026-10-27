@@ -29,6 +29,7 @@ afterEach(async () => {
 function fixture(
   options: {
     format?: 'lrc' | 'ttml'
+    hasEmbeddedTtml?: boolean
     cacheUpdated?: boolean
     now?: () => number
     roots?: string[]
@@ -48,6 +49,7 @@ function fixture(
     readSource: async () => ({
       lyricsText: await readFile(sidecar, 'utf8'),
       lyricsFormat: options.format ?? 'lrc',
+      hasEmbeddedTtml: options.hasEmbeddedTtml,
     }),
     writeTag,
     reconcile,
@@ -85,15 +87,33 @@ describe('LRC text save sessions', () => {
     expect(await readFile(sidecar, 'utf8')).toBe(edit.text)
     expect(await readFile(ttmlPath, 'utf8')).toBe('Existing TTML')
   })
-  it('rejects externally changed TTML sidecars before saving LRC', async () => {
+  it('ignores externally changed TTML sidecars when saving LRC', async () => {
     const { service } = fixture()
     const edit = await request(service)
     const ttmlPath = join(root, 'song.ttml')
     await writeFile(ttmlPath, 'External TTML')
-    await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'file-changed' })
+    await expect(service.save(10, edit)).resolves.toMatchObject({ trackId: 1 })
     expect(await readFile(ttmlPath, 'utf8')).toBe('External TTML')
-    expect(await readFile(sidecar, 'utf8')).toBe(original)
+    expect(await readFile(sidecar, 'utf8')).toBe(edit.text)
   })
+  it('protects embedded TTML from tag saves while allowing LRC sidecar saves', async () => {
+    const { service, writeTag } = fixture({ hasEmbeddedTtml: true })
+    const state = await service.open(10, 1)
+    expect(state).toMatchObject({ canSaveTag: false, tagWriteProtected: true })
+    const edit = {
+      sessionId: state.sessionId,
+      expectedRevision: state.revision,
+      text: '[00:02]New',
+      target: 'tag' as const,
+    }
+    await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'unsupported-format' })
+    expect(writeTag).not.toHaveBeenCalled()
+    await expect(service.save(10, { ...edit, target: 'file' })).resolves.toMatchObject({
+      trackId: 1,
+    })
+    expect(await readFile(sidecar, 'utf8')).toBe(edit.text)
+  })
+
   it('backs up the exact sidecar, publishes the same-name LRC and leaves audio unchanged', async () => {
     const { service } = fixture()
     const edit = await request(service)

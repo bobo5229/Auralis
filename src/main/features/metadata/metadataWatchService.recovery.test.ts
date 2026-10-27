@@ -14,7 +14,10 @@ import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
 
 vi.mock('node:fs', () => ({ watch: vi.fn() }))
 vi.mock('node:fs/promises', () => ({ readdir: vi.fn(), stat: vi.fn() }))
-vi.mock('./resolveLyricsForFile', () => ({ getLyricsSidecarFingerprint: vi.fn() }))
+vi.mock('./resolveLyricsForFile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./resolveLyricsForFile')>()),
+  getLyricsSidecarFingerprint: vi.fn(),
+}))
 vi.mock('@main/logging/logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))

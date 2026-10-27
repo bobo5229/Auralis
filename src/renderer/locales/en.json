@@ -5,6 +5,7 @@
   },
   "lyricsEditor": {
     "title": "Edit lyrics",
+    "tagTtmlProtected": "Embedded TTML is protected. Save your edits as an LRC file instead.",
     "close": "Close lyrics editor",
     "updateTime": "Update",
     "insertTime": "Insert",
@@ -36,7 +37,7 @@
     "saveClose": "Save and close",
     "errors": {
       "unsupportedDocument": "The lyrics exceed the editing size limit.",
-      "lrcOnly": "Only LRC or plain-text lyrics can be edited. TTML lyrics are playback-only.",
+      "lrcOnly": "Only LRC or plain-text lyrics can be edited.",
       "changed": "The file changed or the session expired. Keep your edits, then close and reload.",
       "busy": "A write is in progress. Please retry shortly.",
       "unavailable": "The track is unavailable; lyrics could not be loaded.",

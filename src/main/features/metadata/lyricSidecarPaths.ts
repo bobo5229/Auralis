@@ -2,13 +2,13 @@ import { extname } from 'node:path'
 import { supportedAudioExtensions } from '@main/features/libraryScan/audioFileFilter'
 
 export function isLyricSidecar(filePath: string): boolean {
-  return ['.lrc', '.ttml'].includes(extname(filePath).toLowerCase())
+  return extname(filePath).toLowerCase() === '.lrc'
 }
 
 export function lyricSidecarCandidates(filePath: string): string[] {
   const extension = extname(filePath)
   const basePath = extension ? filePath.slice(0, -extension.length) : filePath
-  return ['.lrc', '.LRC', '.ttml', '.TTML'].map((suffix) => `${basePath}${suffix}`)
+  return ['.lrc', '.LRC'].map((suffix) => `${basePath}${suffix}`)
 }
 
 /** Non-lyric paths (including no extension) return []. */

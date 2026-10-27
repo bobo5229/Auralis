@@ -153,9 +153,14 @@ export function registerIpcHandlers(
 
   // Pause watch flush during full scan so concurrent imports are not marked missing.
   libraryScanService.setScanLifecycleHooks({
-    onStart: () => metadataWatchService.pauseFlush(),
+    onStart: () =>
+      Promise.all([
+        metadataWatchService.pauseFlush(),
+        metadataRefreshService.pauseLegacyLyricsRecovery(),
+      ]).then(() => undefined),
     onEnd: () => {
       metadataWatchService.resumeFlush()
+      metadataRefreshService.resumeLegacyLyricsRecovery()
       // A full scan re-derives all artwork keys — sweep the cache afterwards
       // (gated internally against any writer still being active).
       // The synchronous end hook returns before scan ownership is released.
@@ -168,10 +173,15 @@ export function registerIpcHandlers(
   })
 
   libraryScanService.setRootChangeHooks({
-    onStart: () => metadataWatchService.pauseFlush(),
+    onStart: () =>
+      Promise.all([
+        metadataWatchService.pauseFlush(),
+        metadataRefreshService.pauseLegacyLyricsRecovery(),
+      ]).then(() => undefined),
     onEnd: () => {
       metadataWatchService.syncRoots()
       metadataWatchService.resumeFlush()
+      metadataRefreshService.resumeLegacyLyricsRecovery()
     },
   })
 
@@ -211,6 +221,7 @@ export function registerIpcHandlers(
   })
 
   metadataWatchService.start()
+  metadataRefreshService.startLegacyLyricsRecovery()
   const resolvePlaybackTrack = (trackId: number) => playbackResources.resolveTrack(trackId)
   const spectrum = new PlaybackSpectrumService({
     ffmpegPath: audioPaths.ffmpegPath,

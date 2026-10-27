@@ -275,7 +275,7 @@ describe('LibraryScanService worker lifecycle', () => {
             artworkCacheKey: null,
             lyricsText: null,
             lyricsFormat: null,
-            lyricsSidecarFingerprint: '[null,null,null,null]',
+            lyricsSidecarFingerprint: '[null,null]',
             isrc: 'MATCH',
             metadataSignature: 'new-signature',
           },
@@ -600,7 +600,7 @@ describe('LibraryScanService worker lifecycle', () => {
           metadataParserVersion: 'metadata:1',
           fileSize: 200,
           fileMtimeMs: 200,
-          lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1],null,null]',
+          lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1]]',
         },
       ],
     })
@@ -609,7 +609,7 @@ describe('LibraryScanService worker lifecycle', () => {
     expect(repo.getKnownFiles()[0]).toMatchObject({
       fileMtimeMs: 200,
       metadataCheckedMtimeMs: 200,
-      lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1],null,null]',
+      lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1]]',
       metadataParserVersion: 'metadata:1',
     })
     expect(send).toHaveBeenCalledWith('library:changed', {
@@ -620,7 +620,7 @@ describe('LibraryScanService worker lifecycle', () => {
     await service.cancelScan(2)
   })
 
-  it('stores a real TTML sidecar snapshot unchanged and returns its format through the lyrics query', async () => {
+  it('ignores a real TTML sidecar and clears stale lyrics through the lyrics query', async () => {
     const root = await mkdtemp(join(tmpdir(), 'auralis-ttml-storage-'))
     roots.push(root)
     const { db, service, worker, rootId, send } = createHarness(root)
@@ -646,8 +646,8 @@ describe('LibraryScanService worker lifecycle', () => {
       payload: [
         {
           filePath,
-          lyricsText: snapshot.lyrics!.text,
-          lyricsFormat: snapshot.lyrics!.format,
+          lyricsText: snapshot.lyrics?.text ?? null,
+          lyricsFormat: snapshot.lyrics?.format ?? null,
           lyricsCheckedMtimeMs: 100,
           lyricsSidecarFingerprint: snapshot.lyricsSidecarFingerprint,
         },
@@ -656,13 +656,14 @@ describe('LibraryScanService worker lifecycle', () => {
     const repo = new TrackRepository(db)
     expect(repo.getLyricsByTrackId(1)).toEqual({
       trackId: 1,
-      lyricsText: original,
-      lyricsFormat: 'ttml',
+      lyricsText: null,
+      lyricsFormat: null,
     })
+    expect(await readFile(join(root, 'song.ttml'), 'utf8')).toBe(original)
     for (const table of ['tracks', 'track_metadata']) {
       expect(
         db.prepare(`SELECT lyrics_text AS text, lyrics_format AS format FROM ${table}`).get(),
-      ).toEqual({ text: original, format: 'ttml' })
+      ).toEqual({ text: null, format: null })
     }
     expect(send).toHaveBeenCalledWith('library:changed', {
       reason: 'metadata-refresh',
@@ -693,14 +694,14 @@ describe('LibraryScanService worker lifecycle', () => {
             lyricsText: null,
             lyricsFormat: null,
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: '[null,null,null,null]',
+            lyricsSidecarFingerprint: '[null,null]',
           },
         ],
       })
       const repo = new TrackRepository(db)
       expect(repo.getKnownFiles()[0]).toMatchObject({
         lyricsCheckedMtimeMs: 100,
-        lyricsSidecarFingerprint: '[null,null,null,null]',
+        lyricsSidecarFingerprint: '[null,null]',
       })
       expect(repo.getLyricsByTrackId(1)?.lyricsText).toBeNull()
       expect(

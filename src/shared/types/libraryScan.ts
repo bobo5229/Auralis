@@ -160,6 +160,4 @@ export interface TrackLyrics {
   trackId: number
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
-  /** Present for TTML only. Raw XML stays unchanged; the renderer consumes this projection. */
-  ttmlPlayback?: import('./lyricsEditor').TtmlPlaybackLyrics
 }

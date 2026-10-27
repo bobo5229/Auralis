@@ -88,22 +88,7 @@ async function fetchLyrics(trackId: number): Promise<void> {
       return
     }
 
-    if (result.lyricsFormat === 'ttml') {
-      const projection = result.ttmlPlayback
-      if (!projection || projection.error) {
-        loadFailed.value = true
-        status.value = 'empty'
-        return
-      }
-      rawLyrics.value = result.lyricsText
-      parsedLines.value = projection.lines.map(({ id, timeSeconds, text, performer }) => ({
-        id,
-        timeSeconds,
-        text,
-        performer,
-      }))
-      status.value = parsedLines.value.length ? 'lrc' : 'empty'
-    } else if (result.lyricsFormat === 'lrc') {
+    if (result.lyricsFormat === 'lrc') {
       const parsed = parseLrc(result.lyricsText)
       if (parsed.length === 0) {
         // LRC 解析失败，降级为 plain 显示
@@ -114,9 +99,11 @@ async function fetchLyrics(trackId: number): Promise<void> {
       rawLyrics.value = result.lyricsText
       parsedLines.value = parsed
       status.value = 'lrc'
-    } else {
+    } else if (result.lyricsFormat === 'plain') {
       rawLyrics.value = result.lyricsText
       status.value = 'plain'
+    } else {
+      status.value = 'empty'
     }
   } catch {
     if (requestToken !== fetchRequestToken || playback.state.currentTrackId !== trackId) {

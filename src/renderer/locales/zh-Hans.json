@@ -5,6 +5,7 @@
   },
   "lyricsEditor": {
     "title": "编辑歌词",
+    "tagTtmlProtected": "音频中含有内嵌 TTML，不能保存到歌曲标签；可另存为 LRC 文件。",
     "close": "关闭歌词编辑",
     "updateTime": "更新",
     "insertTime": "插入",
@@ -36,7 +37,7 @@
     "saveClose": "保存并关闭",
     "errors": {
       "unsupportedDocument": "歌词内容超出编辑限制。",
-      "lrcOnly": "仅支持编辑 LRC 或纯文本歌词；TTML 歌词仅供播放。",
+      "lrcOnly": "仅支持编辑 LRC 或纯文本歌词。",
       "changed": "文件已变化或编辑会话已过期。请保留编辑内容，关闭后重新载入。",
       "busy": "歌曲正在写入，请稍后重试。",
       "unavailable": "歌曲不可用，无法载入歌词。",

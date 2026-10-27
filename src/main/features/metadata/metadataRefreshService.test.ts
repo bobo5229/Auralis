@@ -7,6 +7,7 @@ import type { MetadataRefreshRepository } from '../../repositories/metadataRefre
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { writeAudioTags } from './audioTagWriteService'
+import * as lyricsSidecars from './resolveLyricsForFile'
 import type { PlaybackMetadataTagWrite } from './metadataTagWriteCoordinator'
 
 const workers = vi.hoisted(() => [] as EventEmitter[])
@@ -58,8 +59,14 @@ function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () 
     getActiveJob: vi.fn(() => true),
     getTracksByIds: vi.fn(() => [{ trackId: 1, filePath: 'isolated.flac' }]),
     getTracksWithMissingLyrics: vi.fn(() => [{ trackId: 1, filePath: 'isolated.flac' }]),
+    pruneLegacyLyricsJobs: vi.fn(),
+    getLegacyTtmlTracks: vi.fn(
+      (_afterId: number, _limit: number) => [] as Array<{ trackId: number; filePath: string }>,
+    ),
+    updateLegacyTtmlLyrics: vi.fn(() => true),
     createJob: vi.fn(() => ++job),
     getTrackFilePath: vi.fn<MetadataRefreshRepository['getTrackFilePath']>(() => 'isolated.flac'),
+    getLegacyTtmlFilePath: vi.fn(() => 'isolated.flac'),
     getEditableTrackMetadata: vi.fn(
       () => null as import('@shared/types/libraryScan').EditableTrackMetadata | null,
     ),
@@ -1054,5 +1061,65 @@ describe('metadata refresh partial completion', () => {
       'metadata:refresh-progress',
       expect.objectContaining({ status: 'completed', processedTracks: 1, failedTracks: 0 }),
     )
+  })
+})
+
+describe('legacy lyric cache recovery', () => {
+  it('replaces legacy lyrics with a guarded result and publishes the change', async () => {
+    const { service, repo, send } = setup()
+    repo.getLegacyTtmlTracks.mockImplementation((afterId) =>
+      afterId ? [] : [{ trackId: 1, filePath: 'isolated.flac' }],
+    )
+    vi.spyOn(lyricsSidecars, 'getLyricsSidecarFingerprintSync').mockReturnValue('[null,null]')
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    workers[0].emit('message', {
+      type: 'result',
+      payload: {
+        ...payload,
+        lyricsSidecarFingerprint: '[null,null]',
+        lyricsText: '[00:01]LRC',
+        lyricsFormat: 'lrc',
+      },
+    })
+    workers[0].emit('message', { type: 'complete' })
+    await vi.waitFor(() => expect(repo.updateLegacyTtmlLyrics).toHaveBeenCalledOnce())
+    expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledWith('library:changed', expect.objectContaining({ trackIds: [1] }))
+    await service.shutdown()
+    vi.restoreAllMocks()
+  })
+
+  it('releases a scan pause if shutdown interrupts the recovery worker', async () => {
+    const { service, repo } = setup()
+    repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    const paused = service.pauseLegacyLyricsRecovery()
+    await Promise.all([paused, service.shutdown()])
+    expect(repo.completeJob).toHaveBeenCalled()
+  })
+
+  it('retains missing sources without marking tracks missing and drains before scan', async () => {
+    const { service, repo } = setup()
+    repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    let paused = false
+    const waiting = service.pauseLegacyLyricsRecovery().then(() => {
+      paused = true
+    })
+    workers[0].emit('message', {
+      type: 'failure',
+      payload: { jobId: 1, trackId: 1, filePath: 'isolated.flac', reason: 'ENOENT' },
+    })
+    await Promise.resolve()
+    expect(paused).toBe(false)
+    workers[0].emit('message', { type: 'complete' })
+    await waiting
+    expect(repo.markTrackMissing).not.toHaveBeenCalled()
+    expect(repo.updateLegacyTtmlLyrics).not.toHaveBeenCalled()
+    expect(repo.addFailure).toHaveBeenCalledOnce()
+    await service.shutdown()
   })
 })

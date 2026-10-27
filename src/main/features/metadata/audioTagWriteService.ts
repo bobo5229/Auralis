@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { parseFile } from 'music-metadata'
 import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import { normalizeEditableMetadata } from './editableMetadataValidation'
+import { hasEmbeddedTtml } from './metadataNormalizer'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
@@ -287,6 +288,16 @@ export async function prepareAudioTagWrite(
 
   try {
     if (metadata.lyricsText !== undefined) {
+      const sourceMetadata = await parseAudioMetadata(filePath, {
+        skipCovers: true,
+        duration: false,
+      })
+      await assertUnchanged()
+      if (hasEmbeddedTtml(sourceMetadata))
+        throw new MetadataSaveError(
+          'tag-write-failed',
+          'Embedded TTML lyrics must not be overwritten',
+        )
       await copyFile(filePath, stagingPath)
       await writeLyricsStagingTag(stagingPath, extension.toLowerCase(), metadata.lyricsText)
     } else if (extension.toLowerCase() === '.m4a') {

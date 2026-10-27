@@ -5,7 +5,7 @@ import type { Stats } from 'node:fs'
 import { isPathUnderAnyRoot } from '../audio/audioPathGuard'
 import { isSupportedAudioFile } from '../libraryScan/audioFileFilter'
 import { lyricSidecarCandidates } from '../metadata/lyricSidecarPaths'
-import { MAX_LYRICS_CHARACTERS } from './ttmlDocument'
+const MAX_LYRICS_CHARACTERS = 8 * 1024 * 1024
 import { LyricsEditorError } from './lyricsEditorError'
 
 export interface FileIdentity {

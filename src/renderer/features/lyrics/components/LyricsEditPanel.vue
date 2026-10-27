@@ -415,6 +415,9 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           {{ t('lyricsEditor.reload') }}
         </button>
       </div>
+      <p v-if="session?.tagWriteProtected" class="editor-notice" role="status">
+        {{ t('lyricsEditor.tagTtmlProtected') }}
+      </p>
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
     </div>
     <template #footer>

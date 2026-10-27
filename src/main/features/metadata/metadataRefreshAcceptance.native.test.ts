@@ -28,6 +28,7 @@ import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
 import { MetadataRefreshService } from './metadataRefreshService'
 import { readStableMetadata } from './readStableMetadata'
+import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
 import type { MetadataRefreshWorkerMessage } from './metadataRefreshTypes'
 import { LibraryScanTrackReader } from '../libraryScan/libraryScanTrackReader'
 import { LibraryScanArtwork } from '../libraryScan/libraryScanArtwork'
@@ -373,3 +374,64 @@ it.each(['atomic', 'in-place'] as const)(
     expect(scan.jobs.getById(scan.job.jobId)?.failedFiles).toBe(1)
   },
 )
+
+it('recovers a legacy cached lyric from real files and notifies the player', async () => {
+  const f = await fixture()
+  new LibraryRootRepository(f.db).upsertByPath(f.root)
+  const ttml = join(f.root, 'source.ttml')
+  const lrc = join(f.root, 'source.lrc')
+  writeFileSync(ttml, '<tt xmlns="http://www.w3.org/ns/ttml"><body/></tt>')
+  writeFileSync(lrc, '[00:01]Fallback')
+  const audioBefore = readFileSync(f.source)
+  const ttmlBefore = readFileSync(ttml)
+  f.db
+    .prepare("UPDATE tracks SET lyrics_text = ?, lyrics_format = 'ttml' WHERE id = ?")
+    .run('<tt/>', f.id)
+  f.service.startLegacyLyricsRecovery()
+  await vi.waitFor(() => expect(workers.length).toBeGreaterThan(0))
+  const jobId = f.repo.getActiveJob()!.id
+  const lyricsSidecarFingerprint = await getLyricsSidecarFingerprint(f.source)
+  const parsed = await readStableMetadata(f.id, f.source, f.cache)
+  expect(parsed.lyricsText).toBe('[00:01]Fallback')
+  emitRefreshMessage({
+    type: 'result',
+    payload: { ...parsed, jobId, generation: 0, lyricsSidecarFingerprint },
+  })
+  await completeRefresh(f, jobId)
+  expect(f.tracks.getLyricsByTrackId(f.id)).toMatchObject({
+    lyricsText: '[00:01]Fallback',
+    lyricsFormat: 'lrc',
+  })
+  expect(f.send).toHaveBeenCalledWith(
+    'library:changed',
+    expect.objectContaining({ trackIds: [f.id] }),
+  )
+  expect(readFileSync(f.source)).toEqual(audioBefore)
+  expect(readFileSync(ttml)).toEqual(ttmlBefore)
+})
+
+it('keeps legacy cache when the LRC changes before recovery commit', async () => {
+  const f = await fixture()
+  new LibraryRootRepository(f.db).upsertByPath(f.root)
+  const lrc = join(f.root, 'source.lrc')
+  writeFileSync(lrc, '[00:01]Old')
+  f.db
+    .prepare("UPDATE tracks SET lyrics_text = ?, lyrics_format = 'ttml' WHERE id = ?")
+    .run('<tt/>', f.id)
+  f.service.startLegacyLyricsRecovery()
+  await vi.waitFor(() => expect(workers.length).toBeGreaterThan(0))
+  const jobId = f.repo.getActiveJob()!.id
+  const lyricsSidecarFingerprint = await getLyricsSidecarFingerprint(f.source)
+  const parsed = await readStableMetadata(f.id, f.source, f.cache)
+  writeFileSync(lrc, '[00:02]Changed externally')
+  emitRefreshMessage({
+    type: 'result',
+    payload: { ...parsed, jobId, generation: 0, lyricsSidecarFingerprint },
+  })
+  await completeRefresh(f, jobId)
+  expect(f.tracks.getLyricsByTrackId(f.id)).toMatchObject({
+    lyricsText: '<tt/>',
+    lyricsFormat: 'ttml',
+  })
+  expect(f.repo.getJobById(jobId)?.failedTracks).toBe(1)
+})

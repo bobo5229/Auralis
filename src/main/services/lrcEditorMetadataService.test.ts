@@ -73,6 +73,38 @@ describe('LRC metadata reads and tag writes', () => {
     expect(f.files.releaseReadLease).toHaveBeenCalledWith('lyrics-lease')
   })
 
+  it('flags embedded TTML while exposing a separately resolved LRC', async () => {
+    const metadata = await vi.mocked(parseAudioMetadata)('test')
+    metadata.native = {
+      'ID3v2.3': [
+        {
+          id: 'USLT:description',
+          value: { text: '<tt xmlns="http://www.w3.org/ns/ttml"><body/></tt>' },
+        },
+      ],
+    }
+    vi.mocked(parseAudioMetadata).mockResolvedValue(metadata)
+    await expect(setup().service.readSource(path)).resolves.toMatchObject({
+      lyricsText: '[00:01.00]New line\n',
+      lyricsFormat: 'lrc',
+      hasEmbeddedTtml: true,
+    })
+  })
+
+  it('flags embedded TTML even when no playable source exists', async () => {
+    const metadata = await vi.mocked(parseAudioMetadata)('test')
+    metadata.common.lyrics = [
+      '<tt xmlns="http://www.w3.org/ns/ttml"><body/></tt>',
+    ] as unknown as typeof metadata.common.lyrics
+    vi.mocked(parseAudioMetadata).mockResolvedValue(metadata)
+    vi.mocked(resolveLyricsForFile).mockResolvedValue(null)
+    await expect(setup().service.readSource(path)).resolves.toEqual({
+      lyricsText: '',
+      lyricsFormat: 'plain',
+      hasEmbeddedTtml: true,
+    })
+  })
+
   it('returns null when there is no source lyric', async () => {
     vi.mocked(resolveLyricsForFile).mockResolvedValue(null)
     await expect(setup().service.readSource(path)).resolves.toBeNull()

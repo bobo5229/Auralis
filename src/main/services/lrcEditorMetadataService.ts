@@ -6,6 +6,7 @@ import type { PlaybackFileCoordinator } from '@main/features/audio/playbackFileC
 import type { LrcEditorDependencies } from '@main/features/lyrics/lrcEditorService'
 import { LyricsEditorError } from '@main/features/lyrics/lyricsEditorError'
 import { parseAudioMetadata } from '@main/features/metadata/parseAudioMetadata'
+import { hasEmbeddedTtml } from '@main/features/metadata/metadataNormalizer'
 import {
   getLyricsSidecarFingerprint,
   resolveLyricsForFile,
@@ -28,12 +29,13 @@ export class LrcEditorMetadataService {
     try {
       const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
       const lyrics = await resolveLyricsForFile(filePath, metadata, true)
-      return lyrics
-        ? {
-            lyricsText: lyrics.text,
-            lyricsFormat: lyrics.format,
-          }
-        : null
+      const protectedTag = hasEmbeddedTtml(metadata)
+      if (!lyrics && !protectedTag) return null
+      return {
+        lyricsText: lyrics?.text ?? '',
+        lyricsFormat: lyrics?.format ?? 'plain',
+        ...(protectedTag ? { hasEmbeddedTtml: true } : {}),
+      }
     } finally {
       this.dependencies.files.releaseReadLease(lease.leaseId)
     }

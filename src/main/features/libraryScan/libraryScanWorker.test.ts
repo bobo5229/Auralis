@@ -151,7 +151,7 @@ describe('scan sidecar invalidation', () => {
             lyricsText: '[00:01]New lyrics',
             lyricsFormat: 'lrc',
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: '[[20,200,1,1,1],null,null,null]',
+            lyricsSidecarFingerprint: '[[20,200,1,1,1],null]',
           },
         ],
       })
@@ -174,7 +174,7 @@ describe('scan sidecar invalidation', () => {
           {
             lyricsText: embedded,
             lyricsFormat: embedded ? 'plain' : null,
-            lyricsSidecarFingerprint: '[null,null,null,null]',
+            lyricsSidecarFingerprint: '[null,null]',
           },
         ],
       })
@@ -205,7 +205,7 @@ describe('scan sidecar invalidation', () => {
     harness.input.knownFiles[0].lyricsSidecarFingerprint = null
     const messages = await scan()
     expect(messages.find((m) => m.type === 'trackLyrics')).toMatchObject({
-      payload: [{ lyricsSidecarFingerprint: '[null,null,null,null]' }],
+      payload: [{ lyricsSidecarFingerprint: '[null,null]' }],
     })
   })
 
@@ -215,7 +215,7 @@ describe('scan sidecar invalidation', () => {
     const messages = await scan()
     const patch = messages.find((message) => message.type === 'trackLyrics')
     if (patch?.type !== 'trackLyrics') throw new Error('Expected upgraded sidecar snapshot')
-    expect(patch.payload[0].lyricsSidecarFingerprint).toBe('[[20,200,1,1,1],null,null,null]')
+    expect(patch.payload[0].lyricsSidecarFingerprint).toBe('[[20,200,1,1,1],null]')
     harness.input.knownFiles[0].lyricsSidecarFingerprint = patch.payload[0].lyricsSidecarFingerprint
     vi.resetModules()
     harness.parseFile.mockClear()
@@ -256,99 +256,22 @@ describe('scan sidecar invalidation', () => {
   })
 })
 
-describe('scan TTML sidecar invalidation', () => {
-  function unchangedAudio(text: string | null) {
+describe('scan ignores TTML sidecars', () => {
+  it('does not read TTML or invalidate a legacy fingerprint when LRC is unchanged', async () => {
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null,[10,10],null]'
     harness.stat.mockImplementation(async (candidate: string) => {
       if (candidate === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
-      if (text !== null && candidate.endsWith('.ttml'))
-        return { size: text.length, mtimeMs: 200, ctimeMs: 1, dev: 1, ino: 1 }
-      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
-    })
-    harness.readFile.mockImplementation(async (candidate: string) => {
-      if (text !== null && candidate.endsWith('.ttml')) return text
-      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
-    })
-  }
-
-  it.each(['added', 'modified'] as const)(
-    'refreshes %s TTML for unchanged audio',
-    async (change) => {
-      if (change === 'modified')
-        harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null,[10,10],null]'
-      unchangedAudio(ttml)
-      const messages = await scan()
-      expect(messages.find((message) => message.type === 'trackLyrics')).toMatchObject({
-        payload: [
-          {
-            filePath,
-            lyricsText: ttml,
-            lyricsFormat: 'ttml',
-            lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: JSON.stringify([
-              null,
-              null,
-              [ttml.length, 200, 1, 1, 1],
-              null,
-            ]),
-          },
-        ],
-      })
-      expect(messages.some((message) => message.type === 'tracks')).toBe(false)
-    },
-  )
-
-  it('removes stale TTML and restores embedded LRC', async () => {
-    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null,[10,10],null]'
-    unchangedAudio(null)
-    harness.parseFile.mockResolvedValue({
-      ...metadata,
-      native: { ID3v2: [{ id: 'SYLT', value: '[00:01]Embedded' }] },
-    })
-    expect((await scan()).find((message) => message.type === 'trackLyrics')).toMatchObject({
-      payload: [
-        {
-          lyricsText: '[00:01]Embedded',
-          lyricsFormat: 'lrc',
-          lyricsSidecarFingerprint: '[null,null,null,null]',
-        },
-      ],
-    })
-  })
-
-  it('backfills pre-TTML two-slot fingerprints, then skips unchanged TTML snapshots', async () => {
-    unchangedAudio(ttml)
-    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null]'
-    expect((await scan()).some((message) => message.type === 'trackLyrics')).toBe(true)
-    harness.input.knownFiles[0].lyricsSidecarFingerprint = JSON.stringify([
-      null,
-      null,
-      [ttml.length, 200, 1, 1, 1],
-      null,
-    ])
-    vi.resetModules()
-    harness.parseFile.mockClear()
-    expect((await scan()).some((message) => message.type === 'trackLyrics')).toBe(false)
-    expect(harness.parseFile).not.toHaveBeenCalled()
-  })
-
-  it('does not commit a TTML snapshot that changed during reading', async () => {
-    unchangedAudio(ttml)
-    harness.readFile.mockImplementation(async (candidate: string) => {
-      if (candidate.endsWith('.ttml')) {
-        harness.stat.mockImplementation(async (path: string) => {
-          if (path === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
-          if (path.endsWith('.ttml')) return { size: ttml.length + 1, mtimeMs: 300 }
-          throw Object.assign(new Error('missing'), { code: 'ENOENT' })
-        })
-        return ttml
-      }
+      if (candidate.endsWith('.ttml')) return { size: ttml.length, mtimeMs: 200 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
     })
     const messages = await scan()
-    expect(messages.filter((message) => message.type === 'failure')).toHaveLength(1)
+    expect(messages.some((message) => message.type === 'trackLyrics')).toBe(false)
     expect(
-      messages.some((message) => message.type === 'tracks' || message.type === 'trackLyrics'),
+      harness.stat.mock.calls.some(([candidate]) =>
+        String(candidate).toLowerCase().endsWith('.ttml'),
+      ),
     ).toBe(false)
+    expect(harness.readFile).not.toHaveBeenCalled()
   })
 })
 

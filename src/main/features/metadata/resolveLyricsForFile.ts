@@ -1,6 +1,5 @@
 import { readFile, stat } from 'node:fs/promises'
 import { statSync, type Stats } from 'node:fs'
-import { extname } from 'node:path'
 import type { IAudioMetadata } from 'music-metadata'
 import { resolveLyrics } from './metadataNormalizer'
 import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
@@ -8,6 +7,28 @@ import { lyricSidecarCandidates } from './lyricSidecarPaths'
 
 function sidecarFingerprint(file: Stats): number[] {
   return [file.size, file.mtimeMs, file.ctimeMs, file.dev, file.ino]
+}
+
+/** Compare LRC slots of legacy four-slot fingerprints without consulting old TTML files. */
+export function sameLyricsSidecarFingerprint(
+  stored: string | null | undefined,
+  current: string,
+): boolean {
+  if (!stored) return false
+  if (stored === current) return true
+  try {
+    const left: unknown = JSON.parse(stored)
+    const right: unknown = JSON.parse(current)
+    return (
+      Array.isArray(left) &&
+      (left.length === 2 || left.length === 4) &&
+      Array.isArray(right) &&
+      right.length === 2 &&
+      JSON.stringify(left.slice(0, 2)) === JSON.stringify(right)
+    )
+  } catch {
+    return false
+  }
 }
 
 /** Includes absence, so adding or removing a sidecar invalidates the scan cache. */
@@ -52,17 +73,14 @@ export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetad
 
 async function readLocalLyrics(
   filePath: string,
-  format: 'lrc' | 'ttml',
   preserveText = false,
 ): Promise<ResolvedLyrics | null> {
-  const candidates = lyricSidecarCandidates(filePath).filter(
-    (candidate) => extname(candidate).toLowerCase() === `.${format}`,
-  )
+  const candidates = lyricSidecarCandidates(filePath)
 
   for (const candidate of candidates) {
     try {
       const text = await readFile(candidate, 'utf8')
-      const lyrics = classifyLyrics(text, format === 'ttml')
+      const lyrics = classifyLyrics(text)
 
       if (lyrics) {
         return preserveText ? { ...lyrics, text } : lyrics
@@ -82,14 +100,11 @@ export async function resolveLyricsForFile(
   metadata: IAudioMetadata,
   preserveText = false,
 ): Promise<ResolvedLyrics | null> {
-  const localTtml = await readLocalLyrics(filePath, 'ttml', preserveText)
-  if (localTtml) return localTtml
-
   const embeddedLyrics = resolveLyrics(metadata, preserveText)
 
-  if (embeddedLyrics?.format === 'ttml' || embeddedLyrics?.format === 'lrc') {
+  if (embeddedLyrics?.format === 'lrc') {
     return embeddedLyrics
   }
 
-  return (await readLocalLyrics(filePath, 'lrc', preserveText)) ?? embeddedLyrics
+  return (await readLocalLyrics(filePath, preserveText)) ?? embeddedLyrics
 }
