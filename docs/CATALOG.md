@@ -16,6 +16,7 @@
 ## 入口与架构
 
 - [Auralis 架构说明](ARCHITECTURE.md)
+- [Auralis UI 设计基准](DESIGN-BASELINE.html) — 面向 Agent 的视觉语言登记册：主题、色彩、字体、排版、几何、材质与设计判断基准；提炼快照，数值以源码为准。
 - [完整文档索引（本页）](CATALOG.md)
 - [历史批次说明](history/README.md)
 - [项目档案说明](projects/README.md)

@@ -120,6 +120,7 @@ genryu-font-master.zip
 docs/*
 !docs/README.md
 !docs/CATALOG.md
+!docs/DESIGN-BASELINE.html
 !docs/rules/
 !docs/rules/**
 !docs/lessons/
@@ -218,6 +219,7 @@ release-media-session/
 
 # Local-only UI prototypes / design exploration
 demo/local/
+demo/turntable/
 
 # TypeScript and project-specific caches
 *.tsbuildinfo
