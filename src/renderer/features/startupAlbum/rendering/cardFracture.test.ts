@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { createAlbumCard } from './card'
 import { createCardFracture } from './cardFracture'
 
@@ -98,6 +98,103 @@ describe('album card fracture', () => {
     expect(card.object.visible).toBe(true)
     fracture.dispose()
     fracture.dispose()
+    geometry.dispose()
+    ;(card.hoverSurface.material as THREE.Material).dispose()
+  })
+  it('draws each seam once and propagates a short highlight outward from one junction', () => {
+    const { card, geometry } = fixture()
+    const fracture = createCardFracture(card, 123)
+    const segments = new Set<string>()
+    const samples: { point: THREE.Vector2; first: number }[] = []
+    const ribbons = fracture.group.children.map((piece) => {
+      const ribbon = piece.children[2] as THREE.Mesh<THREE.BufferGeometry>
+      const positions = ribbon.geometry.getAttribute('position')
+      for (let i = 0; i < positions.count; i += 6) {
+        const points = [i, i + 1, i + 2, i + 5].map(
+          (j) =>
+            new THREE.Vector2(
+              positions.getX(j) + piece.position.x,
+              positions.getY(j) + piece.position.y,
+            ),
+        )
+        const a = points[0].clone().lerp(points[3], 0.5)
+        const b = points[1].clone().lerp(points[2], 0.5)
+        const key = [a, b]
+          .map((p) => `${p.x.toFixed(4)},${p.y.toFixed(4)}`)
+          .sort()
+          .join(':')
+        expect(segments.has(key)).toBe(false)
+        segments.add(key)
+      }
+      return { ribbon, position: piece.position.clone() }
+    })
+    const starts = ribbons.map(
+      ({ ribbon }) =>
+        Array(ribbon.geometry.getAttribute('position').count).fill(Infinity) as number[],
+    )
+    for (let tick = 0; tick <= 40; tick++) {
+      const progress = tick / 100
+      fracture.setProgress(progress)
+      ribbons.forEach(({ ribbon }, ri) => {
+        const colors = ribbon.geometry.getAttribute('color')
+        for (let i = 0; i < colors.count; i++) {
+          if (colors.getW(i) > 0.01) starts[ri][i] = Math.min(starts[ri][i], progress)
+          if (tick === 0 || tick === 40) expect(colors.getW(i)).toBe(0)
+        }
+      })
+    }
+    ribbons.forEach(({ ribbon, position }, ri) => {
+      const points = ribbon.geometry.getAttribute('position')
+      for (let i = 0; i < points.count; i++) {
+        expect(Number.isFinite(starts[ri][i])).toBe(true)
+        samples.push({
+          point: new THREE.Vector2(points.getX(i) + position.x, points.getY(i) + position.y),
+          first: starts[ri][i],
+        })
+      }
+    })
+    const first = Math.min(...samples.map((sample) => sample.first))
+    const origin = samples.find((sample) => sample.first === first)!.point
+    const early = samples.filter((sample) => sample.first <= first + 0.01)
+    expect(early.length).toBeLessThan(samples.length / 3)
+    expect(Math.max(...early.map((sample) => sample.point.distanceTo(origin)))).toBeLessThan(0.65)
+    expect(Math.max(...samples.map((sample) => sample.first))).toBeGreaterThan(first + 0.12)
+    fracture.dispose()
+    geometry.dispose()
+    ;(card.hoverSurface.material as THREE.Material).dispose()
+  })
+
+  it('lifts and detaches continuously, repeats poses, and releases ribbon resources once', () => {
+    const { card, geometry } = fixture()
+    const fracture = createCardFracture(card, 91)
+    const ribbons = fracture.group.children.map((piece) => piece.children[2] as THREE.Mesh)
+    const disposed = ribbons.flatMap((ribbon) => [
+      vi.spyOn(ribbon.geometry, 'dispose'),
+      vi.spyOn(ribbon.material as THREE.Material, 'dispose'),
+    ])
+    const poses = () =>
+      fracture.group.children.map((piece) => [
+        ...piece.position.toArray(),
+        ...piece.quaternion.toArray(),
+      ])
+    fracture.setProgress(0.4)
+    const atDetach = poses()
+    expect(new Set(atDetach.map((pose) => pose[2].toFixed(4))).size).toBeGreaterThan(3)
+    let previous = poses()
+    for (let ms = 280; ms <= 700; ms++) {
+      fracture.setProgress(ms / 1400)
+      const current = poses()
+      if (ms > 280)
+        current.forEach((pose, i) =>
+          pose.forEach((value, j) => expect(Math.abs(value - previous[i][j])).toBeLessThan(0.01)),
+        )
+      previous = current
+    }
+    fracture.setProgress(0.4)
+    expect(poses()).toEqual(atDetach)
+    fracture.dispose()
+    fracture.dispose()
+    disposed.forEach((spy) => expect(spy).toHaveBeenCalledTimes(1))
     geometry.dispose()
     ;(card.hoverSurface.material as THREE.Material).dispose()
   })

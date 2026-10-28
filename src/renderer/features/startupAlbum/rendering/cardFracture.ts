@@ -60,12 +60,83 @@ export function createCardFracture(card: AlbumCard, seed: number) {
     [0.53, -1.38],
   ].map(([x, y]) => new THREE.Vector2(x + (random() - 0.5) * 0.32, y + (random() - 0.5) * 0.38))
   const group = new THREE.Group()
-  const fragments = sites.map((site, index) => {
+  const polygons = sites.map((site, index) => {
     let polygon = outline.map((p) => p.clone())
     sites.forEach((other, j) => {
       if (index === j) return
       polygon = clip(polygon, other.clone().sub(site), (other.lengthSq() - site.lengthSq()) / 2)
     })
+    return polygon
+  })
+  // Merge shared endpoints/edges before scheduling the wave. Each physical
+  // seam has one ribbon, even though it belongs to two pieces.
+  const nodes: { point: Point; distance: number }[] = []
+  const nodeFor = (point: Point) => {
+    let index = nodes.findIndex((node) => node.point.distanceToSquared(point) < 1e-12)
+    if (index < 0) {
+      index = nodes.length
+      nodes.push({ point: point.clone(), distance: Infinity })
+    }
+    return index
+  }
+  const seams: { a: number; b: number; length: number; owners: number[] }[] = []
+  polygons.forEach((polygon, owner) => {
+    polygon.forEach((a, i) => {
+      const b = polygon[(i + 1) % polygon.length]
+      const mid = a.clone().lerp(b, 0.5)
+      if (
+        !sites.some(
+          (site, j) =>
+            j !== owner &&
+            Math.abs(mid.distanceToSquared(sites[owner]) - mid.distanceToSquared(site)) < 1e-6,
+        )
+      )
+        return
+      const ai = nodeFor(a),
+        bi = nodeFor(b)
+      const existing = seams.find(
+        (edge) => (edge.a === ai && edge.b === bi) || (edge.a === bi && edge.b === ai),
+      )
+      if (existing) existing.owners.push(owner)
+      else seams.push({ a: ai, b: bi, length: a.distanceTo(b), owners: [owner] })
+    })
+  })
+  const target = new THREE.Vector2(-card.width * 0.18, card.height * 0.18)
+  // Interior junctions have at least three incident seams; boundary terminals one.
+  const junctions = nodes
+    .map((_, index) => index)
+    .filter((index) => seams.filter((edge) => edge.a === index || edge.b === index).length >= 3)
+  const origin = junctions.reduce((best, index) =>
+    nodes[index].point.distanceToSquared(target) < nodes[best].point.distanceToSquared(target)
+      ? index
+      : best,
+  )
+  nodes[origin].distance = 0
+  const visited = new Set<number>()
+  while (visited.size < nodes.length) {
+    let next = -1
+    nodes.forEach((node, index) => {
+      if (!visited.has(index) && (next < 0 || node.distance < nodes[next].distance)) next = index
+    })
+    visited.add(next)
+    for (const edge of seams) {
+      const other = edge.a === next ? edge.b : edge.b === next ? edge.a : -1
+      if (other >= 0)
+        nodes[other].distance = Math.min(nodes[other].distance, nodes[next].distance + edge.length)
+    }
+  }
+  const maxDistance = Math.max(
+    ...seams.map((edge) => (nodes[edge.a].distance + nodes[edge.b].distance + edge.length) / 2),
+  )
+  const arrival = (distance: number) => 0.05 + (0.2 * distance) / maxDistance
+  const areas = polygons.map(
+    (polygon) =>
+      Math.abs(polygon.reduce((sum, a, i) => sum + a.cross(polygon[(i + 1) % polygon.length]), 0)) /
+      2,
+  )
+  const minArea = Math.min(...areas),
+    maxArea = Math.max(...areas)
+  const fragments = polygons.map((polygon, index) => {
     const center = centroid(polygon)
     const shape = new THREE.Shape(polygon.map((p) => p.clone().sub(center)))
     const geometry = new THREE.ShapeGeometry(shape)
@@ -79,7 +150,7 @@ export function createCardFracture(card: AlbumCard, seed: number) {
       )
     const faceMaterial = card.createFragmentMaterial()
     const edgeMaterial = new THREE.MeshStandardMaterial({
-      color: '#e1d6c9',
+      color: new THREE.Color('#c8bcac').multiplyScalar(0.94 + random() * 0.12),
       roughness: 0.68,
       side: THREE.DoubleSide,
     })
@@ -102,32 +173,64 @@ export function createCardFracture(card: AlbumCard, seed: number) {
     object.position.set(center.x, center.y, 0)
     group.add(object)
     const crackVertices: number[] = []
-    polygon.forEach((a, i) => {
-      const b = polygon[(i + 1) % polygon.length]
-      const mid = a.clone().lerp(b, 0.5)
-      const interior = sites.some(
-        (other, j) =>
-          j !== index &&
-          Math.abs(mid.distanceToSquared(site) - mid.distanceToSquared(other)) < 1e-6,
-      )
-      if (interior)
-        crackVertices.push(
-          a.x - center.x,
-          a.y - center.y,
-          0.019,
-          b.x - center.x,
-          b.y - center.y,
-          0.019,
-        )
-    })
+    const crackArrivals: number[] = []
+    const localSeams = seams.filter((seam) => seam.owners.includes(index))
+    const hinge = localSeams.reduce((best, seam) =>
+      Math.min(nodes[seam.a].distance, nodes[seam.b].distance) <
+      Math.min(nodes[best.a].distance, nodes[best.b].distance)
+        ? seam
+        : best,
+    )
+    const hingeA = nodes[hinge.a].point,
+      hingeB = nodes[hinge.b].point
+    const pivot = new THREE.Vector3(hingeA.x - center.x, hingeA.y - center.y, 0)
+    const axis = new THREE.Vector3(hingeB.x - hingeA.x, hingeB.y - hingeA.y, 0).normalize()
+    // Choose the sign that lifts this piece toward the viewer.
+    const liftSign = Math.sign(axis.x * -pivot.y - axis.y * -pivot.x)
+    for (const seam of localSeams.filter((edge) => edge.owners[0] === index)) {
+      const a = nodes[seam.a].point,
+        b = nodes[seam.b].point
+      const normal = new THREE.Vector2(-(b.y - a.y), b.x - a.x).normalize().multiplyScalar(0.003)
+      const segments = Math.max(8, Math.ceil(seam.length / 0.045))
+      for (let step = 0; step < segments; step++) {
+        // Independent triangles allow alpha at the wavefront without a shader variant.
+        for (const [along, side] of [
+          [0, -1],
+          [1, -1],
+          [1, 1],
+          [0, -1],
+          [1, 1],
+          [0, 1],
+        ]) {
+          const t = (step + along) / segments
+          const point = a.clone().lerp(b, t).addScaledVector(normal, side).sub(center)
+          crackVertices.push(point.x, point.y, 0.02)
+          crackArrivals.push(
+            arrival(
+              Math.min(
+                nodes[seam.a].distance + seam.length * t,
+                nodes[seam.b].distance + seam.length * (1 - t),
+              ),
+            ),
+          )
+        }
+      }
+    }
     const crackGeometry = new THREE.BufferGeometry()
     crackGeometry.setAttribute('position', new THREE.Float32BufferAttribute(crackVertices, 3))
-    const crackMaterial = new THREE.LineBasicMaterial({
-      color: '#f2e8d9',
+    crackGeometry.setAttribute(
+      'color',
+      new THREE.Float32BufferAttribute(new Float32Array(crackArrivals.length * 4), 4),
+    )
+    const crackMaterial = new THREE.MeshBasicMaterial({
+      color: '#ead8b8',
+      vertexColors: true,
       transparent: true,
+      side: THREE.DoubleSide,
       depthWrite: false,
+      toneMapped: false,
     })
-    const cracks = new THREE.LineSegments(crackGeometry, crackMaterial)
+    const cracks = new THREE.Mesh(crackGeometry, crackMaterial)
     object.add(cracks)
     for (const material of [faceMaterial, edgeMaterial]) {
       material.transparent = true
@@ -141,7 +244,11 @@ export function createCardFracture(card: AlbumCard, seed: number) {
       edge,
       crackGeometry,
       crackMaterial,
-      crackVertices,
+      crackArrivals,
+      pivot,
+      axis,
+      liftSign,
+      weight: (areas[index] - minArea) / Math.max(0.001, maxArea - minArea),
       drift: (random() - 0.5) * 0.22,
       depth: (random() - 0.5) * 1.5,
       spin: new THREE.Vector3(
@@ -149,9 +256,15 @@ export function createCardFracture(card: AlbumCard, seed: number) {
         (random() - 0.5) * 2.8,
         (random() - 0.5) * 1.4,
       ),
-      delay: random() * 0.055,
+      delay:
+        (0.035 * (areas[index] - minArea)) / Math.max(0.001, maxArea - minArea) +
+        (0.035 * Math.min(nodes[hinge.a].distance, nodes[hinge.b].distance)) / maxDistance,
     }
   })
+  const hingeRotation = new THREE.Quaternion()
+  const freeRotation = new THREE.Quaternion()
+  const spinEuler = new THREE.Euler()
+  const offset = new THREE.Vector3()
   let disposed = false
   return {
     group,
@@ -160,36 +273,47 @@ export function createCardFracture(card: AlbumCard, seed: number) {
       card.object.visible = progress < 0.025
       group.visible = progress >= 0.025 && progress < 1
       for (const f of fragments) {
-        // Give the fracture ~0.4 s to become legible before broad separation.
-        const opening = smooth(0.19 + f.delay, 0.46, progress)
-        const travel = Math.max(0, (progress - 0.3 - f.delay) / (0.7 - f.delay))
-        const scatter = travel * (0.5 + 0.5 * travel)
-        f.object.position.set(
-          f.center.x + f.center.x * (opening * 0.017 + scatter * 0.64) + f.drift * scatter,
-          f.center.y +
-            f.center.y * (opening * 0.017 + scatter * 0.38) +
-            0.2 * travel -
-            1.55 * travel * travel,
-          f.depth * scatter,
+        const opening = smooth(0.2 + f.delay, 0.4 + f.delay, progress)
+        const travel = Math.max(0, (progress - 0.32 - f.delay) / (0.68 - f.delay))
+        const scatter = travel * travel
+        const lightness = 1 - f.weight
+        hingeRotation.setFromAxisAngle(f.axis, f.liftSign * (0.09 + lightness * 0.09) * opening)
+        freeRotation.setFromEuler(
+          spinEuler.set(
+            f.spin.x * scatter * (0.55 + lightness * 0.65),
+            f.spin.y * scatter * (0.55 + lightness * 0.65),
+            f.spin.z * scatter * (0.4 + lightness * 0.6),
+          ),
         )
-        f.object.rotation.set(f.spin.x * scatter, f.spin.y * scatter, f.spin.z * scatter)
+        f.object.quaternion.copy(freeRotation).multiply(hingeRotation)
+        // Rotate about a fixed seam first. Keeping its final offset during free
+        // flight makes detachment continuous and independent of frame history.
+        offset.copy(f.pivot).negate().applyQuaternion(hingeRotation).add(f.pivot)
+        f.object.position.set(
+          f.center.x +
+            offset.x +
+            f.center.x * (opening * 0.009 + scatter * (0.38 + lightness * 0.24)) +
+            f.drift * scatter,
+          f.center.y +
+            offset.y +
+            f.center.y * opening * 0.009 +
+            0.14 * travel -
+            (1.35 + lightness * 0.45) * scatter,
+          offset.z + f.depth * scatter * (0.5 + lightness * 0.5),
+        )
         const opacity = 1 - smooth(0.72 + f.delay, 1, progress)
         for (const mesh of [f.face, f.edge]) mesh.material.opacity = opacity
-        f.crackMaterial.opacity =
-          smooth(0.025, 0.15, progress) * (1 - smooth(0.27, 0.46, progress)) * 0.48
-        const vertices = f.crackGeometry.getAttribute('position')
-        const count = vertices.count / 2
-        for (let i = 0; i < count; i++) {
-          const offset = i * 6
-          const grow = smooth(0.025 + (i / count) * 0.12, 0.13 + (i / count) * 0.12, progress)
-          vertices.setXYZ(
-            i * 2 + 1,
-            THREE.MathUtils.lerp(f.crackVertices[offset], f.crackVertices[offset + 3], grow),
-            THREE.MathUtils.lerp(f.crackVertices[offset + 1], f.crackVertices[offset + 4], grow),
-            0.019,
-          )
+        const colors = f.crackGeometry.getAttribute('color')
+        for (let i = 0; i < f.crackArrivals.length; i++) {
+          const at = f.crackArrivals[i]
+          const alpha =
+            smooth(at, at + 0.012, progress) *
+            (1 - smooth(at + 0.025, at + 0.085, progress)) *
+            (1 - smooth(0.25, 0.36, progress)) *
+            0.7
+          colors.setXYZW(i, 1, 1, 1, alpha)
         }
-        vertices.needsUpdate = true
+        colors.needsUpdate = true
       }
     },
     dispose() {

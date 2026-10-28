@@ -36,7 +36,12 @@ const databasePath = join(profile, 'data/auralis.sqlite')
 if (!existsSync(databasePath)) closeSync(openSync(databasePath, 'wx'))
 app.setPath('userData', profile)
 app.commandLine.appendSwitch('log-level', '3')
-if (testCase === 'text-hidpi' || testCase === 'hover-hidpi' || testCase === 'play-hidpi')
+if (
+  testCase === 'text-hidpi' ||
+  testCase === 'hover-hidpi' ||
+  testCase === 'play-hidpi' ||
+  testCase === 'skip-hidpi'
+)
   app.commandLine.appendSwitch('force-device-scale-factor', '2')
 registerPrivilegedMediaSchemes()
 app.on('window-all-closed', () => {
@@ -92,6 +97,12 @@ async function skip(win: BrowserWindow) {
     const button = document.querySelector('[data-startup-skip]');
     const canvas = document.querySelector('.startup-album-canvas canvas');
     window.__fixtureSkipDraws = 0;
+    window.__fixtureSkipFrames = [];
+    window.__fixtureSkipLongTasks = [];
+    const performanceObserver = new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) window.__fixtureSkipLongTasks.push({start: entry.startTime, duration: entry.duration});
+    });
+    performanceObserver.observe({type: 'longtask'});
     const gl = canvas?.getContext('webgl2');
     if (gl && !gl.isContextLost()) for (const name of ['drawArrays', 'drawElements']) {
       const draw = gl[name].bind(gl);
@@ -101,6 +112,11 @@ async function skip(win: BrowserWindow) {
       button.addEventListener('click', () => {
         const started = performance.now();
         window.__fixtureSkipStarted = started;
+        const sample = () => {
+          window.__fixtureSkipFrames.push(performance.now() - started);
+          if (document.querySelector('.startup-album-overlay')) requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
         requestAnimationFrame(() => { window.__fixtureSkipLocked =
           Boolean(document.querySelector('.startup-album-overlay.is-exiting')) &&
           document.querySelector('.app-window').inert &&
@@ -110,6 +126,7 @@ async function skip(win: BrowserWindow) {
         const observer = new MutationObserver(() => {
           if (document.querySelector('.startup-album-overlay')) return;
           observer.disconnect();
+          performanceObserver.disconnect();
           window.__fixtureSkipElapsed = performance.now() - started;
           requestAnimationFrame(() => resolve(
             !document.querySelector('.app-window').inert &&
@@ -123,7 +140,7 @@ async function skip(win: BrowserWindow) {
   })()`)
   await click(win, '[data-startup-skip]')
   await wait(win, 'window.__fixtureSkipLocked === true')
-  if (testCase === 'skip-settled') {
+  if (['skip-settled', 'skip-light', 'skip-hidpi'].includes(testCase)) {
     await pause(220)
     await capture(win, 'cracks')
     // Escape and background playback shortcuts must not interrupt a skip exit.
@@ -160,6 +177,13 @@ async function skip(win: BrowserWindow) {
   )
   const elapsed = await win.webContents.executeJavaScript('window.__fixtureSkipElapsed')
   skipElapsedMs = elapsed
+  const timing = await win.webContents.executeJavaScript(`({
+    frames: window.__fixtureSkipFrames,
+    longTasks: window.__fixtureSkipLongTasks.map(entry => ({ start: entry.start - window.__fixtureSkipStarted, duration: entry.duration })),
+    elapsed: window.__fixtureSkipElapsed, dpr: devicePixelRatio,
+    theme: document.documentElement.dataset.theme,
+  })`)
+  writeFileSync(join(output, `${testCase}-timing.json`), JSON.stringify(timing, null, 2))
   const shortened = [
     'fallback',
     'light',
@@ -922,7 +946,7 @@ void app
       "localStorage.getItem('auralis-last-startup-album')",
     )
     await seed.webContents.executeJavaScript(
-      `localStorage.setItem('auralis-startup-album-enabled', '${testCase === 'disabled' ? 'false' : 'true'}'); localStorage.setItem('auralis-theme', '${testCase === 'light' || testCase === 'contrast-light' || testCase === 'play-light' ? 'light' : 'dark'}'); localStorage.setItem('auralis-reduced-motion', '${testCase === 'light' || testCase === 'skip-reduced' || testCase === 'play-reduced' ? 'reduce' : 'system'}'); localStorage.setItem('auralis-volume', '0.5')`,
+      `localStorage.setItem('auralis-startup-album-enabled', '${testCase === 'disabled' ? 'false' : 'true'}'); localStorage.setItem('auralis-theme', '${testCase === 'light' || testCase === 'contrast-light' || testCase === 'play-light' || testCase === 'skip-light' ? 'light' : 'dark'}'); localStorage.setItem('auralis-reduced-motion', '${testCase === 'light' || testCase === 'skip-reduced' || testCase === 'play-reduced' ? 'reduce' : 'system'}'); localStorage.setItem('auralis-volume', '0.5')`,
     )
     if (textCase || (playCase && previewCover)) {
       // Use the same album before/after a rendering change; retain real selection.
