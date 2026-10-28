@@ -92,6 +92,7 @@ defineExpose({
   >
     <button
       ref="muteButtonRef"
+      v-tooltip="t('player.volume')"
       class="player-bar-control"
       :class="{ 'player-bar-control-active': isVolumeOverlayOpen }"
       type="button"

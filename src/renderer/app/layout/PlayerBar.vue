@@ -205,6 +205,9 @@ function handleQueueClose(): void {
 
 // --- Lyrics toggle ---
 const { lyricsPanelExpanded, setLyricsPanelExpanded } = useLyricsPanelVisibility()
+const lyricsToggleLabel = computed(() =>
+  lyricsPanelExpanded.value ? t('player.lyricsCollapse') : t('player.lyricsExpand'),
+)
 const { canDisplayLyricsPanel } = useLyricsPanelLayout()
 const lyricsButtonRef = ref<HTMLElement | null>(null)
 const overflowLyricsButtonRef = ref<HTMLElement | null>(null)
@@ -367,6 +370,7 @@ function handleNext(): void {
           :class="{ 'transport-controls--empty': !playback.state.currentTrack }"
         >
           <button
+            v-tooltip="t('player.previous')"
             class="transport-control"
             type="button"
             :aria-label="t('player.previous')"
@@ -379,6 +383,7 @@ function handleNext(): void {
             </svg>
           </button>
           <button
+            v-tooltip="primaryPlaybackLabel"
             class="transport-control-primary"
             :class="{ 'transport-control-primary--playing': playback.state.isPlaying }"
             type="button"
@@ -394,6 +399,7 @@ function handleNext(): void {
             />
           </button>
           <button
+            v-tooltip="t('player.next')"
             class="transport-control"
             type="button"
             :aria-label="t('player.next')"
@@ -459,6 +465,7 @@ function handleNext(): void {
 
           <button
             ref="queueButtonRef"
+            v-tooltip="t('player.queue')"
             class="player-bar-control"
             :class="{ 'player-bar-control-active': isQueueOpen }"
             data-testid="player-queue-button"
@@ -481,15 +488,14 @@ function handleNext(): void {
           <button
             v-if="canDisplayLyricsPanel && !isUtilitiesOverflow"
             ref="lyricsButtonRef"
+            v-tooltip="lyricsToggleLabel"
             class="player-bar-control"
             data-testid="player-lyrics-button"
             data-lyrics-toggle
             type="button"
             aria-controls="now-playing-panel"
             :aria-expanded="lyricsPanelExpanded"
-            :aria-label="
-              lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
-            "
+            :aria-label="lyricsToggleLabel"
             @click="toggleLyrics"
           >
             <PlayerBarActionIcon
@@ -500,6 +506,7 @@ function handleNext(): void {
           <div v-if="isUtilitiesOverflow" class="player-bar-overflow">
             <button
               ref="overflowButtonRef"
+              v-tooltip="t('player.more')"
               class="player-bar-control"
               :class="{ 'player-bar-control-active': isOverflowOpen || isModeMenuOpen }"
               type="button"
@@ -543,15 +550,11 @@ function handleNext(): void {
                 type="button"
                 role="menuitemcheckbox"
                 :aria-checked="lyricsPanelExpanded"
-                :aria-label="
-                  lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
-                "
+                :aria-label="lyricsToggleLabel"
                 @click="handleOverflowToggleLyrics"
               >
                 <PlayerBarActionIcon icon="i-ph-subtitles" size="compact" />
-                <span class="player-bar-overflow-label">{{
-                  lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
-                }}</span>
+                <span class="player-bar-overflow-label">{{ lyricsToggleLabel }}</span>
                 <span
                   v-if="lyricsPanelExpanded"
                   class="ml-auto flex h-4 w-4 items-center justify-center"
