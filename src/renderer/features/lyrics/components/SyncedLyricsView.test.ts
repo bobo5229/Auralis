@@ -3,6 +3,8 @@ import { createRenderer, h, nextTick, ref } from 'vue'
 import SyncedLyricsView from './SyncedLyricsView.vue'
 import { setLyricsScrollPreset } from '../lyricsScrollPreset'
 import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
+import { parseLrc } from '../utils/parseLrc'
+import { getActiveLyricSegment } from '../utils/getActiveLyricSegment'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
@@ -111,6 +113,50 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
   })
   vi.stubGlobal('getComputedStyle', () => ({ transform: 'none' }))
+})
+
+it('updates enhanced words inside a memoized row and resets on backward seeks without rebuilding it', async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  const lines = parseLrc('[00:01]<00:01>A <00:02>B<00:03>')
+  const time = ref(1.5)
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () => {
+      const state = getActiveLyricSegment(lines[0], time.value)
+      return h(SyncedLyricsView, {
+        lines,
+        activeIndex: 0,
+        startedSegmentIndex: state.startedIndex,
+        activeSegmentIndex: state.activeIndex,
+        isPrelude: false,
+        showPrelude: false,
+        preludeLitDotCount: 0,
+      })
+    },
+  })
+  app.mount(root)
+  await nextTick()
+  const row = root.querySelectorAll('[data-lyric-index]')[0]
+  const pending = () => find(row, 'lyric-segment-pending')
+  expect(row.getTextContent()).toBe('A B')
+  expect(pending()?.getTextContent()).toBe('B')
+  time.value = 2
+  await nextTick()
+  expect(root.querySelectorAll('[data-lyric-index]')[0]).toBe(row)
+  expect(pending()).toBeUndefined()
+  time.value = 1
+  await nextTick()
+  expect(pending()?.getTextContent()).toBe('B')
+  time.value = 0
+  await nextTick()
+  expect(pending()?.getTextContent()).toBe('A ')
+  app.unmount()
 })
 
 it('applies the selected curve on the next normal-panel lyric transition and skips motion when reduced', async () => {

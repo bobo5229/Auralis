@@ -242,6 +242,37 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
+it('moves enhanced clocks together through real buttons, undo, redo and raw save', async () => {
+  await mount()
+  const original = '[00:01.123]<00:01.123>我 <00:01.456>听<00:02.000>'
+  await edit(original)
+  expect(button('lyricsEditor.later').props.disabled).toBe(false)
+  fire(button('lyricsEditor.later'), 'onClick')
+  await flush()
+  const changed = '[00:01.223]<00:01.223>我 <00:01.556>听<00:02.100>'
+  expect(source().value).toBe(changed)
+  fire(button('lyricsEditor.undo'), 'onClick')
+  await flush()
+  expect(source().value).toBe(original)
+  fire(button('lyricsEditor.redo'), 'onClick')
+  await flush()
+  expect(source().value).toBe(changed)
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.file'), 'onClick')
+  await flush()
+  expect(api.saveLrcEditor).toHaveBeenCalledWith(
+    expect.objectContaining({ text: changed, target: 'file' }),
+  )
+  await edit('[00:00.050]<00:00.050>我<00:00.100>')
+  fire(button('lyricsEditor.earlier'), 'onClick')
+  await flush()
+  expect(source().value).toBe('[00:00.050]<00:00.050>我<00:00.100>')
+  expect(find((node) => textContent(node) === 'lyricsEditor.cannotShift')).toBeDefined()
+  await edit('[00:01]<00:03>我<00:02>听')
+  expect(button('lyricsEditor.later').props.disabled).toBe(true)
+})
+
 it('confirms unsaved dismissal, continues on Escape, and discards without saving', async () => {
   const view = await mount()
   expect(source().value).toContain('\n')

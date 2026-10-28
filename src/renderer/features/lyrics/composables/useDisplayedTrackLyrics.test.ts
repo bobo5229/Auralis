@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { LyricLine } from '../types'
 
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { warn: vi.fn() },
@@ -8,7 +9,7 @@ vi.mock('./useTrackLyrics', async () => {
   const state = {
     status: ref('lrc'),
     rawLyrics: ref<string | null>('頭髮\n看著你'),
-    parsedLines: ref([
+    parsedLines: ref<LyricLine[]>([
       { id: 'line-1', timeSeconds: 12.5, text: '頭髮' },
       { id: 'line-2', timeSeconds: 18, text: '看著你' },
     ]),
@@ -28,6 +29,35 @@ afterEach(() => {
 })
 
 describe('opt-in lyric display', () => {
+  it('retains word timing when conversion agrees, and falls back for cross-boundary phrases', () => {
+    vi.stubGlobal('localStorage', { setItem: vi.fn() })
+    const source = useTrackLyrics()
+    source.parsedLines.value = [
+      {
+        id: 'enhanced',
+        timeSeconds: 1,
+        text: '头发',
+        enhanced: true,
+        segments: [
+          { text: '头', startTimeSeconds: 1, endTimeSeconds: 2 },
+          { text: '发', startTimeSeconds: 2, endTimeSeconds: null },
+        ],
+      },
+    ]
+    const display = useDisplayedTrackLyrics()
+    expect(display.parsedLines.value[0].segments).toEqual(source.parsedLines.value[0].segments)
+    useChineseTextDisplay().setLyricsScript('traditional')
+    expect(display.parsedLines.value[0].text).toBe('頭髮')
+    expect(display.parsedLines.value[0].segments).toBeUndefined()
+    expect(source.parsedLines.value[0].text).toBe('头发')
+    expect(source.parsedLines.value[0].segments).toHaveLength(2)
+    useChineseTextDisplay().setLyricsScript('simplified')
+    expect(display.parsedLines.value[0].segments).toHaveLength(2)
+    source.parsedLines.value = [
+      { id: 'line-1', timeSeconds: 12.5, text: '頭髮' },
+      { id: 'line-2', timeSeconds: 18, text: '看著你' },
+    ]
+  })
   it('changes only text while retaining original lyrics, IDs, timing and activity', () => {
     vi.stubGlobal('localStorage', { setItem: vi.fn() })
     const source = useTrackLyrics()

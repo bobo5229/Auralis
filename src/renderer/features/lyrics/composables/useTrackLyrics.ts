@@ -4,6 +4,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import type { LyricLine } from '../types'
 import { parseLrc } from '../utils/parseLrc'
 import { getActiveLyricIndex } from '../utils/getActiveLyricIndex'
+import { getActiveLyricSegment } from '../utils/getActiveLyricSegment'
 import { shouldRefetchLyricsOnLibraryChange } from '../utils/shouldRefetchLyricsOnLibraryChange'
 
 export type LyricsStatus = 'no-track' | 'loading' | 'empty' | 'plain' | 'lrc'
@@ -24,6 +25,12 @@ const activeIndex = computed(() => {
   if (status.value !== 'lrc') return -1
   return getActiveLyricIndex(parsedLines.value, playback.state.currentTime)
 })
+
+const segmentState = computed(() =>
+  getActiveLyricSegment(parsedLines.value[activeIndex.value], playback.state.currentTime),
+)
+const startedSegmentIndex = computed(() => segmentState.value.startedIndex)
+const activeSegmentIndex = computed(() => segmentState.value.activeIndex)
 
 const canShowPrelude = computed(
   () =>
@@ -150,6 +157,8 @@ export function useTrackLyrics() {
     rawLyrics,
     parsedLines,
     activeIndex,
+    startedSegmentIndex,
+    activeSegmentIndex,
     isPrelude,
     showPrelude,
     preludeLitDotCount,

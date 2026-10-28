@@ -27,6 +27,8 @@ const {
   rawLyrics,
   parsedLines,
   activeIndex,
+  startedSegmentIndex,
+  activeSegmentIndex,
   isPrelude,
   showPrelude,
   preludeLitDotCount,
@@ -164,6 +166,8 @@ defineExpose({ prepareForDisplay })
         :interactive="interactive"
         :lines="parsedLines"
         :active-index="activeIndex"
+        :started-segment-index="startedSegmentIndex"
+        :active-segment-index="activeSegmentIndex"
         :is-prelude="isPrelude"
         :show-prelude="showPrelude"
         :prelude-lit-dot-count="preludeLitDotCount"

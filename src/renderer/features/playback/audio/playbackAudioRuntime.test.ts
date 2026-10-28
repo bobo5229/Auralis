@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlaybackAudioRuntime, type PlaybackAudioCallbacks } from './playbackAudioRuntime'
 
 type MockGaplessOptions = {
@@ -134,8 +134,23 @@ class TestAudio {
 describe('PlaybackAudioRuntime', () => {
   let callbacks: PlaybackAudioCallbacks
   let testAudio: TestAudio
+  let frames: Map<number, FrameRequestCallback>
 
   beforeEach(() => {
+    frames = new Map()
+    let nextFrame = 1
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        const id = nextFrame++
+        frames.set(id, callback)
+        return id
+      }),
+    )
+    vi.stubGlobal(
+      'cancelAnimationFrame',
+      vi.fn((id: number) => frames.delete(id)),
+    )
     Object.defineProperty(globalThis, 'HTMLMediaElement', {
       configurable: true,
       value: { HAVE_CURRENT_DATA: 2 },
@@ -161,6 +176,81 @@ describe('PlaybackAudioRuntime', () => {
       onSeeked: vi.fn(),
       onBufferingChange: vi.fn(),
     }
+  })
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('keeps sampling buffered playback after a fetch stall until playback actually waits', async () => {
+    const runtime = createPlaybackAudioRuntime(callbacks, {
+      audio: testAudio as unknown as HTMLAudioElement,
+    })
+    await runtime.start(1, 'audio://1', { preferGapless: false })
+    testAudio.dispatch('stalled')
+    expect(testAudio.paused).toBe(false)
+    expect(frames.size).toBe(1)
+    for (const now of [50, 100, 150]) {
+      testAudio.currentTime = now / 1000
+      const pending = [...frames.values()]
+      frames.clear()
+      pending.forEach((callback) => callback(now))
+      expect(callbacks.onTimeUpdate).toHaveBeenLastCalledWith({
+        currentTime: now / 1000,
+        duration: 120,
+      })
+      expect(frames.size).toBe(1)
+    }
+    testAudio.dispatch('waiting')
+    expect(frames.size).toBe(0)
+    testAudio.dispatch('stalled')
+    expect(frames.size).toBe(0)
+    testAudio.dispatch('playing')
+    expect(frames.size).toBe(1)
+    runtime.pause()
+    expect(frames.size).toBe(0)
+    await runtime.resume()
+    expect(frames.size).toBe(1)
+    runtime.dispose()
+    expect(frames.size).toBe(0)
+  })
+
+  it('samples actual HTML media time, throttles updates and stops across buffering, pause and replacement', async () => {
+    const runtime = createPlaybackAudioRuntime(callbacks, {
+      audio: testAudio as unknown as HTMLAudioElement,
+    })
+    const frame = (now: number) => {
+      const pending = [...frames.values()]
+      frames.clear()
+      pending.forEach((callback) => callback(now))
+    }
+    await runtime.start(1, 'audio://1', { preferGapless: false })
+    expect(frames.size).toBe(1)
+    testAudio.currentTime = 0.123
+    frame(10)
+    expect(callbacks.onTimeUpdate).toHaveBeenLastCalledWith({ currentTime: 0.123, duration: 120 })
+    vi.mocked(callbacks.onTimeUpdate).mockClear()
+    testAudio.currentTime = 0.2
+    frame(30)
+    expect(callbacks.onTimeUpdate).not.toHaveBeenCalled()
+    frame(65)
+    expect(callbacks.onTimeUpdate).toHaveBeenLastCalledWith({ currentTime: 0.2, duration: 120 })
+    testAudio.dispatch('waiting')
+    expect(frames.size).toBe(0)
+    testAudio.dispatch('playing')
+    expect(frames.size).toBe(1)
+    runtime.pause()
+    expect(frames.size).toBe(0)
+    await runtime.resume()
+    expect(frames.size).toBe(1)
+    const staleFrame = [...frames.values()][0]
+    await runtime.start(2, 'audio://2', { preferGapless: true })
+    expect(frames.size).toBe(0)
+    vi.mocked(callbacks.onTimeUpdate).mockClear()
+    staleFrame(100)
+    expect(callbacks.onTimeUpdate).not.toHaveBeenCalled()
+    await runtime.start(3, 'audio://3', { preferGapless: false })
+    expect(frames.size).toBe(1)
+    runtime.dispose()
+    expect(frames.size).toBe(0)
   })
 
   it('starts with gapless backend when preferGapless is true', async () => {

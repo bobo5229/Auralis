@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -195,3 +196,80 @@ it('protects embedded TTML while allowing an LRC sidecar on a real audio file', 
   expect(await readFile(source)).toEqual(before)
   expect(JSON.stringify((await parseAudioMetadata(source)).common.lyrics)).toContain('Protected')
 }, 30_000)
+
+const enhanced =
+  '[ar:原始作者]\n[offset:25]\n[00:00.000]<00:00.000>我  <00:00.123>hear é 👩‍🎤<00:00.250>\n'
+
+it.each([
+  ['flac', 'flac'],
+  ['mp3', 'libmp3lame'],
+  ['m4a', 'aac'],
+  ['ogg', 'libvorbis'],
+  ['opus', 'libopus'],
+])(
+  'round-trips enhanced LRC in %s tags without changing decoded media or other tags',
+  async (extension, codec) => {
+    const target = join(directory, `enhanced.${extension}`)
+    await promisify(execFile)(
+      ffmpeg,
+      [
+        '-nostdin',
+        '-v',
+        'error',
+        '-i',
+        source,
+        '-c:a',
+        codec,
+        '-metadata',
+        'composer=Original Composer',
+        '-metadata',
+        'track=3/12',
+        target,
+      ],
+      { windowsHide: true },
+    )
+    db!.prepare('UPDATE tracks SET file_path = ? WHERE id = 1').run(target)
+    const decodeHash = async () => {
+      const { stdout } = await promisify(execFile)(
+        ffmpeg,
+        ['-nostdin', '-v', 'error', '-i', target, '-f', 's16le', '-acodec', 'pcm_s16le', '-'],
+        { windowsHide: true, encoding: 'buffer' },
+      )
+      return createHash('sha256').update(stdout).digest('hex')
+    }
+    const hashBefore = await decodeHash()
+    const tagsBefore = (await parseAudioMetadata(target)).common
+    const state = await editor.open(10, 1)
+    await expect(
+      editor.save(10, {
+        sessionId: state.sessionId,
+        expectedRevision: state.revision,
+        text: enhanced,
+        target: 'tag',
+      }),
+    ).resolves.toMatchObject({ cacheUpdated: true, active: true, writeWarning: false })
+    const reopened = await editor.open(10, 1)
+    expect(reopened.text).toBe(enhanced)
+    const tagsAfter = (await parseAudioMetadata(target)).common
+    expect(tagsAfter.title).toBe(tagsBefore.title)
+    expect(tagsAfter.composer).toEqual(tagsBefore.composer)
+    expect(tagsAfter.track).toEqual(tagsBefore.track)
+    expect(await decodeHash()).toBe(hashBefore)
+  },
+  30_000,
+)
+
+it('keeps enhanced source text and the previous external LRC backup intact', async () => {
+  const sidecar = join(directory, 'source.lrc')
+  await writeFile(sidecar, original)
+  const state = await editor.open(10, 1)
+  const saved = await editor.save(10, {
+    sessionId: state.sessionId,
+    expectedRevision: state.revision,
+    text: enhanced,
+    target: 'file',
+  })
+  expect(saved).toMatchObject({ cacheUpdated: true, active: false })
+  expect(await readFile(sidecar, 'utf8')).toBe(enhanced)
+  expect(await readFile(saved.backupPath!, 'utf8')).toBe(original)
+})

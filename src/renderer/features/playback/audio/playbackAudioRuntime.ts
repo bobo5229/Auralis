@@ -91,6 +91,46 @@ export function createPlaybackAudioRuntime(
   let currentTrackId: number | null = null
   let isDisposed = false
   let htmlAudioLeaseId: string | null = null
+  let htmlTimeFrame = 0
+  let lastHtmlSnapshotAt = -Infinity
+
+  function stopHtmlTimeUpdates(): void {
+    if (htmlTimeFrame) cancelAnimationFrame(htmlTimeFrame)
+    htmlTimeFrame = 0
+    lastHtmlSnapshotAt = -Infinity
+  }
+
+  // timeupdate can be ~4 Hz. Publish the actual media position at up to 20 Hz;
+  // all consumers retain the same playback clock, with no wall-clock interpolation.
+  function startHtmlTimeUpdates(): void {
+    if (
+      htmlTimeFrame ||
+      isDisposed ||
+      activeBackend !== 'html-audio' ||
+      audio.paused ||
+      audio.ended
+    )
+      return
+    const session = activeSessionId
+    const tick = (now: number): void => {
+      if (session !== activeSessionId) return
+      htmlTimeFrame = 0
+      if (isDisposed || activeBackend !== 'html-audio' || audio.paused || audio.ended) return
+      if (now - lastHtmlSnapshotAt >= 50) {
+        lastHtmlSnapshotAt = now
+        onTimeUpdate()
+      }
+      if (
+        session === activeSessionId &&
+        !isDisposed &&
+        activeBackend === 'html-audio' &&
+        !audio.paused &&
+        !audio.ended
+      )
+        htmlTimeFrame = requestAnimationFrame(tick)
+    }
+    htmlTimeFrame = requestAnimationFrame(tick)
+  }
 
   const gaplessEngine =
     options?.gaplessEngine ??
@@ -140,10 +180,13 @@ export function createPlaybackAudioRuntime(
   const onPlay = () => {
     if (activeBackend !== 'html-audio') return
     callbacks.onPlayingChange(true)
+    startHtmlTimeUpdates()
   }
 
   const onPause = () => {
     if (activeBackend !== 'html-audio') return
+    stopHtmlTimeUpdates()
+    onTimeUpdate()
     callbacks.onPlayingChange(false)
   }
 
@@ -159,26 +202,32 @@ export function createPlaybackAudioRuntime(
 
   const onWaiting = () => {
     if (activeBackend !== 'html-audio') return
+    stopHtmlTimeUpdates()
     callbacks.onBufferingChange?.(true)
   }
 
   const onStalled = () => {
     if (activeBackend !== 'html-audio') return
+    // A fetch stall can leave enough buffered media to keep playing. Only
+    // waiting (or pause/end/error) stops sampling the actual media position.
     callbacks.onBufferingChange?.(true)
   }
 
   const onPlaying = () => {
     if (activeBackend !== 'html-audio') return
     callbacks.onBufferingChange?.(false)
+    startHtmlTimeUpdates()
   }
 
   const onCanPlay = () => {
     if (activeBackend !== 'html-audio') return
     callbacks.onBufferingChange?.(false)
+    startHtmlTimeUpdates()
   }
 
   const onEnded = () => {
     if (activeBackend !== 'html-audio') return
+    stopHtmlTimeUpdates()
     if (htmlAudioLeaseId) {
       releaseReadLease?.(htmlAudioLeaseId)
       htmlAudioLeaseId = null
@@ -188,6 +237,7 @@ export function createPlaybackAudioRuntime(
 
   const onError = () => {
     if (activeBackend !== 'html-audio') return
+    stopHtmlTimeUpdates()
     if (htmlAudioLeaseId) {
       releaseReadLease?.(htmlAudioLeaseId)
       htmlAudioLeaseId = null
@@ -267,6 +317,7 @@ export function createPlaybackAudioRuntime(
   }
 
   function clear(): void {
+    stopHtmlTimeUpdates()
     activeSessionId += 1
     currentTrackId = null
     activeBackend = 'idle'

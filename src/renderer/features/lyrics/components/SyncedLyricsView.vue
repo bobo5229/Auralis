@@ -9,6 +9,7 @@ import { getLyricsScrollEasing, useLyricsScrollPreset } from '../lyricsScrollPre
 import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'
 import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
 import LyricsFractureDots from './LyricsFractureDots.vue'
+import LyricLineText from './LyricLineText.vue'
 import {
   resolveLyricsFollowBehavior,
   shouldAnimateLyricsFollow,
@@ -22,12 +23,20 @@ const props = withDefaults(
     interactive?: boolean
     lines: LyricLine[]
     activeIndex: number
+    startedSegmentIndex?: number
+    activeSegmentIndex?: number
     isPrelude: boolean
     showPrelude: boolean
     preludeLitDotCount: number
     preludeElapsed?: number
   }>(),
-  { active: true, interactive: true, preludeElapsed: 0 },
+  {
+    active: true,
+    interactive: true,
+    preludeElapsed: 0,
+    startedSegmentIndex: -1,
+    activeSegmentIndex: -1,
+  },
 )
 
 const { t } = useI18n()
@@ -424,7 +433,14 @@ onBeforeUnmount(() => {
       <div
         v-for="(line, index) in lines"
         :key="line.id"
-        v-memo="[activeIndex === index, line.text]"
+        v-memo="[
+          activeIndex === index,
+          line.text,
+          line.segments,
+          line.enhanced,
+          activeIndex === index ? startedSegmentIndex : -1,
+          activeIndex === index ? activeSegmentIndex : -1,
+        ]"
         class="lyric-line lyric-line-seekable"
         :class="
           activeIndex === index
@@ -444,7 +460,12 @@ onBeforeUnmount(() => {
         @click.stop="onLyricLineActivate(index)"
         @keydown="onLyricLineKeydown($event, index)"
       >
-        {{ line.text || ' ' }}
+        <LyricLineText
+          :line="line"
+          :active="activeIndex === index"
+          :started-index="startedSegmentIndex"
+          :active-segment-index="activeSegmentIndex"
+        />
       </div>
       <div :style="{ height: `${bottomPadding}px` }"></div>
     </div>

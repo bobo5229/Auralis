@@ -8,6 +8,14 @@ import {
 import { parseLrc } from './parseLrc'
 
 describe('raw LRC timing edits', () => {
+  it.each(['\uFEFF', '  ', '\t'])(
+    'preserves the prefix of an ordinary timed line: %j',
+    (prefix) => {
+      const line = getLrcTextLine(`${prefix}[00:01.00]  words  `, 0)
+      expect(replaceLrcLineTime(line, 2)).toBe(`${prefix}[00:02.00]  words  `)
+      expect(nudgeLrcLineTime(line, 0.1)).toBe(`${prefix}[00:01.10]  words  `)
+    },
+  )
   it('targets the cursor line and preserves lyric text including its spaces', () => {
     const text = '[00:01.00]第一行\n[00:03.456]  第二行  \n未打点'
     const line = getLrcTextLine(text, text.indexOf('第二'))

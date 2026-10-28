@@ -829,13 +829,13 @@ body.is-column-resizing * {
 .player-bar .track-info-row::after {
   content: '';
   position: absolute;
-  /* Feather outside the cover; the lower 4px fade fits above the progress row. */
-  inset: -8px -8px -4px;
+  /* Fade outside the content while keeping the lower edge above the rail. */
+  inset: -16px -16px -6px;
   z-index: 1;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(10px);
   mask-image:
-    linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent),
-    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 4px), transparent);
+    linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent),
+    linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 6px), transparent);
   mask-composite: intersect;
   pointer-events: none;
   opacity: 0;

@@ -29,6 +29,7 @@
 - [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录字重配置在设置页、歌曲列表与封面视图中的设计和证据边界。
 - [历史：MiniPlayer 弹层可用性与窗口状态同步修复](playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)记录弹层裁切、状态乱序、开关失配和极小工作区越界的修复方案与定向验收；迷你播放器已于 2026-09-28 移除。
 - [主界面歌词面板收起与展开](shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)记录偏好与主界面布局接入；专辑页当前动画和性能证据见[当前同步过渡说明](../CATALOG.md#albums专辑)。
+- [增强型 LRC 首期支持技术方案](playback/TECHDOC-enhanced-lrc-support-2026-10-28.md)记录普通面板与全屏的片段同步、歌词原文编辑保护、复用调研与格式降级规则；L1–L4 完成，包含独立复验及全应用 smoke 的既有阻塞说明。
 - [封面视图当前播放曲目的动态音柱](library/TECHDOC-cover-track-playing-indicator-2026-09-28.md)记录音轨号位置的动态与静态状态、基线保持、动画清理和验收范围。
 
 - [深色主题中性黑与霓虹玫红配色](shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)记录该轮黑灰层级、强调色与普通 PlayerBar 动态染色的设计边界。

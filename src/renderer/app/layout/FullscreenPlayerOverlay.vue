@@ -14,6 +14,7 @@ import FullscreenBackgroundControls from '@renderer/features/playback/components
 import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
 import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
 import LyricsFractureDots from '@renderer/features/lyrics/components/LyricsFractureDots.vue'
+import LyricLineText from '@renderer/features/lyrics/components/LyricLineText.vue'
 
 const skipPreviousIconUrl = new URL(
   '../../features/playback/assets/skip-previous-rounded.svg',
@@ -69,6 +70,8 @@ const {
   lyricsStatus,
   fullscreenLyricLines,
   activeIndex,
+  startedSegmentIndex,
+  activeSegmentIndex,
   isPrelude,
   showPrelude,
   preludeLitDotCount,
@@ -380,7 +383,16 @@ onBeforeUnmount(() => {
               <div
                 v-for="{ line, index } in renderedLyricLines"
                 :key="line.id"
-                v-memo="[lyricsStatus, activeIndex === index, activeIndex < index, line.text]"
+                v-memo="[
+                  lyricsStatus,
+                  activeIndex === index,
+                  activeIndex < index,
+                  line.text,
+                  line.segments,
+                  line.enhanced,
+                  activeIndex === index ? startedSegmentIndex : -1,
+                  activeIndex === index ? activeSegmentIndex : -1,
+                ]"
                 class="fullscreen-player-lyric-line"
                 :class="{
                   'fullscreen-player-lyric-active': lyricsStatus === 'lrc' && activeIndex === index,
@@ -404,7 +416,13 @@ onBeforeUnmount(() => {
                 @keydown="handleLyricLineKeydown($event, index)"
               >
                 <span class="fullscreen-player-lyric-material">
-                  <span class="fullscreen-player-lyric-fill">{{ line.text || ' ' }}</span>
+                  <LyricLineText
+                    class="fullscreen-player-lyric-fill"
+                    :line="line"
+                    :active="lyricsStatus === 'lrc' && activeIndex === index"
+                    :started-index="startedSegmentIndex"
+                    :active-segment-index="activeSegmentIndex"
+                  />
                 </span>
               </div>
               <div :style="{ height: `${lyricsBottomPadding}px` }"></div>

@@ -169,10 +169,14 @@ async function replaceLine(value: string | null): Promise<void> {
   notice.value = ''
 }
 function stamp(): void {
-  if (canStamp.value) void replaceLine(replaceLrcLineTime(line.value, playback.state.currentTime))
+  if (canStamp.value) applyTimingEdit(replaceLrcLineTime(line.value, playback.state.currentTime))
 }
 function nudge(delta: number): void {
-  if (canNudge.value) void replaceLine(nudgeLrcLineTime(line.value, delta))
+  if (canNudge.value) applyTimingEdit(nudgeLrcLineTime(line.value, delta))
+}
+function applyTimingEdit(value: string | null): void {
+  if (value === null) notice.value = t('lyricsEditor.cannotShift')
+  else void replaceLine(value)
 }
 async function undo(direction: number): Promise<void> {
   const index = historyIndex.value + direction
@@ -364,6 +368,11 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           </button>
         </div>
       </div>
+      <p v-if="line.enhanced" class="editor-notice">
+        {{
+          t(line.editable ? 'lyricsEditor.enhancedShiftHint' : 'lyricsEditor.enhancedManualHint')
+        }}
+      </p>
       <div class="editor-transport">
         <button
           class="editor-play"

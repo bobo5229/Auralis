@@ -178,6 +178,7 @@ docs/topics/shell/*
 !docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
 !docs/topics/playback/
 docs/topics/playback/*
+!docs/topics/playback/TECHDOC-enhanced-lrc-support-2026-10-28.md
 !docs/topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md
 !docs/topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md
 !docs/topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md

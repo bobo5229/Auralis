@@ -111,6 +111,7 @@
 
 ### playback：播放界面
 
+- [增强型 LRC 首期支持技术方案](topics/playback/TECHDOC-enhanced-lrc-support-2026-10-28.md) — 复用调研、A2 格式契约、片段同步、原文编辑保护及验收记录；L1–L4 完成，独立复验通过，全应用 smoke 的既有阻塞见文内。
 - [全屏右侧歌词繁简右键菜单：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-script-context-menu-2026-10-11.md) — 复用繁简偏好的方案记录，涵盖菜单、焦点、持久化、文字重测与施工提示词。
 - [全屏歌词排版参数：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-typography-settings-2026-10-10.md) — 设置分组、持久化、换行与定位刷新的方案记录。
 - [TECHDOC：PlayerBar 控件颜色语义收敛](topics/playback/TECHDOC-playerbar-control-color-semantics-2026-09-27.md)

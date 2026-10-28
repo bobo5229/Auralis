@@ -133,10 +133,19 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           </div>
         </div>
       </div>
+      <div
+        v-if="props.showProgress && props.showSplitClocks"
+        class="player-bar-hover-clocks"
+        aria-hidden="true"
+      >
+        <span class="player-bar-progress-clock">{{ currentClockText }}</span>
+        <span class="player-bar-progress-clock">{{ durationClockText }}</span>
+      </div>
       <div v-if="props.showProgress && props.showSplitClocks" class="player-bar-progress-row">
-        <span class="player-bar-progress-clock" aria-hidden="true">{{ currentClockText }}</span>
         <PlayerBarProgress />
-        <span class="player-bar-progress-clock" aria-hidden="true">{{ durationClockText }}</span>
+        <span class="player-bar-progress-clock player-bar-clock-spacer" aria-hidden="true">{{
+          durationClockText
+        }}</span>
       </div>
       <PlayerBarProgress v-else-if="props.showProgress" />
     </div>
@@ -144,20 +153,58 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 </template>
 
 <style scoped>
-/* 共用时间列宽，让文字容器终止于进度轨道右端。 */
+/* 右侧预留原有时间列宽，轨道左端与封面左端对齐。 */
 .track-info-with-split-clocks {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 8px;
 }
 
 .track-info-with-split-clocks > .track-info-row {
-  grid-column: 1 / 3;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .track-info-with-split-clocks > .player-bar-progress-row {
   grid-column: 1 / -1;
+  grid-row: 2;
   grid-template-columns: subgrid;
+  margin-top: 2px;
+}
+
+.player-bar-clock-spacer {
+  visibility: hidden;
+}
+
+.player-bar-hover-clocks {
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 2;
+  align-self: end;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease,
+    visibility 160ms;
+}
+
+.track-info-with-split-clocks:has(.track-progress:not(.track-progress--idle):hover)
+  > .player-bar-hover-clocks {
+  opacity: 1;
+  visibility: visible;
+}
+
+:global([data-reduced-motion='true'] .player-bar-hover-clocks) {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar-hover-clocks {
+    transition: none;
+  }
 }
 
 .track-cover-fullscreen {

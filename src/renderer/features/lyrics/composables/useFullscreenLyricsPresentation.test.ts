@@ -41,6 +41,8 @@ function fixture() {
     rawLyrics: computed(() => source.rawLyrics.value),
     parsedLines: computed(() => source.parsedLines.value),
     activeIndex: computed(() => source.activeIndex.value),
+    startedSegmentIndex: computed(() => -1),
+    activeSegmentIndex: computed(() => -1),
     isPrelude: computed(() => source.isPrelude.value),
     showPrelude: computed(() => source.showPrelude.value),
     preludeLitDotCount: computed(() => source.preludeLitDotCount.value),
