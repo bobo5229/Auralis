@@ -326,8 +326,12 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         </div>
       </section>
 
-      <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3" spellcheck="false">
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+      <div
+        v-if="metadata && !metadata.legacyMetadata"
+        class="metadata-edit-fields"
+        spellcheck="false"
+      >
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.title') }}
           <input
             ref="titleInputRef"
@@ -337,7 +341,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             :disabled="isEditingDisabled"
           />
         </label>
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.artist') }}
           <input
             v-model="form.artistDisplay"
@@ -346,7 +350,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             :disabled="isEditingDisabled"
           />
         </label>
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.album') }}
           <input
             v-model="form.albumTitle"
@@ -355,7 +359,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             :disabled="isEditingDisabled"
           />
         </label>
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.albumArtist') }}
           <input
             v-model="form.albumArtistDisplay"
@@ -364,7 +368,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             :disabled="isEditingDisabled"
           />
         </label>
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.genre') }}
           <input
             v-model="form.genreDisplay"
@@ -373,7 +377,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             :disabled="isEditingDisabled"
           />
         </label>
-        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.releaseDate') }}
           <input
             v-model="form.releaseDate"
@@ -400,6 +404,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         {{ saving ? saveButtonLabel : '' }}
       </span>
       <div class="flex flex-wrap justify-end gap-2">
+        <slot name="footer-leading" />
         <template v-if="metadata?.legacyMetadata">
           <button
             type="button"
@@ -465,14 +470,19 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 .metadata-edit-body {
   min-height: 0;
   overflow: auto;
-  padding: 20px 24px;
+  padding: 22px 24px 28px;
 }
-.metadata-edit-body > .grid {
-  max-width: 640px;
-  margin-inline: auto;
+.metadata-edit-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.metadata-edit-fields > label:nth-child(-n + 4) {
+  grid-column: 1 / -1;
 }
 .metadata-edit-footer {
-  padding: 16px 24px;
+  margin-inline: 24px;
+  padding: 20px 0 16px;
   border-top: 1px solid var(--auralis-border-subtle);
 }
 
@@ -559,6 +569,11 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 }
 
 .metadata-dialog-label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   color: var(--auralis-text-muted);
 }
 
@@ -567,10 +582,10 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
   line-height: var(--auralis-type-control-line-height);
   box-sizing: border-box;
   width: 100%;
-  background: var(--auralis-search-bg);
-  border: 1px solid var(--auralis-search-border);
-  border-radius: 6px;
-  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 24%, transparent);
+  border-radius: 999px;
+  padding: 7px 15px;
   color: var(--auralis-text);
   outline: none;
   transition:
@@ -591,5 +606,24 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 
 .metadata-dialog-input[aria-invalid='true'] {
   border-color: var(--auralis-danger);
+}
+@media (max-width: 600px) {
+  .metadata-edit-body {
+    padding-inline: 16px;
+  }
+  .metadata-edit-footer {
+    margin-inline: 16px;
+  }
+  .metadata-edit-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-height: 600px) {
+  .metadata-edit-body {
+    padding-block: 14px;
+  }
+  .metadata-edit-footer {
+    padding-block: 12px;
+  }
 }
 </style>

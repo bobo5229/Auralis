@@ -23,9 +23,14 @@ export function useAppOverlays(
   const trackEditorRef = ref<{ requestClose(): void } | null>(null)
 
   function openLyricsEditPanel(trigger: HTMLElement | null): void {
-    const trackId = usePlayback().state.currentTrackId
+    const { currentTrackId: trackId, currentTrack } = usePlayback().state
     if (trackId !== null)
-      trackEditor.open({ trackId, initialTab: 'lyrics', returnFocusTo: trigger })
+      trackEditor.open({
+        trackId,
+        initialTab: 'lyrics',
+        artworkCacheKey: currentTrack?.id === trackId ? currentTrack.artworkCacheKey : null,
+        returnFocusTo: trigger,
+      })
   }
 
   function requestCloseTrackEditor(): void {

@@ -187,6 +187,7 @@ onBeforeUnmount(cancelEntry)
         >
           <slot name="header">
             <header class="auralis-dialog-header">
+              <slot name="header-leading" />
               <div class="auralis-dialog-title">
                 <h2 :id="titleId">{{ title }}</h2>
                 <slot name="subtitle" />

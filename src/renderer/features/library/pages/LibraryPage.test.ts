@@ -231,6 +231,7 @@ async function mount(withParameters = false) {
           editor.request.value
             ? h('button', {
                 class: 'test-editor',
+                'data-artwork-key': editor.request.value.artworkCacheKey,
                 onClick: () => {
                   const request = editor.request.value
                   editor.close()
@@ -470,12 +471,14 @@ describe('LibraryPage focus wiring', () => {
     expect(fixture.state.selectedTrackId).toBeNull()
   })
   it('hands menu focus to the editor and restores it after close without activating playback', async () => {
+    fixture.tracks[2].artworkCacheKey = 'selected-track-cover'
     await mount()
     context(row(3))
     await settle()
     fire(find('.test-edit'), 'onClick')
     await settle()
     expect(find('.test-editor')).toBeTruthy()
+    expect(find('.test-editor').props['data-artwork-key']).toBe('selected-track-cover')
     expect(key(find('.library-list-shell'), 'Enter').defaultPrevented).toBe(false)
     fire(find('.test-editor'), 'onClick')
     await settle()

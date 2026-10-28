@@ -522,6 +522,7 @@ const {
     trackEditor?.open({
       trackId,
       initialTab: 'metadata',
+      artworkCacheKey: libraryDerivedIndex.value.trackById.get(trackId)?.artworkCacheKey ?? null,
       returnFocusTo: document.activeElement as HTMLElement,
       restoreFocus: async () => {
         if (isPageUnmounted || hasLeftInstanceRoute) return false

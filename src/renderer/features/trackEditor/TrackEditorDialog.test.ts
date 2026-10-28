@@ -197,6 +197,7 @@ async function mount(
   returnFocusTo?: TestNode,
   initialTab: 'metadata' | 'lyrics' = 'lyrics',
   restoreFocus?: () => boolean | Promise<boolean>,
+  artworkCacheKey?: string | null,
 ) {
   const open = ref(true)
   const panel = ref<InstanceType<typeof TrackEditorDialog> | null>(null)
@@ -211,6 +212,7 @@ async function mount(
           ? {
               trackId: 7,
               initialTab,
+              artworkCacheKey,
               returnFocusTo: returnFocusTo as unknown as HTMLElement,
               restoreFocus,
             }
@@ -960,4 +962,65 @@ it('repeated metadata saves must retain the lyric conflict', async () => {
   await switchTo('lyrics')
   expect(source().value).toBe('My unsaved lyric draft')
   expect(button('lyricsEditor.save').props.disabled).toBe(true)
+})
+
+it('closes a clean metadata page from the footer cancel button', async () => {
+  const view = await mount(undefined, 'metadata')
+  fire(button('library.metadataEditor.actions.cancel'), 'onClick')
+  await flush()
+  expect(view.onClose).toHaveBeenCalledOnce()
+  expect(api.updateTrackMetadata).not.toHaveBeenCalled()
+})
+
+it('protects both drafts when cancelling from the metadata footer', async () => {
+  const view = await mount()
+  await edit('Unsaved lyric draft')
+  await switchTo('metadata')
+  changeTitle('Unsaved title')
+  await flush()
+  fire(button('library.metadataEditor.actions.cancel'), 'onClick')
+  await flush()
+  expect(view.onClose).not.toHaveBeenCalled()
+  expect(textContent(body)).toContain('trackEditor.unsavedPages')
+  expect(tab('metadata').props.disabled).toBe(true)
+  fire(button('lyricsEditor.continue'), 'onClick')
+  await flush()
+  expect(titleInput().value).toBe('Unsaved title')
+  await switchTo('lyrics')
+  expect(source().value).toBe('Unsaved lyric draft')
+  expect(api.saveLrcEditor).not.toHaveBeenCalled()
+  expect(api.updateTrackMetadata).not.toHaveBeenCalled()
+})
+
+it('loads the requested artwork with no active playback and keeps it across tabs', async () => {
+  playback.currentTrackId = null
+  await mount(undefined, 'metadata', undefined, 'cold-start-cover')
+  expect(find((node) => node.type === 'img')?.props.src).toBe('auralis-artwork://cold-start-cover')
+  await switchTo('lyrics')
+  expect(find((node) => node.type === 'img')?.props.src).toBe('auralis-artwork://cold-start-cover')
+})
+
+it('keeps the edited track artwork independent from playback and retries it on reopen', async () => {
+  playback.currentTrackId = 8
+  playback.currentTrack = { id: 8, title: 'Other track', artist: 'Other artist' }
+  const view = await mount(undefined, 'metadata', undefined, 'edited-track-cover')
+  const image = find((node) => node.type === 'img')!
+  expect(image.props.src).toBe('auralis-artwork://edited-track-cover')
+  fire(image, 'onError')
+  await flush()
+  expect(find((node) => node.type === 'img')).toBeUndefined()
+  expect(find((node) => String(node.props.class).includes('i-lucide-music-2'))).toBeDefined()
+  view.open.value = false
+  await flush()
+  view.open.value = true
+  await flush()
+  expect(find((node) => node.type === 'img')?.props.src).toBe(
+    'auralis-artwork://edited-track-cover',
+  )
+})
+
+it('uses the music placeholder when the edited track has no artwork', async () => {
+  await mount(undefined, 'metadata', undefined, null)
+  expect(find((node) => node.type === 'img')).toBeUndefined()
+  expect(find((node) => String(node.props.class).includes('i-lucide-music-2'))).toBeDefined()
 })

@@ -37,7 +37,9 @@ const fixture = vi.hoisted(() => ({
   syncCd: vi.fn(),
 }))
 vi.mock('./features/playback/composables/usePlayback', () => ({
-  usePlayback: () => ({ state: { currentTrackId: 7 } }),
+  usePlayback: () => ({
+    state: { currentTrackId: 7, currentTrack: { id: 7, artworkCacheKey: 'playing-cover' } },
+  }),
 }))
 vi.mock('vue-router', async () => {
   const { reactive, h } = await import('vue')
@@ -512,6 +514,9 @@ describe('App shell composition', () => {
       trigger,
     )
     expect((find('.test-editor').props.request as { initialTab: string }).initialTab).toBe('lyrics')
+    expect(
+      (find('.test-editor').props.request as { artworkCacheKey: string }).artworkCacheKey,
+    ).toBe('playing-cover')
     const parameters = find('.test-parameters').props.controller as { supported: Ref<boolean> }
     expect(parameters.supported.value).toBe(false)
     settings.openSettings()

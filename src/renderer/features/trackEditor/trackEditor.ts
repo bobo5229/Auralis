@@ -4,6 +4,7 @@ export type TrackEditorTab = 'metadata' | 'lyrics'
 export interface TrackEditorRequest {
   trackId: number
   initialTab: TrackEditorTab
+  artworkCacheKey?: string | null
   returnFocusTo?: HTMLElement | null
   restoreFocus?: () => boolean | Promise<boolean>
 }

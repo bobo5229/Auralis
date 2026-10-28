@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import { formatArtist } from '@renderer/shared/media/formatArtist'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import MetadataEditPage from '@renderer/features/library/components/MetadataEditPage.vue'
 import LyricsEditPage from '@renderer/features/lyrics/components/LyricsEditPage.vue'
 import { useLibraryMetadataEditor } from '@renderer/features/library/composables/useLibraryMetadataEditor'
@@ -15,6 +16,8 @@ const props = defineProps<{ request: TrackEditorRequest | null }>()
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 const active = ref<TrackEditorTab>('metadata')
+const artworkFailed = ref(false)
+const artworkUrl = computed(() => getArtworkUrl(props.request?.artworkCacheKey ?? null))
 const lyricsLoaded = ref(false)
 const metadataPage = ref<InstanceType<typeof MetadataEditPage> | null>(null)
 const lyricsPage = ref<InstanceType<typeof LyricsEditPage> | null>(null)
@@ -75,6 +78,7 @@ watch(
   () => props.request,
   (request) => {
     confirming.value = false
+    artworkFailed.value = false
     lyricsLoaded.value = request?.initialTab === 'lyrics'
     lyricsDirty.value = lyricsBusy.value = lyricsComposing.value = false
     if (request) {
@@ -185,6 +189,19 @@ defineExpose({ requestClose })
     @close="requestClose"
     @keydown.capture="keydown"
   >
+    <template #header-leading>
+      <div class="track-editor-artwork" aria-hidden="true">
+        <img
+          v-if="artworkUrl && !artworkFailed"
+          :key="artworkUrl"
+          :src="artworkUrl"
+          alt=""
+          draggable="false"
+          @error="artworkFailed = true"
+        />
+        <span v-else class="i-lucide-music-2" />
+      </div>
+    </template>
     <template #subtitle>
       <div class="track-editor-subtitle">
         <p :title="songTitle">{{ songTitle }}</p>
@@ -240,7 +257,18 @@ defineExpose({ requestClose })
             @save="metadata.save"
             @retry-status="metadata.retryCheckStatus"
             @retry-load="metadata.retryLoad"
-          />
+          >
+            <template #footer-leading>
+              <button
+                type="button"
+                class="auralis-dialog-action track-editor-cancel"
+                :disabled="busy || confirming || composing"
+                @click="requestClose()"
+              >
+                {{ t('library.metadataEditor.actions.cancel') }}
+              </button>
+            </template>
+          </MetadataEditPage>
         </section>
         <section
           v-show="active === 'lyrics'"
@@ -281,19 +309,65 @@ defineExpose({ requestClose })
 <style scoped>
 :global(.auralis-dialog-panel.track-editor-dialog) {
   overflow: visible;
+  height: min(680px, calc(100dvh - 80px));
+  border-radius: 20px;
+}
+:global(.track-editor-dialog .auralis-dialog-header) {
+  margin-inline: 24px;
+  padding: 18px 0 22px;
+}
+:global(.track-editor-dialog .auralis-dialog-title) {
+  flex: 1;
+}
+.track-editor-artwork {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 72%, #000);
+  color: var(--auralis-text-muted);
+}
+.track-editor-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.track-editor-artwork span {
+  width: 26px;
+  height: 26px;
+}
+:global(.track-editor-dialog .metadata-edit-footer .auralis-dialog-action),
+.track-editor-confirm .auralis-dialog-action {
+  min-height: 36px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  padding-inline: 18px;
+}
+.track-editor-cancel {
+  border: 1px solid var(--auralis-border-subtle);
+  background: transparent;
+  font-weight: 400;
 }
 .track-editor-subtitle {
-  margin: 2px 0 0;
-  max-width: 76vw;
+  margin: 4px 0 0;
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
 }
 .track-editor-subtitle p {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.track-editor-subtitle p:first-child {
+  color: var(--auralis-text);
+}
+.track-editor-subtitle p + p {
+  margin-top: 2px;
 }
 .track-editor-layout {
   display: grid;
@@ -303,16 +377,17 @@ defineExpose({ requestClose })
 .track-editor-tabs {
   display: flex;
   gap: 20px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--auralis-border-subtle);
+  padding: 12px 24px 0;
 }
 .track-editor-tabs button {
-  padding: 12px 0 10px;
+  padding: 10px 0 12px;
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
   color: var(--auralis-text-muted);
   font: inherit;
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
   cursor: pointer;
 }
 .track-editor-tabs button[aria-selected='true'] {
@@ -353,5 +428,26 @@ defineExpose({ requestClose })
 .track-editor-confirm > div {
   display: flex;
   gap: 8px;
+}
+@media (max-height: 600px) {
+  :global(.track-editor-dialog .auralis-dialog-header) {
+    padding-block: 12px;
+  }
+  .track-editor-artwork {
+    width: 52px;
+    height: 52px;
+  }
+  .track-editor-tabs {
+    padding-top: 4px;
+  }
+}
+@media (max-width: 600px) {
+  :global(.track-editor-dialog .auralis-dialog-header) {
+    margin-inline: 16px;
+    gap: 12px;
+  }
+  .track-editor-tabs {
+    padding-inline: 16px;
+  }
 }
 </style>
