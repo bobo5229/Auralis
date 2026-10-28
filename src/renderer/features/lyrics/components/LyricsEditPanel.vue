@@ -28,6 +28,9 @@ const editor = ref<HTMLTextAreaElement | null>(null)
 const continueButton = ref<HTMLButtonElement | null>(null)
 const cursor = ref(0)
 const composing = ref(false)
+const startingLine = ref(false)
+const editingTrack = ref('')
+let openGeneration = 0
 const editSession = useLyricsEditSession({
   isOpen: () => props.open,
   t,
@@ -111,11 +114,69 @@ const matchesPlayback = computed(
   () => trackId.value !== null && trackId.value === playback.state.currentTrackId,
 )
 const canStamp = computed(
-  () => editable.value && !composing.value && matchesPlayback.value && line.value.editable,
+  () =>
+    editable.value &&
+    !confirming.value &&
+    !composing.value &&
+    matchesPlayback.value &&
+    line.value.editable,
 )
 const canNudge = computed(
-  () => editable.value && !composing.value && line.value.editable && !!line.value.timestamp,
+  () =>
+    editable.value &&
+    !confirming.value &&
+    !composing.value &&
+    line.value.editable &&
+    !!line.value.timestamp,
 )
+
+const linePlaybackTime = computed(() => {
+  if (!line.value.editable || line.value.timeMs === null || playback.state.duration <= 0)
+    return null
+  const seconds = Math.max(0, (line.value.timeMs - line.value.offsetMs) / 1000)
+  return seconds < playback.state.duration ? seconds : null
+})
+const canPlayLine = computed(
+  () =>
+    editable.value &&
+    !confirming.value &&
+    !composing.value &&
+    matchesPlayback.value &&
+    !startingLine.value &&
+    !playback.isPlaybackPending.value &&
+    linePlaybackTime.value !== null,
+)
+
+async function playLine(): Promise<void> {
+  if (!canPlayLine.value || linePlaybackTime.value === null) return
+  const targetTime = linePlaybackTime.value
+  const targetTrack = trackId.value
+  const generation = openGeneration
+  startingLine.value = true
+  try {
+    if (!playback.state.isPlaying) {
+      const pending = playback.play()
+      const revision = playback.commandRevision.value
+      await pending
+      if (
+        !props.open ||
+        generation !== openGeneration ||
+        confirming.value ||
+        !editable.value ||
+        targetTrack !== trackId.value ||
+        targetTrack !== playback.state.currentTrackId ||
+        revision !== playback.commandRevision.value ||
+        !playback.state.isPlaying
+      )
+        return
+    }
+    playback.seekTo(targetTime)
+  } catch {
+    if (props.open && generation === openGeneration) failure('failed')
+  } finally {
+    startingLine.value = false
+  }
+}
 
 function snapshot(): Snapshot {
   return {
@@ -155,7 +216,8 @@ function compositionEnd(event: CompositionEvent): void {
   input(event)
 }
 async function replaceLine(value: string | null): Promise<void> {
-  if (value === null || !editable.value || composing.value || !editor.value) return
+  if (value === null || !editable.value || confirming.value || composing.value || !editor.value)
+    return
   const current = line.value
   const updated = text.value.slice(0, current.start) + value + text.value.slice(current.end)
   if (updated.length > MAX_LRC_EDITOR_CHARACTERS) return
@@ -180,7 +242,14 @@ function applyTimingEdit(value: string | null): void {
 }
 async function undo(direction: number): Promise<void> {
   const index = historyIndex.value + direction
-  if (!editable.value || composing.value || index < 0 || index >= history.length) return
+  if (
+    !editable.value ||
+    confirming.value ||
+    composing.value ||
+    index < 0 ||
+    index >= history.length
+  )
+    return
   const state = history[index]
   historyIndex.value = index
   text.value = state.text
@@ -244,10 +313,11 @@ function keydown(event: KeyboardEvent): void {
   }
 }
 function seek(event: Event): void {
-  if (matchesPlayback.value) playback.seekTo(Number((event.target as HTMLInputElement).value))
+  if (!busy.value && !confirming.value && matchesPlayback.value)
+    playback.seekTo(Number((event.target as HTMLInputElement).value))
 }
 async function togglePlay(): Promise<void> {
-  if (!matchesPlayback.value) return
+  if (busy.value || confirming.value || startingLine.value || !matchesPlayback.value) return
   try {
     await playback.togglePlayPause()
   } catch {
@@ -263,14 +333,22 @@ function beforeUnload(event: BeforeUnloadEvent): void {
 watch(
   () => props.open,
   (open) => {
+    openGeneration++
     saveMenuOpen.value = false
-    if (open) void editSession.open(playback.state.currentTrackId)
-    else void editSession.close()
+    if (open) {
+      const track = playback.state.currentTrack
+      editingTrack.value =
+        track && track.id === playback.state.currentTrackId
+          ? `${track.title || t('lyricsEditor.unknownTitle')} · ${track.artist || t('lyricsEditor.unknownArtist')}`
+          : t('lyricsEditor.unknownTitle')
+      void editSession.open(playback.state.currentTrackId)
+    } else void editSession.close()
   },
   { immediate: true },
 )
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onBeforeUnmount(() => {
+  openGeneration++
   void editSession.close()
   window.removeEventListener('beforeunload', beforeUnload)
 })
@@ -312,9 +390,34 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
     @keydown.capture="keydown"
     @close="requestClose"
   >
-    <div class="lyrics-editor-content">
+    <template #subtitle>
+      <div class="editor-context">
+        <span class="editor-track" :title="editingTrack">{{ editingTrack }}</span>
+        <span class="editor-dirty" role="status">{{
+          t(dirty ? 'lyricsEditor.unsaved' : 'lyricsEditor.noChanges')
+        }}</span>
+      </div>
+    </template>
+    <div class="lyrics-editor-content" :inert="confirming || undefined">
       <div class="editor-toolbar">
         <div class="editor-actions">
+          <button
+            v-tooltip="
+              t(
+                !matchesPlayback
+                  ? 'lyricsEditor.playbackMismatch'
+                  : linePlaybackTime === null
+                    ? 'lyricsEditor.noLineTime'
+                    : 'lyricsEditor.playLineHint',
+              )
+            "
+            class="editor-tool editor-timing-button"
+            :disabled="!canPlayLine"
+            @mousedown.prevent
+            @click="playLine"
+          >
+            {{ t('lyricsEditor.playLine') }}
+          </button>
           <button
             v-tooltip="
               t(
@@ -352,7 +455,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         <div class="editor-actions">
           <button
             class="editor-tool"
-            :disabled="!editable || composing || historyIndex <= 0"
+            :disabled="!editable || confirming || composing || historyIndex <= 0"
             @mousedown.prevent
             @click="undo(-1)"
           >
@@ -360,7 +463,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           </button>
           <button
             class="editor-tool"
-            :disabled="!editable || composing || historyIndex >= historyLength - 1"
+            :disabled="!editable || confirming || composing || historyIndex >= historyLength - 1"
             @mousedown.prevent
             @click="undo(1)"
           >
@@ -368,15 +471,50 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           </button>
         </div>
       </div>
-      <p v-if="line.enhanced" class="editor-notice">
+      <div class="editor-meta">
+        <label for="lyrics-source-editor">{{ t('lyricsEditor.text') }}</label>
+        <span>{{ t('lyricsEditor.lineNumber', { number: line.number }) }}</span>
+      </div>
+      <p class="editor-line-hint editor-notice">
         {{
-          t(line.editable ? 'lyricsEditor.enhancedShiftHint' : 'lyricsEditor.enhancedManualHint')
+          t(
+            line.enhanced
+              ? line.editable
+                ? 'lyricsEditor.enhancedShiftHint'
+                : 'lyricsEditor.enhancedManualHint'
+              : 'lyricsEditor.lineTimingHint',
+          )
         }}
+        <span v-if="linePlaybackTime === null">{{ t('lyricsEditor.noLineTime') }}</span>
       </p>
+      <div v-if="loading" class="editor-load" role="status">{{ t('lyricsEditor.loading') }}</div>
+      <textarea
+        v-else
+        id="lyrics-source-editor"
+        ref="editor"
+        :value="text"
+        :readonly="!editable || confirming"
+        :maxlength="MAX_LRC_EDITOR_CHARACTERS"
+        wrap="off"
+        spellcheck="false"
+        @beforeinput="beforeInput"
+        @input="input"
+        @select="syncCursor"
+        @click="syncCursor"
+        @keyup="syncCursor"
+        @compositionstart="composing = true"
+        @compositionend="compositionEnd"
+      />
       <div class="editor-transport">
         <button
           class="editor-play"
-          :disabled="!matchesPlayback || playback.isPlaybackPending.value"
+          :disabled="
+            busy ||
+            confirming ||
+            !matchesPlayback ||
+            startingLine ||
+            playback.isPlaybackPending.value
+          "
           :aria-label="t(playback.state.isPlaying ? 'lyricsEditor.pause' : 'lyricsEditor.play')"
           @click="togglePlay"
         >
@@ -392,35 +530,17 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           :max="Math.max(1, playback.state.duration)"
           step="0.01"
           :value="matchesPlayback ? playback.state.currentTime : 0"
-          :disabled="!matchesPlayback || playback.state.duration <= 0"
+          :disabled="busy || confirming || !matchesPlayback || playback.state.duration <= 0"
           :aria-label="t('lyricsEditor.position')"
           @input="seek"
         />
         <span>{{ formatLrcTime(matchesPlayback ? playback.state.duration : 0) }}</span>
       </div>
-      <div class="editor-meta">
-        <label for="lyrics-source-editor">{{ t('lyricsEditor.text') }}</label>
-      </div>
-      <div v-if="loading" class="editor-load" role="status">{{ t('lyricsEditor.loading') }}</div>
-      <textarea
-        v-else
-        id="lyrics-source-editor"
-        ref="editor"
-        :value="text"
-        :readonly="!editable"
-        :maxlength="MAX_LRC_EDITOR_CHARACTERS"
-        wrap="off"
-        spellcheck="false"
-        @beforeinput="beforeInput"
-        @input="input"
-        @select="syncCursor"
-        @click="syncCursor"
-        @keyup="syncCursor"
-        @compositionstart="composing = true"
-        @compositionend="compositionEnd"
-      />
+      <p v-if="!matchesPlayback && trackId !== null" class="editor-notice" role="status">
+        {{ t('lyricsEditor.playbackMismatch') }}
+      </p>
       <div v-if="!session && !busy" class="editor-status">
-        <button class="editor-tool" @click="load">
+        <button class="editor-tool" :disabled="confirming" @click="load">
           {{ t('lyricsEditor.reload') }}
         </button>
       </div>
@@ -501,8 +621,30 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 20px 24px 12px;
-  gap: 14px;
+  flex: 1;
+  padding: 12px 24px;
+  gap: 8px;
+}
+.editor-context {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.editor-track {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor-dirty {
+  flex: none;
+}
+.editor-line-hint {
+  min-height: var(--auralis-type-caption-line-height);
 }
 .editor-meta,
 .editor-status,
@@ -556,10 +698,8 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
 }
 .editor-timing-button {
   box-sizing: border-box;
-  flex: 0 0 72px;
-  width: 72px;
-  height: 34px;
-  padding: 0;
+  min-height: 34px;
+  padding: 0 12px;
   font-weight: 600;
 }
 .editor-tool:disabled,
@@ -574,7 +714,7 @@ input:focus-visible {
   outline-offset: 2px;
 }
 .editor-transport {
-  padding: 10px 12px;
+  padding: 4px 8px;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 6px;
   font-variant-numeric: tabular-nums;
@@ -605,6 +745,7 @@ input:focus-visible {
   accent-color: var(--auralis-control-primary-bg);
 }
 textarea {
+  box-sizing: border-box;
   flex: 1;
   min-height: 100px;
   min-width: 0;
@@ -671,6 +812,19 @@ textarea:focus {
 }
 :where([data-reduced-motion='true']) .editor-save-chevron {
   transition: none;
+}
+@media (max-height: 600px) {
+  .lyrics-editor-content {
+    padding-block: 8px;
+    gap: 4px;
+  }
+  textarea {
+    min-height: 48px;
+    padding-block: 8px;
+  }
+  :deep(.auralis-dialog-footer) {
+    padding-block: 8px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .editor-save-chevron {

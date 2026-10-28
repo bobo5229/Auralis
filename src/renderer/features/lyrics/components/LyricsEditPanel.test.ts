@@ -10,17 +10,21 @@ const api = vi.hoisted(() => ({
 }))
 const playback = reactive({
   currentTrackId: 7 as number | null,
+  currentTrack: { id: 7, title: 'First track', artist: 'First artist' },
   currentTime: 3,
   duration: 120,
   isPlaying: false,
+  error: null as string | null,
 })
+const playbackActions = { seekTo: vi.fn(), togglePlayPause: vi.fn(), play: vi.fn() }
+const commandRevision = ref(0)
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { lyrics: api } }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({
     state: playback,
+    commandRevision,
     isPlaybackPending: ref(false),
-    seekTo: vi.fn(),
-    togglePlayPause: vi.fn(),
+    ...playbackActions,
   }),
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
@@ -206,6 +210,16 @@ beforeEach(() => {
   activeElement = null
   windowListeners.clear()
   playback.currentTrackId = 7
+  playback.currentTrack = { id: 7, title: 'First track', artist: 'First artist' }
+  playback.currentTime = 3
+  playback.duration = 120
+  playback.isPlaying = false
+  playback.error = null
+  commandRevision.value = 0
+  playbackActions.play.mockImplementation(async () => {
+    commandRevision.value++
+    playback.isPlaying = true
+  })
   vi.stubGlobal('HTMLElement', TestNode)
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('document', {
@@ -466,4 +480,157 @@ it('reports unsupported TTML without enabling editing or saving', async () => {
   expect(source().props.readonly).toBe(true)
   expect(button('lyricsEditor.save').props.disabled).toBe(true)
   expect(api.saveLrcEditor).not.toHaveBeenCalled()
+})
+
+it('keeps the editing track and dirty state visible after playback switches', async () => {
+  await mount()
+  expect(textContent(body)).toContain('First track · First artist')
+  expect(textContent(body)).toContain('lyricsEditor.noChanges')
+  await edit('[00:01.00]Changed')
+  expect(textContent(body)).toContain('lyricsEditor.unsaved')
+  playback.currentTrackId = 8
+  playback.currentTrack = { id: 8, title: 'Second track', artist: 'Second artist' }
+  await flush()
+  expect(textContent(body)).toContain('First track · First artist')
+  expect(textContent(body)).not.toContain('Second track')
+  expect(textContent(body)).toContain('lyricsEditor.playbackMismatch')
+  expect(button('lyricsEditor.playLine').props.disabled).toBe(true)
+})
+
+it('plays from the selected line with offset, and guards invalid and pending actions', async () => {
+  await mount()
+  await edit('[offset:500]\n[00:02.00]First\nUntimed')
+  const editor = source()
+  editor.setSelectionRange(18, 18)
+  fire(editor, 'onSelect')
+  await flush()
+  let finish!: () => void
+  playbackActions.play.mockImplementationOnce(() => {
+    commandRevision.value++
+    return new Promise<void>((resolve) => {
+      finish = () => {
+        playback.isPlaying = true
+        resolve()
+      }
+    })
+  })
+  fire(button('lyricsEditor.playLine'), 'onClick')
+  await flush()
+  expect(playbackActions.seekTo).not.toHaveBeenCalled()
+  expect(playbackActions.play).toHaveBeenCalledOnce()
+  expect(button('lyricsEditor.playLine').props.disabled).toBe(true)
+  fire(button('lyricsEditor.playLine'), 'onClick')
+  expect(playbackActions.seekTo).not.toHaveBeenCalled()
+  finish()
+  await flush()
+  expect(playbackActions.seekTo).toHaveBeenCalledWith(1.5)
+  fire(button('lyricsEditor.playLine'), 'onClick')
+  await flush()
+  expect(playbackActions.play).toHaveBeenCalledOnce()
+  editor.setSelectionRange(editor.value.length, editor.value.length)
+  fire(editor, 'onSelect')
+  await flush()
+  expect(button('lyricsEditor.playLine').props.disabled).toBe(true)
+  expect(textContent(body)).toContain('lyricsEditor.noLineTime')
+  expect(playbackActions.seekTo).toHaveBeenCalledTimes(2)
+})
+
+it.each(['command', 'track', 'close', 'confirmation', 'unmount', 'failure'] as const)(
+  'does not seek after a pending start when %s changes',
+  async (change) => {
+    const view = await mount()
+    let finish!: () => void
+    playbackActions.play.mockImplementationOnce(() => {
+      commandRevision.value++
+      return new Promise<void>((resolve) => {
+        finish = () => {
+          playback.isPlaying = change !== 'failure'
+          resolve()
+        }
+      })
+    })
+    fire(button('lyricsEditor.playLine'), 'onClick')
+    await flush()
+    if (change === 'command') commandRevision.value++
+    if (change === 'track') playback.currentTrackId = 8
+    if (change === 'close') view.open.value = false
+    if (change === 'unmount') {
+      app!.unmount()
+      app = undefined
+    }
+    if (change === 'failure') playback.error = 'failed'
+    if (change === 'confirmation') {
+      await edit('[00:01.00]Changed')
+      view.panel.value!.requestClose()
+    }
+    await flush()
+    finish()
+    await flush()
+    expect(playbackActions.seekTo).not.toHaveBeenCalled()
+  },
+)
+
+it('seeks after a successful resume even when an earlier error remains', async () => {
+  await mount()
+  playback.error = 'previous error'
+  fire(button('lyricsEditor.playLine'), 'onClick')
+  await flush()
+  expect(playbackActions.seekTo).toHaveBeenCalledWith(1)
+})
+
+it('does not seek if saving starts while playback is starting', async () => {
+  await mount()
+  await edit('[00:01.00]Changed')
+  let finishPlay!: () => void
+  let finishSave!: (value: unknown) => void
+  playbackActions.play.mockImplementationOnce(() => {
+    commandRevision.value++
+    return new Promise<void>((resolve) => {
+      finishPlay = () => {
+        playback.isPlaying = true
+        resolve()
+      }
+    })
+  })
+  api.saveLrcEditor.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishSave = resolve
+    }),
+  )
+  fire(button('lyricsEditor.playLine'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.file'), 'onClick')
+  await flush()
+  expect(source().props.readonly).toBe(true)
+  finishPlay()
+  await flush()
+  expect(playbackActions.seekTo).not.toHaveBeenCalled()
+  finishSave({ ok: false, code: 'file-changed' })
+  await flush()
+})
+
+it('does not show metadata from a different track when opening', async () => {
+  playback.currentTrack = { id: 8, title: 'Wrong track', artist: 'Wrong artist' }
+  await mount()
+  expect(textContent(body)).toContain('lyricsEditor.unknownTitle')
+  expect(textContent(body)).not.toContain('Wrong track')
+})
+
+it('freezes the body during the close confirmation and restores editing', async () => {
+  const view = await mount()
+  await edit('[00:01.00]Changed')
+  view.panel.value!.requestClose()
+  await flush()
+  expect(
+    find((node) => String(node.props.class).includes('lyrics-editor-content'))?.props.inert,
+  ).toBe(true)
+  expect(source().props.readonly).toBe(true)
+  expect(button('lyricsEditor.updateTime').props.disabled).toBe(true)
+  expect(button('lyricsEditor.playLine').props.disabled).toBe(true)
+  fire(button('lyricsEditor.continue'), 'onClick')
+  await flush()
+  expect(source().props.readonly).toBe(false)
+  expect(activeElement).toBe(source())
 })
