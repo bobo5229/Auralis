@@ -53,6 +53,7 @@ coverage
 /output/**/*-profile-*/
 /output/**/dist-*/
 /output/**/renderer-build/
+/output/**/vite-cache/
 # Diagnostics captured from the real local music collection stay local.
 /output/metadata-real-path-probe-20261011/
 .grunt
