@@ -1033,7 +1033,7 @@
       "viewAll": "View all",
       "preview": "Badge catalogue preview",
       "previewFor": "{name}, rotatable badge preview",
-      "instructions": "Move the pointer to explore reflections. Arrow keys adjust the view; Home resets it.",
+      "instructions": "Move the pointer to explore reflections. Arrow keys adjust the view; Home resets it. PageUp / PageDown switch badges.",
       "staticPreview": "Static badge preview",
       "achievementsError": "Achievements could not load. Reopen the case to retry.",
       "earned": "Achieved",

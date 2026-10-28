@@ -1033,7 +1033,7 @@
       "viewAll": "查看全部",
       "preview": "徽章图鉴预览",
       "previewFor": "{name}，可旋转的徽章预览",
-      "instructions": "移动鼠标欣赏反光；方向键调整，Home 复位。",
+      "instructions": "移动鼠标欣赏反光；方向键调整，Home 复位，PageUp / PageDown 切换徽章。",
       "staticPreview": "静态徽章预览",
       "achievementsError": "暂时无法读取成就，请重新打开纪念盒重试。",
       "earned": "已达成",

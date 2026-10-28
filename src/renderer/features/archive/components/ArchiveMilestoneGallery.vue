@@ -180,6 +180,20 @@ function switchBadge(delta: number) {
     void inspection.switchTo(descriptor(badge.id), button, delta < 0 ? -1 : 1)
   }
 }
+function inspectionKeydown(event: KeyboardEvent) {
+  if (
+    event.defaultPrevented ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    (event.key !== 'PageUp' && event.key !== 'PageDown')
+  )
+    return
+  event.preventDefault()
+  if (event.repeat || phase.value !== 'inspecting') return
+  switchBadge(event.key === 'PageUp' ? -1 : 1)
+}
 function close() {
   if (active.value) inspection.close()
   else emit('close')
@@ -400,6 +414,7 @@ defineExpose({
         :data-leaving="phase === 'leaving' ? '' : undefined"
         :aria-busy="phase === 'loading'"
         @click.self="inspection.close"
+        @keydown="inspectionKeydown"
       >
         <div
           ref="stage"
@@ -449,6 +464,8 @@ defineExpose({
           type="button"
           :disabled="phase !== 'inspecting' || index <= 0"
           :aria-label="t('archive.milestones.previousBadge')"
+          :title="`${t('archive.milestones.previousBadge')} (PageUp)`"
+          aria-keyshortcuts="PageUp"
           @click="switchBadge(-1)"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
@@ -459,6 +476,8 @@ defineExpose({
           type="button"
           :disabled="phase !== 'inspecting' || index >= badges.length - 1"
           :aria-label="t('archive.milestones.nextBadge')"
+          :title="`${t('archive.milestones.nextBadge')} (PageDown)`"
+          aria-keyshortcuts="PageDown"
           @click="switchBadge(1)"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 7 5 5-5 5" /></svg>
