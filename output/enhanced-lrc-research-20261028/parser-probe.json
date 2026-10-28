@@ -1,0 +1,451 @@
+{
+  "scope": "Pinned upstream source pure functions, not published-package integration or UI validation",
+  "cases": [
+    {
+      "name": "startZero",
+      "raw": "[00:00.000]<00:00.000>我<00:00.400>听",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 0,
+            "text": "<00:00.000>我<00:00.400>听"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 0,
+            "rawContent": "<00:00.000>我<00:00.400>听",
+            "content": "<00:00.000>我<00:00.400>听"
+          }
+        ],
+        "clrc": [
+          {
+            "lineNumber": 0,
+            "raw": "[00:00.000]<00:00.000>我<00:00.400>听",
+            "type": "enhanced_lyric",
+            "startMillisecond": 0,
+            "content": "<00:00.000>我<00:00.400>听",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:00.000>我",
+                "startMillisecond": 0,
+                "content": "我"
+              },
+              {
+                "index": 1,
+                "raw": "<00:00.400>听",
+                "startMillisecond": 400,
+                "content": "听"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "basic",
+      "raw": "[00:12.000]<00:12.000>我<00:12.400>听见<00:13.100>雨声<00:14.000>",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 12,
+            "text": "<00:12.000>我<00:12.400>听见<00:13.100>雨声<00:14.000>"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 12,
+            "wordTimestamps": [
+              {
+                "timestamp": 12,
+                "content": "我"
+              },
+              {
+                "timestamp": 12.4,
+                "content": "听见"
+              },
+              {
+                "timestamp": 13.1,
+                "content": "雨声"
+              }
+            ],
+            "rawContent": "<00:12.000>我<00:12.400>听见<00:13.100>雨声<00:14.000>",
+            "content": "我听见雨声"
+          }
+        ],
+        "clrc": [
+          {
+            "lineNumber": 0,
+            "raw": "[00:12.000]<00:12.000>我<00:12.400>听见<00:13.100>雨声<00:14.000>",
+            "type": "enhanced_lyric",
+            "startMillisecond": 12000,
+            "content": "<00:12.000>我<00:12.400>听见<00:13.100>雨声<00:14.000>",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:12.000>我",
+                "startMillisecond": 12000,
+                "content": "我"
+              },
+              {
+                "index": 1,
+                "raw": "<00:12.400>听见",
+                "startMillisecond": 12400,
+                "content": "听见"
+              },
+              {
+                "index": 2,
+                "raw": "<00:13.100>雨声",
+                "startMillisecond": 13100,
+                "content": "雨声"
+              },
+              {
+                "index": 3,
+                "raw": "<00:14.000>",
+                "startMillisecond": 14000,
+                "content": ""
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mixed",
+      "raw": "[00:01.000]普通行\n[00:02.000]<00:02.000>增<00:02.500>强",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 1,
+            "text": "普通行"
+          },
+          {
+            "id": "1",
+            "timeSeconds": 2,
+            "text": "<00:02.000>增<00:02.500>强"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 1,
+            "wordTimestamps": [
+              {
+                "timestamp": 1,
+                "content": "普通行"
+              }
+            ],
+            "rawContent": "普通行",
+            "content": "普通行"
+          },
+          {
+            "timestamp": 2,
+            "wordTimestamps": [
+              {
+                "timestamp": 2,
+                "content": "增"
+              },
+              {
+                "timestamp": 2.5,
+                "content": "强"
+              }
+            ],
+            "rawContent": "<00:02.000>增<00:02.500>强",
+            "content": "增强"
+          }
+        ],
+        "clrc": [
+          {
+            "type": "invalid",
+            "lineNumber": 0,
+            "raw": "[00:01.000]普通行"
+          },
+          {
+            "lineNumber": 1,
+            "raw": "[00:02.000]<00:02.000>增<00:02.500>强",
+            "type": "enhanced_lyric",
+            "startMillisecond": 2000,
+            "content": "<00:02.000>增<00:02.500>强",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:02.000>增",
+                "startMillisecond": 2000,
+                "content": "增"
+              },
+              {
+                "index": 1,
+                "raw": "<00:02.500>强",
+                "startMillisecond": 2500,
+                "content": "强"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "spaces",
+      "raw": "[00:01.000]<00:01.000>Hello <00:01.500> <00:02.000>world",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 1,
+            "text": "<00:01.000>Hello <00:01.500> <00:02.000>world"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 1,
+            "wordTimestamps": [
+              {
+                "timestamp": 1,
+                "content": "Hello "
+              },
+              {
+                "timestamp": 2,
+                "content": "world"
+              }
+            ],
+            "rawContent": "<00:01.000>Hello <00:01.500> <00:02.000>world",
+            "content": "Hello world"
+          }
+        ],
+        "clrc": [
+          {
+            "lineNumber": 0,
+            "raw": "[00:01.000]<00:01.000>Hello <00:01.500> <00:02.000>world",
+            "type": "enhanced_lyric",
+            "startMillisecond": 1000,
+            "content": "<00:01.000>Hello <00:01.500> <00:02.000>world",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:01.000>Hello ",
+                "startMillisecond": 1000,
+                "content": "Hello "
+              },
+              {
+                "index": 1,
+                "raw": "<00:01.500> ",
+                "startMillisecond": 1500,
+                "content": " "
+              },
+              {
+                "index": 2,
+                "raw": "<00:02.000>world",
+                "startMillisecond": 2000,
+                "content": "world"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "prefix",
+      "raw": "[00:01.000]先唱<00:02.000>后唱",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 1,
+            "text": "先唱<00:02.000>后唱"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 1,
+            "wordTimestamps": [
+              {
+                "timestamp": 1,
+                "content": "先唱"
+              },
+              {
+                "timestamp": 2,
+                "content": "后唱"
+              }
+            ],
+            "rawContent": "先唱<00:02.000>后唱",
+            "content": "先唱后唱"
+          }
+        ],
+        "clrc": [
+          {
+            "type": "invalid",
+            "lineNumber": 0,
+            "raw": "[00:01.000]先唱<00:02.000>后唱"
+          }
+        ]
+      }
+    },
+    {
+      "name": "repeat",
+      "raw": "[00:10.000][00:20.000]<00:10.000>同<00:11.000>句",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 10,
+            "text": "<00:10.000>同<00:11.000>句"
+          },
+          {
+            "id": "1",
+            "timeSeconds": 20,
+            "text": "<00:10.000>同<00:11.000>句"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 10,
+            "wordTimestamps": [
+              {
+                "timestamp": 10,
+                "content": "同"
+              },
+              {
+                "timestamp": 11,
+                "content": "句"
+              }
+            ],
+            "rawContent": "<00:10.000>同<00:11.000>句",
+            "content": "同句"
+          },
+          {
+            "timestamp": 20,
+            "wordTimestamps": [
+              {
+                "timestamp": 10,
+                "content": "同"
+              },
+              {
+                "timestamp": 11,
+                "content": "句"
+              }
+            ],
+            "rawContent": "<00:10.000>同<00:11.000>句",
+            "content": "同句"
+          }
+        ],
+        "clrc": [
+          {
+            "lineNumber": 0,
+            "raw": "[00:10.000][00:20.000]<00:10.000>同<00:11.000>句",
+            "type": "enhanced_lyric",
+            "startMillisecond": 10000,
+            "content": "<00:10.000>同<00:11.000>句",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:10.000>同",
+                "startMillisecond": 10000,
+                "content": "同"
+              },
+              {
+                "index": 1,
+                "raw": "<00:11.000>句",
+                "startMillisecond": 11000,
+                "content": "句"
+              }
+            ]
+          },
+          {
+            "lineNumber": 0,
+            "raw": "[00:10.000][00:20.000]<00:10.000>同<00:11.000>句",
+            "type": "enhanced_lyric",
+            "startMillisecond": 20000,
+            "content": "<00:10.000>同<00:11.000>句",
+            "words": [
+              {
+                "index": 0,
+                "raw": "<00:10.000>同",
+                "startMillisecond": 10000,
+                "content": "同"
+              },
+              {
+                "index": 1,
+                "raw": "<00:11.000>句",
+                "startMillisecond": 11000,
+                "content": "句"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "colonFraction",
+      "raw": "[1:02:123]<1:02:123>长<1:03:456>录音",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 62.123,
+            "text": "<1:02:123>长<1:03:456>录音"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 62.123,
+            "wordTimestamps": [
+              {
+                "timestamp": 62.123,
+                "content": "<1:02:123>长<1:03:456>录音"
+              }
+            ],
+            "rawContent": "<1:02:123>长<1:03:456>录音",
+            "content": "<1:02:123>长<1:03:456>录音"
+          }
+        ],
+        "clrc": [
+          {
+            "lineNumber": 0,
+            "raw": "[1:02:123]<1:02:123>长<1:03:456>录音",
+            "type": "invalid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "angleLiteral",
+      "raw": "[00:01.000]<b>文字</b><00:02.000>后",
+      "results": {
+        "current": [
+          {
+            "id": "0",
+            "timeSeconds": 1,
+            "text": "<b>文字</b><00:02.000>后"
+          }
+        ],
+        "kit": [
+          {
+            "timestamp": 1,
+            "wordTimestamps": [
+              {
+                "timestamp": 1,
+                "content": "<b>文字</b>"
+              },
+              {
+                "timestamp": 2,
+                "content": "后"
+              }
+            ],
+            "rawContent": "<b>文字</b><00:02.000>后",
+            "content": "<b>文字</b>后"
+          }
+        ],
+        "clrc": [
+          {
+            "type": "invalid",
+            "lineNumber": 0,
+            "raw": "[00:01.000]<b>文字</b><00:02.000>后"
+          }
+        ]
+      }
+    }
+  ]
+}

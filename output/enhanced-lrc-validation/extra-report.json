@@ -1,0 +1,326 @@
+{
+  "cases": [
+    {
+      "full": false,
+      "converted": {
+        "text": "頭髮",
+        "segments": [],
+        "height": 60.000003814697266,
+        "dom": 0,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "restored": {
+        "text": "头发",
+        "segments": [
+          {
+            "text": "头",
+            "lit": "true",
+            "current": "true",
+            "color": "rgb(216, 216, 216)"
+          },
+          {
+            "text": "发",
+            "lit": "false",
+            "current": "false",
+            "color": "rgb(175, 180, 188)"
+          }
+        ],
+        "height": 60.000003814697266,
+        "dom": 2,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "clicked": 0,
+      "keyed": 0,
+      "long": {
+        "text": "  音乐 é👩‍🎤 interoperabilitySupercalifragilisticexpialidocious 听见雨声 <b>literal text</b>",
+        "segments": [
+          {
+            "text": "  音乐 é👩‍🎤 ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgb(216, 216, 216)"
+          },
+          {
+            "text": "interoperabilitySupercalifragilisticexpialidocious ",
+            "lit": "true",
+            "current": "true",
+            "color": "rgb(216, 216, 216)"
+          },
+          {
+            "text": "听见雨声 <b>literal text</b>",
+            "lit": "false",
+            "current": "false",
+            "color": "rgb(175, 180, 188)"
+          }
+        ],
+        "height": 204.00001525878906,
+        "dom": 3,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "scroll": {
+        "clientWidth": 480,
+        "scrollWidth": 480,
+        "rowHeight": 204.00001525878906,
+        "parentHeight": 560
+      },
+      "literalTagCreated": false
+    },
+    {
+      "full": true,
+      "converted": {
+        "text": "頭髮",
+        "segments": [],
+        "height": 49.000003814697266,
+        "dom": 0,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "restored": {
+        "text": "头发",
+        "segments": [
+          {
+            "text": "头",
+            "lit": "true",
+            "current": "true",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "发",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          }
+        ],
+        "height": 49.000003814697266,
+        "dom": 4,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "clicked": 0,
+      "keyed": 0,
+      "long": {
+        "text": "  音乐 é👩‍🎤 interoperabilitySupercalifragilisticexpialidocious 听见雨声 <b>literal text</b>",
+        "segments": [
+          {
+            "text": "  音乐 é👩‍🎤 ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "interoperabilitySupercalifragilisticexpialidocious ",
+            "lit": "true",
+            "current": "true",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "听见雨声 <b>literal text</b>",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          }
+        ],
+        "height": 244.00001525878906,
+        "dom": 6,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "scroll": {
+        "clientWidth": 468,
+        "scrollWidth": 468,
+        "rowHeight": 244.00001525878906,
+        "parentHeight": 491.683349609375
+      },
+      "literalTagCreated": false
+    }
+  ],
+  "errors": [],
+  "performance": {
+    "entries": [
+      {
+        "start": 8858.39999999851,
+        "duration": 112
+      },
+      {
+        "start": 9899.79999999702,
+        "duration": 157
+      }
+    ],
+    "result": {
+      "rawLength": 40599,
+      "rows": 300,
+      "segments": 3000,
+      "parsedMs": 3.399999998509884,
+      "pressureLength": 121991,
+      "pressureMs": 12.799999997019768,
+      "pressureSegments": 16384,
+      "pressureLastFallback": true,
+      "normal": {
+        "text": "word word word word word word word word word word ",
+        "segments": [
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "true",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          }
+        ],
+        "height": 146,
+        "dom": 20,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "full": {
+        "text": "word word word word word word word word word word ",
+        "segments": [
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "true",
+            "current": "true",
+            "color": "rgba(246, 242, 234, 0.94)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          },
+          {
+            "text": "word ",
+            "lit": "false",
+            "current": "false",
+            "color": "rgba(246, 242, 234, 0.62)"
+          }
+        ],
+        "height": 146,
+        "dom": 20,
+        "bodyWidth": 788,
+        "viewport": 800
+      },
+      "pressure": {
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "segments": [],
+        "height": 182.35000610351562,
+        "dom": 0,
+        "bodyWidth": 788,
+        "viewport": 800
+      }
+    },
+    "comparisons": [
+      {
+        "enhanced": false,
+        "elapsedIncludingWait": 308.5,
+        "longTasks": [],
+        "dom": 0
+      },
+      {
+        "enhanced": true,
+        "elapsedIncludingWait": 309.1000000014901,
+        "longTasks": [
+          51
+        ],
+        "dom": 20
+      }
+    ]
+  },
+  "passed": true
+}

@@ -1,0 +1,30 @@
+{
+  "baseline": "7b8b6ecac8f023221f9705c0ffb28c843e5600ae",
+  "date": "2026-10-28",
+  "files": {
+    "src/main/features/lyrics/README.md": "21ad2562108a88978138aa28aeb1a769fc8d3b09f30d4c008bc82b38f19bf633",
+    "src/main/services/lrcEditorMetadataService.native.test.ts": "0a0b0b75cfba8e7127da798cd70adbcbed39963d0bee4285c59d60b24284f64d",
+    "src/renderer/app/layout/FullscreenPlayerOverlay.vue": "09607dc13c57c95d148c57339dd326e26935fe241a17b6db7f9ef1f92c96b8bd",
+    "src/renderer/features/lyrics/components/LyricLineText.vue": "536d4c9588738361d0dbac3027d970d74799df615e7b5913d5a9e3c37411147c",
+    "src/renderer/features/lyrics/components/LyricsEditPanel.test.ts": "dd5cb1208895b6e695ee64b755b530b9fa933667e574f0e9e386f04d49e81899",
+    "src/renderer/features/lyrics/components/LyricsEditPanel.vue": "535901c4a9180a112f254e9e5ff8f296d4527b5b14e63a75c77bb05189afcaa3",
+    "src/renderer/features/lyrics/components/LyricsPanel.vue": "834d599f5c37b97231138244f63b1a7ba1e9a5b5c3b3d2d0335555581a17714b",
+    "src/renderer/features/lyrics/components/SyncedLyricsView.test.ts": "bfbbcb5b0b1e019b09d0c557a45504039e5e13f859cbef3d1dd39a08d9101d49",
+    "src/renderer/features/lyrics/components/SyncedLyricsView.vue": "c4dcd4effaeb7ff62a98814b36851ed28c3a83864be973416a0901a8f5c40239",
+    "src/renderer/features/lyrics/composables/useDisplayedTrackLyrics.test.ts": "794c20d06f3e344c68a09952ae00e969988880bfafb05f243d31a798dcb26cbc",
+    "src/renderer/features/lyrics/composables/useDisplayedTrackLyrics.ts": "ef16192ed915f4fcf45388b7cbdc1022a61cfa2ce22f0b1f101e4d1aaa67f160",
+    "src/renderer/features/lyrics/composables/useFullscreenLyricsPresentation.test.ts": "d67313eea66d872152682b7547beb435a9b50a0c25814f82756b4e3dad7fc12b",
+    "src/renderer/features/lyrics/composables/useFullscreenLyricsPresentation.ts": "8980f1b8d8eddde1d2cb09381e7fbee1f3072119b7aad6c659c9ee0a9f53258d",
+    "src/renderer/features/lyrics/composables/useTrackLyrics.ts": "ef690841faac05f2b9b4f773d3be52210c3f5dac5e4148a8440d901f53f20738",
+    "src/renderer/features/lyrics/types.ts": "313a3395757976dea8f82b7d68d00bfd32e1c44dc29fb1298cfd7744f445c50b",
+    "src/renderer/features/lyrics/utils/enhancedLrc.test.ts": "3c3f422ff1273b41e00b24a60c7cedda0997b17e92c209fa52de4ec8d5c42205",
+    "src/renderer/features/lyrics/utils/getActiveLyricSegment.ts": "4acd8f0dc5480a510a2e2d3f07c4d473e5dcc865a00f6512572bdb98b286fb46",
+    "src/renderer/features/lyrics/utils/lrcTextEditing.ts": "54706e019e687185abb608002011a1df4841888eeee586854d7e86f4c07d6cf5",
+    "src/renderer/features/lyrics/utils/parseLrc.ts": "33bded8662069e0dbc35df46d9bd5f4a61d582bb091382387f185039f11cec13",
+    "src/renderer/features/playback/audio/playbackAudioRuntime.test.ts": "5c01514607566e2283de9805174d8b5354453a60950cb190fd86ecd39f82ce9e",
+    "src/renderer/features/playback/audio/playbackAudioRuntime.ts": "031921c29de68539c10cfcd981afef0b8e6b00f045f0c01478ed72273ce765d9",
+    "src/renderer/locales/en.json": "27e7d3524e30c0243047528638e01d8db994e3201eceaaca8bb831b38550a6aa",
+    "src/renderer/locales/zh-Hans.json": "8a349aba32f78be8b852fb183396a58fd4df000dd0f3dbb554e8c4091f78fa33",
+    "src/shared/utils/lrcTiming.ts": "21c28330fbea1bb618afffd11163afc326d67b7cd5a9669ccc4f9a30824fc3b7"
+  }
+}
