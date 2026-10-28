@@ -44,7 +44,9 @@
       "failed": "歌词操作未完成，编辑内容已保留。请重试；若有恢复备份，请保留该文件。"
     }
   },
-  "dialog": { "close": "关闭面板" },
+  "dialog": {
+    "close": "关闭面板"
+  },
   "windowControls": {
     "close": "关闭窗口",
     "minimize": "最小化窗口",
@@ -1029,6 +1031,7 @@
       "categories": "徽章分类",
       "collectionCase": "铝制徽章收藏盒",
       "browse": "徽章陈列，可横向滚动",
+      "browseAll": "全部徽章，按类型分组，可纵向滚动",
       "browsePrevious": "向前浏览",
       "browseNext": "向后浏览",
       "inspectBadge": "检视{name}，{status}",
@@ -1063,6 +1066,7 @@
       "hoursLabel": "{count} 小时",
       "daysLabel": "{count} 天",
       "groups": {
+        "all": "全部",
         "hours": "聆听时光",
         "days": "相伴日子",
         "albums": "专辑记忆"

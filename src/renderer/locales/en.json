@@ -44,7 +44,9 @@
       "failed": "The operation did not complete. Your edits are retained. Retry and keep any recovery backup."
     }
   },
-  "dialog": { "close": "Close dialog" },
+  "dialog": {
+    "close": "Close dialog"
+  },
   "windowControls": {
     "close": "Close window",
     "minimize": "Minimize window",
@@ -1029,6 +1031,7 @@
       "categories": "Badge categories",
       "collectionCase": "Aluminium badge collection case",
       "browse": "Badge display, scroll horizontally",
+      "browseAll": "All badges, grouped by type, scroll vertically",
       "browsePrevious": "Scroll back",
       "browseNext": "Scroll forward",
       "inspectBadge": "Inspect {name}, {status}",
@@ -1063,6 +1066,7 @@
       "hoursLabel": "{count} hours",
       "daysLabel": "{count} days",
       "groups": {
+        "all": "All",
         "hours": "Time with music",
         "days": "Days together",
         "albums": "Album memories"

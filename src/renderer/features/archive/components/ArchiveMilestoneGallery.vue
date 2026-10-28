@@ -24,9 +24,17 @@ const { t, te } = useI18n()
 const titleId = useId()
 const caseClose = ref<HTMLButtonElement | null>(null)
 const canvasRevision = ref(0)
-const group = ref<MilestoneGroup>('hours')
+type MilestoneView = 'all' | MilestoneGroup
+const views: readonly MilestoneView[] = ['all', ...milestoneGroups]
+const group = ref<MilestoneView>('all')
 const displayAchievements = ref(props.achievements)
-const badges = computed(() => milestoneBadges.filter((badge) => badge.group === group.value))
+const sections = computed(() =>
+  (group.value === 'all' ? milestoneGroups : [group.value]).map((group) => ({
+    group,
+    badges: milestoneBadges.filter((badge) => badge.group === group),
+  })),
+)
+const badges = computed(() => sections.value.flatMap((section) => section.badges))
 const previewSources = computed<string[]>((previous) => {
   const sources = displayAchievements.value
     ? badges.value.map((badge) => getBadgePreview(badge.id, badgeState(badge)))
@@ -208,7 +216,13 @@ function scroll(delta: number) {
   viewport.value?.scrollBy({ left: delta * 222, behavior: motion.matches ? 'instant' : 'smooth' })
 }
 function wheel(event: WheelEvent) {
-  if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || !viewport.value) return
+  if (
+    group.value === 'all' ||
+    event.ctrlKey ||
+    Math.abs(event.deltaX) >= Math.abs(event.deltaY) ||
+    !viewport.value
+  )
+    return
   const movement =
     event.deltaY *
     (event.deltaMode === 1 ? 20 : event.deltaMode === 2 ? viewport.value.clientWidth : 1)
@@ -225,7 +239,7 @@ function rebuild() {
 watch(group, async () => {
   await nextTick()
   if (lifetime.signal.aborted) return
-  viewport.value?.scrollTo({ left: 0, behavior: 'instant' })
+  viewport.value?.scrollTo({ left: 0, top: 0, behavior: 'instant' })
   rebuild()
 })
 onMounted(async () => {
@@ -278,7 +292,7 @@ defineExpose({
     </template>
     <div
       class="archive-badge-gallery"
-      :class="{ 'is-ready': casePresented, 'is-inspecting': active }"
+      :class="{ 'is-ready': casePresented, 'is-inspecting': active, 'is-all': group === 'all' }"
       :inert="active || !casePresented"
       :data-foam-failed="foamFailed || undefined"
     >
@@ -289,7 +303,7 @@ defineExpose({
           <div class="case-toolbar">
             <nav class="categories" :aria-label="t('archive.milestones.categories')">
               <button
-                v-for="item in milestoneGroups"
+                v-for="item in views"
                 :key="item"
                 type="button"
                 :data-series="item"
@@ -328,56 +342,74 @@ defineExpose({
               ref="viewport"
               class="foam-viewport"
               tabindex="0"
-              :aria-label="t('archive.milestones.browse')"
+              :aria-label="
+                t(group === 'all' ? 'archive.milestones.browseAll' : 'archive.milestones.browse')
+              "
               @scroll="updateArrows"
             >
               <div ref="sheet" class="foam-sheet">
-                <ul
+                <div
                   ref="row"
-                  class="badge-row"
+                  class="badge-layout"
                   :class="{ 'is-loading': !previewsReady }"
                   :inert="!previewsReady"
                   :aria-busy="!previewsReady && !previewsFailed"
-                  :aria-label="t(`archive.milestones.groups.${group}`)"
                 >
-                  <li v-for="badge in badges" :key="badge.id" class="badge-item">
-                    <button
-                      type="button"
-                      class="badge-button"
-                      :data-badge="badge.id"
-                      :data-achievement-state="badgeState(badge)"
-                      :data-badge-select="badge.id"
-                      :data-inspected="liftedId === badge.id ? 'true' : undefined"
-                      :aria-pressed="liftedId === badge.id"
-                      :aria-label="
-                        t('archive.milestones.inspectBadge', {
-                          name: badgeName(badge),
-                          status: t(
-                            badgeState(badge) === 'lit'
-                              ? 'archive.milestones.earned'
-                              : 'archive.milestones.notEarned',
-                          ),
-                        })
-                      "
-                      aria-haspopup="dialog"
-                      @click="inspect(badge.id)"
+                  <section
+                    v-for="section in sections"
+                    :key="section.group"
+                    class="badge-group"
+                    :aria-labelledby="`${titleId}-${section.group}`"
+                  >
+                    <h3
+                      :id="`${titleId}-${section.group}`"
+                      class="badge-group__title"
+                      :class="{ 'sr-only': group !== 'all' }"
                     >
-                      <img
-                        class="badge-image"
-                        :src="getBadgePreview(badge.id, badgeState(badge))"
-                        alt=""
-                        width="330"
-                        height="370"
-                        draggable="false"
-                      />
-                    </button>
-                    <span class="badge-name">{{ badgeName(badge) }}</span>
-                  </li>
-                </ul>
+                      {{ t(`archive.milestones.groups.${section.group}`) }}
+                    </h3>
+                    <ul class="badge-row">
+                      <li v-for="badge in section.badges" :key="badge.id" class="badge-item">
+                        <button
+                          type="button"
+                          class="badge-button"
+                          :data-badge="badge.id"
+                          :data-achievement-state="badgeState(badge)"
+                          :data-badge-select="badge.id"
+                          :data-inspected="liftedId === badge.id ? 'true' : undefined"
+                          :aria-pressed="liftedId === badge.id"
+                          :aria-label="
+                            t('archive.milestones.inspectBadge', {
+                              name: badgeName(badge),
+                              status: t(
+                                badgeState(badge) === 'lit'
+                                  ? 'archive.milestones.earned'
+                                  : 'archive.milestones.notEarned',
+                              ),
+                            })
+                          "
+                          aria-haspopup="dialog"
+                          @click="inspect(badge.id)"
+                        >
+                          <img
+                            class="badge-image"
+                            :src="getBadgePreview(badge.id, badgeState(badge))"
+                            alt=""
+                            width="330"
+                            height="370"
+                            draggable="false"
+                          />
+                        </button>
+                        <span class="badge-name">{{ badgeName(badge) }}</span>
+                      </li>
+                    </ul>
+                  </section>
+                </div>
               </div>
             </div>
           </div>
           <button
+            v-if="group !== 'all'"
             class="scroll-arrow scroll-arrow--previous"
             type="button"
             :disabled="!canPrevious"
@@ -387,6 +419,7 @@ defineExpose({
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
           </button>
           <button
+            v-if="group !== 'all'"
             class="scroll-arrow scroll-arrow--next"
             type="button"
             :disabled="!canNext"

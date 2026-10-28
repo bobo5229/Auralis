@@ -192,8 +192,46 @@
     list-style: none;
   }
   /* Preserve the foam geometry while the current set decodes, then reveal it together. */
-  .badge-row.is-loading {
+  .badge-layout.is-loading {
     visibility: hidden;
+  }
+  .is-all .foam-viewport {
+    max-height: min(640px, calc(100dvh - 200px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #737c7c transparent;
+    scrollbar-gutter: stable;
+  }
+  .is-all .foam-viewport::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+  .is-all .foam-sheet {
+    width: 100%;
+    min-width: 0;
+  }
+  .is-all .badge-layout {
+    display: grid;
+    gap: 36px;
+    padding: 32px 44px 36px;
+  }
+  .badge-group__title:not(.sr-only) {
+    margin: 0 0 18px;
+    color: #b8bab4;
+    font-size: var(--auralis-type-control-size);
+    line-height: var(--auralis-type-control-line-height);
+    font-weight: 400;
+    text-shadow: 0 1px 1px #000;
+  }
+  .is-all .badge-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 184px);
+    gap: 26px 38px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
   }
   .badge-item {
     position: relative;
@@ -369,7 +407,8 @@
     text-shadow: 0 1px 1px #000;
     letter-spacing: 0.035em;
   }
-  .is-inspecting .badge-name {
+  .is-inspecting .badge-name,
+  .is-inspecting .badge-group__title {
     visibility: hidden;
   }
   .scroll-arrow {
@@ -524,6 +563,12 @@
     .badge-row {
       padding-inline: 33px;
       gap: 26px;
+    }
+    .is-all .badge-layout {
+      padding-inline: 33px;
+    }
+    .is-all .badge-row {
+      column-gap: 26px;
     }
     .scroll-arrow--previous {
       left: 23px;
