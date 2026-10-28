@@ -42,6 +42,7 @@ const { cdCanvasTheme, setCdCanvasTheme } = useCdCanvasTheme()
 const themeToggleLabel = computed(() =>
   t(cdCanvasTheme.value === 'dark' ? 'albums.cd.theme.toLight' : 'albums.cd.theme.toDark'),
 )
+const themeTooltip = computed(() => t(`albums.cd.theme.${cdCanvasTheme.value}`))
 const albums = shallowRef<AlbumSummary[]>([])
 const isLoading = ref(true)
 const error = shallowRef<unknown>(null)
@@ -273,6 +274,7 @@ onBeforeUnmount(() => {
   >
     <header class="cd-index-header">
       <button
+        v-tooltip="t('albums.detail.returnToAlbums')"
         type="button"
         class="cd-index-back"
         :aria-label="t('albums.detail.returnToAlbums')"
@@ -341,7 +343,9 @@ onBeforeUnmount(() => {
                     aria-hidden="true"
                   ></span>
                 </span>
-                <span class="cd-index-title" dir="auto">{{ album.title }}</span>
+                <span v-tooltip.overflow="album.title" class="cd-index-title" dir="auto">{{
+                  album.title
+                }}</span>
                 <span class="cd-index-date">{{ releaseDate(album) }}</span>
               </button>
             </template>
@@ -394,7 +398,9 @@ onBeforeUnmount(() => {
                         aria-hidden="true"
                       ></span>
                     </span>
-                    <span class="cd-index-title" dir="auto">{{ album.title }}</span>
+                    <span v-tooltip.overflow="album.title" class="cd-index-title" dir="auto">{{
+                      album.title
+                    }}</span>
                     <span class="cd-index-date">{{ releaseDate(album) }}</span>
                   </button>
                 </div>
@@ -415,6 +421,7 @@ onBeforeUnmount(() => {
           {{ anchor.letter }}
         </button>
         <button
+          v-tooltip.feedback="themeTooltip"
           type="button"
           class="cd-index-theme"
           :aria-label="themeToggleLabel"

@@ -94,8 +94,16 @@ watch(
             />
           </span>
           <span class="cd-track-detail">
-            <span class="cd-track-title" dir="auto">{{ row.title }}</span>
-            <span v-if="row.artist" class="cd-track-artist" dir="auto">{{ row.artist }}</span>
+            <span v-tooltip.overflow="row.title" class="cd-track-title" dir="auto">{{
+              row.title
+            }}</span>
+            <span
+              v-if="row.artist"
+              v-tooltip.overflow="row.artist"
+              class="cd-track-artist"
+              dir="auto"
+              >{{ row.artist }}</span
+            >
           </span>
         </button>
       </template>

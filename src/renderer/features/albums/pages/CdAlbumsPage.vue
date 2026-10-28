@@ -422,6 +422,7 @@ onBeforeUnmount(() => {
       </nav>
       <button
         v-else
+        v-tooltip="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
         type="button"
         class="cd-back"
         :aria-label="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
@@ -512,6 +513,7 @@ onBeforeUnmount(() => {
       >
         <div class="cd-browsing-playback-heading">
           <button
+            v-tooltip="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
             type="button"
             class="cd-browsing-playback-toggle"
             :aria-label="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
@@ -617,6 +619,7 @@ onBeforeUnmount(() => {
         :class="{ 'cd-focused-playback--expanded': focusedPlaybackInfoVisible }"
       >
         <button
+          v-tooltip="t('playback.nowPlaying')"
           type="button"
           class="cd-focused-playback-handle"
           :aria-label="t('playback.nowPlaying')"
