@@ -219,20 +219,8 @@
       "sources": {
         "lit": {
           "path": "hours/assets/hours-1000.svg",
-          "sha256": "b8b915b5fe3546d922678f5310a15ddb7e613f6eadcb8d4d9e7f19dc1628ad70",
-          "removed": [
-            "path:none",
-            "ellipse:url(#hours-1000-pool1)",
-            "ellipse:url(#hours-1000-pool1)",
-            "path:none",
-            "g:none",
-            "g:none",
-            "circle:url(#hours-1000-gloss2)",
-            "path:url(#hours-1000-gloss2)",
-            "g:none",
-            "g:none",
-            "g:hours-1000-clip3"
-          ]
+          "sha256": "1859f1ab9bf00fbcf86f4ecf81d3c1f41956b1cd48a2c6e93e047e189c427c31",
+          "removed": []
         },
         "unlit": {
           "path": "hours/assets/hours-1000-unlit.svg",

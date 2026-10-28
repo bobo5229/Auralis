@@ -28,7 +28,18 @@ export const profiles = [
   profile('hours-10', '初响', '#268aaa', { removeStrokes: ['#b5eeef'] }),
   profile('hours-100', '成章', '#1965a0', { preserveBaseline: true }),
   profile('hours-500', '共鸣', '#168d7d', { removeStrokes: ['#a0ffe0'] }),
-  profile('hours-1000', '久伴', '#6252a7', { removeStrokes: ['#d3c4ff'] }),
+  profile('hours-1000', '久伴', '#6252a7', {
+    gradients: {
+      record: paint('enamel', '#2b215c', 0.36),
+      groove: paint('silver', '#887d9f', 0.39),
+      pearl: paint('pearl', '#c3c2da', 0.43),
+      numeral: paint('silver', '#c9ccd5', 0.65),
+      'enamel-grain-low': { ...paint('enamel', '#6252a7', 0.255), roughness: 0.16 },
+      'enamel-grain-high': { ...paint('enamel', '#6252a7', 0.282), roughness: 0.14 },
+      'enamel-recess': { ...paint('enamel', '#6252a7', 0.2), roughness: 0.19 },
+      'enamel-lip': paint('enamel', '#6252a7', 0.282),
+    },
+  }),
   profile('days-7', '一周相伴', '#203c68', {
     gradients: {
       'north-enamel': paint('enamel', '#203c68', 0.3),
