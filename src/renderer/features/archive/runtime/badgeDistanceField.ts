@@ -62,8 +62,8 @@ export function signedDistance(alpha: Uint8Array, width: number, height: number,
     for (let y = 0; y < height; y++)
       transformLine(grid, y * width, 1, width, values, vertices, boundaries)
   }
-  return Float32Array.from(
-    outer,
-    (distance, i) => (Math.sqrt(distance) - Math.sqrt(inner[i])) / scale,
-  )
+  const distances = new Float32Array(outer.length)
+  for (let i = 0; i < outer.length; i++)
+    distances[i] = (Math.sqrt(outer[i]) - Math.sqrt(inner[i])) / scale
+  return distances
 }

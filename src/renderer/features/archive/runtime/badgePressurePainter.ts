@@ -23,16 +23,6 @@ export interface PressurePatch {
   height: number
   pixels: Uint8ClampedArray<ArrayBuffer>
 }
-export type PressureRequest = { generation: number; pressures: number[] } & (
-  | { type: 'reset'; configuration: PressureConfiguration }
-  | { type: 'paint' }
-)
-export interface PressureResponse {
-  generation: number
-  patch: PressurePatch | null
-  computeMs: number
-}
-
 // Pure pixel kernel shared by the worker and the compatibility path. Fixed
 // regions stay cached; every dirty region includes its overlapping neighbours.
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))

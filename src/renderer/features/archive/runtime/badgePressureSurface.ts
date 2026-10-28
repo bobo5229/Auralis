@@ -1,34 +1,37 @@
 import foamTexture from '../assets/milestones/case/foam.png?url'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import type {
-  PressureConfiguration,
-  PressureField,
-  PressurePatch,
-  PressureResponse,
-} from './badgePressurePainter'
+import type { PressurePatch } from './badgePressurePainter'
+import {
+  preparePressure,
+  pressureShapeKey,
+  PressureShapeCache,
+  type PressureGeometry,
+  type PressureLayout,
+  type PressureResponse,
+} from './badgePressurePreparation'
 
 export interface PressureBadge {
   id: string
   contour: string
 }
-interface SurfaceField extends PressureField {
+interface SurfaceField {
   id: string
+  key: string
+  geometry: PressureGeometry
+  x: number
+  y: number
+  pressure: number
   velocity: number
   target: number
 }
 
-import { signedDistance } from './badgeDistanceField'
 import { createPressurePainter } from './badgePressurePainter'
 
 const PADDING = 38
 // Long-held badges leave a compression set. Removing one only releases a small
 // part of the depression; the retained shape stays visible without a timer.
 const RESIDUAL_COMPRESSION = 0.82
-const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))
-const smooth = (value: number) => {
-  const t = clamp(value, 0, 1)
-  return t * t * (3 - 2 * t)
-}
+const shapeCache = new PressureShapeCache()
 
 // Closed-form critically damped motion: fast compression, slower partial rebound.
 // No oscillation, persistent simulation loop, or dependency on frame rate.
@@ -54,13 +57,27 @@ export async function createPressureSurface(
   texture.src = foamTexture
   await texture.decode()
   if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+  let textureBitmap: ImageBitmap | undefined
+  try {
+    textureBitmap = await createImageBitmap(texture)
+  } catch {
+    // Keep the existing main-thread compatibility path when bitmap creation is unavailable.
+  }
+  if (signal.aborted) {
+    textureBitmap?.close()
+    throw new DOMException('Cancelled', 'AbortError')
+  }
   const canvas = document.createElement('canvas')
   canvas.className = 'foam-surface'
   canvas.dataset.renderer = 'canvas2d'
   canvas.setAttribute('aria-hidden', 'true')
   sheet.prepend(canvas)
   const availableContext = canvas.getContext('2d', { willReadFrequently: true })
-  if (!availableContext) throw new Error('海绵材质无法绘制')
+  if (!availableContext) {
+    textureBitmap?.close()
+    canvas.remove()
+    throw new Error('海绵材质无法绘制')
+  }
   const context = availableContext
   const motion = createReducedMotionQuery()
   let fields: SurfaceField[] = []
@@ -84,10 +101,16 @@ export async function createPressureSurface(
   let lastMainPaintMs = 0,
     totalMainPaintMs = 0,
     totalComputeMs = 0
+  let layoutKey = '',
+    rebuilds = 0,
+    cacheHits = 0
   try {
+    if (!textureBitmap) throw new Error('ImageBitmap unavailable')
     worker = new Worker(new URL('./badgePressure.worker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = ({ data }: MessageEvent<PressureResponse>) => {
-      if (disposed || data.generation !== generation) return
+      if (disposed) return
+      for (const { key, shape } of data.shapes ?? []) shapeCache.set(key, shape)
+      if (data.generation !== generation) return
       inFlight = false
       commit(data.patch, data.computeMs)
       if (pendingPaint) {
@@ -99,10 +122,15 @@ export async function createPressureSurface(
       event.preventDefault()
       worker?.terminate()
       worker = null
+      textureBitmap?.close()
+      textureBitmap = undefined
       inFlight = pendingPaint = false
+      layoutKey = ''
       if (!disposed) rebuild()
     }
   } catch {
+    textureBitmap?.close()
+    textureBitmap = undefined
     worker = null
   }
   let lastDrawMs = 0,
@@ -118,36 +146,23 @@ export async function createPressureSurface(
       top = box.top - origin.top - PADDING
     const sizeX = Math.ceil((button.offsetWidth + PADDING * 2) * scale)
     const sizeY = Math.ceil((button.offsetHeight + PADDING * 2) * scale)
-    const mask = document.createElement('canvas')
-    mask.width = sizeX
-    mask.height = sizeY
-    const paint = mask.getContext('2d', { willReadFrequently: true })!
     const image = button.querySelector('img')!
-    paint.translate((PADDING + image.offsetLeft) * scale, (PADDING + image.offsetTop + 2) * scale)
-    paint.scale((image.offsetWidth / 330) * scale, (image.offsetWidth / 330) * scale)
-    paint.fill(new Path2D(entry.contour))
-    const pixels = paint.getImageData(0, 0, sizeX, sizeY).data
-    const alpha = Uint8Array.from({ length: sizeX * sizeY }, (_, i) => pixels[i * 4 + 3])
-    const distance = signedDistance(alpha, sizeX, sizeY, scale)
-    const envelope = Float32Array.from(distance, (value) => 1 - smooth((value + 7) / 37))
-    const gx = new Float32Array(envelope.length),
-      gy = new Float32Array(envelope.length)
-    for (let y = 1; y < sizeY - 1; y++)
-      for (let x = 1; x < sizeX - 1; x++) {
-        const i = y * sizeX + x
-        gx[i] = (-8 * (envelope[i + 1] - envelope[i - 1]) * scale) / 2
-        gy[i] = (-8 * (envelope[i + sizeX] - envelope[i - sizeX]) * scale) / 2
-      }
+    const geometry: PressureGeometry = {
+      contour: entry.contour,
+      width: sizeX,
+      height: sizeY,
+      scale,
+      imageX: (PADDING + image.offsetLeft) * scale,
+      imageY: (PADDING + image.offsetTop + 2) * scale,
+      imageScale: (image.offsetWidth / 330) * scale,
+    }
     const target = button.getAttribute('aria-pressed') === 'true' ? RESIDUAL_COMPRESSION : 1
     return {
       id: entry.id,
+      key: pressureShapeKey(geometry),
+      geometry,
       x: Math.round(left * scale),
       y: Math.round(top * scale),
-      width: sizeX,
-      height: sizeY,
-      envelope,
-      gx,
-      gy,
       pressure: old?.pressure ?? target,
       velocity: old?.velocity ?? 0,
       target,
@@ -161,35 +176,30 @@ export async function createPressureSurface(
     scale = Math.min(1.5, Math.max(1, devicePixelRatio || 1))
     width = Math.ceil(sheet.clientWidth * scale)
     height = Math.ceil(sheet.clientHeight * scale)
-    canvas.width = width
-    canvas.height = height
-    context.setTransform(scale, 0, 0, scale, 0, 0)
-    const pattern = context.createPattern(texture, 'repeat')!
-    pattern.setTransform(new DOMMatrix().scale(0.5))
-    context.fillStyle = pattern
-    context.fillRect(0, 0, width / scale, height / scale)
-    const gradient = context.createLinearGradient(0, 0, width / scale, height / scale)
-    gradient.addColorStop(0, 'rgb(255 255 255 / 2%)')
-    gradient.addColorStop(1, 'rgb(0 0 0 / 20%)')
-    context.fillStyle = gradient
-    context.fillRect(0, 0, width / scale, height / scale)
-    context.resetTransform()
-    fields = entries.map((entry) => makeField(entry, old.get(entry.id)))
-    const configuration: PressureConfiguration = {
+    const next = entries.map((entry) => makeField(entry, old.get(entry.id)))
+    const nextKey = JSON.stringify([
       width,
       height,
       scale,
-      base: context.getImageData(0, 0, width, height).data,
-      fields: fields.map(({ x, y, width, height, envelope, gx, gy, pressure }) => ({
-        x,
-        y,
-        width,
-        height,
-        envelope,
-        gx,
-        gy,
-        pressure,
-      })),
+      next.map(({ id, key, x, y }) => [id, key, x, y]),
+    ])
+    // ResizeObserver sends an initial notification even when the measured layout is unchanged.
+    if (nextKey === layoutKey) return
+    layoutKey = nextKey
+    rebuilds++
+    stop()
+    canvas.width = width
+    canvas.height = height
+    fields = next
+    const configuration: PressureLayout = {
+      width,
+      height,
+      scale,
+      fields: fields.map(({ key, x, y, geometry, pressure }) => {
+        const shape = shapeCache.get(key)
+        if (shape) cacheHits++
+        return { key, x, y, geometry, pressure, shape }
+      }),
     }
     generation++
     inFlight = pendingPaint = false
@@ -200,19 +210,23 @@ export async function createPressureSurface(
           type: 'reset',
           generation,
           configuration,
+          texture: textureBitmap,
           pressures: fields.map((field) => field.pressure),
         },
-        [
-          configuration.base.buffer,
-          ...configuration.fields.flatMap((field) => [
-            field.envelope.buffer,
-            field.gx.buffer,
-            field.gy.buffer,
-          ]),
-        ],
+        textureBitmap ? [textureBitmap] : [],
       )
+      textureBitmap = undefined
     } else {
-      painter = createPressurePainter(configuration)
+      const prepared = preparePressure(configuration, texture, (width, height) => {
+        const buffer = document.createElement('canvas')
+        buffer.width = width
+        buffer.height = height
+        return buffer
+      })
+      for (const { key, shape } of prepared.shapes) shapeCache.set(key, shape)
+      // The untouched base is needed outside the dirty pressure patch too.
+      context.putImageData(new ImageData(prepared.configuration.base, width, height), 0, 0)
+      painter = createPressurePainter(prepared.configuration)
       draw()
     }
     schedule()
@@ -325,6 +339,8 @@ export async function createPressureSurface(
     disposed = true
     generation++
     worker?.terminate()
+    textureBitmap?.close()
+    textureBitmap = undefined
     inFlight = pendingPaint = false
     stop()
     observer.disconnect()
@@ -339,9 +355,7 @@ export async function createPressureSurface(
   return {
     ready,
     setBadges(next: PressureBadge[]) {
-      stop()
       entries = next
-      fields = []
       rebuild()
     },
     setRemoved(id: string, removed: boolean) {
@@ -365,6 +379,8 @@ export async function createPressureSurface(
         width,
         height,
         scale,
+        rebuilds,
+        cacheHits,
         lastDrawMs,
         maxDrawMs,
         lastDrawPixels,
