@@ -164,16 +164,18 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-album-entry:not(.is-rail) > .sidebar-link {
-  padding-right: 52px;
+  padding-right: calc(
+    var(--sidebar-row-inset) + var(--sidebar-cd-shortcut-size) + var(--sidebar-cd-shortcut-gap)
+  );
 }
 
 .sidebar-cd-shortcut {
   position: absolute;
   top: 50%;
-  right: 18px;
+  right: calc(var(--sidebar-row-gutter) + 1px + var(--sidebar-row-inset));
   display: inline-flex;
-  width: 28px;
-  height: 28px;
+  width: var(--sidebar-cd-shortcut-size);
+  height: var(--sidebar-cd-shortcut-size);
   align-items: center;
   justify-content: center;
   transform: translateY(-50%);
