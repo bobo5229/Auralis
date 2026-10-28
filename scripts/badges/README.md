@@ -83,3 +83,7 @@ profile('albums-example', '新纪念', '#245b55', {
 观察台与静态导出继续使用 `badgeMaterialRenderer.ts`，保留已有二维参考视图与指纹检查；正式检视的三维动作不改变静态导出。新增徽章仍通过 profiles／manifest 接入，无需在展示或渲染模块增加徽章 ID 分支。
 
 100 小时「成章」保留兼容基准，其原有 12 份派生产物不变；其他材料通过 finish map 表达差异。旧 `demo/.../glsl` 是历史样板，后续维护使用本工具。完整执行标准见 [GLSL 工作流](../../docs/topics/archive/WORKFLOW-enamel-badge-glsl.md)。
+
+## 珐琅浅肌理复用
+
+为已有徽章添加肌理或制作新徽章时，参照[浅肌理复用方案](../../docs/topics/archive/TECHDOC-enamel-badge-surface-texture.md)。该方案保留原色，通过 SVG 几何和单枚 profile 生成法线与粗糙度变化；包含固定分布代码、可选压槽及 `preserveBaseline` 适配限制。

@@ -76,6 +76,8 @@
 
 ### archive：音乐归档
 
+- [珐琅徽章浅肌理复用方案](topics/archive/TECHDOC-enamel-badge-surface-texture.md) — 同色微浮雕、参数模板、确定性几何生成、旧徽章适配与新徽章制作。
+
 - [珐琅徽章 GLSL 美化工作流](topics/archive/WORKFLOW-enamel-badge-glsl.md) — 全部 11 枚徽章的通用配置、材质生成、共享渲染、预览导出与验证；命令见[工具说明](../scripts/badges/README.md)。
 - [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。界面与材质原型见[原型目录](../demo/README.md)。
 
