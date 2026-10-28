@@ -21,7 +21,7 @@ const BUDGETS = {
   rendererFonts: {
     name: 'Renderer Fonts',
     maxSingleFileSize: 20 * 1024 * 1024, // 单字体 < 20MB
-    // 当前完整中日韩字形的 HarmonyOS Sans 与 GenRyuMin 资源约 100MiB；保留适度增量空间。
+    // 完整字形的 HarmonyOS Sans、MiSans、GenRyuMin 等字体以 WOFF2 发布，维持 110MiB 上限。
     maxTotalSize: 110 * 1024 * 1024, // 总字体 < 110MB
   },
   mainJs: {

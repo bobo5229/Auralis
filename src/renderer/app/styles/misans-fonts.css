@@ -3,7 +3,7 @@
  * 家族名与 useChineseFont.ts 的登记保持一致，由 --auralis-font-cjk 按需启用。 */
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Light.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Light.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -16,7 +16,7 @@
 
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Regular.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -29,7 +29,7 @@
 
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Medium.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -42,7 +42,7 @@
 
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Demibold.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Demibold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -55,7 +55,7 @@
 
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Bold.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -68,7 +68,7 @@
 
 @font-face {
   font-family: 'MiSans';
-  src: url('../../assets/fonts/MiSans/MiSans-Heavy.ttf') format('truetype');
+  src: url('../../assets/fonts/MiSans/MiSans-Heavy.woff2') format('woff2');
   font-weight: 800 900;
   font-style: normal;
   font-display: swap;
