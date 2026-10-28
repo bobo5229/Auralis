@@ -7,7 +7,7 @@ import { useDayTopTracks } from './useDayTopTracks'
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { warn: vi.fn() },
 }))
-const tracks = [{ trackId: 1, title: 'One', artist: 'Artist', playCount: 5 }]
+const tracks = [{ artworkCacheKey: null, trackId: 1, title: 'One', artist: 'Artist', playCount: 5 }]
 const scopes: ReturnType<typeof effectScope>[] = []
 async function flush() {
   await nextTick()

@@ -301,12 +301,18 @@ it('ranks at most three daily tracks including removed history with stable ties 
     const before = snapshot()
     const service = new PlayStatsService(new PlayStatsRepository(db))
     expect(service.getDayTopTracks('2026-10-09')).toEqual([
-      { trackId: 5, title: 'Removed Five', artist: 'Historical Artist', playCount: 10 },
-      { trackId: 2, title: 'Two', artist: 'Artist', playCount: 5 },
-      { trackId: 1, title: 'Edited One', artist: 'Artist', playCount: 5 },
+      {
+        artworkCacheKey: null,
+        trackId: 5,
+        title: 'Removed Five',
+        artist: 'Historical Artist',
+        playCount: 10,
+      },
+      { artworkCacheKey: null, trackId: 2, title: 'Two', artist: 'Artist', playCount: 5 },
+      { artworkCacheKey: null, trackId: 1, title: 'Edited One', artist: 'Artist', playCount: 5 },
     ])
     expect(service.getDayTopTracks('2026-10-08')).toEqual([
-      { trackId: 4, title: 'Four', artist: null, playCount: 99 },
+      { artworkCacheKey: null, trackId: 4, title: 'Four', artist: null, playCount: 99 },
     ])
     expect(service.getDayTopTracks('2026-10-10')).toEqual([])
     expect(snapshot()).toEqual(before)
@@ -427,10 +433,12 @@ it('groups active and removed tracks together using current display metadata and
         trackCount: 1,
       },
     ])
+    expect(repo.getDayTopTracks('2026-10-09')[2]?.artworkCacheKey).toBe('removed-cover')
     expect(repo.getDayTopTracks('2026-10-09')[1]).toEqual({
       trackId: 1,
       title: 'Edited',
       artist: 'Artist',
+      artworkCacheKey: 'edited-cover',
       playCount: 2,
     })
   } finally {

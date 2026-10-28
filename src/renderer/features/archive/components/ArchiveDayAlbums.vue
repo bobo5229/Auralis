@@ -155,6 +155,9 @@ const dateLabel = computed(() => {
   min-width: 0;
 }
 .archive-day-tracks-panel {
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
   padding-top: 20px;
   border-top: 1px solid var(--auralis-border-subtle);
 }

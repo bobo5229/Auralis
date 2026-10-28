@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import { useI18n } from 'vue-i18n'
 import type { DailyTopTrack } from '@shared/types/listeningArchive'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
@@ -13,7 +14,14 @@ const emit = defineEmits<{ retry: [] }>()
 const { t, n } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 const maximum = computed(() => Math.max(1, ...props.tracks.map((track) => track.playCount)))
-const placeholderCount = ref(5)
+const failedArtwork = ref(new Set<string>())
+function artwork(key: string | null): string | undefined {
+  return key && !failedArtwork.value.has(key) ? (getArtworkUrl(key) ?? undefined) : undefined
+}
+function artworkError(key: string | null) {
+  if (key) failedArtwork.value = new Set(failedArtwork.value).add(key)
+}
+const placeholderCount = ref(3)
 watch(
   () => props.tracks.length,
   (length) => {
@@ -30,12 +38,15 @@ watch(
       <div class="archive-day-tracks archive-day-tracks--placeholder" aria-hidden="true">
         <div v-for="index in placeholderCount" :key="index" class="archive-day-track">
           <span class="archive-track-placeholder archive-track-placeholder--rank"></span>
+          <span class="archive-track-placeholder archive-track-placeholder--cover"></span>
           <div class="archive-day-track-text">
             <span class="archive-track-placeholder archive-track-placeholder--title"></span>
             <span class="archive-track-placeholder archive-track-placeholder--artist"></span>
           </div>
-          <span class="archive-track-placeholder archive-track-placeholder--meter"></span>
-          <span class="archive-track-placeholder archive-track-placeholder--count"></span>
+          <div class="archive-day-stat">
+            <span class="archive-track-placeholder archive-track-placeholder--count"></span
+            ><span class="archive-track-placeholder archive-track-placeholder--meter"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -50,6 +61,17 @@ watch(
         <span class="archive-day-rank auralis-type-caption">{{
           String(index + 1).padStart(2, '0')
         }}</span>
+        <div class="archive-day-cover" aria-hidden="true">
+          <img
+            v-if="artwork(track.artworkCacheKey)"
+            :src="artwork(track.artworkCacheKey)"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            @error="artworkError(track.artworkCacheKey)"
+          />
+          <span v-else class="i-lucide-disc-3"></span>
+        </div>
         <div class="archive-day-track-text">
           <p
             class="archive-day-track-title auralis-type-body"
@@ -64,16 +86,18 @@ watch(
             {{ songValues(track.artist) || t('archive.unknownArtist') }}
           </p>
         </div>
-        <span class="archive-day-frequency" aria-hidden="true">
-          <span
-            :style="{
-              transform: `scaleX(${Math.max(0, Math.min(1, track.playCount / maximum))})`,
-            }"
-          ></span>
-        </span>
-        <span class="archive-day-count auralis-type-caption">{{
-          t('archive.playCount', { count: n(track.playCount) })
-        }}</span>
+        <div class="archive-day-stat">
+          <span class="archive-day-count auralis-type-caption">{{
+            t('archive.playCount', { count: n(track.playCount) })
+          }}</span>
+          <span class="archive-day-frequency" aria-hidden="true">
+            <span
+              :style="{
+                transform: `scaleX(${Math.max(0, Math.min(1, track.playCount / maximum))})`,
+              }"
+            ></span>
+          </span>
+        </div>
       </li>
     </ol>
     <p v-else class="archive-day-message archive-day-message--empty auralis-type-caption">
@@ -88,15 +112,13 @@ p {
 }
 .archive-day-track-content {
   min-height: 72px;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px 0;
+  padding: 8px 0 16px;
   container-type: inline-size;
 }
 .archive-day-tracks {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 72px minmax(56px, max-content);
-  column-gap: 20px;
+  grid-template-columns: 24px 48px minmax(0, 1fr) minmax(80px, max-content);
+  column-gap: 12px;
   row-gap: 2px;
   list-style: none;
   padding: 0;
@@ -108,25 +130,14 @@ p {
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-items: center;
-  min-height: 64px;
-  padding: 10px 12px;
-  border-radius: 6px;
-  transition: background-color 140ms ease-out;
+  box-sizing: border-box;
+  min-height: 76px;
+  padding: 12px 0;
 }
 .archive-day-track:not(:first-child) {
   box-shadow: 0 -1px 0 var(--auralis-border-subtle);
 }
-@media (hover: hover) {
-  .archive-day-tracks:not(.archive-day-tracks--placeholder) .archive-day-track:hover {
-    background: var(--auralis-control-hover-bg);
-  }
-  .archive-day-track:hover .archive-day-rank {
-    color: var(--auralis-text);
-  }
-  .archive-day-track:hover .archive-day-frequency > span {
-    background: var(--auralis-text-muted);
-  }
-}
+
 .archive-day-rank {
   color: var(--auralis-text-faint);
   font-variant-numeric: tabular-nums;
@@ -134,8 +145,44 @@ p {
   transition: color 140ms ease-out;
 }
 .archive-day-track:first-child .archive-day-rank {
-  color: var(--auralis-text-muted);
+  color: var(--auralis-theme-accent);
   font-weight: 600;
+}
+.archive-day-cover {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--auralis-surface-raised);
+  color: var(--auralis-text-faint);
+  box-shadow: inset 0 0 0 1px var(--auralis-border-subtle);
+}
+.archive-day-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.archive-day-cover > span {
+  width: 22px;
+  height: 22px;
+}
+.archive-day-stat {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+.archive-day-stat .archive-day-frequency {
+  width: 80px;
+}
+.archive-day-track:first-child .archive-day-frequency > span {
+  background: var(--auralis-theme-accent);
+}
+.archive-track-placeholder--cover {
+  width: 48px;
+  height: 48px !important;
+  border-radius: 5px;
 }
 .archive-day-track-text {
   min-width: 0;
@@ -205,6 +252,7 @@ p {
 }
 .archive-track-placeholder--meter {
   height: 2px;
+  width: 80px;
 }
 .archive-track-placeholder--count {
   width: 28px;
@@ -231,11 +279,21 @@ p {
 }
 @container (max-width: 700px) {
   .archive-day-tracks {
-    grid-template-columns: 28px minmax(0, 1fr) 40px minmax(52px, max-content);
+    grid-template-columns: 24px 48px minmax(0, 1fr) minmax(56px, max-content);
     column-gap: 12px;
   }
-  .archive-day-track {
-    padding-inline: 8px;
+  .archive-day-stat .archive-day-frequency,
+  .archive-track-placeholder--meter {
+    width: 56px;
+  }
+}
+@container (max-width: 420px) {
+  .archive-day-tracks {
+    column-gap: 8px;
+  }
+  .archive-day-frequency,
+  .archive-track-placeholder--meter {
+    display: none;
   }
 }
 @keyframes archive-track-reveal {

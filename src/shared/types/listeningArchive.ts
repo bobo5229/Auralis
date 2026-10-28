@@ -47,6 +47,7 @@ export interface AnnualSummary {
 }
 
 export interface DailyTopTrack {
+  artworkCacheKey: string | null
   trackId: number
   title: string | null
   artist: string | null

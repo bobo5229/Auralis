@@ -126,7 +126,8 @@ export class PlayStatsRepository extends BaseRepository {
       .prepare(
         `
       WITH day_tracks AS (${dailyListeningTracks})
-      SELECT track_id AS trackId, title, artist, play_count AS playCount
+      SELECT track_id AS trackId, title, artist, artwork_cache_key AS artworkCacheKey,
+             play_count AS playCount
       FROM day_tracks
       ORDER BY play_count DESC, duration_seconds DESC, track_id ASC
       LIMIT 3
