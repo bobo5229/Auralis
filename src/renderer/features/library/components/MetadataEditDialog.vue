@@ -325,7 +325,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
       </div>
     </section>
 
-    <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3">
+    <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3" spellcheck="false">
       <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
         {{ t('library.metadataEditor.fields.title') }}
         <input
