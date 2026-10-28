@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auralis · 聆听档案全新设计原型 (The Acoustic Horizon & Gallery)</title>
+  <style>
+    :root {
+      --bg-obsidian: #06090e;
+      --bg-surface: rgba(14, 21, 30, 0.72);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(154, 239, 231, 0.35);
+      --accent-cyan: #9aefe7;
+      --accent-cyan-glow: rgba(154, 239, 231, 0.4);
+      --text-pure: #f2f7fc;
+      --text-muted: #8598a8;
+      --text-subtle: #4c5d6e;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", "Consolas", monospace;
+      
+      /* Dynamic Ambient Bloom Colors (driven by current selected album) */
+      --ambient-primary: rgba(42, 127, 140, 0.16);
+      --ambient-secondary: rgba(15, 35, 48, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-obsidian);
+      color: var(--text-pure);
+      font-family: var(--font-ui);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      transition: background 0.8s ease;
+    }
+
+    /* Top Global Header */
+    header.archive-app-header {
+      height: 52px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(5, 8, 12, 0.8);
+      backdrop-filter: blur(24px);
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .header-brand-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(154, 239, 231, 0.12);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(154, 239, 231, 0.25);
+      letter-spacing: 0.5px;
+    }
+
+    .header-meta-status {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .now-playing-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      font-size: 11.5px;
+      color: var(--accent-cyan);
+    }
+
+    /* Ambient Bloom Background Layer (极柔和深景深漫反射) */
+    .ambient-bloom-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: 
+        radial-gradient(circle at 50% 25%, var(--ambient-primary) 0%, transparent 65%),
+        radial-gradient(circle at 80% 80%, var(--ambient-secondary) 0%, transparent 60%);
+      transition: background 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Main Split View Container */
+    main.archive-split-stage {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    /* =========================================================================
+       1. TOP HORIZON: ACOUSTIC DENSITY TIMELINE (~24% Height)
+       ========================================================================= */
+    section.acoustic-horizon {
+      height: 180px;
+      flex-shrink: 0;
+      padding: 16px 36px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(6, 10, 15, 0.45);
+      backdrop-filter: blur(16px);
+      position: relative;
+    }
+
+    /* Timeline Navigation Toolbar */
+    .horizon-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .horizon-year-nav {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .year-label {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-pure);
+      font-family: var(--font-mono);
+    }
+
+    .month-pills-row {
+      display: flex;
+      gap: 4px;
+      background: rgba(14, 22, 32, 0.6);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .month-pill-btn {
+      background: transparent;
+      border: 0;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .month-pill-btn:hover {
+      color: var(--text-pure);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .month-pill-btn.active {
+      background: var(--accent-cyan);
+      color: #061118;
+      box-shadow: 0 0 12px var(--accent-cyan-glow);
+    }
+
+    .horizon-scale-tools {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .scale-chip {
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(16, 25, 36, 0.5);
+      cursor: pointer;
+    }
+
+    .scale-chip.active {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Soundwave Precision Ticks Track */
+    .acoustic-track-container {
+      position: relative;
+      height: 90px;
+      display: flex;
+      align-items: flex-end;
+      padding-bottom: 22px;
+    }
+
+    /* Horizontal Horizon Baseline */
+    .acoustic-baseline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 22px;
+      height: 1px;
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(154, 239, 231, 0.25) 15%, 
+        rgba(154, 239, 231, 0.25) 85%, 
+        transparent 100%
+      );
+    }
+
+    .acoustic-ticks-stream {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 2px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .acoustic-day-tick {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s ease;
+    }
+
+    .tick-bar {
+      width: 2px;
+      border-radius: 1px 1px 0 0;
+      background: var(--text-subtle);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .acoustic-day-tick:hover .tick-bar {
+      background: #c2f5ee;
+      box-shadow: 0 0 8px rgba(154, 239, 231, 0.6);
+      transform: scaleY(1.15);
+    }
+
+    /* Active Selected Day */
+    .acoustic-day-tick.is-selected .tick-bar {
+      width: 3px;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 14px var(--accent-cyan-glow), 0 0 2px #fff;
+    }
+
+    /* Tick Day Number */
+    .tick-date-num {
+      position: absolute;
+      bottom: 2px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      color: var(--text-subtle);
+      transition: color 0.2s;
+    }
+
+    .acoustic-day-tick.is-selected .tick-date-num,
+    .acoustic-day-tick:hover .tick-date-num {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* Selected Day Indicator (精准倒三角微光标) */
+    .selected-indicator-arrow {
+      position: absolute;
+      top: 0;
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--accent-cyan);
+      filter: drop-shadow(0 0 4px var(--accent-cyan));
+      display: none;
+    }
+
+    .acoustic-day-tick.is-selected .selected-indicator-arrow {
+      display: block;
+    }
+
+    /* =========================================================================
+       2. BOTTOM GALLERY: WIDE RECORD GALLERY (~76% Height)
+       ========================================================================= */
+    section.record-gallery-section {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 28px 40px 48px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(154, 239, 231, 0.2) transparent;
+      position: relative;
+    }
+
+    /* Current Context Header */
+    .gallery-context-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .context-date-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .context-date-badge {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      font-weight: 400;
+    }
+
+    .context-metrics-summary {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Adaptive Vinyl-Casing Gallery Grid */
+    .record-casing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 28px 24px;
+      perspective: 1200px;
+    }
+
+    /* Individual Record Card */
+    .record-card {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      backdrop-filter: blur(20px);
+      transition: all 0.3s cubic-bezier(0.18, 0.9, 0.3, 1.2);
+      cursor: pointer;
+    }
+
+    .record-card:hover {
+      transform: translateY(-4px) translateZ(8px);
+      border-color: var(--border-highlight);
+      background: rgba(18, 27, 38, 0.85);
+      box-shadow: 
+        0 16px 36px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(154, 239, 231, 0.12);
+    }
+
+    /* Active Playing State */
+    .record-card.is-playing {
+      transform: translateY(-6px) translateZ(14px);
+      border-color: var(--accent-cyan);
+      background: rgba(20, 32, 45, 0.92);
+      box-shadow: 
+        0 20px 48px rgba(0, 0, 0, 0.75),
+        0 0 24px var(--accent-cyan-glow);
+    }
+
+    /* Record Physical Cover Casing */
+    .record-casing-art {
+      width: 108px;
+      height: 108px;
+      flex-shrink: 0;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 
+        0 8px 20px rgba(0, 0, 0, 0.6),
+        inset 1px 1px 1px rgba(255, 255, 255, 0.25);
+    }
+
+    .record-casing-art img,
+    .record-casing-art svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Vinyl Grooves Peek (微露出黑胶盘芯边缘) */
+    .record-casing-art::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 6px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.6) 0%, rgba(20,20,20,0.95) 100%);
+      border-left: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: inset -1px 0 2px #000;
+    }
+
+    /* Play Action Overlay Button on Cover */
+    .record-play-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 12, 18, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .record-card:hover .record-play-overlay {
+      opacity: 1;
+    }
+
+    .record-card.is-playing .record-play-overlay {
+      opacity: 1;
+      background: rgba(6, 12, 18, 0.3);
+    }
+
+    .play-icon-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      color: #061219;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      transform: scale(0.9);
+      transition: transform 0.2s;
+    }
+
+    .record-card:hover .play-icon-circle {
+      transform: scale(1);
+    }
+
+    /* Metadata Column */
+    .record-info-column {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .record-album-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-pure);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.2px;
+    }
+
+    .record-artist-name {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+
+    /* Metrics Chips Row */
+    .record-metrics-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .metric-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: #b0c2d2;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Top Echo Track Highlight */
+    .record-highlight-track {
+      font-size: 11.5px;
+      color: #92a8bc;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-top: 4px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    }
+
+    .record-highlight-track strong {
+      color: var(--accent-cyan);
+      font-weight: 500;
+    }
+
+    /* Equalizer Waveform for Playing State */
+    .equalizer-wave {
+      display: none;
+      align-items: flex-end;
+      gap: 2px;
+      height: 12px;
+      margin-left: auto;
+    }
+
+    .record-card.is-playing .equalizer-wave {
+      display: flex;
+    }
+
+    .eq-bar {
+      width: 2.5px;
+      background: var(--accent-cyan);
+      border-radius: 1px;
+      animation: eqDance 0.8s ease-in-out infinite alternate;
+    }
+
+    .eq-bar:nth-child(1) { height: 30%; animation-delay: 0.1s; }
+    .eq-bar:nth-child(2) { height: 90%; animation-delay: 0.3s; }
+    .eq-bar:nth-child(3) { height: 60%; animation-delay: 0.2s; }
+    .eq-bar:nth-child(4) { height: 100%; animation-delay: 0.4s; }
+
+    @keyframes eqDance {
+      0% { height: 20%; }
+      100% { height: 100%; }
+    }
+
+    /* =========================================================================
+       3. EMPTY DAY STATE: POETIC QUIET VOID (静止的一天)
+       ========================================================================= */
+    .quiet-void-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 380px;
+      text-align: center;
+      color: var(--text-subtle);
+    }
+
+    .quiet-void-icon {
+      width: 44px;
+      height: 44px;
+      margin-bottom: 18px;
+      opacity: 0.35;
+      stroke-width: 1.2;
+    }
+
+    .quiet-void-title {
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: #7b8e9f;
+      margin-bottom: 6px;
+    }
+
+    .quiet-void-sub {
+      font-size: 12px;
+      color: #4e6070;
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+    }
+
+    /* Bottom Demo Tips */
+    .demo-footer-hint {
+      position: absolute;
+      bottom: 14px;
+      right: 28px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-subtle);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Global Header -->
+  <header class="archive-app-header">
+    <div class="header-brand-title">
+      <span>AURALIS ARCHIVE</span>
+      <span class="header-tag">全新设计原型</span>
+    </div>
+
+    <div class="header-meta-status">
+      <div class="now-playing-pill" id="now-playing-pill">
+        <span>♫</span>
+        <span id="playing-track-label">点击任意唱片体验起播</span>
+      </div>
+      <span>个人声音编年史</span>
+    </div>
+  </header>
+
+  <!-- Ambient Bloom Layer -->
+  <div class="ambient-bloom-layer" id="ambient-bloom"></div>
+
+  <!-- Main Split View Stage -->
+  <main class="archive-split-stage">
+
+    <!-- TOP SECTION: THE ACOUSTIC HORIZON (声学刻度时间天际线) -->
+    <section class="acoustic-horizon">
+      <div class="horizon-toolbar">
+        <div class="horizon-year-nav">
+          <span class="year-label">2026</span>
+          <div class="month-pills-row">
+            <button class="month-pill-btn" data-month="7">AUG 八月</button>
+            <button class="month-pill-btn" data-month="8">SEP 九月</button>
+            <button class="month-pill-btn active" data-month="9">OCT 十月</button>
+          </div>
+        </div>
+
+        <div class="horizon-scale-tools">
+          <span style="font-size: 11px; color: var(--text-subtle);">视图刻度：</span>
+          <span class="scale-chip active">天视图 (Day)</span>
+          <span class="scale-chip">周切片 (Week)</span>
+          <span class="scale-chip">月全景 (Month)</span>
+        </div>
+      </div>
+
+      <!-- Precision Acoustic Ticks Track -->
+      <div class="acoustic-track-container">
+        <div class="acoustic-baseline"></div>
+        <div class="acoustic-ticks-stream" id="acoustic-ticks-stream">
+          <!-- Populated via JS for current month -->
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTTOM SECTION: WIDE RECORD GALLERY (宽幅实体封套回廊) -->
+    <section class="record-gallery-section" id="record-gallery-section">
+      <div class="gallery-context-banner">
+        <div class="context-date-title">
+          <span id="current-date-heading">2026年10月06日 · 星期二</span>
+          <span class="context-date-badge" id="current-density-badge">今日声音印记</span>
+        </div>
+        <div class="context-metrics-summary" id="context-metrics-summary">
+          <span id="summary-total-duration">总收听 2.6 小时</span>
+          <span>·</span>
+          <span id="summary-total-albums">3 张唱片</span>
+        </div>
+      </div>
+
+      <!-- Grid or Empty State -->
+      <div class="record-casing-grid" id="record-grid">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Empty State Container (Hidden by default) -->
+      <div class="quiet-void-container" id="quiet-void" style="display: none;">
+        <svg class="quiet-void-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10" stroke-dasharray="3 3"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <div class="quiet-void-title">静止的一天</div>
+        <div class="quiet-void-sub">这一天没有声音痕迹 · 留白亦是记忆</div>
+      </div>
+
+      <div class="demo-footer-hint">
+        交互指南：点击上方声学刻度任意日期联动 · 点击下方唱片直接起播与微调背景色温
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    /* =========================================================================
+       1. MOCK DATABASE (2026年10月全月数据模拟，含密集日与静止留白日)
+       ========================================================================= */
+    const catalog = [
+      {
+        id: "popstar",
+        title: "Popstar",
+        artist: "Nessa Barrett",
+        duration: "31 分钟",
+        plays: 9,
+        topTrack: "Lie",
+        themeColors: ["rgba(42, 127, 140, 0.22)", "rgba(154, 239, 231, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#121d26"/><circle cx="50" cy="50" r="38" fill="#1c303d"/><circle cx="50" cy="50" r="14" fill="#0c151c"/><circle cx="50" cy="50" r="5" fill="#9aefe7"/><text x="50" y="88" fill="#d2e3ee" font-size="7.5" font-family="sans-serif" text-anchor="middle">POPSTAR</text></svg>`
+      },
+      {
+        id: "ram",
+        title: "Random Access Memories",
+        artist: "Daft Punk",
+        duration: "1.2 小时",
+        plays: 13,
+        topTrack: "Touch",
+        themeColors: ["rgba(31, 79, 150, 0.24)", "rgba(70, 136, 234, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#080c12"/><circle cx="38" cy="46" r="20" fill="#bcc9d2"/><circle cx="62" cy="46" r="20" fill="#cca862"/><text x="50" y="86" fill="#fff" font-size="7" font-family="sans-serif" text-anchor="middle">DAFT PUNK</text></svg>`
+      },
+      {
+        id: "kida",
+        title: "Kid A",
+        artist: "Radiohead",
+        duration: "49 分钟",
+        plays: 10,
+        topTrack: "Idioteque",
+        themeColors: ["rgba(184, 82, 26, 0.25)", "rgba(232, 122, 56, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#16202a"/><polygon points="50,18 85,74 15,74" fill="#c93224"/><polygon points="50,32 72,74 28,74" fill="#ffffff"/><text x="50" y="88" fill="#fff" font-size="7" font-family="sans-serif" text-anchor="middle">RADIOHEAD</text></svg>`
+      },
+      {
+        id: "aja",
+        title: "Aja",
+        artist: "Steely Dan",
+        duration: "40 分钟",
+        plays: 7,
+        topTrack: "Deacon Blues",
+        themeColors: ["rgba(43, 107, 77, 0.25)", "rgba(68, 155, 113, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#050606"/><circle cx="56" cy="48" r="26" fill="#99241e"/><rect x="25" y="24" width="16" height="52" fill="#fff"/><text x="50" y="90" fill="#b8b8b8" font-size="7" font-family="sans-serif" text-anchor="middle">STEELY DAN</text></svg>`
+      },
+      {
+        id: "okc",
+        title: "OK Computer",
+        artist: "Radiohead",
+        duration: "53 分钟",
+        plays: 12,
+        topTrack: "Paranoid Android",
+        themeColors: ["rgba(27, 91, 122, 0.25)", "rgba(60, 160, 207, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#091b24"/><circle cx="50" cy="50" r="32" fill="none" stroke="#fff" stroke-width="2"/><line x1="18" y1="50" x2="82" y2="50" stroke="#3ca0cf" stroke-width="1.5"/><text x="50" y="88" fill="#fff" font-size="7" font-family="sans-serif" text-anchor="middle">OK COMPUTER</text></svg>`
+      },
+      {
+        id: "discovery",
+        title: "Discovery",
+        artist: "Daft Punk",
+        duration: "1.0 小时",
+        plays: 14,
+        topTrack: "Digital Love",
+        themeColors: ["rgba(140, 42, 122, 0.25)", "rgba(216, 63, 135, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#180717"/><polygon points="50,15 88,50 50,85 12,50" fill="#d83f87"/><circle cx="50" cy="50" r="16" fill="#ffd700"/><text x="50" y="90" fill="#fff" font-size="7" font-family="sans-serif" text-anchor="middle">DISCOVERY</text></svg>`
+      },
+      {
+        id: "abbey",
+        title: "Abbey Road",
+        artist: "The Beatles",
+        duration: "47 分钟",
+        plays: 17,
+        topTrack: "Come Together",
+        themeColors: ["rgba(110, 78, 26, 0.25)", "rgba(184, 134, 40, 0.12)"],
+        svg: `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#1c1914"/><rect x="12" y="47" width="76" height="6" fill="#fff"/><circle cx="32" cy="30" r="8" fill="#edd485"/><text x="50" y="88" fill="#edd485" font-size="7" font-family="sans-serif" text-anchor="middle">ABBEY ROAD</text></svg>`
+      }
+    ];
+
+    // Generate October Day-by-Day Map
+    // days 01..31 with varying listening activity
+    const daysData = {};
+    for (let day = 1; day <= 31; day++) {
+      const dayKey = `2026-10-${String(day).padStart(2, '0')}`;
+      
+      // Deliberately distribute busy, medium and completely quiet days
+      if ([4, 8, 12, 17, 21, 26, 29].includes(day)) {
+        // Completely quiet days (静止的一天)
+        daysData[dayKey] = { density: 0, albums: [] };
+      } else if ([6, 11, 19, 25, 30].includes(day)) {
+        // Heavy immersive days (密集收听)
+        daysData[dayKey] = {
+          density: 45 + Math.floor(Math.random() * 20),
+          albums: [catalog[0], catalog[1], catalog[2], catalog[4]]
+        };
+      } else if ([2, 7, 14, 22].includes(day)) {
+        // 3 albums
+        daysData[dayKey] = {
+          density: 30 + Math.floor(Math.random() * 15),
+          albums: [catalog[1], catalog[3], catalog[5]]
+        };
+      } else {
+        // 1 or 2 albums
+        daysData[dayKey] = {
+          density: 12 + Math.floor(Math.random() * 12),
+          albums: [catalog[day % catalog.length]]
+        };
+      }
+    }
+
+    let selectedDate = '2026-10-06';
+    let playingAlbumId = 'popstar';
+
+    /* =========================================================================
+       2. ACOUSTIC HORIZON RENDERER (声学刻度时间天际线)
+       ========================================================================= */
+    function renderAcousticHorizon() {
+      const stream = document.getElementById('acoustic-ticks-stream');
+      stream.innerHTML = '';
+
+      for (let day = 1; day <= 31; day++) {
+        const dayKey = `2026-10-${String(day).padStart(2, '0')}`;
+        const data = daysData[dayKey];
+        const isSelected = dayKey === selectedDate;
+
+        const tickNode = document.createElement('div');
+        tickNode.className = `acoustic-day-tick ${isSelected ? 'is-selected' : ''}`;
+        tickNode.title = `${dayKey}: ${data.density > 0 ? data.albums.length + ' 张唱片' : '静止的一天'}`;
+
+        // Tick height calculation (0 -> 4px, heavy -> 58px)
+        const barHeight = data.density === 0 ? 3 : Math.min(62, Math.max(8, data.density));
+        
+        // Intensity color
+        let barBg = 'rgba(255, 255, 255, 0.1)';
+        if (data.density > 40) {
+          barBg = 'rgba(154, 239, 231, 0.85)';
+        } else if (data.density > 20) {
+          barBg = 'rgba(154, 239, 231, 0.45)';
+        } else if (data.density > 0) {
+          barBg = 'rgba(130, 160, 185, 0.35)';
+        }
+
+        tickNode.innerHTML = `
+          <div class="selected-indicator-arrow"></div>
+          <div class="tick-bar" style="height: ${barHeight}px; background: ${isSelected ? 'var(--accent-cyan)' : barBg};"></div>
+          <span class="tick-date-num">${day}</span>
+        `;
+
+        tickNode.addEventListener('click', () => {
+          selectedDate = dayKey;
+          renderAcousticHorizon();
+          renderRecordGallery();
+        });
+
+        stream.appendChild(tickNode);
+      }
+    }
+
+    /* =========================================================================
+       3. WIDE RECORD GALLERY RENDERER (宽幅实体封套回廊)
+       ========================================================================= */
+    function renderRecordGallery() {
+      const grid = document.getElementById('record-grid');
+      const voidState = document.getElementById('quiet-void');
+      const dateHeading = document.getElementById('current-date-heading');
+      const densityBadge = document.getElementById('current-density-badge');
+      const metricsSummary = document.getElementById('context-metrics-summary');
+      const bloom = document.getElementById('ambient-bloom');
+
+      const data = daysData[selectedDate];
+      const parsedDay = Number(selectedDate.split('-')[2]);
+      dateHeading.textContent = `2026年10月${String(parsedDay).padStart(2, '0')}日 · 周${['日','一','二','三','四','五','六'][(parsedDay + 2) % 7]}`;
+
+      if (!data || data.albums.length === 0) {
+        // Quiet Void State
+        grid.style.display = 'none';
+        voidState.style.display = 'flex';
+        densityBadge.textContent = '留白无记录';
+        metricsSummary.innerHTML = `<span>全天静默 0 小时</span><span>·</span><span>0 张唱片</span>`;
+        // Soft neutral bloom
+        bloom.style.setProperty('--ambient-primary', 'rgba(18, 25, 34, 0.15)');
+        bloom.style.setProperty('--ambient-secondary', 'rgba(8, 12, 18, 0.2)');
+        return;
+      }
+
+      // Active Albums State
+      grid.style.display = 'grid';
+      voidState.style.display = 'none';
+      grid.innerHTML = '';
+
+      densityBadge.textContent = `${data.albums.length} 张声音印记`;
+      const totalMinutes = data.albums.reduce((acc, a) => acc + parseInt(a.duration), 0);
+      metricsSummary.innerHTML = `
+        <span>收听 ~${(totalMinutes / 60).toFixed(1)} 小时</span>
+        <span>·</span>
+        <span>${data.albums.length} 张唱片</span>
+      `;
+
+      // Set ambient bloom to the first or playing album
+      const activeAlb = data.albums.find(a => a.id === playingAlbumId) || data.albums[0];
+      if (activeAlb) {
+        bloom.style.setProperty('--ambient-primary', activeAlb.themeColors[0]);
+        bloom.style.setProperty('--ambient-secondary', activeAlb.themeColors[1]);
+      }
+
+      data.albums.forEach(album => {
+        const isCurrentPlaying = album.id === playingAlbumId;
+        const card = document.createElement('div');
+        card.className = `record-card ${isCurrentPlaying ? 'is-playing' : ''}`;
+
+        card.innerHTML = `
+          <div class="record-casing-art">
+            ${album.svg}
+            <div class="record-play-overlay">
+              <div class="play-icon-circle">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="record-info-column">
+            <div class="record-album-title" title="${album.title}">${album.title}</div>
+            <div class="record-artist-name">${album.artist}</div>
+            <div class="record-metrics-row">
+              <span class="metric-badge">⏱ ${album.duration}</span>
+              <span class="metric-badge">↻ ${album.plays} 次播放</span>
+              <div class="equalizer-wave">
+                <div class="eq-bar"></div>
+                <div class="eq-bar"></div>
+                <div class="eq-bar"></div>
+                <div class="eq-bar"></div>
+              </div>
+            </div>
+            <div class="record-highlight-track">
+              <span>♫ 循环高光:</span>
+              <strong>${album.topTrack}</strong>
+            </div>
+          </div>
+        `;
+
+        // Direct play trigger
+        card.addEventListener('click', () => {
+          playingAlbumId = album.id;
+          document.getElementById('playing-track-label').textContent = `${album.title} — ${album.topTrack}`;
+          bloom.style.setProperty('--ambient-primary', album.themeColors[0]);
+          bloom.style.setProperty('--ambient-secondary', album.themeColors[1]);
+          renderRecordGallery();
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    // Initialize
+    renderAcousticHorizon();
+    renderRecordGallery();
+  </script>
+</body>
+</html>

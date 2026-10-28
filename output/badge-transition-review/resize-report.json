@@ -1,0 +1,73 @@
+{
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-transition-review\\profile-Dml6VY",
+  "before": {
+    "phase": "switch-loading",
+    "badge": "hours100",
+    "draws": 335,
+    "rect": {
+      "x": 510,
+      "y": 214.5454559326172,
+      "width": 420,
+      "height": 470.9062194824219,
+      "top": 214.5454559326172,
+      "right": 930,
+      "bottom": 685.4516754150391,
+      "left": 510
+    },
+    "expectedLeft": 510,
+    "expectedTop": 214.54689025878906,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "transform": "translate(510px, 214.545px) scale(1)",
+    "opacity": "1"
+  },
+  "after": {
+    "phase": "switch-loading",
+    "badge": "hours100",
+    "draws": 335,
+    "rect": {
+      "x": 510,
+      "y": 214.5454559326172,
+      "width": 420,
+      "height": 470.9062194824219,
+      "top": 214.5454559326172,
+      "right": 930,
+      "bottom": 685.4516754150391,
+      "left": 510
+    },
+    "expectedLeft": 240,
+    "expectedTop": 74.54689025878906,
+    "viewport": {
+      "width": 900,
+      "height": 620
+    },
+    "transform": "translate(510px, 214.545px) scale(1)",
+    "opacity": "1"
+  },
+  "resolved": {
+    "phase": "inspecting",
+    "badge": "hours500",
+    "draws": 480,
+    "rect": {
+      "x": 240,
+      "y": 74.54545593261719,
+      "width": 420,
+      "height": 470.90625,
+      "top": 74.54545593261719,
+      "right": 660,
+      "bottom": 545.4517059326172,
+      "left": 240
+    },
+    "expectedLeft": 240,
+    "expectedTop": 74.546875,
+    "viewport": {
+      "width": 900,
+      "height": 620
+    },
+    "transform": "translate(240px, 74.5455px) scale(1)",
+    "opacity": "1"
+  },
+  "errors": []
+}

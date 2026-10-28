@@ -1,0 +1,74 @@
+import { ipcChannels } from '@shared/ipc/channels'
+import type { UpdateTrackMetadataRequest } from '@shared/types/trackMetadata'
+import type { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
+import type { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
+import { metadataSaveFailureReason } from '@main/features/metadata/metadataSaveError'
+
+type MetadataOperations = Pick<
+  MetadataRefreshService,
+  | 'refreshTrack'
+  | 'refreshTracks'
+  | 'refreshLyricsForMissing'
+  | 'getJobStatus'
+  | 'listFailures'
+  | 'clearFailures'
+  | 'getTrackMetadata'
+  | 'updateTrackMetadata'
+  | 'getTrackEditSnapshot'
+  | 'saveTrackMetadata'
+>
+
+export interface MetadataIpcDependencies {
+  metadataRefreshService: MetadataOperations
+  playbackFileCoordinator: Pick<PlaybackFileCoordinator, 'getTrackState'>
+}
+
+export function registerMetadataIpcHandlers(
+  registrar: IpcHandlerRegistrar,
+  dependencies: MetadataIpcDependencies,
+): void {
+  const { metadataRefreshService, playbackFileCoordinator } = dependencies
+
+  registrar.handle(ipcChannels.metadata.getTrackEditState, (_event, payload: { trackId: number }) =>
+    playbackFileCoordinator.getTrackState(payload.trackId),
+  )
+
+  registrar.handle(ipcChannels.metadata.refreshTrack, (_event, payload: { trackId: number }) =>
+    metadataRefreshService.refreshTrack(payload.trackId),
+  )
+  registrar.handle(ipcChannels.metadata.refreshTracks, (_event, payload: { trackIds: number[] }) =>
+    metadataRefreshService.refreshTracks(payload.trackIds),
+  )
+  registrar.handle(
+    ipcChannels.metadata.refreshLyricsMissing,
+    (_event, payload?: { limit?: number }) =>
+      metadataRefreshService.refreshLyricsForMissing(payload?.limit),
+  )
+  registrar.handle(ipcChannels.metadata.getRefreshStatus, (_event, payload: { jobId: number }) =>
+    metadataRefreshService.getJobStatus(payload.jobId),
+  )
+  registrar.handle(
+    ipcChannels.metadata.listRefreshFailures,
+    (_event, payload?: { limit?: number }) => metadataRefreshService.listFailures(payload?.limit),
+  )
+  registrar.handle(ipcChannels.metadata.clearRefreshFailures, () =>
+    metadataRefreshService.clearFailures(),
+  )
+  registrar.handle(ipcChannels.metadata.getTrackMetadata, (_event, payload: { trackId: number }) =>
+    metadataRefreshService.getTrackMetadata(payload.trackId),
+  )
+  registrar.handle(ipcChannels.metadata.getTrackEditSnapshot, (_event, payload) =>
+    metadataRefreshService.getTrackEditSnapshot(payload.trackId),
+  )
+  registrar.handle(
+    ipcChannels.metadata.updateTrackMetadata,
+    async (_event, payload: UpdateTrackMetadataRequest) => {
+      try {
+        return await metadataRefreshService.saveTrackMetadata(payload)
+      } catch (error) {
+        return { ok: false, reason: metadataSaveFailureReason(error) ?? 'save-failed' }
+      }
+    },
+  )
+}

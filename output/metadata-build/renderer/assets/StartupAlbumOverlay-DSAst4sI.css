@@ -1,0 +1,168 @@
+
+.startup-album-overlay[data-v-cb1df5e1] {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  color: var(--auralis-text);
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 80px;
+}
+.startup-album-backdrop[data-v-cb1df5e1] {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--auralis-bg) var(--startup-album-backdrop, 94%), transparent);
+  opacity: 0;
+  transition: opacity 200ms ease-in-out;
+}
+.startup-album-backdrop.is-revealed[data-v-cb1df5e1] {
+  opacity: 1;
+}
+.startup-album-overlay.is-exiting .startup-album-backdrop[data-v-cb1df5e1] {
+  transition: none;
+}
+.startup-album-overlay.is-exiting[data-v-cb1df5e1] {
+  outline: none;
+}
+.startup-album-overlay.is-fading .startup-album-backdrop[data-v-cb1df5e1] {
+  background: transparent;
+  transition: background 180ms ease;
+}
+.startup-album-overlay.is-fading .startup-album-stage[data-v-cb1df5e1] {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.startup-album-drag[data-v-cb1df5e1] {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 60px;
+  -webkit-app-region: drag;
+}
+.startup-album-stage[data-v-cb1df5e1] {
+  position: relative;
+  min-height: 0;
+  margin-top: 55px;
+}
+.startup-album-canvas[data-v-cb1df5e1] {
+  position: absolute;
+  inset: 0;
+}
+.startup-album-canvas[data-v-cb1df5e1] canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.startup-album-canvas.is-fallback[data-v-cb1df5e1] {
+  visibility: hidden;
+}
+.startup-album-controls[data-v-cb1df5e1] {
+  text-align: center;
+  padding: 12px 24px 28px;
+  min-width: 0;
+}
+.startup-album-actions[data-v-cb1df5e1] {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.startup-album-controls button[data-v-cb1df5e1] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 23px;
+  border-radius: 8px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  background: var(--auralis-surface-raised);
+  color: var(--auralis-text);
+  cursor: pointer;
+}
+.startup-album-controls button[data-v-cb1df5e1]:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 4px;
+}
+.startup-album-controls .startup-album-play[data-v-cb1df5e1] {
+  background: var(--auralis-control-primary-bg);
+  color: var(--auralis-control-primary-text);
+}
+.startup-album-static[data-v-cb1df5e1] {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(260px, 45vh);
+  max-height: 100%;
+  overflow: auto;
+  background: #b8bbc2;
+  color: #343945;
+  padding: 14px;
+  border-radius: 9px;
+}
+.startup-album-static img[data-v-cb1df5e1],
+.startup-album-placeholder[data-v-cb1df5e1] {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #92969f;
+}
+.startup-album-static.has-artwork[data-v-cb1df5e1] {
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  aspect-ratio: 720 / 1032;
+}
+.startup-album-static.has-artwork img[data-v-cb1df5e1] {
+  display: block;
+  height: 100%;
+  aspect-ratio: auto;
+  background: transparent;
+}
+.startup-album-static[data-v-cb1df5e1]:not(.has-artwork) {
+  padding: 0;
+  aspect-ratio: 720 / 1032;
+  container-type: inline-size;
+  overflow: hidden;
+}
+.startup-album-static:not(.has-artwork) img[data-v-cb1df5e1],
+.startup-album-static:not(.has-artwork) .startup-album-placeholder[data-v-cb1df5e1] {
+  position: absolute;
+  left: var(--card-cover-x);
+  top: var(--card-cover-y);
+  width: var(--card-cover-size);
+}
+.startup-album-placeholder[data-v-cb1df5e1] {
+  display: grid;
+  place-items: center;
+  font-size: 70px;
+}
+.startup-album-static h2[data-v-cb1df5e1] {
+  font-size: var(--card-title-size);
+  line-height: 1.1;
+  top: var(--card-title-y);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-weight: 600;
+}
+.startup-album-static p[data-v-cb1df5e1] {
+  font-size: var(--card-artist-size);
+  line-height: 1.1;
+  top: var(--card-artist-y);
+  text-align: center;
+  -webkit-text-stroke: 0.015em currentColor;
+  paint-order: stroke fill;
+  overflow-wrap: anywhere;
+}
+.startup-album-static h2[data-v-cb1df5e1],
+.startup-album-static p[data-v-cb1df5e1] {
+  position: absolute;
+  left: var(--card-text-inset);
+  right: var(--card-text-inset);
+  transform: translateY(-50%);
+  margin: 0;
+}

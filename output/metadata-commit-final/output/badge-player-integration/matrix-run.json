@@ -1,0 +1,1342 @@
+{
+  "passed": false,
+  "checks": [
+    {
+      "name": "real preload and main use isolated database",
+      "pass": true,
+      "detail": {
+        "name": "Auralis",
+        "version": "38.8.6",
+        "databasePath": "D:\\VSCode\\Auralis\\output\\badge-player-integration\\profile-hBdYep\\data\\auralis.sqlite"
+      }
+    },
+    {
+      "name": "real native playback runs with isolated PCM fixture",
+      "pass": true
+    },
+    {
+      "name": "formal gallery contains static images and shared foam canvas",
+      "pass": true
+    },
+    {
+      "name": "no badge WebGL until inspection",
+      "pass": true
+    },
+    {
+      "name": "native left click opens completed inspection",
+      "pass": true
+    },
+    {
+      "name": "turn shows the metal back before facing front",
+      "pass": true
+    },
+    {
+      "name": "Escape returns badge and preserves collection box",
+      "pass": true
+    },
+    {
+      "name": "second Escape closes box and restores entry focus",
+      "pass": true
+    },
+    {
+      "name": "closing the box terminates its Worker and WebGL",
+      "pass": true,
+      "detail": {
+        "workers": 0,
+        "workerMessages": 42,
+        "workerComputeMs": 325.09999999869615,
+        "lastPressures": [
+          1,
+          0.8419422488049203,
+          1,
+          1
+        ],
+        "gl": 0,
+        "drawFrames": 342,
+        "pose": -0.8343654995651794,
+        "sawBack": true,
+        "entries": [],
+        "record": false,
+        "failWorker": false,
+        "textures": 0,
+        "maxTextures": 10,
+        "nativeEvents": [
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.022,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.022,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.038619,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.038619,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.092151,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.092151,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.151897,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.151897,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.232616,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.232616,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.282619,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.282619,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.372425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.372425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.432274,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.432274,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.512762,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.512762,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.562387,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.562387,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.652337,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.652337,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.70251,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.70251,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.781948,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.781948,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.831941,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.831941,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.882279,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.882279,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.932325,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.932325,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.982129,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 0.982129,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.062029,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.062029,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.112632,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.112632,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.162644,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.162644,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.212749,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.212749,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.262789,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.262789,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.342454,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.342454,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.392484,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.392484,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.451851,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.451851,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.532818,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.532818,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.583051,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.583051,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.642082,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.642082,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.69209,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.69209,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.772499,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.772499,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.862487,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.862487,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.922459,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.922459,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.972466,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 1.972466,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.042509,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.042509,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.102425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.102425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.182202,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.182202,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.232233,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.232233,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.282432,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.282432,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.362241,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.362241,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.422092,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.422092,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.472195,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.472195,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.522197,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.522197,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.602321,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.602321,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.692174,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.692174,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.752363,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.752363,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.80373,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.80373,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.882277,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.882277,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.97186,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 2.97186,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.032552,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.032552,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.082683,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.082683,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.162318,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.162318,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.25207,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.25207,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.30238,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.30238,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.352189,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.352189,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.4425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.4425,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.492561,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.492561,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.572197,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.572197,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.622259,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.622259,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.681738,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.681738,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.731734,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.731734,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.812469,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.812469,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.86255,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.86255,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.942474,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.942474,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.992839,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          },
+          {
+            "session": 1792907735518,
+            "kind": "state",
+            "trackId": 991,
+            "currentTime": 3.992839,
+            "duration": 240,
+            "isPlaying": true,
+            "buffering": false
+          }
+        ],
+        "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "dpr": 1.5
+      }
+    },
+    {
+      "name": "hours10/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours100/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours500/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours1000/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days7/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days30/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days100/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days365/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days520/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "albums1/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "albumsLive/lit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours10/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours100/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours500/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "hours1000/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days7/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days30/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days100/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days365/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "days520/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "albums1/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "albumsLive/unlit inspects with one context",
+      "pass": true
+    },
+    {
+      "name": "overflow exposes next scroll arrow",
+      "pass": true
+    },
+    {
+      "name": "scroll arrow advances the real viewport",
+      "pass": true
+    },
+    {
+      "name": "vertical wheel browses the horizontal row",
+      "pass": true
+    },
+    {
+      "name": "Tab remains inside the inspection controls",
+      "pass": true
+    },
+    {
+      "name": "inspection stops drawing while stationary",
+      "pass": false
+    }
+  ],
+  "errors": [],
+  "error": "Error: inspection stops drawing while stationary: undefined\n    at assert (file:///D:/VSCode/Auralis/output/badge-player-probe.mjs:40:93)\n    at run (file:///D:/VSCode/Auralis/output/badge-player-probe.mjs:148:2)",
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-player-integration\\profile-hBdYep"
+}

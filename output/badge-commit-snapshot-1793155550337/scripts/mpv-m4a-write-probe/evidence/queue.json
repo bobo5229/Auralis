@@ -1,0 +1,93 @@
+{
+  "root": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc",
+  "mode": "queue",
+  "results": [
+    {
+      "codec": "aac",
+      "preloadedAt": 0,
+      "writes": [
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\aac-48000-2-front-current\\source.m4a",
+          "titleBytes": 24,
+          "beforeId": "2814749768118771",
+          "afterId": "2814749768118781"
+        },
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\aac-48000-2-front-next\\source.m4a",
+          "titleBytes": 24,
+          "beforeId": "2814749768118776",
+          "afterId": "2814749768118782"
+        },
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\aac-48000-2-front-next\\source.m4a",
+          "titleBytes": 396000,
+          "beforeId": "2814749768118782",
+          "afterId": "2814749768118783"
+        }
+      ],
+      "errors": [],
+      "starts": 2,
+      "ends": [
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 2
+        }
+      ],
+      "pcmExact": true,
+      "baselineVsStandaloneConcatExact": false,
+      "editedVsStandaloneConcatExact": false
+    },
+    {
+      "codec": "alac",
+      "preloadedAt": 0,
+      "writes": [
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\alac-48000-2-front-current\\source.m4a",
+          "titleBytes": 24,
+          "beforeId": "3377699721540094",
+          "afterId": "2814749768118794"
+        },
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\alac-48000-2-front-next\\source.m4a",
+          "titleBytes": 24,
+          "beforeId": "2814749768118789",
+          "afterId": "2533274791408139"
+        },
+        {
+          "path": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-fJrzXc\\alac-48000-2-front-next\\source.m4a",
+          "titleBytes": 396000,
+          "beforeId": "2533274791408139",
+          "afterId": "2814749768118796"
+        }
+      ],
+      "errors": [],
+      "starts": 2,
+      "ends": [
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 2
+        }
+      ],
+      "pcmExact": true,
+      "baselineVsStandaloneConcatExact": true,
+      "editedVsStandaloneConcatExact": true
+    }
+  ],
+  "errors": [],
+  "mpvVersion": "mpv v0.41.0-dev-gc64675679 Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects\r\n built on Sep 22 2026 07:30:14\r\nlibplacebo version: v7.372.0\r\nFFmpeg version: ff04763\r\nFFmpeg library versions:\r\n   libavcodec      62.28.102\r\n   libavdevice     62.3.102\r\n   libavfilter     11.14.102\r\n   libavformat     62.12.102\r\n   libavutil       60.26.102\r\n   libswresample   6.3.102\r\n   libswscale      9.5.102\r\n",
+  "mpvSha256": "acabdf60eee6d3bf92b5dddde2f1371774e1ef1fceab3e674cf7a7f594ddc060",
+  "writerSha256": "6e630f52bbd62591da2f952a27d306cc2e4a5574b2b83765bfcad807a45b96be",
+  "transportSha256": "bced03896577aa51b974f35c61b482098718a2dafd22ecf991d095732fa37455"
+}

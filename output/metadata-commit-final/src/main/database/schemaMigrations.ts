@@ -1,0 +1,909 @@
+import { badgeAchievementMigration } from './badgeAchievementMigration'
+import { ALL_METADATA_OVERRIDES, METADATA_OVERRIDE } from '@shared/types/metadataOverrides'
+
+export const migrations = [
+  {
+    id: 1,
+    name: 'initial_library_schema',
+    sql: `
+      CREATE TABLE IF NOT EXISTS tracks (
+        id INTEGER PRIMARY KEY,
+        file_path TEXT NOT NULL UNIQUE,
+        title TEXT,
+        artist TEXT,
+        album TEXT,
+        duration_seconds REAL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS albums (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT,
+        artwork_cache_key TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(title, artist)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
+      CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
+    `,
+  },
+  {
+    id: 2,
+    name: 'library_scan_schema',
+    sql: `
+      CREATE TABLE IF NOT EXISTS library_roots (
+        id INTEGER PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_scanned_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS scan_jobs (
+        id INTEGER PRIMARY KEY,
+        root_id INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        total_files INTEGER NOT NULL DEFAULT 0,
+        scanned_files INTEGER NOT NULL DEFAULT 0,
+        failed_files INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        finished_at TEXT,
+        error_message TEXT,
+        FOREIGN KEY(root_id) REFERENCES library_roots(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS scan_failures (
+        id INTEGER PRIMARY KEY,
+        job_id INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(job_id) REFERENCES scan_jobs(id)
+      );
+
+      ALTER TABLE tracks ADD COLUMN file_size INTEGER;
+      ALTER TABLE tracks ADD COLUMN file_mtime_ms INTEGER;
+      ALTER TABLE tracks ADD COLUMN album_artist TEXT;
+      ALTER TABLE tracks ADD COLUMN track_no INTEGER;
+      ALTER TABLE tracks ADD COLUMN disc_no INTEGER;
+      ALTER TABLE tracks ADD COLUMN year INTEGER;
+      ALTER TABLE tracks ADD COLUMN genre TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_tracks_file_signature
+        ON tracks(file_path, file_size, file_mtime_ms);
+      CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_scan_failures_job_id ON scan_failures(job_id);
+    `,
+  },
+  {
+    id: 3,
+    name: 'add_release_date_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN release_date TEXT;
+    `,
+  },
+  {
+    id: 4,
+    name: 'add_lyrics_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN lyrics_text TEXT;
+      ALTER TABLE tracks ADD COLUMN lyrics_format TEXT;
+    `,
+  },
+  {
+    id: 5,
+    name: 'add_lyrics_checked_mtime_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN lyrics_checked_mtime_ms INTEGER;
+    `,
+  },
+  {
+    id: 6,
+    name: 'add_metadata_checked_mtime_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN metadata_checked_mtime_ms INTEGER;
+    `,
+  },
+  {
+    id: 7,
+    name: 'metadata_refresh_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS metadata_refresh_jobs (
+        id INTEGER PRIMARY KEY,
+        scope TEXT NOT NULL,
+        status TEXT NOT NULL,
+        total_tracks INTEGER NOT NULL DEFAULT 0,
+        processed_tracks INTEGER NOT NULL DEFAULT 0,
+        failed_tracks INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        finished_at TEXT,
+        error_message TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS metadata_refresh_failures (
+        id INTEGER PRIMARY KEY,
+        job_id INTEGER NOT NULL,
+        track_id INTEGER,
+        file_path TEXT,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(job_id) REFERENCES metadata_refresh_jobs(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_metadata_refresh_jobs_status ON metadata_refresh_jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_metadata_refresh_failures_job_id ON metadata_refresh_failures(job_id);
+    `,
+  },
+  {
+    id: 8,
+    name: 'metadata_system_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS track_metadata (
+        track_id INTEGER PRIMARY KEY,
+        title TEXT,
+        artist_display TEXT,
+        album_title TEXT,
+        album_artist_display TEXT,
+        genre_display TEXT,
+        year INTEGER,
+        release_date TEXT,
+        lyrics_text TEXT,
+        lyrics_format TEXT,
+        artwork_cache_key TEXT,
+        source TEXT NOT NULL DEFAULT 'file_tag',
+        refreshed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS artists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        sort_name TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Reserved for future search / faceted-browse normalization model.
+      -- Currently written by metadata refresh (INSERT / DELETE), not yet queried.
+      CREATE TABLE IF NOT EXISTS track_artists (
+        track_id INTEGER NOT NULL,
+        artist_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'primary',
+        PRIMARY KEY(track_id, artist_id, role),
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+        FOREIGN KEY(artist_id) REFERENCES artists(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS file_tag_snapshots (
+        id INTEGER PRIMARY KEY,
+        track_id INTEGER NOT NULL,
+        file_size INTEGER,
+        file_mtime_ms INTEGER,
+        parser_name TEXT NOT NULL,
+        raw_common_json TEXT NOT NULL,
+        raw_native_json TEXT,
+        captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_track_metadata_track_id ON track_metadata(track_id);
+      CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
+      CREATE INDEX IF NOT EXISTS idx_track_artists_track_role_position
+        ON track_artists(track_id, role, position);
+      CREATE INDEX IF NOT EXISTS idx_file_tag_snapshots_track_captured
+        ON file_tag_snapshots(track_id, captured_at);
+
+      CREATE VIEW IF NOT EXISTS library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist;
+    `,
+  },
+  {
+    id: 9,
+    name: 'reset_plain_lyrics_after_lrc_detection_fix',
+    sql: `
+      UPDATE tracks
+      SET lyrics_checked_mtime_ms = NULL
+      WHERE lyrics_format = 'plain';
+    `,
+  },
+  {
+    id: 10,
+    name: 'reset_mpeg4_metadata_after_tag_compatibility_fix',
+    sql: `
+      UPDATE tracks
+      SET metadata_checked_mtime_ms = NULL
+      WHERE genre IS NULL
+        AND (
+          lower(file_path) LIKE '%.m4a'
+          OR lower(file_path) LIKE '%.mp4'
+          OR lower(file_path) LIKE '%.aac'
+        );
+    `,
+  },
+  {
+    id: 11,
+    name: 'add_availability_and_identity_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN availability TEXT NOT NULL DEFAULT 'available';
+      ALTER TABLE tracks ADD COLUMN missing_since TEXT;
+      ALTER TABLE tracks ADD COLUMN isrc TEXT;
+      -- Reserved for future signature-based dedup (currently file_size + file_mtime_ms).
+      -- Computed and stored on every upsert, not yet used in matching logic.
+      ALTER TABLE tracks ADD COLUMN metadata_signature TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_tracks_availability ON tracks(availability);
+      CREATE INDEX IF NOT EXISTS idx_tracks_isrc ON tracks(isrc);
+      CREATE INDEX IF NOT EXISTS idx_tracks_metadata_signature ON tracks(metadata_signature);
+
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist;
+    `,
+  },
+  {
+    id: 12,
+    name: 'add_play_stats',
+    sql: `
+      CREATE TABLE IF NOT EXISTS track_play_stats (
+        track_id INTEGER PRIMARY KEY,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_track_play_stats_last_played_at
+        ON track_play_stats(last_played_at);
+
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
+  {
+    id: 13,
+    name: 'add_copyright_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN copyright TEXT;
+      UPDATE tracks SET metadata_checked_mtime_ms = NULL;
+
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        t.copyright,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
+  {
+    id: 14,
+    name: 'add_daily_play_stats',
+    sql: `
+      CREATE TABLE daily_play_stats (
+        play_date TEXT PRIMARY KEY,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX idx_daily_play_stats_date ON daily_play_stats(play_date);
+    `,
+  },
+  {
+    id: 15,
+    name: 'add_daily_track_play_stats',
+    sql: `
+      CREATE TABLE daily_track_play_stats (
+        play_date TEXT NOT NULL,
+        track_id INTEGER NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(play_date, track_id),
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX idx_daily_track_play_stats_date_count
+        ON daily_track_play_stats(play_date, play_count DESC);
+
+      ALTER TABLE daily_play_stats
+        ADD COLUMN duration_seconds REAL NOT NULL DEFAULT 0;
+    `,
+  },
+  {
+    id: 16,
+    name: 'backfill_daily_play_duration',
+    sql: `
+      UPDATE daily_track_play_stats
+      SET duration_seconds = play_count * COALESCE(
+        (
+          SELECT duration_seconds
+          FROM tracks
+          WHERE tracks.id = daily_track_play_stats.track_id
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND play_count > 0;
+
+      UPDATE daily_play_stats
+      SET duration_seconds = COALESCE(
+        (
+          SELECT SUM(duration_seconds)
+          FROM daily_track_play_stats
+          WHERE daily_track_play_stats.play_date = daily_play_stats.play_date
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND EXISTS (
+          SELECT 1
+          FROM daily_track_play_stats
+          WHERE daily_track_play_stats.play_date = daily_play_stats.play_date
+        );
+
+      UPDATE daily_play_stats
+      SET duration_seconds = play_count * COALESCE(
+        (
+          SELECT AVG(duration_seconds)
+          FROM tracks
+          WHERE duration_seconds IS NOT NULL
+            AND duration_seconds > 0
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND play_count > 0;
+    `,
+  },
+  {
+    id: 17,
+    name: 'add_smart_playlists',
+    sql: `
+      CREATE TABLE smart_playlists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        rule_json TEXT NOT NULL,
+        view_mode TEXT NOT NULL DEFAULT 'flat'
+          CHECK(view_mode IN ('flat', 'cover')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX idx_smart_playlists_created_at
+        ON smart_playlists(created_at, id);
+    `,
+  },
+  {
+    id: 18,
+    name: 'add_smart_playlist_sort_order',
+    sql: `
+      ALTER TABLE smart_playlists
+        ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+
+      UPDATE smart_playlists
+      SET sort_order = id;
+
+      CREATE INDEX idx_smart_playlists_sort_order
+        ON smart_playlists(sort_order, id);
+    `,
+  },
+  {
+    id: 19,
+    name: 'drop_file_tag_snapshots',
+    sql: `DROP TABLE IF EXISTS file_tag_snapshots`,
+  },
+  {
+    id: 20,
+    name: 'add_regular_playlists',
+    sql: `
+      CREATE TABLE playlists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        view_mode TEXT NOT NULL DEFAULT 'flat'
+          CHECK(view_mode IN ('flat', 'cover')),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE playlist_tracks (
+        playlist_id INTEGER NOT NULL,
+        track_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(playlist_id, track_id),
+        FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      UPDATE smart_playlists
+      SET sort_order = sort_order
+      WHERE sort_order IS NOT NULL;
+
+      CREATE INDEX idx_playlists_sort_order
+        ON playlists(sort_order, id);
+      CREATE INDEX idx_playlist_tracks_playlist_position
+        ON playlist_tracks(playlist_id, position);
+      CREATE INDEX idx_playlist_tracks_track_id
+        ON playlist_tracks(track_id);
+    `,
+  },
+  {
+    id: 21,
+    name: 'library_track_display_artwork_album_join',
+    sql: `
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        t.copyright,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(NULLIF(tm.artwork_cache_key, ''), a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a
+        ON COALESCE(tm.album_title, t.album) = a.title
+       AND COALESCE(
+             NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
+             COALESCE(tm.artist_display, t.artist)
+           ) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
+  {
+    id: 22,
+    name: 'lyrics_sidecar_fingerprint',
+    sql: `ALTER TABLE tracks ADD COLUMN lyrics_sidecar_fingerprint TEXT;`,
+  },
+  {
+    id: 23,
+    name: 'add_composer_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN composer TEXT;
+      UPDATE tracks SET metadata_checked_mtime_ms = NULL;
+
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        t.copyright,
+        t.composer,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(NULLIF(tm.artwork_cache_key, ''), a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a
+        ON COALESCE(tm.album_title, t.album) = a.title
+       AND COALESCE(
+             NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
+             COALESCE(tm.artist_display, t.artist)
+           ) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
+  {
+    id: 24,
+    name: 'preserve_listening_history_after_track_removal',
+    sql: `
+      CREATE TABLE removed_track_history (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        artist TEXT,
+        album TEXT,
+        album_artist TEXT,
+        genre TEXT,
+        artwork_cache_key TEXT,
+        source_file_path TEXT NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        removed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        recovery_json TEXT NOT NULL
+      );
+      CREATE TABLE removed_daily_track_play_stats (
+        play_date TEXT NOT NULL,
+        track_id INTEGER NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(play_date, track_id),
+        FOREIGN KEY(track_id) REFERENCES removed_track_history(id) ON DELETE CASCADE
+      );
+      CREATE VIEW listening_track_display AS
+        SELECT id,title,artist,album,album_artist,genre,artwork_cache_key FROM library_track_display
+        UNION ALL
+        SELECT id,title,artist,album,album_artist,genre,artwork_cache_key FROM removed_track_history;
+      CREATE VIEW listening_daily_track_play_stats AS
+        SELECT * FROM daily_track_play_stats
+        UNION ALL
+        SELECT * FROM removed_daily_track_play_stats;
+      CREATE TRIGGER prevent_removed_track_id_reuse
+        AFTER INSERT ON tracks
+        WHEN EXISTS(SELECT 1 FROM removed_track_history WHERE id=NEW.id)
+        BEGIN SELECT RAISE(ABORT, 'Track ID is reserved by listening history'); END;
+    `,
+  },
+  {
+    id: 25,
+    name: 'add_track_bitrate',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN bitrate_bps REAL;
+      UPDATE tracks SET metadata_checked_mtime_ms = NULL;
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        t.copyright,
+        t.composer,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        t.bitrate_bps,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(NULLIF(tm.artwork_cache_key, ''), a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a
+        ON COALESCE(tm.album_title, t.album) = a.title
+       AND COALESCE(
+             NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
+             COALESCE(tm.artist_display, t.artist)
+           ) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
+  {
+    id: 26,
+    name: 'add_metadata_parser_version',
+    sql: `
+      -- Baseline used before per-format versioning. Existing MP3 rows will
+      -- differ from the new MP3 revision; unchanged other formats keep the fast path.
+      ALTER TABLE tracks ADD COLUMN metadata_parser_version TEXT NOT NULL DEFAULT 'metadata:1';
+    `,
+  },
+  {
+    id: 27,
+    name: 'add_track_codec',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN codec TEXT;
+    `,
+  },
+  {
+    id: 28,
+    name: 'add_library_catalog_revision',
+    sql: `
+      CREATE TABLE library_catalog_revision (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO library_catalog_revision (id) VALUES (1);
+
+      -- Track the columns consumed by TrackQueryRepository.getAll(), including
+      -- its display joins. Keep revisions transactional and visible to workers.
+      CREATE TRIGGER catalog_tracks_insert AFTER INSERT ON tracks
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_tracks_delete AFTER DELETE ON tracks
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_tracks_update AFTER UPDATE ON tracks
+      WHEN NEW.id IS NOT OLD.id
+        OR NEW.title IS NOT OLD.title OR NEW.artist IS NOT OLD.artist
+        OR NEW.album IS NOT OLD.album OR NEW.album_artist IS NOT OLD.album_artist
+        OR NEW.track_no IS NOT OLD.track_no OR NEW.disc_no IS NOT OLD.disc_no
+        OR NEW.release_date IS NOT OLD.release_date OR NEW.copyright IS NOT OLD.copyright
+        OR NEW.composer IS NOT OLD.composer OR NEW.duration_seconds IS NOT OLD.duration_seconds
+        OR NEW.bitrate_bps IS NOT OLD.bitrate_bps OR NEW.genre IS NOT OLD.genre
+        OR NEW.availability IS NOT OLD.availability OR NEW.created_at IS NOT OLD.created_at
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_metadata_insert AFTER INSERT ON track_metadata
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_metadata_delete AFTER DELETE ON track_metadata
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_metadata_update AFTER UPDATE ON track_metadata
+      WHEN NEW.track_id IS NOT OLD.track_id
+        OR NEW.title IS NOT OLD.title OR NEW.artist_display IS NOT OLD.artist_display
+        OR NEW.album_title IS NOT OLD.album_title
+        OR NEW.album_artist_display IS NOT OLD.album_artist_display
+        OR NEW.genre_display IS NOT OLD.genre_display OR NEW.release_date IS NOT OLD.release_date
+        OR NEW.artwork_cache_key IS NOT OLD.artwork_cache_key
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_albums_insert AFTER INSERT ON albums
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_albums_delete AFTER DELETE ON albums
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_albums_update AFTER UPDATE ON albums
+      WHEN NEW.title IS NOT OLD.title OR NEW.artist IS NOT OLD.artist
+        OR NEW.artwork_cache_key IS NOT OLD.artwork_cache_key
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+
+      CREATE TRIGGER catalog_play_stats_insert AFTER INSERT ON track_play_stats
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_play_stats_delete AFTER DELETE ON track_play_stats
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+      CREATE TRIGGER catalog_play_stats_update AFTER UPDATE ON track_play_stats
+      WHEN NEW.track_id IS NOT OLD.track_id OR NEW.play_count IS NOT OLD.play_count
+        OR NEW.last_played_at IS NOT OLD.last_played_at
+      BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
+    `,
+  },
+  {
+    id: 29,
+    name: 'add_audio_file_stat_fingerprint',
+    sql: `ALTER TABLE tracks ADD COLUMN file_stat_fingerprint TEXT;`,
+  },
+  {
+    id: 30,
+    name: 'index_artwork_references',
+    sql: `
+      -- GC rechecks current references before each deletion, inside its write
+      -- transaction. Keep that safety check proportional to matching keys.
+      CREATE INDEX idx_albums_artwork_cache_key
+        ON albums(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_track_metadata_artwork_cache_key
+        ON track_metadata(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_removed_track_history_artwork_cache_key
+        ON removed_track_history(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+    `,
+  },
+  {
+    id: 31,
+    name: 'preserve_legacy_metadata_overrides',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN title_fallback TEXT;
+      ALTER TABLE tracks ADD COLUMN embedded_artwork_cache_key TEXT;
+      ALTER TABLE tracks ADD COLUMN directory_artwork_cache_key TEXT;
+      ALTER TABLE tracks ADD COLUMN embedded_artwork_checked_fingerprint TEXT;
+      ALTER TABLE tracks ADD COLUMN effective_album_title TEXT;
+      ALTER TABLE tracks ADD COLUMN effective_album_artist TEXT;
+      ALTER TABLE tracks ADD COLUMN directory_artwork_checked_fingerprint TEXT;
+      ALTER TABLE track_metadata ADD COLUMN override_mask INTEGER NOT NULL DEFAULT 0;
+      -- Preserve exactly what the old display view exposed before changing its semantics.
+      UPDATE track_metadata SET
+        title = (SELECT title FROM library_track_display WHERE id = track_metadata.track_id),
+        artist_display = (SELECT artist FROM library_track_display WHERE id = track_metadata.track_id),
+        album_title = (SELECT album FROM library_track_display WHERE id = track_metadata.track_id),
+        album_artist_display = (SELECT album_artist FROM library_track_display WHERE id = track_metadata.track_id),
+        genre_display = (SELECT genre FROM library_track_display WHERE id = track_metadata.track_id),
+        year = (SELECT year FROM library_track_display WHERE id = track_metadata.track_id),
+        release_date = (SELECT release_date FROM library_track_display WHERE id = track_metadata.track_id),
+        override_mask = ${ALL_METADATA_OVERRIDES}, source = 'legacy_user_edit'
+      WHERE source = 'user_edit';
+      DROP VIEW library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT t.id, t.file_path, t.file_size, t.file_mtime_ms,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.title,t.title)
+          WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.title}) != 0 THEN tm.title ELSE COALESCE(t.title, t.title_fallback) END AS title,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.artist_display,t.artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.artist}) != 0 THEN tm.artist_display ELSE t.artist END AS artist,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_title,t.album) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.album}) != 0 THEN tm.album_title ELSE t.album END AS album,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_artist_display,t.album_artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.albumArtist}) != 0 THEN tm.album_artist_display ELSE t.album_artist END AS album_artist,
+        t.track_no, t.disc_no,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.year,t.year) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.year}) != 0 THEN tm.year ELSE t.year END AS year,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.release_date,t.release_date) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.releaseDate}) != 0 THEN tm.release_date ELSE t.release_date END AS release_date,
+        t.copyright, t.composer,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.genre_display,t.genre) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.genre}) != 0 THEN tm.genre_display ELSE t.genre END AS genre,
+        t.duration_seconds, t.bitrate_bps,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key,
+          CASE WHEN t.embedded_artwork_checked_fingerprint IS NULL THEN NULLIF(tm.artwork_cache_key, '') END,
+          a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source, tm.refreshed_at AS metadata_refreshed_at,
+        t.availability, t.missing_since, t.isrc, t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count, ps.last_played_at, t.created_at, t.updated_at
+      FROM tracks t LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON
+        COALESCE(NULLIF((CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_title,t.album) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.album}) != 0 THEN tm.album_title ELSE t.album END),''),'Unknown Album') = a.title
+        AND COALESCE(
+          NULLIF(CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_artist_display,t.album_artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.albumArtist}) != 0 THEN tm.album_artist_display ELSE t.album_artist END, ''),
+          CASE WHEN tm.source='user_edit' THEN COALESCE(tm.artist_display,t.artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.artist}) != 0 THEN tm.artist_display ELSE t.artist END, 'Unknown Artist'
+        ) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+      UPDATE tracks SET effective_album_title=(SELECT COALESCE(NULLIF(album,''),'Unknown Album') FROM library_track_display WHERE id=tracks.id),
+        effective_album_artist=(SELECT COALESCE(NULLIF(album_artist,''),NULLIF(artist,''),'Unknown Artist') FROM library_track_display WHERE id=tracks.id);
+      CREATE INDEX idx_tracks_effective_album_artwork ON tracks(effective_album_title,effective_album_artist,availability,disc_no,track_no,id);
+      CREATE INDEX idx_tracks_embedded_artwork ON tracks(embedded_artwork_cache_key) WHERE embedded_artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_tracks_directory_artwork ON tracks(directory_artwork_cache_key) WHERE directory_artwork_cache_key IS NOT NULL;
+      CREATE TRIGGER catalog_file_projection_update AFTER UPDATE ON tracks
+      WHEN NEW.title_fallback IS NOT OLD.title_fallback
+        OR NEW.embedded_artwork_cache_key IS NOT OLD.embedded_artwork_cache_key
+        OR NEW.directory_artwork_cache_key IS NOT OLD.directory_artwork_cache_key
+        OR NEW.embedded_artwork_checked_fingerprint IS NOT OLD.embedded_artwork_checked_fingerprint
+      BEGIN UPDATE library_catalog_revision SET revision=revision+1 WHERE id=1; END;
+      CREATE TRIGGER catalog_override_update AFTER UPDATE ON track_metadata
+      WHEN NEW.override_mask IS NOT OLD.override_mask OR NEW.source IS NOT OLD.source
+      BEGIN UPDATE library_catalog_revision SET revision=revision+1 WHERE id=1; END;
+    `,
+  },
+  badgeAchievementMigration,
+] as const

@@ -101,6 +101,7 @@
 
 ### metadata：元数据
 
+- [TECHDOC：元数据编辑面板扩展技术方案](topics/metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md) — E1–E6 规划：编辑恢复、编号、专辑批量、内嵌封面、更多标签与历史值逐字段合并；待实施。
 - [TECHDOC：元数据体系优化技术方案](topics/metadata/TECHDOC-metadata-system-optimization-2026-10-28.md) — 审计发现、数据权威与历史覆盖、日期与格式适配、编辑契约、封面来源及分阶段验收；含 2026-10-28 实施与独立验收记录。
 - [REPORT：当前曲库流派上层统计与映射草案](topics/metadata/REPORT-genre-upper-classification-2026-10-04.md)
 - [TECHDOC：多值元数据统一处理规则](topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)

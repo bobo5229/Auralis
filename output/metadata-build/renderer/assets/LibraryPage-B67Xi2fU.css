@@ -1,0 +1,515 @@
+
+.song-title[data-v-961bd743] {
+  font-weight: var(--auralis-song-list-title-weight, 700);
+  font-size: var(--auralis-song-list-title-size, 14px);
+  line-height: max(20px, 1.2em);
+}
+.song-artist[data-v-961bd743] {
+  font-weight: var(--auralis-song-list-artist-weight, 600);
+  font-size: var(--auralis-song-list-artist-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.song-album[data-v-961bd743] {
+  font-weight: var(--auralis-song-list-album-weight, 600);
+  font-size: var(--auralis-song-list-album-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.song-duration[data-v-961bd743] {
+  font-weight: var(--auralis-song-list-duration-weight, 400);
+  font-size: var(--auralis-song-list-duration-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.song-play-count[data-v-961bd743] {
+  overflow: hidden;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-song-list-duration-size, 12px);
+  font-weight: var(--auralis-song-list-duration-weight, 400);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* 由各曲目行决定分隔线的边界与显示状态，共用绘制方式和主题颜色。 */
+.auralis-track-row-divider[data-v-418e5032]::before,
+.auralis-track-row-divider[data-v-418e5032]::after {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  /* 使用边框的设备像素取整，避免非整数缩放下实心矩形出现粗细差异。 */
+  height: 0;
+  border-top: 1px solid var(--auralis-cover-track-divider);
+  pointer-events: none;
+}
+
+.cover-track-number[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-track-number-weight, 400);
+  font-size: var(--auralis-song-cover-track-number-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.cover-track-title[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-title-weight, 500);
+  font-size: var(--auralis-song-cover-title-size, 14px);
+  line-height: max(20px, 1.2em);
+}
+.cover-track-artist-line[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-artist-weight, 400);
+  font-size: var(--auralis-song-cover-artist-size, 12px);
+  line-height: max(18px, 1.2em);
+}
+.cover-track-genre[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-genre-weight, 400);
+  font-size: var(--auralis-song-cover-genre-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.cover-track-duration[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-duration-weight, 400);
+  font-size: var(--auralis-song-cover-duration-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+.cover-track-bitrate[data-v-418e5032] {
+  font-weight: var(--auralis-song-cover-bitrate-weight, 400);
+  font-size: var(--auralis-song-cover-bitrate-size, 12px);
+  line-height: max(var(--auralis-type-caption-line-height), 1.2em);
+}
+.cover-track-row[data-v-418e5032] {
+  /* 技术信息固定两行，各列在 48px 行框中分别垂直居中。 */
+  align-items: center;
+}
+
+/* 右侧面板收起时，多值艺术家与标题并排；各自省略，保持曲目行的固定高度。 */
+.app-shell.is-lyrics-collapsed
+  .cover-track-row:not(.cover-track-row--single-line)
+  .cover-track-info[data-v-418e5032] {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+.app-shell.is-lyrics-collapsed
+  .cover-track-row[data-v-418e5032]:not(.cover-track-row--single-line)
+  :is(.cover-track-title, .cover-track-artist-line) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.cover-track-index[data-v-418e5032] {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.cover-track-index__number--hidden[data-v-418e5032] {
+  /* 保留单元格行框与基线占位，隐藏数字不重复暴露给辅助技术。 */
+  visibility: hidden;
+}
+
+/* 14×14 图标外框；绝对定位覆盖在原音轨号列内，不参与单行基线计算。 */
+.cover-track-bars[data-v-418e5032] {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  color: var(--auralis-song-row-now-playing-title);
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+}
+.cover-track-row[data-v-418e5032]::before,
+.cover-track-row--disc-end[data-v-418e5032]::after {
+  content: '';
+}
+.cover-track-row[data-v-418e5032]::before {
+  top: 0;
+}
+.cover-track-row--disc-end[data-v-418e5032]::after {
+  bottom: 0;
+}
+
+/* 相邻分割线由下一行绘制；首尾边界也随悬停、选择或播放状态隐藏。 */
+.cover-track-row[data-v-418e5032]:is(:hover, [aria-pressed='true'], .cover-track-row--playing)::before,
+.cover-track-row[data-v-418e5032]:is(:hover, [aria-pressed='true'], .cover-track-row--playing)::after,
+.cover-track-row:is(:hover, [aria-pressed='true'], .cover-track-row--playing)
+  + .cover-track-row[data-v-418e5032]::before {
+  display: none;
+}
+
+.virtual-album-track-list[data-v-61f4d748] {
+  position: relative;
+}
+.virtual-album-track-item[data-v-61f4d748] {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+/* 虚拟行有独立定位容器，仍隐藏高亮行与下一条曲目之间的分割线。 */
+.virtual-album-track-item:has(
+    > .cover-track-row:is(:hover, [aria-pressed='true'], .cover-track-row--playing)
+  )
+  + .virtual-album-track-item--adjacent[data-v-61f4d748]
+  >  .cover-track-row:first-child::before {
+  display: none;
+}
+
+.album-cover-artwork[data-v-f4cd82a0]:hover {
+  cursor: default;
+}
+.album-cover-artwork[data-v-f4cd82a0]:is(:focus-visible, .album-cover-artwork--context-selected) {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 3px;
+}
+.album-cover-meta-title[data-v-f4cd82a0] {
+  font-weight: var(--auralis-song-cover-album-weight, 700);
+  font-size: var(--auralis-song-cover-album-size, 16px);
+  line-height: var(--library-cover-meta-album-line-height, var(--library-cover-meta-line-height));
+}
+.album-cover-meta-artist[data-v-f4cd82a0] {
+  font-weight: var(--auralis-song-cover-album-artist-weight, 600);
+  font-size: var(--auralis-song-cover-album-artist-size, 12px);
+  line-height: var(--library-cover-meta-artist-line-height, var(--library-cover-meta-line-height));
+}
+.album-cover-meta-date[data-v-f4cd82a0] {
+  font-weight: var(--auralis-song-cover-release-date-weight, 500);
+  font-size: var(--auralis-song-cover-release-date-size, 12px);
+  line-height: var(--library-cover-meta-date-line-height, var(--library-cover-meta-line-height));
+}
+.album-cover-meta[data-v-f4cd82a0] {
+  display: flex;
+  flex-direction: column;
+  text-align: var(--library-cover-meta-align, left);
+}
+.album-cover-meta > p[data-v-f4cd82a0] {
+  margin: 0;
+}
+.album-cover-meta > .album-cover-meta-artist[data-v-f4cd82a0] {
+  margin-top: var(--library-cover-meta-album-artist-gap);
+}
+.album-cover-meta > .album-cover-meta-date[data-v-f4cd82a0] {
+  margin-top: var(--library-cover-meta-artist-date-gap);
+}
+[data-v-f4cd82a0] .cover-disc-heading {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  font-family: var(--auralis-font-disc-heading);
+  height: var(--library-cover-disc-heading-height);
+  padding-block: 8px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  font-weight: var(--auralis-song-cover-disc-heading-weight, 700);
+  font-size: var(--auralis-song-cover-disc-heading-size, 11px);
+  line-height: 24px;
+  letter-spacing: 0.06em;
+}
+
+/* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
+[data-v-f4cd82a0] .cover-disc-heading--first {
+  position: absolute;
+  height: 24px;
+  padding-block: 0;
+  top: -24px;
+  left: var(--library-cover-panel-padding-inline-side);
+  right: var(--library-cover-panel-padding-inline-side);
+}
+
+/* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，曲目区不随组高 stretch */
+.album-cover-group[data-v-f4cd82a0] {
+  align-items: start;
+}
+
+/* 原生吸顶保留正常占位，并由当前专辑组的内容边界限制移动范围。 */
+.album-cover-aside--sticky[data-v-f4cd82a0] {
+  position: sticky;
+  top: var(--library-cover-sticky-top-inset);
+  align-self: start;
+}
+
+/* 曲目直接呈现在页面背景上；容器高度随内容收缩。
+ * padding / border-width 消费 libraryLayoutMetrics 注入的 --library-*，
+ * 与 getAlbumGroupEstimatedHeight 同一事实源（Phase 6 REVIEW Finding 1）。 */
+.album-cover-tracks[data-v-f4cd82a0] {
+  position: relative;
+  box-sizing: border-box;
+  align-self: start;
+  width: 100%;
+  height: fit-content;
+  min-width: 0;
+  background: transparent;
+  border: var(--library-cover-panel-border-width) solid transparent;
+  padding: var(--library-cover-panel-padding-block-side)
+    var(--library-cover-panel-padding-inline-side);
+}
+
+.save-progress-icon[data-v-a3121f25] {
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.save-progress-icon-check[data-v-a3121f25] {
+  visibility: hidden;
+  transform-origin: 60px 60px;
+}
+
+.metadata-dialog-legacy[data-v-116f9927] {
+  padding: 12px;
+}
+.metadata-dialog-legacy p[data-v-116f9927] {
+  margin: 0;
+}
+.metadata-dialog-legacy th[data-v-116f9927],
+.metadata-dialog-legacy td[data-v-116f9927] {
+  padding: 4px;
+}
+.metadata-dialog-legacy th[data-v-116f9927]:first-child {
+  width: 22%;
+}
+.metadata-dialog-playback-notice[data-v-116f9927] {
+  color: var(--auralis-danger);
+}
+.metadata-dialog-btn-save[data-v-116f9927] {
+  display: inline-grid;
+}
+.metadata-dialog-btn-save--busy[data-v-116f9927]:disabled {
+  opacity: 1;
+}
+.metadata-dialog-save-feedback[data-v-116f9927] {
+  min-width: 20px;
+  height: 20px;
+}
+.metadata-dialog-save-content[data-v-116f9927] {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.metadata-dialog-save-content--hidden[data-v-116f9927] {
+  visibility: hidden;
+}
+.metadata-dialog-status-banner[data-v-116f9927] {
+  box-sizing: border-box;
+  background: var(--auralis-surface-raised);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text);
+}
+.metadata-dialog-status-banner--info[data-v-116f9927] {
+  border-color: var(--auralis-border-subtle);
+  background: var(--auralis-surface-raised);
+  color: var(--auralis-text-muted);
+}
+.metadata-dialog-status-banner--warning[data-v-116f9927] {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--auralis-border-subtle));
+  background: color-mix(in srgb, #f59e0b 10%, var(--auralis-surface-raised));
+  color: var(--auralis-text);
+}
+.metadata-dialog-status-banner--error[data-v-116f9927] {
+  border-color: color-mix(in srgb, var(--auralis-danger) 35%, var(--auralis-border-subtle));
+  background: color-mix(in srgb, var(--auralis-danger) 10%, var(--auralis-surface-raised));
+  color: var(--auralis-text);
+}
+.metadata-dialog-btn-retry[data-v-116f9927] {
+  background: var(--auralis-control-hover-bg);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.metadata-dialog-btn-retry[data-v-116f9927]:hover {
+  background: var(--auralis-control-active-bg);
+  border-color: var(--auralis-text-muted);
+}
+.metadata-dialog-label[data-v-116f9927] {
+  color: var(--auralis-text-muted);
+}
+.metadata-dialog-input[data-v-116f9927] {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--auralis-search-bg);
+  border: 1px solid var(--auralis-search-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--auralis-text);
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.metadata-dialog-input[data-v-116f9927]:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -1px;
+  border-color: var(--auralis-focus-ring);
+}
+.metadata-dialog-input[data-v-116f9927]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.metadata-dialog-input[aria-invalid='true'][data-v-116f9927] {
+  border-color: var(--auralis-danger);
+}
+
+.library-context-menu-sub-panel[data-v-12161acf] {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.library-status-state--initial[data-v-1cbd70f6] button {
+  min-height: 40px;
+  padding: 0 20px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  color: var(--auralis-control-primary-text);
+  background: var(--auralis-control-primary-bg);
+}
+.library-status-state--initial[data-v-1cbd70f6] button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-control-primary-bg) 88%, white);
+}
+.library-list-shell {
+  container-type: inline-size;
+}
+
+/* 搜索工具独占表头上方的一行，避免遮挡曲目或列标题。 */
+.library-flat-search {
+  position: relative;
+  z-index: 90;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding-inline: var(--library-flat-grid-padding-inline);
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+.library-flat-search .page-search-tools {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: 360px;
+  max-width: 100%;
+  height: auto;
+  min-width: 0;
+  flex: 0 1 360px;
+  transform: none;
+  pointer-events: auto;
+}
+
+.library-flat-search .library-search-bar {
+  box-sizing: border-box;
+  flex: 0 1 360px;
+  width: 360px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.library-flat-track-grid {
+  display: grid;
+  grid-template-columns: var(--library-flat-grid-template);
+  column-gap: var(--library-flat-grid-gap);
+  padding-inline: var(--library-flat-grid-padding-inline);
+}
+
+.library-flat-column--title {
+  padding-left: 6px;
+}
+
+.library-flat-column--artist {
+  padding-left: 8px;
+}
+
+.library-flat-column--album,
+.library-flat-column--duration,
+.library-flat-column--play-count {
+  min-width: 0;
+}
+
+.library-flat-track-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  height: var(--library-flat-header-height);
+  min-height: var(--library-flat-header-height);
+  align-items: center;
+  background: var(--auralis-main-bg);
+  border-bottom: 1px solid #000;
+  color: var(--auralis-text-muted);
+  font-weight: 600;
+}
+
+.library-flat-track-header--resizing {
+  z-index: 80;
+}
+
+.library-page--flat-resize-target .library-flat-track-header {
+  z-index: 80;
+}
+
+.library-flat-track-header-cell {
+  position: relative;
+  min-width: 0;
+  overflow: visible;
+}
+
+.library-flat-column-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-flat-column--align-right .library-flat-column-label {
+  text-align: right;
+}
+
+.library-flat-column--artwork .library-flat-column-label {
+  text-align: center;
+}
+
+.library-flat-track-header-cell:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + (var(--library-flat-grid-gap) - 1px) / 2);
+  width: 1px;
+  height: var(--auralis-type-caption-line-height);
+  background: var(--auralis-border-strong);
+  content: '';
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.library-flat-column-resize-handle {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: calc(100% + var(--library-flat-grid-gap) / 2);
+  width: 8px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  transform: translateX(-50%);
+}
+
+.library-flat-column-resize-handle:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--auralis-accent);
+  outline-offset: -2px;
+}
+
+.library-cover-virtual-window[data-v-93f214d0] {
+  box-sizing: border-box;
+  /* 为封面外描边预留 2px 线宽 + 3px 偏移，避免被滚动容器裁切。 */
+  padding-inline: 5px;
+}

@@ -1,0 +1,14 @@
+{
+  "source": "Procedurally authored by generate-materials.mjs; no external imagery or image editing",
+  "seed": "0x41555241",
+  "foam": {
+    "size": [768, 768],
+    "cssTile": [384, 384],
+    "method": "Periodic micro-pore height field, fixed upper-left diffuse light, matte black foam"
+  },
+  "aluminium": {
+    "size": [768, 256],
+    "cssTile": [384, 128],
+    "method": "Horizontal seeded machining variation; rough brushed grain; neutral grey overlay"
+  }
+}

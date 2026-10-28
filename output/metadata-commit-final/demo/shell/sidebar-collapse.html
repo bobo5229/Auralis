@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis Sidebar 收起态 Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif;
+        --sidebar-width: 260px;
+        --surface: #171b20;
+        --sidebar: #20262c;
+        --line: #ffffff16;
+        --text: #edf0ee;
+        --muted: #aeb7ba;
+        --quiet: #819096;
+        --accent: #b8d8c9;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #101317; color: var(--text); }
+      button { font: inherit; }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .demo { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100vh; transition: grid-template-columns 280ms cubic-bezier(.2,.8,.2,1); }
+      .demo.collapsed { --sidebar-width: 88px; }
+      .sidebar { min-width: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--sidebar); border-right: 1px solid var(--line); }
+      .window-controls { height: 48px; flex: 0 0 48px; display: flex; align-items: center; gap: 8px; padding-left: 16px; }
+      .window-controls span { width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 1px 1px #ffffff44; }
+      .window-controls span:nth-child(1) { background: #ff6059; }
+      .window-controls span:nth-child(2) { background: #ffbd2e; }
+      .window-controls span:nth-child(3) { background: #28c840; }
+      .sidebar-header { padding: 6px 16px 14px; border-bottom: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
+      .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 10px; color: var(--accent); background: #365148; border: 1px solid #749b8c; }
+      .brand-mark svg { width: 19px; height: 19px; }
+      .brand-name { font-size: 18px; font-weight: 800; white-space: nowrap; }
+      .tools { display: flex; justify-content: space-evenly; align-items: center; gap: 4px; margin-top: 14px; }
+      .tool { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--quiet); cursor: pointer; }
+      .tool:hover, .tool.active { color: var(--accent); background: #b8d8c91a; }
+      .tool svg { width: 17px; height: 17px; }
+      .nav { min-height: 0; flex: 1; overflow-y: auto; padding: 12px 0 18px; scrollbar-color: #ffffff33 transparent; scrollbar-width: thin; }
+      .section { padding-bottom: 12px; }
+      .section-label { margin: 0; padding: 0 16px 8px; color: var(--quiet); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+      .nav-item { position: relative; display: flex; align-items: center; width: calc(100% - 20px); height: 38px; margin: 3px 10px; padding: 0 12px; gap: 10px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--muted); text-align: left; cursor: pointer; transition: background 180ms ease, color 180ms ease; }
+      .nav-item:hover { background: #b8d8c917; color: var(--text); }
+      .nav-item.active { background: #a7cfbe30; color: var(--text); }
+      .nav-item:focus-visible { outline-offset: -2px; }
+      .nav-icon { display: grid; place-items: center; width: 20px; height: 20px; flex: 0 0 20px; }
+      .nav-icon svg { width: 17px; height: 17px; }
+      .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+      .count { font-size: 11px; font-weight: 700; color: var(--quiet); opacity: 0; transform: translateX(12px); transition: opacity 220ms ease, transform 280ms cubic-bezier(.2,.8,.2,1); }
+      .nav-item:hover .count { opacity: 1; transform: translateX(0); }
+      .playlist-heading { display: flex; align-items: center; justify-content: space-between; margin: 0 16px; padding: 4px 0 8px; }
+      .playlist-heading .section-label { padding: 0; }
+      .playlist-title { display: flex; align-items: center; gap: 8px; }
+      .playlist-total { color: var(--quiet); font-size: 10px; }
+      .playlist-add { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; color: var(--quiet); background: none; cursor: pointer; }
+      .playlist-add:hover { color: var(--text); background: #ffffff13; }
+      .playlist-add svg { width: 16px; height: 16px; }
+      .main { min-width: 0; padding: 46px 7vw; background: var(--surface); }
+      .main-inner { max-width: 900px; margin: 0 auto; }
+      .demo-label { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+      h1 { margin: 18px 0 12px; font-size: clamp(30px, 4vw, 48px); line-height: 1.12; letter-spacing: -.025em; }
+      .description { max-width: 620px; color: var(--muted); line-height: 1.75; }
+      .canvas { display: flex; align-items: center; justify-content: center; min-height: 350px; margin-top: 36px; border: 1px solid var(--line); border-radius: 18px; color: var(--quiet); background: #ffffff06; text-align: center; }
+      .status { position: fixed; right: 24px; bottom: 24px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 9px; background: #2b343a; color: var(--text); font-size: 12px; }
+      .tooltip { position: fixed; z-index: 5; padding: 6px 9px; border-radius: 7px; background: #e7eeeb; color: #1d2828; font-size: 12px; font-weight: 600; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 24px #0005; }
+      .tooltip[hidden] { display: none; }
+
+      .collapsed .sidebar-header { padding-inline: 10px; }
+      .collapsed .brand { justify-content: center; }
+      .collapsed .brand-name, .collapsed .section-label, .collapsed .playlist-total, .collapsed .nav-label, .collapsed .count { display: none; }
+      .collapsed .tools { flex-direction: column; gap: 4px; }
+      .collapsed .tool { width: 38px; height: 38px; flex-basis: 38px; }
+      .collapsed .section { padding-bottom: 8px; }
+      .collapsed .nav-item { justify-content: center; height: 42px; margin-block: 5px; padding: 0; }
+      .collapsed .playlist-heading { justify-content: center; margin: 0; padding: 8px 0; }
+      .collapsed .playlist-add { width: 42px; height: 42px; }
+      .collapsed .playlist-title { display: none; }
+      .collapsed .playlist-heading { border-top: 1px solid var(--line); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .demo, .nav-item, .count { transition: none; }
+      }
+      @media (max-width: 560px) {
+        .main { padding: 32px 20px; }
+        .canvas { min-height: 260px; }
+      }
+    </style>
+  </head>
+  <body>
+    <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+      <symbol id="wave" viewBox="0 0 24 24"><path d="M2 12h2m2-5v10m3-13v16m3-10v4m3-8v12m3-15v18m3-11v4" /></symbol>
+      <symbol id="music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+      <symbol id="disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M7 5.5a8 8 0 0 1 10 0"/></symbol>
+      <symbol id="cd" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></symbol>
+      <symbol id="archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 12h4"/></symbol>
+      <symbol id="playlist" viewBox="0 0 24 24"><path d="M4 6h12M4 11h12M4 16h8M18 12v7m-3-3h6"/></symbol>
+      <symbol id="sparkle" viewBox="0 0 24 24"><path d="m12 2 1.8 7.2L21 11l-7.2 1.8L12 20l-1.8-7.2L3 11l7.2-1.8L12 2ZM19 18l.5 1.5L21 20l-1.5.5L19 22l-.5-1.5L17 20l1.5-.5L19 18Z"/></symbol>
+      <symbol id="sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></symbol>
+      <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m10 2-.5 2.2-2 1L5.4 4 3 8l1.6 1.7v2.6L3 14l2.4 4 2.1-1.2 2 1L10 20h4l.5-2.2 2-1 2.1 1.2L21 14l-1.6-1.7V9.7L21 8l-2.4-4-2.1 1.2-2-1L14 2h-4Z"/></symbol>
+      <symbol id="refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5.8 9A7 7 0 0 1 18.3 7L20 12M4 12l1.7 5A7 7 0 0 0 18.2 15"/></symbol>
+      <symbol id="plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+    </svg>
+    <div class="demo" id="demo">
+      <aside class="sidebar" aria-label="侧边栏演示">
+        <div class="window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+        <header class="sidebar-header">
+          <button class="brand" id="toggle" type="button" aria-label="收起侧边栏" aria-expanded="true" aria-controls="navigation" data-tip="收起侧边栏">
+            <span class="brand-mark"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#wave"/></svg></span>
+            <span class="brand-name">AuralisMusic</span>
+          </button>
+          <div class="tools" role="toolbar" aria-label="侧栏工具">
+            <button class="tool" type="button" aria-label="筛选面板" data-tip="筛选面板"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#sliders"/></svg></button>
+            <button class="tool" type="button" aria-label="设置" data-tip="设置"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#gear"/></svg></button>
+            <button class="tool" type="button" aria-label="刷新曲库" data-tip="刷新曲库"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#refresh"/></svg></button>
+          </div>
+        </header>
+        <nav class="nav" id="navigation" aria-label="侧边栏导航">
+          <section class="section" aria-label="资料库">
+            <h2 class="section-label">资料库</h2>
+            <button class="nav-item active" type="button" aria-label="歌曲" aria-current="page" data-tip="歌曲" data-page="歌曲"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8"><use href="#music"/></svg></span><span class="nav-label">歌曲</span><span class="count">1,248</span></button>
+            <button class="nav-item" type="button" aria-label="专辑" data-tip="专辑" data-page="专辑"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8"><use href="#disc"/></svg></span><span class="nav-label">专辑</span><span class="count">156</span></button>
+            <button class="nav-item" type="button" aria-label="CD" data-tip="CD" data-page="CD"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8"><use href="#cd"/></svg></span><span class="nav-label">CD</span></button>
+            <button class="nav-item" type="button" aria-label="声迹" data-tip="声迹" data-page="声迹"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8"><use href="#archive"/></svg></span><span class="nav-label">声迹</span></button>
+          </section>
+          <section aria-label="歌单">
+            <div class="playlist-heading"><div class="playlist-title"><h2 class="section-label">歌单</h2><span class="playlist-total">3</span></div><button class="playlist-add" type="button" aria-label="新建歌单" data-tip="新建歌单"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#plus"/></svg></button></div>
+            <button class="nav-item" type="button" aria-label="周末循环" data-tip="周末循环" data-page="周末循环"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#playlist"/></svg></span><span class="nav-label">周末循环</span><span class="count">42</span></button>
+            <button class="nav-item" type="button" aria-label="雨夜" data-tip="雨夜" data-page="雨夜"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#playlist"/></svg></span><span class="nav-label">雨夜</span><span class="count">28</span></button>
+            <button class="nav-item" type="button" aria-label="最近常听（智能歌单）" data-tip="最近常听 · 智能歌单" data-page="最近常听"><span class="nav-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#sparkle"/></svg></span><span class="nav-label">最近常听</span><span class="count">30</span></button>
+          </section>
+        </nav>
+      </aside>
+      <main class="main"><div class="main-inner"><div class="demo-label">SIDEBAR 交互演示 · 示例数据</div><h1 id="page-title">歌曲</h1><p class="description">点击左上角 Logo，观察侧边栏收起与展开时，工具、导航、歌单和主内容区域的变化。收起后将指针移到图标上，可查看入口名称。</p><div class="canvas">主内容区随侧边栏宽度变化<br />此区域仅用于观察布局</div></div></main>
+    </div>
+    <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+    <div class="status" id="status" aria-live="polite">侧边栏已展开 · 260px</div>
+    <script>
+      const demo = document.getElementById('demo')
+      const toggle = document.getElementById('toggle')
+      const status = document.getElementById('status')
+      const tooltip = document.getElementById('tooltip')
+      const pageTitle = document.getElementById('page-title')
+      let tipTarget = null
+
+      function hideTooltip() { tooltip.hidden = true; tipTarget = null }
+      function showTooltip(target) {
+        if (!demo.classList.contains('collapsed')) return
+        tipTarget = target
+        tooltip.textContent = target.dataset.tip
+        tooltip.hidden = false
+        const rect = target.getBoundingClientRect()
+        tooltip.style.left = `${rect.right + 12}px`
+        tooltip.style.top = `${Math.max(8, rect.top + (rect.height - tooltip.offsetHeight) / 2)}px`
+      }
+
+      toggle.addEventListener('click', () => {
+        const collapsed = demo.classList.toggle('collapsed')
+        toggle.setAttribute('aria-expanded', String(!collapsed))
+        toggle.setAttribute('aria-label', collapsed ? '展开侧边栏' : '收起侧边栏')
+        toggle.dataset.tip = collapsed ? '展开侧边栏' : '收起侧边栏'
+        status.textContent = collapsed ? '侧边栏已收起 · 88px' : '侧边栏已展开 · 260px'
+        hideTooltip()
+      })
+
+      document.querySelectorAll('.nav-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.nav-item').forEach((entry) => {
+            entry.classList.remove('active')
+            entry.removeAttribute('aria-current')
+          })
+          item.classList.add('active')
+          item.setAttribute('aria-current', 'page')
+          pageTitle.textContent = item.dataset.page
+        })
+      })
+      document.querySelectorAll('[data-tip]').forEach((item) => {
+        item.addEventListener('mouseenter', () => showTooltip(item))
+        item.addEventListener('mouseleave', hideTooltip)
+        item.addEventListener('focus', () => showTooltip(item))
+        item.addEventListener('blur', hideTooltip)
+      })
+      window.addEventListener('scroll', hideTooltip, true)
+      window.addEventListener('resize', () => { if (tipTarget) showTooltip(tipTarget) })
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2314 @@
+{
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-open-performance\\profile-dDeOKH",
+  "results": [
+    {
+      "label": "first-wide",
+      "events": [
+        {
+          "type": "worker-post",
+          "t": -4.600000001490116,
+          "kind": "layout"
+        },
+        {
+          "type": "click",
+          "t": 0
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.100000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.199999995529652,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 11.299999997019768,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 16.299999997019768,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 16.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png"
+        },
+        {
+          "type": "mounted",
+          "t": 49.69999999552965
+        },
+        {
+          "type": "decode-end",
+          "t": 60.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png",
+          "start": 11.100000001490116,
+          "duration": 49.29999999701977,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 60.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png",
+          "start": 11.100000001490116,
+          "duration": 49.399999998509884,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 60.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png",
+          "start": 11.199999995529652,
+          "duration": 49.30000000447035,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 60.600000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png",
+          "start": 16.299999997019768,
+          "duration": 44.30000000447035,
+          "w": 768,
+          "h": 256
+        },
+        {
+          "type": "decode-end",
+          "t": 60.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png",
+          "start": 16.5,
+          "duration": 44.19999999552965,
+          "w": 768,
+          "h": 768
+        },
+        {
+          "type": "worker-create",
+          "t": 61,
+          "url": "file:///D:/VSCode/Auralis/out/renderer/assets/badgePressure.worker-Dwr3mTba.js"
+        },
+        {
+          "type": "canvas-read",
+          "t": 158.19999999552965,
+          "start": 157.89999999850988,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 214.5,
+          "start": 214.19999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 263,
+          "start": 262.6000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 310.3999999985099,
+          "start": 310.1000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 352,
+          "start": 351.6000000014901,
+          "duration": 0.3999999985098839,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 396.8999999985099,
+          "start": 396.6000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 437,
+          "start": 436.6000000014901,
+          "duration": 0.3999999985098839,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 483.69999999552965,
+          "start": 483.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 524,
+          "start": 523.6999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 564.8999999985099,
+          "start": 564.6000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 617.6999999955297,
+          "start": 617.2999999970198,
+          "duration": 0.3999999985098839,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 684.6000000014901,
+          "start": 659.6999999955297,
+          "duration": 24.900000005960464,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 684.6999999955297,
+          "kind": "reset",
+          "generation": 1,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "decode-end",
+          "t": 685.1000000014901,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png",
+          "start": 11.100000001490116,
+          "duration": 674,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "canvas-read",
+          "t": 686.1000000014901,
+          "start": 685.8999999985099,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 731.1999999955297,
+          "start": 731,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 769.3999999985099,
+          "start": 769.1000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 815.1000000014901,
+          "start": 814.7999999970198,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 857.1999999955297,
+          "start": 856.8999999985099,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 901,
+          "start": 900.6999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 940.1999999955297,
+          "start": 939.7999999970198,
+          "duration": 0.3999999985098839,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 979.2999999970198,
+          "start": 979,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 1019.7999999970198,
+          "start": 1019.6000000014901,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 1060.5,
+          "start": 1060.1999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 1102.8999999985099,
+          "start": 1102.3999999985099,
+          "duration": 0.5,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 1163,
+          "start": 1140.7999999970198,
+          "duration": 22.200000002980232,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 1163.1000000014901,
+          "kind": "reset",
+          "generation": 2,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.6999999955297,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png",
+          "start": 11.100000001490116,
+          "duration": 1153.5,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.6999999955297,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png",
+          "start": 11.100000001490116,
+          "duration": 1153.5999999940395,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.6999999955297,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png",
+          "start": 11.100000001490116,
+          "duration": 1153.5999999940395,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.7999999970198,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png",
+          "start": 11.100000001490116,
+          "duration": 1153.6999999955297,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.7999999970198,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png",
+          "start": 11.100000001490116,
+          "duration": 1153.6999999955297,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.7999999970198,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png",
+          "start": 11.299999997019768,
+          "duration": 1153.5,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 1164.7999999970198,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png",
+          "start": 11.100000001490116,
+          "duration": 1153.6999999955297,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "worker-result",
+          "t": 1166.7999999970198
+        },
+        {
+          "type": "longtask",
+          "t": 1167.1999999955297,
+          "start": 60.69999999552965,
+          "duration": 624
+        },
+        {
+          "type": "longtask",
+          "t": 1167.1999999955297,
+          "start": 685.1000000014901,
+          "duration": 479
+        },
+        {
+          "type": "worker-result",
+          "t": 1269.1000000014901,
+          "generation": 1,
+          "computeMs": 89.89999999850988
+        },
+        {
+          "type": "worker-result",
+          "t": 1356.6999999955297,
+          "generation": 2,
+          "computeMs": 84
+        },
+        {
+          "type": "canvas-commit",
+          "t": 1360.1000000014901,
+          "start": 1356.7999999970198,
+          "duration": 3.3000000044703484,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "ready",
+          "t": 1361.3999999985099
+        }
+      ],
+      "dpr": 1.5,
+      "w": 1440,
+      "h": 900,
+      "canvas": {
+        "width": 1581,
+        "height": 1862
+      },
+      "resources": [],
+      "cpuSelf": [
+        [
+          "(idle) :0",
+          439.36799999999954
+        ],
+        [
+          "fe file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          380.3000000000002
+        ],
+        [
+          "it file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          334.5100000000003
+        ],
+        [
+          "(program) :0",
+          183.49399999999997
+        ],
+        [
+          " file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          102.79800000000002
+        ],
+        [
+          "setTransform :0",
+          94.296
+        ],
+        [
+          "We file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          81.075
+        ],
+        [
+          "getImageData :0",
+          52.92800000000001
+        ],
+        [
+          "(garbage collector) :0",
+          50.70200000000001
+        ],
+        [
+          "et file:///D:/VSCode/Auralis/out/renderer/assets/AppDialog.vue_vue_type_script_setup_true_lang-DIoVGRFH.js:4",
+          31.340999999999994
+        ],
+        [
+          "translate :0",
+          2.6079999999999997
+        ],
+        [
+          " :1",
+          2.229
+        ],
+        [
+          "putImageData :0",
+          2.189
+        ],
+        [
+          "focus :0",
+          1.974
+        ],
+        [
+          "ct file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          1.304
+        ],
+        [
+          "activate file:///D:/VSCode/Auralis/out/renderer/assets/AppDialog.vue_vue_type_script_setup_true_lang-DIoVGRFH.js:9",
+          1.302
+        ],
+        [
+          "querySelector :0",
+          1.19
+        ],
+        [
+          "$ file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:21",
+          1.078
+        ],
+        [
+          "Worker :0",
+          1.064
+        ],
+        [
+          "Hf file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:18",
+          1.021
+        ],
+        [
+          "window.__event :2",
+          1.018
+        ],
+        [
+          "T file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:14",
+          1.017
+        ],
+        [
+          "La file:///D:/VSCode/Auralis/out/renderer/assets/vue-i18n-ehcVDj87.js:15",
+          1.01
+        ],
+        [
+          "lt file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          1.01
+        ]
+      ]
+    },
+    {
+      "label": "reopen-wide",
+      "events": [
+        {
+          "type": "click",
+          "t": 0
+        },
+        {
+          "type": "decode-start",
+          "t": 0.3999999985098839,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.7999999970197678,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.7999999970197678,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png"
+        },
+        {
+          "type": "mounted",
+          "t": 22.899999998509884
+        },
+        {
+          "type": "decode-end",
+          "t": 26.799999997019768,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png",
+          "start": 0.3999999985098839,
+          "duration": 26.399999998509884,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png",
+          "start": 0.5,
+          "duration": 26.399999998509884,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 26.899999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png",
+          "start": 0.6000000014901161,
+          "duration": 26.299999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 27.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png",
+          "start": 2.7999999970197678,
+          "duration": 24.899999998509884,
+          "w": 768,
+          "h": 256
+        },
+        {
+          "type": "decode-end",
+          "t": 27.799999997019768,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png",
+          "start": 2.7999999970197678,
+          "duration": 25,
+          "w": 768,
+          "h": 768
+        },
+        {
+          "type": "worker-create",
+          "t": 28,
+          "url": "file:///D:/VSCode/Auralis/out/renderer/assets/badgePressure.worker-Dwr3mTba.js"
+        },
+        {
+          "type": "canvas-read",
+          "t": 31.899999998509884,
+          "start": 31.799999997019768,
+          "duration": 0.10000000149011612,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 70.5,
+          "start": 70.19999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 105.19999999552965,
+          "start": 104.89999999850988,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 139.69999999552965,
+          "start": 139.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 177.89999999850988,
+          "start": 177.69999999552965,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 211.29999999701977,
+          "start": 211.10000000149012,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 248.10000000149012,
+          "start": 247.79999999701977,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 281.6000000014901,
+          "start": 281.1000000014901,
+          "duration": 0.5,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 324.3999999985099,
+          "start": 324.19999999552965,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 359.1000000014901,
+          "start": 358.79999999701977,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 398.6000000014901,
+          "start": 398.3999999985099,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 450.3999999985099,
+          "start": 431.5,
+          "duration": 18.899999998509884,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 450.5,
+          "kind": "reset",
+          "generation": 1,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "canvas-read",
+          "t": 452.1000000014901,
+          "start": 451.69999999552965,
+          "duration": 0.4000000059604645,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 488.5,
+          "start": 488.3999999985099,
+          "duration": 0.10000000149011612,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 520.8999999985099,
+          "start": 520.6000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 553.2999999970198,
+          "start": 553.1000000014901,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 587.3999999985099,
+          "start": 587.1999999955297,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 621.1999999955297,
+          "start": 621,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 657.3999999985099,
+          "start": 657.1999999955297,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 691,
+          "start": 690.6999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 728.6999999955297,
+          "start": 728.6000000014901,
+          "duration": 0.09999999403953552,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 762.6999999955297,
+          "start": 762.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 797.5,
+          "start": 797.1999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 851.1000000014901,
+          "start": 831.6999999955297,
+          "duration": 19.400000005960464,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 851.1999999955297,
+          "kind": "reset",
+          "generation": 2,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "longtask",
+          "t": 853.1000000014901,
+          "start": 27.799999997019768,
+          "duration": 422
+        },
+        {
+          "type": "longtask",
+          "t": 853.1000000014901,
+          "start": 450.79999999701977,
+          "duration": 401
+        },
+        {
+          "type": "worker-result",
+          "t": 931.7999999970198,
+          "generation": 1,
+          "computeMs": 70.39999999850988
+        },
+        {
+          "type": "worker-result",
+          "t": 1003.1999999955297,
+          "generation": 2,
+          "computeMs": 69
+        },
+        {
+          "type": "canvas-commit",
+          "t": 1005.8999999985099,
+          "start": 1003.1999999955297,
+          "duration": 2.7000000029802322,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "ready",
+          "t": 1007
+        },
+        {
+          "type": "visible",
+          "t": 1167.6999999955297
+        }
+      ],
+      "dpr": 1.5,
+      "w": 1440,
+      "h": 900,
+      "canvas": {
+        "width": 1581,
+        "height": 1862
+      },
+      "resources": [],
+      "cpuSelf": [
+        [
+          "(idle) :0",
+          410.58599999999984
+        ],
+        [
+          "it file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          328.9089999999999
+        ],
+        [
+          "fe file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          320.86000000000007
+        ],
+        [
+          "(program) :0",
+          133.79000000000002
+        ],
+        [
+          " file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          81.78399999999999
+        ],
+        [
+          "getImageData :0",
+          41.79099999999999
+        ],
+        [
+          "(garbage collector) :0",
+          36.752
+        ],
+        [
+          "et file:///D:/VSCode/Auralis/out/renderer/assets/AppDialog.vue_vue_type_script_setup_true_lang-DIoVGRFH.js:4",
+          19.152
+        ],
+        [
+          "putImageData :0",
+          3.1170000000000004
+        ],
+        [
+          "translate :0",
+          3.069
+        ],
+        [
+          "addEventListener :0",
+          2.027
+        ],
+        [
+          "U file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          2.002
+        ],
+        [
+          "focus :0",
+          1.217
+        ],
+        [
+          "setTransform :0",
+          1.196
+        ],
+        [
+          "setAttribute :0",
+          1.145
+        ],
+        [
+          "HTMLImageElement.decode :3",
+          1.058
+        ],
+        [
+          "getBoundingClientRect :0",
+          1.051
+        ],
+        [
+          "yi file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:10",
+          1.011
+        ],
+        [
+          "tr file:///D:/VSCode/Auralis/out/renderer/assets/vue-i18n-ehcVDj87.js:5",
+          1.007
+        ],
+        [
+          "To file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:18",
+          1.007
+        ],
+        [
+          "CanvasRenderingContext2D.getImageData :5",
+          1.002
+        ],
+        [
+          "getContext :0",
+          0.926
+        ],
+        [
+          " :0",
+          0.907
+        ]
+      ]
+    },
+    {
+      "label": "reopen-small",
+      "events": [
+        {
+          "type": "click",
+          "t": 0
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.5999999940395355,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png"
+        },
+        {
+          "type": "mounted",
+          "t": 24.599999994039536
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png",
+          "start": 0.5,
+          "duration": 28.19999999552965,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png",
+          "start": 0.5,
+          "duration": 28.19999999552965,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png",
+          "start": 0.5,
+          "duration": 28.19999999552965,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png",
+          "start": 0.5,
+          "duration": 28.19999999552965,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 28.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png",
+          "start": 0.5999999940395355,
+          "duration": 28.100000001490116,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 29.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png",
+          "start": 2.5,
+          "duration": 27.19999999552965,
+          "w": 768,
+          "h": 256
+        },
+        {
+          "type": "decode-end",
+          "t": 29.69999999552965,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png",
+          "start": 2.5,
+          "duration": 27.19999999552965,
+          "w": 768,
+          "h": 768
+        },
+        {
+          "type": "worker-create",
+          "t": 29.899999998509884,
+          "url": "file:///D:/VSCode/Auralis/out/renderer/assets/badgePressure.worker-Dwr3mTba.js"
+        },
+        {
+          "type": "canvas-read",
+          "t": 33.899999998509884,
+          "start": 33.69999999552965,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 68.79999999701977,
+          "start": 68.5,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 109,
+          "start": 108.69999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 142.29999999701977,
+          "start": 142.19999999552965,
+          "duration": 0.10000000149011612,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 179.59999999403954,
+          "start": 179.39999999850988,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 214.79999999701977,
+          "start": 214.59999999403954,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 253.5,
+          "start": 253.19999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 287.5,
+          "start": 287.19999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 322.09999999403954,
+          "start": 321.79999999701977,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 358.19999999552965,
+          "start": 357.8999999985099,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 392.3999999985099,
+          "start": 391.69999999552965,
+          "duration": 0.7000000029802322,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 449.09999999403954,
+          "start": 432.29999999701977,
+          "duration": 16.799999997019768,
+          "w": 1179,
+          "h": 2261,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 449.19999999552965,
+          "kind": "reset",
+          "generation": 1,
+          "width": 1179,
+          "height": 2261,
+          "fields": 11
+        },
+        {
+          "type": "canvas-read",
+          "t": 450.5,
+          "start": 450.29999999701977,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 484,
+          "start": 483.69999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 518.7999999970198,
+          "start": 518.5,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 550.0999999940395,
+          "start": 549.8999999985099,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 585.5,
+          "start": 585.2999999970198,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 617.8999999985099,
+          "start": 617.6999999955297,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 651.7999999970198,
+          "start": 651.5999999940395,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 685.5999999940395,
+          "start": 685.3999999985099,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 718.3999999985099,
+          "start": 718.0999999940395,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 755.0999999940395,
+          "start": 754.7999999970198,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 788.0999999940395,
+          "start": 787.7999999970198,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 842.2999999970198,
+          "start": 824.7999999970198,
+          "duration": 17.5,
+          "w": 1179,
+          "h": 2261,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 842.3999999985099,
+          "kind": "reset",
+          "generation": 2,
+          "width": 1179,
+          "height": 2261,
+          "fields": 11
+        },
+        {
+          "type": "longtask",
+          "t": 844,
+          "start": 29.69999999552965,
+          "duration": 419
+        },
+        {
+          "type": "longtask",
+          "t": 844,
+          "start": 449.3999999985099,
+          "duration": 394
+        },
+        {
+          "type": "worker-result",
+          "t": 925.0999999940395,
+          "generation": 1,
+          "computeMs": 71.30000000447035
+        },
+        {
+          "type": "worker-result",
+          "t": 993.8999999985099,
+          "generation": 2,
+          "computeMs": 66.70000000298023
+        },
+        {
+          "type": "canvas-commit",
+          "t": 996.3999999985099,
+          "start": 993.8999999985099,
+          "duration": 2.5,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "ready",
+          "t": 997.5
+        },
+        {
+          "type": "visible",
+          "t": 1157.5999999940395
+        }
+      ],
+      "dpr": 1.5,
+      "w": 900,
+      "h": 620,
+      "canvas": {
+        "width": 1179,
+        "height": 2261
+      },
+      "resources": [],
+      "cpuSelf": [
+        [
+          "(idle) :0",
+          409.22599999999983
+        ],
+        [
+          "it file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          331.65399999999954
+        ],
+        [
+          "fe file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          317.94300000000004
+        ],
+        [
+          "(program) :0",
+          97.00899999999999
+        ],
+        [
+          " file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          75.59500000000001
+        ],
+        [
+          "(garbage collector) :0",
+          39.199999999999996
+        ],
+        [
+          "getImageData :0",
+          36.45499999999999
+        ],
+        [
+          "et file:///D:/VSCode/Auralis/out/renderer/assets/AppDialog.vue_vue_type_script_setup_true_lang-DIoVGRFH.js:4",
+          21.863000000000007
+        ],
+        [
+          "putImageData :0",
+          2.512
+        ],
+        [
+          "U file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          2.302
+        ],
+        [
+          "translate :0",
+          2.125
+        ],
+        [
+          "focus :0",
+          2.0469999999999997
+        ],
+        [
+          "getContext :0",
+          1.9849999999999999
+        ],
+        [
+          "setTransform :0",
+          1.9569999999999999
+        ],
+        [
+          "send :0",
+          1.362
+        ],
+        [
+          "Ua file:///D:/VSCode/Auralis/out/renderer/assets/vue-i18n-ehcVDj87.js:15",
+          1.099
+        ],
+        [
+          "Bf file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:18",
+          1.096
+        ],
+        [
+          "setProperty :0",
+          1.025
+        ],
+        [
+          "Ku file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:14",
+          1.017
+        ],
+        [
+          "querySelector :0",
+          0.999
+        ],
+        [
+          "_e file:///D:/VSCode/Auralis/out/renderer/assets/ArchivePage-C3gbhfy9.js:2",
+          0.989
+        ]
+      ]
+    },
+    {
+      "label": "reopen-wide-2",
+      "events": [
+        {
+          "type": "worker-post",
+          "t": -104.10000000149012,
+          "kind": "layout"
+        },
+        {
+          "type": "worker-post",
+          "t": -20.100000001490116,
+          "kind": "layout"
+        },
+        {
+          "type": "worker-post",
+          "t": -2.5,
+          "kind": "layout"
+        },
+        {
+          "type": "click",
+          "t": 0
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6000000014901161,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 0.6999999955296516,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png"
+        },
+        {
+          "type": "decode-start",
+          "t": 2.600000001490116,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png"
+        },
+        {
+          "type": "mounted",
+          "t": 26.600000001490116
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-unlit-D2bbhPVv.png",
+          "start": 0.6000000014901161,
+          "duration": 30.799999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-unlit-Bfmb8B39.png",
+          "start": 0.6000000014901161,
+          "duration": 30.799999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-unlit-Bcbsx55I.png",
+          "start": 0.6000000014901161,
+          "duration": 30.799999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-unlit-CwhhIrIn.png",
+          "start": 0.6000000014901161,
+          "duration": 30.799999997019768,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-7-unlit-CEfNFlwf.png",
+          "start": 0.6999999955296516,
+          "duration": 30.700000002980232,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-unlit-Cu_hyrg1.png",
+          "start": 0.6999999955296516,
+          "duration": 30.700000002980232,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-100-unlit-CbA0Imo6.png",
+          "start": 0.6999999955296516,
+          "duration": 30.700000002980232,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-365-unlit-IYrpqiac.png",
+          "start": 0.6999999955296516,
+          "duration": 30.700000002980232,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-520-unlit-D5bXgmRo.png",
+          "start": 0.6999999955296516,
+          "duration": 30.80000000447035,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-unlit-BXD42QpB.png",
+          "start": 0.6999999955296516,
+          "duration": 30.80000000447035,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 31.5,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-live-unlit-g4uQ8I8c.png",
+          "start": 0.6999999955296516,
+          "duration": 30.80000000447035,
+          "w": 330,
+          "h": 370
+        },
+        {
+          "type": "decode-end",
+          "t": 32.29999999701977,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/brushed-aluminium-CGTgAh-q.png",
+          "start": 2.5,
+          "duration": 29.799999997019768,
+          "w": 768,
+          "h": 256
+        },
+        {
+          "type": "decode-end",
+          "t": 32.399999998509884,
+          "src": "file:///D:/VSCode/Auralis/out/renderer/assets/foam-CAYdt-o2.png",
+          "start": 2.600000001490116,
+          "duration": 29.799999997019768,
+          "w": 768,
+          "h": 768
+        },
+        {
+          "type": "worker-create",
+          "t": 32.600000001490116,
+          "url": "file:///D:/VSCode/Auralis/out/renderer/assets/badgePressure.worker-Dwr3mTba.js"
+        },
+        {
+          "type": "canvas-read",
+          "t": 37,
+          "start": 36.79999999701977,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 71.29999999701977,
+          "start": 71.10000000149012,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 111.19999999552965,
+          "start": 110.89999999850988,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 145.19999999552965,
+          "start": 144.89999999850988,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 178.79999999701977,
+          "start": 178.29999999701977,
+          "duration": 0.3999999985098839,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 216.10000000149012,
+          "start": 215.79999999701977,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 249.39999999850988,
+          "start": 249.10000000149012,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 285.79999999701977,
+          "start": 285.6000000014901,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 319.5,
+          "start": 319.19999999552965,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 366.19999999552965,
+          "start": 366,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 401,
+          "start": 400.79999999701977,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 458.79999999701977,
+          "start": 439.19999999552965,
+          "duration": 19.600000001490116,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 458.8999999985099,
+          "kind": "reset",
+          "generation": 1,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "canvas-read",
+          "t": 460.1000000014901,
+          "start": 459.79999999701977,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 494.79999999701977,
+          "start": 494.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 527.5,
+          "start": 527.2999999970198,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 562.3999999985099,
+          "start": 562.1000000014901,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 593.6999999955297,
+          "start": 593.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 630.2999999970198,
+          "start": 630,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 663.5,
+          "start": 663.2999999970198,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 702.6999999955297,
+          "start": 702.5,
+          "duration": 0.19999999552965164,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 738.1000000014901,
+          "start": 737.8999999985099,
+          "duration": 0.20000000298023224,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 773.6999999955297,
+          "start": 773.3999999985099,
+          "duration": 0.29999999701976776,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 811.5,
+          "start": 811.1999999955297,
+          "duration": 0.30000000447034836,
+          "w": 390,
+          "h": 423,
+          "cls": ""
+        },
+        {
+          "type": "canvas-read",
+          "t": 862.6999999955297,
+          "start": 843.8999999985099,
+          "duration": 18.799999997019768,
+          "w": 1581,
+          "h": 1862,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "worker-post",
+          "t": 862.6999999955297,
+          "kind": "reset",
+          "generation": 2,
+          "width": 1581,
+          "height": 1862,
+          "fields": 11
+        },
+        {
+          "type": "longtask",
+          "t": 864.6000000014901,
+          "start": 32.399999998509884,
+          "duration": 426
+        },
+        {
+          "type": "longtask",
+          "t": 864.6000000014901,
+          "start": 459.1000000014901,
+          "duration": 405
+        },
+        {
+          "type": "worker-result",
+          "t": 954.6000000014901,
+          "generation": 1,
+          "computeMs": 78.20000000298023
+        },
+        {
+          "type": "worker-result",
+          "t": 1033.5,
+          "generation": 2,
+          "computeMs": 76.5
+        },
+        {
+          "type": "canvas-commit",
+          "t": 1036.2999999970198,
+          "start": 1033.5,
+          "duration": 2.7999999970197678,
+          "cls": "foam-surface"
+        },
+        {
+          "type": "ready",
+          "t": 1037.6000000014901
+        },
+        {
+          "type": "visible",
+          "t": 1198.3999999985099
+        }
+      ],
+      "dpr": 1.5,
+      "w": 1440,
+      "h": 900,
+      "canvas": {
+        "width": 1581,
+        "height": 1862
+      },
+      "resources": [],
+      "cpuSelf": [
+        [
+          "(idle) :0",
+          413.14099999999956
+        ],
+        [
+          "it file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          386.2660000000001
+        ],
+        [
+          "fe file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          313.3360000000001
+        ],
+        [
+          "(program) :0",
+          113.41600000000001
+        ],
+        [
+          "getImageData :0",
+          48.65600000000001
+        ],
+        [
+          "(garbage collector) :0",
+          43.59799999999999
+        ],
+        [
+          " file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          29.024000000000004
+        ],
+        [
+          "et file:///D:/VSCode/Auralis/out/renderer/assets/AppDialog.vue_vue_type_script_setup_true_lang-DIoVGRFH.js:4",
+          23.052
+        ],
+        [
+          "getBoundingClientRect :0",
+          15.318999999999999
+        ],
+        [
+          "focus :0",
+          3.016
+        ],
+        [
+          "setTransform :0",
+          2.248
+        ],
+        [
+          "putImageData :0",
+          2.08
+        ],
+        [
+          "translate :0",
+          2.0140000000000002
+        ],
+        [
+          "insertBefore :0",
+          1.498
+        ],
+        [
+          "fill :0",
+          1.373
+        ],
+        [
+          "al file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:10",
+          1.219
+        ],
+        [
+          "CanvasRenderingContext2D.getImageData :5",
+          1.175
+        ],
+        [
+          "U file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          1.09
+        ],
+        [
+          "Worker :0",
+          1.062
+        ],
+        [
+          "le file:///D:/VSCode/Auralis/out/renderer/assets/ArchiveMilestoneGallery-CzFRQ1I9.js:10",
+          1.005
+        ],
+        [
+          "F file:///D:/VSCode/Auralis/out/renderer/assets/index-BwODLJfc.js:14",
+          0.759
+        ]
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,33 @@
+{
+  "root": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-calibration-xtjpuawb",
+  "results": [
+    {
+      "name": "healthy",
+      "discontinuityDetected": false,
+      "offsetSpreadFrames": 0,
+      "minCorrelation": 0.999999961728836,
+      "silent5msWindowsInsideSignal": 0
+    },
+    {
+      "name": "insert-10ms",
+      "discontinuityDetected": true,
+      "offsetSpreadFrames": 480,
+      "minCorrelation": 0.999999961728836,
+      "silent5msWindowsInsideSignal": 1
+    },
+    {
+      "name": "drop-10ms",
+      "discontinuityDetected": true,
+      "offsetSpreadFrames": 480,
+      "minCorrelation": 0.962581333702376,
+      "silent5msWindowsInsideSignal": 0
+    },
+    {
+      "name": "silence-10ms",
+      "discontinuityDetected": true,
+      "offsetSpreadFrames": 0,
+      "minCorrelation": 0.9812325271571283,
+      "silent5msWindowsInsideSignal": 1
+    }
+  ]
+}

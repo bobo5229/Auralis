@@ -1,0 +1,108 @@
+[
+  {
+    "theme": "dark",
+    "preview": {
+      "text": "320 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    },
+    "row": {
+      "text": "1411 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    },
+    "missing": {
+      "text": "—",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    },
+    "restored": {
+      "text": "1411 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    },
+    "reset": {
+      "text": "1411 K",
+      "size": "12px",
+      "weight": "400",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 18,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    }
+  },
+  {
+    "theme": "light",
+    "preview": {
+      "text": "320 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(104, 110, 116)"
+    },
+    "row": {
+      "text": "1411 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(104, 110, 116)"
+    },
+    "missing": {
+      "text": "—",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(104, 110, 116)"
+    },
+    "restored": {
+      "text": "1411 K",
+      "size": "18px",
+      "weight": "700",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 21.604167938232422,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    },
+    "reset": {
+      "text": "1411 K",
+      "size": "12px",
+      "weight": "400",
+      "width": 80,
+      "contentWidth": 80,
+      "height": 18,
+      "rowHeight": 48,
+      "color": "rgb(146, 153, 163)"
+    }
+  }
+]

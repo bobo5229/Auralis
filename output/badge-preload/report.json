@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "cold open never exposes a partially loaded row",
+      "pass": true
+    },
+    {
+      "name": "only the current four hour previews are displayed",
+      "pass": true
+    },
+    {
+      "name": "decode pending keeps the entire row hidden, inert and busy",
+      "pass": true
+    },
+    {
+      "name": "cached 100-hour badge cannot appear ahead of its peers",
+      "pass": true
+    },
+    {
+      "name": "three completed decodes still wait for the fourth",
+      "pass": true
+    },
+    {
+      "name": "all four badges and names reveal together after the last decode",
+      "pass": true
+    },
+    {
+      "name": "appearance changes also wait for every image",
+      "pass": true
+    },
+    {
+      "name": "obsolete day decodes cannot reveal the current album group",
+      "pass": true
+    },
+    {
+      "name": "current album decodes reveal only the selected category",
+      "pass": true
+    },
+    {
+      "name": "decode failure ends busy state and reports a compact accessible error",
+      "pass": true
+    },
+    {
+      "name": "switching category recovers from decode failure",
+      "pass": true
+    },
+    {
+      "name": "closing while decoding restores trigger focus",
+      "pass": true
+    },
+    {
+      "name": "decodes from a closed case cannot reveal a newly opened case",
+      "pass": true
+    },
+    {
+      "name": "revealed badge still opens GLSL inspection",
+      "pass": true
+    },
+    {
+      "name": "returning from inspection preserves the ready collection",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-preload\\isolated-profile\\profile-NE7hQk"
+}

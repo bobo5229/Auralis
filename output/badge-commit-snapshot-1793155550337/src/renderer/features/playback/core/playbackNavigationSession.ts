@@ -1,0 +1,298 @@
+import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack, ShuffleCycle } from '../types'
+import {
+  insertTrackAfterCurrent as buildSingleTrackInsertion,
+  insertTracksAfterCurrent as buildMultiTrackInsertion,
+  PlaybackHistory,
+  type PlaybackHistoryEntry,
+} from './playbackQueueState'
+import {
+  resolvePlaybackAdvance,
+  findCurrentAlbumShuffleContext,
+  type PlaybackAdvanceDecision,
+  type PlaybackAdvanceTrigger,
+  type PlaybackTransitionPlan,
+  type PlaybackTransitionSource,
+  type PlaybackTransitionState,
+} from './playbackTransitionPlanner'
+
+export type PlaybackPreviousDecision =
+  | { kind: 'restore-history'; entry: PlaybackHistoryEntry }
+  | { kind: 'play-queue-track'; track: PlaybackTrack }
+  | { kind: 'seek-to-start' }
+  | { kind: 'noop' }
+
+export interface NavigationCurrentState {
+  queue: PlaybackTrack[]
+  currentIndex: number
+  currentTrackId: number | null
+  currentTrack: PlaybackTrack | null
+  playbackMode: PlaybackMode
+}
+
+export class PlaybackNavigationSession {
+  private queuedTrackIds: number[] = []
+  private albumShuffleContext: AlbumShuffleContext = null
+  private shuffleTrackPool: PlaybackTrack[] | null = null
+  private shuffleCycle: ShuffleCycle | null | undefined = undefined
+  private readonly history = new PlaybackHistory()
+
+  getQueuedNextTrackId(): number | null {
+    return this.queuedTrackIds[0] ?? null
+  }
+
+  setQueuedNextTrackId(id: number | null): void {
+    this.queuedTrackIds = id === null ? [] : [id]
+  }
+
+  getAlbumShuffleContext(): AlbumShuffleContext {
+    return this.albumShuffleContext
+  }
+
+  setAlbumShuffleContext(context: AlbumShuffleContext): void {
+    this.albumShuffleContext = context
+  }
+
+  getShuffleTrackPool(): PlaybackTrack[] | null {
+    return this.shuffleTrackPool
+  }
+
+  setShuffleTrackPool(pool: PlaybackTrack[] | null): void {
+    this.shuffleTrackPool = pool
+  }
+
+  pushHistory(
+    previousTrack: PlaybackTrack | null,
+    nextTrackId: number,
+    currentQueue: PlaybackTrack[],
+  ): void {
+    this.history.push(previousTrack, nextTrackId, {
+      queue: currentQueue,
+      albumShuffleContext: this.albumShuffleContext,
+      shuffleTrackPool: this.shuffleTrackPool,
+      shuffleCycle: this.shuffleCycle,
+    })
+  }
+
+  popHistory(): PlaybackHistoryEntry | null {
+    return this.history.pop()
+  }
+
+  clearHistory(): void {
+    this.history.clear()
+  }
+
+  visitTracks(
+    visit: (track: PlaybackTrack) => void,
+    visitQueue: (queue: PlaybackTrack[]) => void,
+  ): void {
+    if (this.shuffleTrackPool) visitQueue(this.shuffleTrackPool)
+    if (this.albumShuffleContext) visitQueue(this.albumShuffleContext.tracks)
+    this.history.visitTracks(visit, visitQueue)
+  }
+
+  setMode(mode: PlaybackMode): void {
+    if (this.shuffleCycle !== undefined) this.shuffleCycle = null
+    if (mode !== 'album-shuffle') {
+      this.albumShuffleContext = null
+    }
+    if (mode !== 'shuffle' && mode !== 'album-shuffle') {
+      this.history.clear()
+    }
+  }
+
+  resetForTrackSwitch(options?: { shufflePool?: PlaybackTrack[]; shuffleCycle?: boolean }): void {
+    this.queuedTrackIds = []
+    this.albumShuffleContext = null
+    this.shuffleTrackPool = options?.shufflePool ?? null
+    this.shuffleCycle = options?.shuffleCycle ? null : undefined
+  }
+
+  resetQueueContext(options?: {
+    mode?: PlaybackMode
+    shufflePool?: PlaybackTrack[]
+    shuffleCycle?: boolean
+  }): void {
+    this.queuedTrackIds = []
+    this.albumShuffleContext = null
+    this.shuffleTrackPool = options?.shufflePool ?? null
+    this.shuffleCycle = options?.shuffleCycle ? null : undefined
+    if (options?.mode) {
+      this.setMode(options.mode)
+    }
+  }
+
+  insertSingleTrack(
+    currentQueue: PlaybackTrack[],
+    currentTrackId: number,
+    track: PlaybackTrack,
+  ): { queue: PlaybackTrack[]; currentIndex: number; queuedTrackId: number } | null {
+    const insertion = buildSingleTrackInsertion(currentQueue, currentTrackId, track)
+    if (insertion) {
+      this.queuedTrackIds = [track.id, ...this.queuedTrackIds.filter((id) => id !== track.id)]
+    }
+    return insertion
+  }
+
+  insertMultipleTracks(
+    currentQueue: PlaybackTrack[],
+    currentTrackId: number,
+    tracks: PlaybackTrack[],
+  ): { queue: PlaybackTrack[]; currentIndex: number; queuedTrackId: number } | null {
+    const insertion = buildMultiTrackInsertion(currentQueue, currentTrackId, tracks)
+    if (insertion) {
+      const insertedIds = [...new Set(tracks.map((track) => track.id))].filter(
+        (id) => id !== currentTrackId,
+      )
+      const inserted = new Set(insertedIds)
+      this.queuedTrackIds = [
+        ...insertedIds,
+        ...this.queuedTrackIds.filter((id) => !inserted.has(id)),
+      ]
+    }
+    return insertion
+  }
+
+  removeMissingTracks(
+    missingIds: Set<number>,
+    currentTrackId: number | null,
+  ): { currentTrackMissing: boolean } {
+    if (missingIds.size === 0) return { currentTrackMissing: false }
+
+    const currentTrackMissing = currentTrackId !== null && missingIds.has(currentTrackId)
+
+    this.shuffleTrackPool =
+      this.shuffleTrackPool?.filter((track) => !missingIds.has(track.id)) ?? null
+
+    if (this.albumShuffleContext) {
+      const tracks = this.albumShuffleContext.tracks.filter((track) => !missingIds.has(track.id))
+      this.albumShuffleContext = tracks.length > 0 ? { ...this.albumShuffleContext, tracks } : null
+    }
+
+    this.history.removeTracks(missingIds)
+
+    this.queuedTrackIds = this.queuedTrackIds.filter((id) => !missingIds.has(id))
+
+    return { currentTrackMissing }
+  }
+
+  applyPlan(
+    plan: PlaybackTransitionPlan,
+    currentTrack: PlaybackTrack | null,
+    currentQueue: PlaybackTrack[],
+  ): void {
+    if (plan.recordHistory) {
+      this.pushHistory(currentTrack, plan.track.id, currentQueue)
+    }
+    if (plan.nextShuffleCycle) this.shuffleCycle = plan.nextShuffleCycle
+    if (plan.consumeQueued) {
+      this.queuedTrackIds = this.queuedTrackIds.filter((id) => id !== plan.track.id)
+    }
+    if (plan.nextAlbumShuffleContext !== undefined) {
+      this.albumShuffleContext = plan.nextAlbumShuffleContext
+    }
+  }
+
+  // The backend may cross an old next boundary while a mode/queue edit is in
+  // flight. Adopt its actual track without restoring the old navigation state.
+  rebaseEnteredPlan(
+    submittedPlan: PlaybackTransitionPlan,
+    currentState: NavigationCurrentState,
+    preserveShuffleContext: boolean,
+  ): PlaybackTransitionPlan {
+    const track = submittedPlan.track
+    let queue = currentState.queue.some((item) => item.id === track.id)
+      ? currentState.queue
+      : [...currentState.queue, track]
+    // An insertion made just before delivery can sit before the track mpv has
+    // already entered. Keep those unconsumed requests immediately after it.
+    const queuedTracks = this.queuedTrackIds
+      .filter((id) => id !== track.id)
+      .flatMap((id) => queue.find((item) => item.id === id) ?? [])
+    const insertion = buildMultiTrackInsertion(queue, track.id, queuedTracks)
+    if (insertion) queue = insertion.queue
+    return {
+      track,
+      queue,
+      recordHistory: currentState.currentTrackId !== track.id,
+      consumeQueued: this.queuedTrackIds.includes(track.id),
+      nextShuffleCycle:
+        preserveShuffleContext && submittedPlan.nextShuffleCycle
+          ? submittedPlan.nextShuffleCycle
+          : currentState.playbackMode === 'shuffle' && this.shuffleCycle
+            ? {
+                ...this.shuffleCycle,
+                remaining: this.shuffleCycle.remaining.filter((id) => id !== track.id),
+              }
+            : undefined,
+      nextAlbumShuffleContext:
+        preserveShuffleContext && submittedPlan.nextAlbumShuffleContext !== undefined
+          ? submittedPlan.nextAlbumShuffleContext
+          : currentState.playbackMode === 'album-shuffle'
+            ? findCurrentAlbumShuffleContext(this.shuffleTrackPool ?? queue, track.id)
+            : undefined,
+    }
+  }
+
+  async resolveAdvance(
+    currentState: NavigationCurrentState,
+    source: PlaybackTransitionSource,
+    trigger: PlaybackAdvanceTrigger,
+    random: () => number = Math.random,
+  ): Promise<PlaybackAdvanceDecision> {
+    const plannerState: PlaybackTransitionState = {
+      currentTrackId: currentState.currentTrackId,
+      currentTrack: currentState.currentTrack,
+      queue: currentState.queue,
+      currentIndex: currentState.currentIndex,
+      playbackMode: currentState.playbackMode,
+      queuedNextTrackId: this.getQueuedNextTrackId(),
+      albumShuffleContext: this.albumShuffleContext,
+      shuffleTrackPool: this.shuffleTrackPool,
+      shuffleCycle: this.shuffleCycle,
+    }
+
+    return resolvePlaybackAdvance(plannerState, source, trigger, random)
+  }
+
+  resolvePrevious(currentState: {
+    queue: PlaybackTrack[]
+    currentIndex: number
+    playbackMode: PlaybackMode
+  }): PlaybackPreviousDecision {
+    this.queuedTrackIds = []
+
+    if (currentState.playbackMode === 'shuffle' || currentState.playbackMode === 'album-shuffle') {
+      const entry = this.history.pop()
+      if (entry) {
+        this.albumShuffleContext = entry.albumShuffleContext
+        this.shuffleTrackPool = entry.shuffleTrackPool
+        this.shuffleCycle = entry.shuffleCycle
+        return { kind: 'restore-history', entry }
+      }
+    }
+
+    if (currentState.queue.length === 0) {
+      return { kind: 'noop' }
+    }
+
+    const prevIndex = currentState.currentIndex - 1
+    if (prevIndex < 0) {
+      if (currentState.playbackMode === 'repeat-all') {
+        const track = currentState.queue[currentState.queue.length - 1]
+        return { kind: 'play-queue-track', track }
+      }
+      return { kind: 'seek-to-start' }
+    }
+
+    const track = currentState.queue[prevIndex]
+    return { kind: 'play-queue-track', track }
+  }
+
+  clear(): void {
+    this.queuedTrackIds = []
+    this.albumShuffleContext = null
+    this.shuffleTrackPool = null
+    this.shuffleCycle = undefined
+    this.history.clear()
+  }
+}

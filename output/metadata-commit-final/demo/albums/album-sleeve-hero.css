@@ -1,0 +1,338 @@
+@font-face {
+  font-family: 'Sleeve Display';
+  src: url('../../src/renderer/assets/fonts/cd-room/SourceSerif4-normal-latin.woff2')
+    format('woff2');
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --paper-edge: #dedbd1;
+  --auralis-theme-accent: #847183;
+  --auralis-control-primary-text: #ffffff;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --paper-edge: #eee9df;
+  --auralis-theme-accent: #847183;
+  --auralis-control-primary-text: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+  min-height: 100vh;
+  background: var(--auralis-bg);
+  color: var(--auralis-text);
+}
+
+button {
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 5px;
+}
+
+.theme-toggle {
+  position: fixed;
+  z-index: 5;
+  top: 24px;
+  right: 28px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--auralis-control-hover-bg);
+}
+
+.scroll-scene {
+  --pull: 0;
+  --tear: 0%;
+  --strip-y: 0px;
+  --strip-opacity: 0;
+  height: 210svh;
+}
+
+.hero {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-rows: max-content minmax(0, 1fr);
+  height: 100svh;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 52px 56px 68px;
+}
+
+.hero-heading {
+  margin-bottom: 28px;
+}
+
+/* 原型的海报标题角色，独立于产品通用文字规格。 */
+h1 {
+  margin: 0;
+  font-family: 'Sleeve Display', Georgia, serif;
+  font-size: clamp(48px, 8vw, 104px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.hero-composition {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 64px;
+}
+
+.package {
+  --sleeve-size: min(356px, 32vw, calc((100svh - 240px) / 1.62));
+  --extraction: calc(var(--sleeve-size) * 0.62);
+  position: relative;
+  width: var(--sleeve-size);
+  height: calc(var(--sleeve-size) + var(--extraction));
+  margin-left: 28px;
+  isolation: isolate;
+}
+
+.record {
+  position: absolute;
+  top: 0;
+  left: 3%;
+  display: grid;
+  place-items: center;
+  width: 94%;
+  aspect-ratio: 1;
+  border: 1px solid #414347;
+  border-radius: 50%;
+  transform: translateY(calc(var(--extraction) * (1 - var(--pull))));
+  background:
+    repeating-radial-gradient(circle, transparent 0 2px, rgb(255 255 255 / 0.045) 2px 3px),
+    conic-gradient(
+      from 12deg,
+      #181a1d,
+      #35383c 42deg,
+      #161719 82deg,
+      #151618 170deg,
+      #35383b 224deg,
+      #151618 262deg,
+      #181a1d
+    );
+}
+
+.record-label {
+  position: relative;
+  width: 29%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 5px solid #151719;
+  border-radius: 50%;
+}
+
+.record-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.record-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid #8b8e8c;
+  border-radius: 50%;
+  background: var(--auralis-bg);
+  transform: translate(-50%, -50%);
+}
+
+.sleeve {
+  position: absolute;
+  top: var(--extraction);
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--paper-edge);
+}
+
+.sleeve-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.torn-edge {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  fill: var(--paper-edge);
+  clip-path: inset(0 calc(100% - var(--tear)) 0 0);
+}
+
+.sealed-edge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 9px;
+  background: var(--paper-edge);
+  clip-path: inset(0 0 0 var(--tear));
+}
+
+.opening-strip {
+  position: absolute;
+  top: calc(var(--extraction) - 7px);
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 14px;
+  fill: var(--paper-edge);
+  clip-path: inset(0 calc(100% - var(--tear)) 0 0);
+  transform: translateY(var(--strip-y));
+  opacity: var(--strip-opacity);
+  pointer-events: none;
+}
+
+.album-information {
+  padding-bottom: 18px;
+}
+
+.metadata {
+  margin-bottom: 26px;
+}
+
+.artist {
+  margin: 0 0 10px;
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.release-date {
+  margin: 0;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.scroll-arrow {
+  font-size: 18px;
+}
+
+.track-section {
+  max-width: 1160px;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 64px 56px 120px;
+}
+
+h2 {
+  margin: 0 0 36px;
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+  font-weight: 600;
+}
+
+.demo-tracks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demo-tracks li {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  padding: 20px 12px;
+  border-top: 1px solid var(--auralis-cover-track-divider);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.demo-tracks li > :first-child {
+  color: var(--auralis-text-muted);
+}
+
+@media (max-width: 760px) {
+  .hero {
+    padding: 64px 28px 64px;
+  }
+  .hero-heading {
+    margin-bottom: 24px;
+  }
+  .hero-composition {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .package {
+    --sleeve-size: min(340px, calc(100vw - 72px), calc((100svh - 340px) / 1.62));
+    margin: 0 auto;
+  }
+  .album-information {
+    padding: 0;
+  }
+  .metadata {
+    margin-bottom: 12px;
+  }
+  .scroll-hint {
+    left: 28px;
+  }
+  .track-section {
+    padding: 48px 28px 100px;
+  }
+}
+
+[data-reduced-motion='true'] .scroll-scene {
+  height: auto;
+}
+[data-reduced-motion='true'] .hero {
+  position: relative;
+  height: auto;
+}
+[data-reduced-motion='true'] .scroll-hint {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record {
+    transform: none;
+  }
+}

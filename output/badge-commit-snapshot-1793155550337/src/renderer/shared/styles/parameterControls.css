@@ -1,0 +1,407 @@
+/* Shared parameter rows and controls for settings and player panels. */
+
+:is(.settings-surface, .settings-controls) .settings-text-button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-family: var(--auralis-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:is(.settings-surface, .settings-controls) .settings-text-button:hover:not(:disabled) {
+  color: var(--auralis-text);
+}
+
+:is(.settings-surface, .settings-controls) .settings-text-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+:is(.settings-surface, .settings-controls) .settings-text-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-text-button {
+  align-self: center;
+}
+
+/* Settings Group & Section Title */
+
+:is(.settings-surface, .settings-controls) .settings-group {
+  margin-bottom: 24px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-group:last-child {
+  margin-bottom: 0;
+}
+
+:is(.settings-surface, .settings-controls) .settings-group-header {
+  margin-bottom: 8px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-group-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--auralis-text-muted);
+  user-select: none;
+}
+
+/* Group Surface: one restrained card per semantic section */
+
+:is(.settings-surface, .settings-controls) .settings-group-card {
+  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 50%, transparent);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+/* Base Setting Row inside Group Surface */
+
+:is(.settings-surface, .settings-controls) .settings-row {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 9px 16px;
+  background: transparent;
+}
+
+/* Setting Row with Secondary Copy */
+
+:is(.settings-surface, .settings-controls) .settings-row:has(span),
+:is(.settings-surface, .settings-controls) .settings-row--with-desc {
+  min-height: 56px;
+  padding: 10px 16px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row + .settings-row {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+:is(.settings-surface, .settings-controls) .settings-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row > div > strong {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--auralis-text);
+}
+
+:is(.settings-surface, .settings-controls) .settings-row > div > span {
+  color: var(--auralis-text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  max-width: 540px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row > .settings-segmented-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+:is(.settings-surface, .settings-controls) .settings-segmented-option {
+  min-height: 26px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+:is(.settings-surface, .settings-controls) .settings-segmented-option:hover {
+  color: var(--auralis-text);
+}
+
+:is(.settings-surface, .settings-controls) .settings-segmented-option:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-segmented-option.is-selected {
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-text) 13%, var(--auralis-context-menu-bg));
+  border: 0.5px solid color-mix(in srgb, var(--auralis-text) 24%, transparent);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='light']
+  :is(.settings-surface, .settings-controls)
+  .settings-segmented-option.is-selected {
+  background: #ffffff;
+  border-color: color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+:is(.settings-surface, .settings-controls) .settings-value {
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  align-self: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch.is-enabled {
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 70%, transparent);
+  background: var(--auralis-sidebar-active-indicator);
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--auralis-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-theme='light']
+  :is(.settings-surface, .settings-controls)
+  .settings-switch:not(.is-enabled)
+  .settings-switch-thumb {
+  background: #ffffff;
+}
+
+:is(.settings-surface, .settings-controls) .settings-switch.is-enabled .settings-switch-thumb {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row > .settings-range-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control {
+  --settings-range-fill: var(--auralis-theme-accent);
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control input {
+  width: 120px;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+:is(.settings-surface, .settings-controls)
+  .settings-range-control
+  input::-webkit-slider-runnable-track {
+  appearance: none;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--settings-range-fill) var(--settings-range-progress),
+    color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--settings-range-progress)
+  );
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control input::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -5.5px;
+  appearance: none;
+  border-radius: 50%;
+  border: 0.5px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  background: #ffffff;
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.18);
+  transition: box-shadow 140ms ease;
+}
+
+:is(.settings-surface, .settings-controls)
+  .settings-range-control
+  input:hover:not(:disabled)::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--settings-range-fill) 18%, transparent),
+    0 0.5px 1px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control input::-moz-range-track {
+  appearance: none;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--settings-range-fill) var(--settings-range-progress),
+    color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--settings-range-progress)
+  );
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 0.5px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  background: #ffffff;
+  box-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control input:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 4px;
+}
+
+/* Responsive Settings sliders; reuse the shared thin track and circular thumb. */
+
+:is(.settings-surface, .page-parameter-panel) .settings-row:has(> .settings-range-control input) {
+  display: grid;
+  box-sizing: border-box;
+  height: 64px;
+  min-height: 64px;
+  max-height: 64px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: var(--auralis-type-caption-line-height) auto;
+  align-content: center;
+  align-items: baseline;
+  gap: 0 12px;
+}
+
+:is(.settings-surface, .page-parameter-panel)
+  .settings-row:has(> .settings-range-control)
+  > div:first-child {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+:is(.settings-surface, .page-parameter-panel)
+  .settings-row:has(> .settings-range-control)
+  > div:first-child
+  > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+:is(.settings-surface, .page-parameter-panel) .settings-row > .settings-range-control {
+  display: contents;
+}
+
+:is(.settings-surface, .page-parameter-panel) .settings-range-control input {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+  width: 100%;
+  /* A centered 16px thumb leaves 2px clear of the text row inside this hit area. */
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+}
+
+:is(.settings-surface, .page-parameter-panel) .settings-range-control input:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+:is(.settings-surface, .page-parameter-panel) .settings-range-control output {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  line-height: var(--auralis-type-caption-line-height);
+  white-space: nowrap;
+}
+
+:is(.settings-surface, .settings-controls) .settings-range-control output {
+  min-width: 32px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.page-parameter-panel .settings-range-control output {
+  font-size: 11px;
+}
+
+:where([data-reduced-motion='true'])
+  :is(.settings-surface, .settings-controls)
+  .settings-range-control
+  input::-webkit-slider-thumb,
+:where([data-reduced-motion='true']) :is(.settings-surface, .settings-controls) .settings-switch,
+:where([data-reduced-motion='true'])
+  :is(.settings-surface, .settings-controls)
+  .settings-switch-thumb,
+:where([data-reduced-motion='true'])
+  :is(.settings-surface, .settings-controls)
+  .settings-segmented-option {
+  transition: none;
+  transform: none;
+}

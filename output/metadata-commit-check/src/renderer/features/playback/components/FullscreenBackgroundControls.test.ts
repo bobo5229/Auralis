@@ -1,0 +1,530 @@
+import { createRenderer, h, nextTick, ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { FullscreenLyricsTypography } from '@renderer/features/lyrics/constants/fullscreenLyricsTypography'
+import type { FullscreenInfoTypography } from '../constants/fullscreenInfoTypography'
+
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('../composables/useFullscreenBackground', () => ({
+  useFullscreenBackground: () => backgroundState,
+}))
+vi.mock('@renderer/features/lyrics/composables/useFullscreenLyricsTypography', () => ({
+  useFullscreenLyricsTypography: () => typographyState,
+}))
+vi.mock('../composables/useFullscreenInfoTypography', () => ({
+  useFullscreenInfoTypography: () => infoTypographyState,
+}))
+vi.mock('vue', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue')>()
+  return {
+    ...actual,
+    Transition: {
+      inheritAttrs: false,
+      setup(_props: unknown, { slots }: { slots: { default: () => unknown } }) {
+        return () => slots.default()
+      },
+    },
+  }
+})
+
+const typographyState = {
+  preference: ref<FullscreenLyricsTypography>({
+    fontSizePercent: 100,
+    fontWeight: 800,
+    lineGapPercent: 100,
+  }),
+  persistFailed: ref(false),
+  setPreference: vi.fn((patch: Partial<FullscreenLyricsTypography>) => {
+    typographyState.preference.value = { ...typographyState.preference.value, ...patch }
+  }),
+  resetPreference: vi.fn(() => {
+    typographyState.preference.value = {
+      fontSizePercent: 100,
+      fontWeight: 800,
+      lineGapPercent: 100,
+    }
+  }),
+}
+
+const infoTypographyDefaults = {
+  titleFontSizePx: 25,
+  titleFontWeight: 800,
+  subtitleFontSizePx: 19,
+  subtitleFontWeight: 700,
+} satisfies FullscreenInfoTypography
+
+const infoTypographyState = {
+  preference: ref<FullscreenInfoTypography>({ ...infoTypographyDefaults }),
+  persistFailed: ref(false),
+  setPreference: vi.fn((patch: Partial<FullscreenInfoTypography>) => {
+    infoTypographyState.preference.value = { ...infoTypographyState.preference.value, ...patch }
+  }),
+  resetPreference: vi.fn(() => {
+    infoTypographyState.preference.value = { ...infoTypographyDefaults }
+  }),
+}
+
+const backgroundState = {
+  backgroundMotionPaused: ref(false),
+  setBackgroundMotionPaused: vi.fn(
+    (paused: boolean) => (backgroundState.backgroundMotionPaused.value = paused),
+  ),
+}
+
+class TestNode {
+  props: Record<string, unknown> = {}
+  children: TestNode[] = []
+  parent: TestNode | null = null
+  text = ''
+
+  constructor(public type = 'node') {}
+
+  get textContent(): string {
+    return this.text + this.children.map((child) => child.textContent).join('')
+  }
+
+  focus(): void {
+    ;(document as unknown as { activeElement: TestNode }).activeElement = this
+  }
+
+  getBoundingClientRect(): {
+    left: number
+    right: number
+    top: number
+    bottom: number
+    width: number
+    height: number
+  } {
+    // A longer option can make the content-sized menu wider than its trigger.
+    const width = this.props.role === 'listbox' ? 196 : 148
+    return { left: 100, right: 100 + width, top: 100, bottom: 130, width, height: 30 }
+  }
+
+  closest(): null {
+    return null
+  }
+
+  querySelector(): null {
+    return null
+  }
+}
+
+let body: TestNode
+let app: ReturnType<typeof renderer.createApp> | undefined
+let controlsInstance: { close: (restoreFocus?: boolean) => boolean } | null = null
+
+const renderer = createRenderer<TestNode, TestNode>({
+  createElement: (type) => new TestNode(type),
+  createText: (text) => Object.assign(new TestNode('#text'), { text }),
+  createComment: () => new TestNode('#comment'),
+  insert(child, parent, anchor) {
+    if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1)
+    child.parent = parent
+    const index = anchor ? parent.children.indexOf(anchor) : -1
+    if (index < 0) parent.children.push(child)
+    else parent.children.splice(index, 0, child)
+  },
+  remove(child) {
+    if (!child.parent) return
+    child.parent.children.splice(child.parent.children.indexOf(child), 1)
+    child.parent = null
+  },
+  setText: (node, text) => (node.text = text),
+  setElementText: (node, text) => {
+    node.text = text
+    node.children = []
+  },
+  parentNode: (node) => node.parent,
+  nextSibling: (node) => node.parent?.children[node.parent.children.indexOf(node) + 1] ?? null,
+  patchProp: (node, key, _previous, value) => (node.props[key] = value),
+  querySelector: () => body,
+})
+
+function find(predicate: (node: TestNode) => boolean, root = body): TestNode | undefined {
+  if (predicate(root)) return root
+  for (const child of root.children) {
+    const match = find(predicate, child)
+    if (match) return match
+  }
+  return undefined
+}
+
+function collect(
+  predicate: (node: TestNode) => boolean,
+  root = body,
+  acc: TestNode[] = [],
+): TestNode[] {
+  if (predicate(root)) acc.push(root)
+  for (const child of root.children) collect(predicate, child, acc)
+  return acc
+}
+
+async function flush(): Promise<void> {
+  await nextTick()
+  await nextTick()
+}
+
+async function mount(): Promise<void> {
+  const { default: loaded } = await import('./FullscreenBackgroundControls.vue')
+  const componentRef = ref<{ close: (restoreFocus?: boolean) => boolean } | null>(null)
+  app = renderer.createApp({
+    setup: () => () => h(loaded, { ref: componentRef }),
+  })
+  app.directive('tooltip', {})
+  body = new TestNode('root')
+  app.mount(body)
+  controlsInstance = componentRef.value
+  await flush()
+  trigger(
+    find((node) => node.props['aria-controls'] === 'fullscreen-background-panel'),
+    'Click',
+    {},
+  )
+  await flush()
+}
+
+function trigger(node: TestNode | undefined, event: string, payload: unknown): void {
+  const handler = node?.props[`on${event}`]
+  if (typeof handler === 'function') (handler as (event: unknown) => void)(payload)
+}
+
+beforeEach(() => {
+  body = new TestNode('body')
+  typographyState.preference.value = { fontSizePercent: 100, fontWeight: 800, lineGapPercent: 100 }
+  typographyState.persistFailed.value = false
+  typographyState.setPreference.mockClear()
+  typographyState.resetPreference.mockClear()
+  infoTypographyState.preference.value = { ...infoTypographyDefaults }
+  infoTypographyState.persistFailed.value = false
+  infoTypographyState.setPreference.mockClear()
+  infoTypographyState.resetPreference.mockClear()
+  backgroundState.backgroundMotionPaused.value = false
+  backgroundState.setBackgroundMotionPaused.mockClear()
+  vi.stubGlobal('Node', TestNode)
+  vi.stubGlobal('HTMLElement', TestNode)
+  vi.stubGlobal('window', {
+    innerWidth: 1280,
+    innerHeight: 900,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+  vi.stubGlobal('document', {
+    body,
+    activeElement: body,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+})
+
+afterEach(async () => {
+  app?.unmount()
+  app = undefined
+  controlsInstance = null
+  await flush()
+  vi.unstubAllGlobals()
+})
+
+describe('FullscreenBackgroundControls lyrics typography group', () => {
+  it('renders the lyrics group after background and sends typed input updates', async () => {
+    await mount()
+    expect(
+      collect((node) => node.props.class === 'settings-group-title').map(
+        (node) => node.textContent,
+      ),
+    ).toEqual([
+      'fullscreen.background.section',
+      'fullscreen.info.section',
+      'fullscreen.lyrics.section',
+    ])
+
+    trigger(
+      find((node) => node.props.id === 'fullscreen-lyrics-font-size'),
+      'Input',
+      { target: { value: '125' } },
+    )
+    trigger(
+      find((node) => node.props.id === 'fullscreen-lyrics-font-weight'),
+      'Click',
+      {},
+    )
+    await flush()
+    const weightMenu = find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')
+    expect(weightMenu?.props.role).toBe('listbox')
+    expect(weightMenu?.props.style).toMatchObject({
+      width: 'max-content',
+      minWidth: '148px',
+      maxWidth: '1264px',
+      left: '52px',
+    })
+    expect(weightMenu?.parent?.props.class).toBe('fullscreen-background-controls')
+    trigger(
+      find(
+        (node) =>
+          node.props.role === 'option' && node.textContent === 'fullscreen.lyrics.weights.600',
+      ),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')).toBeUndefined()
+    expect(find((node) => node.props.id === 'fullscreen-background-panel')).toBeDefined()
+    trigger(
+      find((node) => node.props['data-lyrics-typography'] === 'line-gap'),
+      'Input',
+      { target: { value: '80' } },
+    )
+
+    expect(typographyState.setPreference.mock.calls).toEqual([
+      [{ fontSizePercent: 125 }],
+      [{ fontWeight: 600 }],
+      [{ lineGapPercent: 80 }],
+    ])
+  })
+
+  it('steps lyric size by five percent and rejects invalid input', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-lyrics-font-size')!
+    expect(input.props.role).toBe('spinbutton')
+    expect(input.props['aria-valuetext']).toBe('100%')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    trigger(buttons[1], 'Click', {})
+    await flush()
+    expect(typographyState.setPreference).toHaveBeenLastCalledWith({ fontSizePercent: 105 })
+    trigger(input, 'Input', { target: { value: '106' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('105')
+    typographyState.preference.value = { ...typographyState.preference.value, fontSizePercent: 150 }
+    await flush()
+    expect(buttons[1].props.disabled).toBe(true)
+  })
+
+  it('resets only lyrics, preserves paused background and shows save feedback', async () => {
+    await mount()
+    typographyState.preference.value = { fontSizePercent: 125, fontWeight: 600, lineGapPercent: 80 }
+    await flush()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-size')).toBeDefined()
+
+    trigger(
+      find((node) => node.props['data-lyrics-typography-reset'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(typographyState.resetPreference).toHaveBeenCalledOnce()
+    expect(backgroundState.backgroundMotionPaused.value).toBe(true)
+    expect(
+      find((node) => node.props['data-lyrics-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.lyrics.resetStatus')
+
+    typographyState.persistFailed.value = true
+    await flush()
+    expect(
+      find((node) => node.props['data-lyrics-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.lyrics.persistFailed')
+  })
+
+  it('supports silent close for overlay handoff and preserves default focus restoration', async () => {
+    await mount()
+    const toggle = find((node) => node.props['aria-controls'] === 'fullscreen-background-panel')!
+    const outside = new TestNode('outside')
+    const documentStub = document as unknown as { activeElement: TestNode }
+
+    documentStub.activeElement = outside
+    expect(controlsInstance?.close(false)).toBe(true)
+    await flush()
+    expect(documentStub.activeElement).toBe(outside)
+
+    trigger(toggle, 'Click', {})
+    await flush()
+    documentStub.activeElement = outside
+    expect(controlsInstance?.close()).toBe(true)
+    await flush()
+    expect(documentStub.activeElement?.props['aria-controls']).toBe('fullscreen-background-panel')
+  })
+})
+
+describe('FullscreenBackgroundControls info typography group', () => {
+  it('sends title and subtitle size and weight without changing lyrics', async () => {
+    await mount()
+    const titleSize = find((node) => node.props.id === 'fullscreen-info-title-font-size')
+    const subtitleSize = find((node) => node.props.id === 'fullscreen-info-subtitle-font-size')
+    expect(titleSize?.props.role).toBe('spinbutton')
+    expect(subtitleSize?.props.role).toBe('spinbutton')
+    expect(titleSize?.props.type).not.toBe('range')
+    expect(
+      collect(
+        (node) =>
+          node.type === 'input' &&
+          node.props.type === 'range' &&
+          String(node.props.id ?? '').startsWith('fullscreen-info-'),
+      ),
+    ).toEqual([])
+
+    trigger(titleSize, 'Input', { target: { value: '32' } })
+    trigger(
+      find((node) => node.props.id === 'fullscreen-info-subtitle-font-weight'),
+      'Input',
+      { target: { value: '500' } },
+    )
+    await flush()
+    trigger(subtitleSize, 'Input', { target: { value: '16' } })
+    trigger(
+      find((node) => node.props.id === 'fullscreen-info-title-font-weight'),
+      'Input',
+      { target: { value: '600' } },
+    )
+    await flush()
+
+    expect(infoTypographyState.setPreference.mock.calls).toEqual([
+      [{ titleFontSizePx: 32 }],
+      [{ subtitleFontWeight: 500 }],
+      [{ subtitleFontSizePx: 16 }],
+      [{ titleFontWeight: 600 }],
+    ])
+    expect(typographyState.setPreference).not.toHaveBeenCalled()
+    expect(titleSize?.props['aria-valuetext']).toBe('32 px')
+    expect(subtitleSize?.props['aria-valuetext']).toBe('16 px')
+
+    const subtitleStepper = subtitleSize?.parent?.parent
+    const increase = subtitleStepper?.children.filter((node) => node.type === 'button').at(-1)
+    trigger(increase, 'Click', {})
+    expect(infoTypographyState.setPreference.mock.calls.at(-1)).toEqual([
+      { subtitleFontSizePx: 17 },
+    ])
+  })
+
+  it('steps title weight within the existing range', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-info-title-font-weight')!
+    expect(input.props.role).toBe('spinbutton')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    expect(buttons[1].props.disabled).toBe(true)
+    trigger(buttons[0], 'Click', {})
+    await flush()
+    expect(infoTypographyState.setPreference).toHaveBeenLastCalledWith({ titleFontWeight: 700 })
+    trigger(input, 'Input', { target: { value: '650' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('700')
+  })
+
+  it('steps subtitle weight and rejects invalid values', async () => {
+    await mount()
+    const input = find((node) => node.props.id === 'fullscreen-info-subtitle-font-weight')!
+    expect(input.props.role).toBe('spinbutton')
+    const buttons = input.parent?.parent?.children.filter((node) => node.type === 'button') ?? []
+    trigger(buttons[0], 'Click', {})
+    await flush()
+    expect(infoTypographyState.setPreference).toHaveBeenLastCalledWith({ subtitleFontWeight: 600 })
+    trigger(input, 'Input', { target: { value: '650' } })
+    trigger(input, 'Blur', {})
+    await flush()
+    expect(input.props.value).toBe('600')
+    infoTypographyState.preference.value = {
+      ...infoTypographyState.preference.value,
+      subtitleFontWeight: 400,
+    }
+    await flush()
+    expect(buttons[0].props.disabled).toBe(true)
+  })
+
+  it('resets only track information and keeps lyrics plus paused background', async () => {
+    await mount()
+    infoTypographyState.preference.value = {
+      titleFontSizePx: 32,
+      titleFontWeight: 600,
+      subtitleFontSizePx: 16,
+      subtitleFontWeight: 500,
+    }
+    await flush()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    trigger(
+      find((node) => node.props['data-info-typography-reset'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+
+    expect(infoTypographyState.resetPreference).toHaveBeenCalledOnce()
+    expect(typographyState.resetPreference).not.toHaveBeenCalled()
+    expect(backgroundState.backgroundMotionPaused.value).toBe(true)
+    expect(
+      find((node) => node.props['data-info-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.info.resetStatus')
+
+    infoTypographyState.persistFailed.value = true
+    await flush()
+    expect(
+      find((node) => node.props['data-info-typography-status'] !== undefined)?.textContent,
+    ).toBe('fullscreen.info.persistFailed')
+    expect(
+      find((node) => node.props['data-lyrics-typography-status'] !== undefined),
+    ).toBeUndefined()
+  })
+})
+
+describe('FullscreenBackgroundControls background motion', () => {
+  it('offers pause without a background mode selector', async () => {
+    await mount()
+    expect(find((node) => node.props['data-background-mode'] !== undefined)).toBeUndefined()
+    expect(find((node) => node.textContent === 'fullscreen.background.mode')).toBeUndefined()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
+    expect(
+      find(
+        (node) =>
+          node.type === 'input' &&
+          node.props['data-lyrics-typography'] === undefined &&
+          node.props.id !== 'fullscreen-lyrics-font-size' &&
+          node.props.id !== 'fullscreen-info-title-font-weight' &&
+          node.props.id !== 'fullscreen-info-subtitle-font-weight' &&
+          node.props.id !== 'fullscreen-info-title-font-size' &&
+          node.props.id !== 'fullscreen-info-subtitle-font-size',
+      ),
+    ).toBeUndefined()
+  })
+
+  it('toggles motion and preserves its preference when the settings panel reopens', async () => {
+    await mount()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenCalledWith(true)
+    expect(controlsInstance?.close()).toBe(true)
+    await flush()
+    trigger(
+      find((node) => node.props['aria-controls'] === 'fullscreen-background-panel'),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(true)
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-size')).toBeDefined()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenLastCalledWith(false)
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
+  })
+})

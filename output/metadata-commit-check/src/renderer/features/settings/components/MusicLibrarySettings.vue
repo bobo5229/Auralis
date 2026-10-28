@@ -1,0 +1,646 @@
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { formatLibraryScanTime } from '../utils/formatLibraryScanTime'
+import { useLibraryScanSettings } from '../composables/useLibraryScanSettings'
+import { useMetadataRefreshFailures } from '../composables/useMetadataRefreshFailures'
+import DatabaseMaintenanceSettings from './DatabaseMaintenanceSettings.vue'
+
+const { t, locale } = useI18n()
+const scan = useLibraryScanSettings()
+const failures = useMetadataRefreshFailures()
+const {
+  scanStatus,
+  isLoading,
+  operationError,
+  activeRoot,
+  isScanning,
+  totalFiles,
+  scannedFiles,
+  failedFiles,
+  progressPercent,
+  chooseFolder,
+  cancelScan,
+} = scan
+const {
+  refreshFailures,
+  refreshErrorMessage,
+  isClearingRefreshFailures,
+  showRefreshFailures,
+  clearRefreshFailures,
+  toggleFailures,
+} = failures
+const isMounted = ref(false)
+const folderActionButton = ref<HTMLButtonElement | null>(null)
+const scanActionButton = ref<HTMLButtonElement | null>(null)
+const cancelScanButton = ref<HTMLButtonElement | null>(null)
+
+// 扫描状态切换会让「重新扫描」与「取消」互斥消失，焦点需转移到仍可用的后继控件；
+// 仅当焦点仍在即将消失的控件上时转移，不打断用户已主动移动的焦点。
+watch(isScanning, (now, was) => {
+  if (was === now) return
+  const source = now ? scanActionButton : cancelScanButton
+  if (document.activeElement !== source.value) return
+  void focusAction(now ? cancelScanButton : scanActionButton)
+})
+
+async function focusAction(target: Ref<HTMLButtonElement | null>): Promise<void> {
+  await nextTick()
+  const el = target.value
+  if (!isMounted.value || !el || el.disabled) return
+  el.focus({ preventScroll: true })
+}
+const statusLabel = computed(() => {
+  if (isScanning.value) return t('settings.library.scanStatus.scanning')
+  if (!scanStatus.value) {
+    return activeRoot.value
+      ? t('settings.library.scanStatus.waitingFirst')
+      : t('settings.library.scanStatus.notConfigured')
+  }
+
+  const labels: Record<string, string> = {
+    completed: t('settings.library.scanStatus.completed'),
+    canceled: t('settings.library.scanStatus.canceled'),
+    failed: t('settings.library.scanStatus.failed'),
+    queued: t('settings.library.scanStatus.queued'),
+  }
+
+  return labels[scanStatus.value.status] ?? t('settings.library.scanStatus.unknown')
+})
+const lastScannedLabel = computed(() => {
+  if (!activeRoot.value?.lastScannedAt) return t('settings.library.neverScanned')
+
+  return formatLibraryScanTime(activeRoot.value.lastScannedAt, locale.value)
+})
+const libraryMetaText = computed(() => {
+  if (!activeRoot.value) {
+    return t('settings.library.chooseFolderHint')
+  }
+
+  const parts: string[] = []
+  if (totalFiles.value > 0) {
+    parts.push(t('settings.library.fileCount', { count: totalFiles.value }))
+  }
+
+  if (activeRoot.value.lastScannedAt) {
+    parts.push(t('settings.library.lastScanned', { time: lastScannedLabel.value }))
+  } else {
+    parts.push(statusLabel.value)
+  }
+
+  return parts.join(' · ')
+})
+async function startScan(): Promise<void> {
+  if (!activeRoot.value) return
+  const hadFocus = document.activeElement === scanActionButton.value
+  await scan.startScan()
+  if (hadFocus && document.activeElement === document.body) {
+    await focusAction(isScanning.value ? cancelScanButton : scanActionButton)
+  }
+}
+onMounted(async () => {
+  isMounted.value = true
+  try {
+    // Publish the initial directory and failures together, preserving the existing loading contract.
+    const [nextRoots, , nextFailures] = await Promise.all([
+      scan.readRoots(),
+      scan.refreshScanStatus(),
+      failures.readFailures(),
+    ])
+    scan.publishRoots(nextRoots)
+    failures.publishFailures(nextFailures)
+  } catch (error) {
+    scan.reportLoadError(error)
+  }
+})
+onBeforeUnmount(() => {
+  isMounted.value = false
+})
+</script>
+
+<template>
+  <section class="settings-section">
+    <!-- 音乐来源 Section -->
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.library.sourceSection') }}</h2>
+      </div>
+      <div class="settings-group-card library-source-card">
+        <div class="library-source-main">
+          <div class="library-source-title">{{ t('settings.library.currentFolder') }}</div>
+          <div v-if="activeRoot" class="library-source-path">{{ activeRoot.path }}</div>
+          <div v-else class="library-source-path is-empty">
+            {{ t('settings.library.noFolderSelected') }}
+          </div>
+        </div>
+        <div class="library-source-footer">
+          <div class="library-source-meta">{{ libraryMetaText }}</div>
+          <div class="library-source-actions">
+            <button
+              ref="folderActionButton"
+              type="button"
+              class="settings-button"
+              :disabled="isLoading || isScanning"
+              @click="chooseFolder"
+            >
+              {{
+                activeRoot ? t('settings.library.changeFolder') : t('settings.library.selectFolder')
+              }}
+            </button>
+            <button
+              v-if="activeRoot && !isScanning"
+              ref="scanActionButton"
+              type="button"
+              class="settings-button"
+              :disabled="isLoading"
+              @click="startScan"
+            >
+              {{ scanStatus ? t('settings.library.rescan') : t('settings.library.scanLibrary') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 扫描进行中状态条：内联在卡片底部 -->
+        <div v-if="isScanning" class="library-scan-inline">
+          <div class="library-scan-header">
+            <div class="library-scan-info">
+              <span class="scan-spinner i-lucide-loader-circle" aria-hidden="true"></span>
+              <span class="scan-title">{{ t('settings.library.scanningTitle') }}</span>
+              <span class="scan-detail"
+                >·
+                {{
+                  t('settings.library.fileProgress', { scanned: scannedFiles, total: totalFiles })
+                }}</span
+              >
+              <span v-if="failedFiles > 0" class="scan-failed"
+                >· {{ t('settings.library.failedCount', { count: failedFiles }) }}</span
+              >
+            </div>
+            <div class="library-scan-actions">
+              <span class="scan-percent">{{ progressPercent }}%</span>
+              <button
+                ref="cancelScanButton"
+                type="button"
+                class="settings-button-link"
+                @click="cancelScan"
+              >
+                {{ t('settings.library.cancel') }}
+              </button>
+            </div>
+          </div>
+          <div
+            class="settings-progress-track"
+            role="progressbar"
+            :aria-label="t('settings.library.scanningTitle')"
+            :aria-valuenow="progressPercent"
+            :aria-valuemin="0"
+            :aria-valuemax="100"
+          >
+            <div
+              class="settings-progress-fill"
+              :style="{ transform: `scaleX(${progressPercent / 100})` }"
+            ></div>
+          </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div v-if="operationError" class="library-error-row" role="alert">
+          <span class="i-lucide-circle-alert" aria-hidden="true"></span>
+          <span>{{ t(operationError) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <DatabaseMaintenanceSettings />
+
+    <div v-if="refreshFailures.length > 0 || refreshErrorMessage" class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.library.failureRecords') }}</h2>
+      </div>
+      <div class="settings-group-card">
+        <div v-if="refreshErrorMessage" class="library-error-row" role="alert">
+          <span class="i-lucide-circle-alert" aria-hidden="true"></span>
+          <span>{{ t(refreshErrorMessage) }}</span>
+        </div>
+
+        <div v-if="refreshFailures.length > 0" class="failure-section">
+          <button
+            type="button"
+            class="failure-toggle"
+            :aria-expanded="showRefreshFailures"
+            @click="toggleFailures()"
+          >
+            <span class="failure-summary">
+              {{ t('settings.library.failuresSummary', { count: refreshFailures.length }) }}
+            </span>
+            <span
+              class="failure-chevron"
+              :class="showRefreshFailures ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              aria-hidden="true"
+            ></span>
+          </button>
+
+          <div v-if="showRefreshFailures" class="failure-content">
+            <div class="failure-toolbar">
+              <span>{{ t('settings.library.failureRecords') }}</span>
+              <button
+                type="button"
+                class="settings-button-link"
+                :disabled="isClearingRefreshFailures"
+                @click="clearRefreshFailures"
+              >
+                {{
+                  isClearingRefreshFailures
+                    ? t('settings.library.clearing')
+                    : t('settings.library.clearRecords')
+                }}
+              </button>
+            </div>
+            <div class="failure-list">
+              <div v-for="failure in refreshFailures" :key="failure.id" class="failure-item">
+                <div class="failure-item-row">
+                  <span v-tooltip.overflow="failure.filePath" class="failure-path">
+                    {{
+                      failure.filePath ??
+                      t('settings.library.trackFallback', {
+                        id: failure.trackId ?? t('settings.library.unknown'),
+                      })
+                    }}
+                  </span>
+                  <details class="failure-reason">
+                    <summary>{{ t('settings.library.failureDetails') }}</summary>
+                    <span>{{ failure.reason }}</span>
+                  </details>
+                </div>
+                <span class="failure-meta">
+                  {{ t('settings.library.jobPrefix', { id: failure.jobId }) }} ·
+                  {{ failure.createdAt }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+/* 按钮基础风格：去 CTA 化的轻量桌面次级按钮 */
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.settings-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-border-subtle) 100%, transparent);
+}
+
+.settings-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 14%, transparent);
+}
+
+.settings-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.settings-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+/* 文本链接型操作按钮 */
+.settings-button-link {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.settings-button-link:hover:not(:disabled) {
+  color: var(--auralis-text);
+}
+
+.settings-button-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.settings-button-link:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+/* 音乐来源卡片：上部路径优先，下部摘要与操作 */
+.library-source-card {
+  container-type: inline-size;
+}
+
+.library-source-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 16px;
+  min-width: 0;
+}
+
+.library-source-title {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--auralis-text-subtle);
+  user-select: none;
+}
+
+.library-source-path {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--auralis-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  direction: ltr;
+  user-select: text;
+}
+
+.library-source-path.is-empty {
+  color: var(--auralis-text-faint);
+  font-family: inherit;
+}
+
+.library-source-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.library-source-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--auralis-text-subtle);
+  min-width: 0;
+}
+
+.library-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@container (max-width: 580px) {
+  .library-source-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .library-source-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* 扫描进行中内联模块 */
+.library-scan-inline {
+  padding: 10px 16px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 4%, transparent);
+}
+
+.library-scan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.library-scan-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.library-scan-info .scan-spinner {
+  flex-shrink: 0;
+  color: var(--auralis-sidebar-active-indicator);
+}
+
+.scan-title {
+  font-weight: 600;
+  color: var(--auralis-text);
+  white-space: nowrap;
+}
+
+.scan-detail {
+  color: var(--auralis-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-failed {
+  color: var(--auralis-danger);
+  white-space: nowrap;
+}
+
+.library-scan-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.scan-percent {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--auralis-text-muted);
+}
+
+/* 紧凑平滑进度条 */
+.settings-progress-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  overflow: hidden;
+}
+
+.settings-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  transform-origin: left center;
+  transition: transform 200ms ease;
+}
+
+/* 错误提示行 */
+.library-error-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  color: var(--auralis-danger);
+  font-size: 11px;
+  background: color-mix(in srgb, var(--auralis-danger) 6%, transparent);
+}
+
+.settings-group-card > .library-error-row:first-child,
+.settings-group-card > .failure-section:first-child {
+  border-top: 0;
+}
+
+.library-error-row span.i-lucide-circle-alert {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+}
+
+/* 失败记录折叠与列表 */
+.failure-section {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.failure-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.failure-toggle:hover {
+  background: color-mix(in srgb, var(--auralis-text) 3%, transparent);
+}
+
+.failure-summary {
+  font-weight: 500;
+  color: #c76d5f;
+}
+
+.failure-chevron {
+  width: 13px;
+  height: 13px;
+  color: var(--auralis-text-faint);
+}
+
+.failure-content {
+  padding: 0 16px 12px;
+}
+
+.failure-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 6px 8px;
+  font-size: 11px;
+  color: var(--auralis-text-faint);
+}
+
+.failure-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--auralis-text) 12%, transparent) transparent;
+}
+
+.failure-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 30%, transparent);
+}
+
+.failure-item:last-child {
+  border-bottom: none;
+}
+
+.failure-item-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.failure-path {
+  font-family: var(--auralis-font-ui);
+  font-size: 11px;
+  color: var(--auralis-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+.failure-reason {
+  font-size: 11px;
+  color: #c76d5f;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.failure-meta {
+  font-size: 10px;
+  color: var(--auralis-text-faint);
+}
+
+/* 旋转菊花与微动效 */
+.scan-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:where([data-reduced-motion='true']) .scan-spinner {
+  animation: none;
+}
+
+:where([data-reduced-motion='true']) .settings-progress-fill {
+  transition: none;
+}
+</style>

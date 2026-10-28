@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 最近添加的时间范围</title>
+    <style>
+      @font-face {
+        font-family: 'Plus Jakarta Sans';
+        src: url('../../src/renderer/assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+          format('woff2');
+        font-weight: 200 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'HarmonyOS Sans SC';
+        src: url('../../src/renderer/assets/fonts/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Regular.ttf')
+          format('truetype');
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'HarmonyOS Sans SC';
+        src: url('../../src/renderer/assets/fonts/HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Medium.ttf')
+          format('truetype');
+        font-weight: 500 600;
+        font-display: swap;
+      }
+
+      :root {
+        color-scheme: dark;
+        --page: #0e0e0e;
+        --bg: #121212;
+        --text: #f3eee6;
+        --muted: #afb4bc;
+        --subtle: #9299a3;
+        --faint: #6f767e;
+        --line: rgba(243, 238, 230, 0.16);
+        --border: rgba(225, 221, 214, 0.1);
+        --nav: rgba(255, 255, 255, 0.035);
+        --hover: rgba(255, 255, 255, 0.045);
+        --wash: rgba(243, 238, 230, 0.07);
+        --font: 'Plus Jakarta Sans', 'HarmonyOS Sans SC', 'Segoe UI', sans-serif;
+      }
+      [data-theme='light'] {
+        color-scheme: light;
+        --page: #e7e8ea;
+        --bg: #f0f1f2;
+        --text: #292b2d;
+        --muted: #60656a;
+        --subtle: #64696e;
+        --faint: #8d9398;
+        --line: rgba(41, 43, 45, 0.16);
+        --border: rgba(41, 43, 45, 0.1);
+        --nav: rgba(41, 43, 45, 0.035);
+        --hover: rgba(41, 43, 45, 0.045);
+        --wash: rgba(41, 43, 45, 0.06);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        background: var(--page);
+        color: var(--text);
+        font-family: var(--font);
+      }
+      button { font: inherit; color: inherit; }
+      button:focus { outline: none; }
+      button:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--text) 65%, transparent);
+        outline-offset: 3px;
+      }
+      ::selection {
+        background: color-mix(in srgb, var(--text) 18%, transparent);
+      }
+
+      .demo-bar {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 28px 28px 18px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 600;
+      }
+      .demo-bar p {
+        margin: 0;
+        max-width: 72ch;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 22px;
+      }
+      .nowrap { white-space: nowrap; }
+      .demo-tools { display: flex; gap: 8px; flex: none; }
+      .demo-tools button {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 18px;
+        cursor: pointer;
+      }
+      .demo-tools button:hover { color: var(--text); }
+      .demo-tools button[aria-pressed='true'] {
+        color: var(--text);
+        border-color: color-mix(in srgb, var(--text) 32%, transparent);
+      }
+
+      .boards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+        align-items: start;
+        padding: 8px 28px 40px;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 600;
+      }
+      .blurb {
+        margin: 0 0 12px;
+        color: var(--subtle);
+        font-size: 12px;
+        line-height: 18px;
+      }
+      @media (min-width: 1101px) {
+        .blurb { min-height: 72px; }
+      }
+      @media (max-width: 1100px) {
+        .boards { grid-template-columns: 1fr; }
+        .demo-bar { flex-direction: column; align-items: flex-start; }
+      }
+
+      .frame {
+        display: flex;
+        flex-direction: column;
+        height: min(640px, calc(100vh - 230px));
+        min-height: 520px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+      .nav {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--nav);
+        user-select: none;
+      }
+      .nav-name { font-size: 14px; line-height: 20px; font-weight: 600; }
+      .nav-days {
+        color: var(--faint);
+        font-size: 12px;
+        line-height: 18px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .range { user-select: none; }
+      .sentence {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 36px;
+        padding: 14px 16px 8px;
+      }
+      .phrase {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .scheme-scale .phrase { cursor: ew-resize; touch-action: none; }
+      .num {
+        display: inline-block;
+        min-width: 3ch;
+        color: var(--text);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .count {
+        margin: 0;
+        color: var(--subtle);
+        font-size: 12px;
+        line-height: 18px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .scale {
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 180ms ease, opacity 140ms ease;
+      }
+      .range:hover .scale,
+      .range:focus-within .scale,
+      .range.is-dragging .scale {
+        max-height: 92px;
+        opacity: 1;
+      }
+      .track {
+        position: relative;
+        height: 76px;
+        margin: 0 32px 8px;
+        touch-action: none;
+        cursor: ew-resize;
+      }
+      .track::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 46%;
+        height: 1px;
+        background: var(--line);
+      }
+      .marker {
+        position: absolute;
+        z-index: 1;
+        top: 46%;
+        left: calc(var(--marker, 0.37) * 100%);
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .track.is-ready .marker { transition: left 180ms ease; }
+      .stop {
+        position: absolute;
+        z-index: 2;
+        top: 0;
+        bottom: 0;
+        left: calc(var(--p) * 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        width: max-content;
+        min-width: 52px;
+        padding: 2px 4px 6px;
+        border: 0;
+        background: transparent;
+        color: var(--faint);
+        white-space: nowrap;
+        cursor: pointer;
+        transform: translateX(-50%);
+      }
+      .stop-name,
+      .stop-days { font-size: 12px; line-height: 18px; }
+      .stop-days { font-variant-numeric: tabular-nums; }
+      .stop[aria-checked='true'] { color: var(--text); }
+      .stop[aria-checked='true'] .stop-name { font-weight: 600; }
+      .stop:hover { color: var(--muted); }
+      .stop[aria-checked='true']:hover { color: var(--text); }
+      .stop:focus-visible { outline: none; }
+      .stop:focus-visible .stop-name {
+        border-radius: 2px;
+        outline: 2px solid color-mix(in srgb, var(--text) 65%, transparent);
+        outline-offset: 3px;
+      }
+
+      .index {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 4px 16px 12px;
+      }
+      .index button {
+        position: relative;
+        z-index: 1;
+        padding: 6px 0 8px;
+        border: 0;
+        background: transparent;
+        color: var(--faint);
+        font-size: 14px;
+        line-height: 20px;
+        cursor: pointer;
+      }
+      .index button[aria-checked='true'] { color: var(--text); font-weight: 600; }
+      .index button:hover { color: var(--muted); }
+      .index button[aria-checked='true']:hover { color: var(--text); }
+      .index-mark {
+        position: absolute;
+        bottom: 10px;
+        height: 1px;
+        background: var(--text);
+        pointer-events: none;
+      }
+      .index.is-ready .index-mark { transition: left 180ms ease, width 180ms ease; }
+
+      .bars {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 56px;
+        margin: 2px 16px 0;
+        touch-action: none;
+        cursor: ew-resize;
+      }
+      .bars::after {
+        content: '';
+        position: absolute;
+        z-index: 2;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1px;
+        background: var(--line);
+      }
+      .wash {
+        position: absolute;
+        z-index: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: calc(var(--span, 0.082) * 100%);
+        background: var(--wash);
+      }
+      .edge {
+        position: absolute;
+        z-index: 3;
+        top: 0;
+        bottom: 0;
+        left: calc((1 - var(--span, 0.082)) * 100%);
+        width: 1px;
+        background: var(--text);
+        pointer-events: none;
+      }
+      .bars.is-ready .wash { transition: width 180ms ease; }
+      .bars.is-ready .edge { transition: left 180ms ease; }
+      .bar {
+        position: relative;
+        z-index: 1;
+        flex: 1 1 0;
+        min-width: 0;
+        border-radius: 1px 1px 0 0;
+        background: color-mix(in srgb, var(--text) 14%, transparent);
+      }
+      .bar.is-in { background: color-mix(in srgb, var(--text) 62%, transparent); }
+      .range.is-dragging .marker,
+      .range.is-dragging .wash,
+      .range.is-dragging .edge { transition: none; }
+      .scheme-density .index { padding-top: 8px; }
+
+      .list {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent;
+        transition: opacity 140ms ease;
+      }
+      .list.is-stale { opacity: 0.38; }
+      .row {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 16px;
+        border-top: 1px solid var(--border);
+      }
+      .row:hover { background: var(--hover); }
+      .copy {
+        display: grid;
+        min-width: 0;
+      }
+      .swatch {
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        background: #8a8580;
+        background: oklch(0.55 0.045 var(--hue));
+      }
+      .title,
+      .meta {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .title { font-size: 14px; line-height: 20px; font-weight: 500; }
+      .meta { color: var(--subtle); font-size: 12px; line-height: 18px; }
+      .when {
+        color: var(--faint);
+        font-size: 12px;
+        line-height: 18px;
+        font-variant-numeric: tabular-nums;
+      }
+      .empty {
+        margin: 56px 20px;
+        color: var(--subtle);
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      @keyframes num-in {
+        from { opacity: 0.25; transform: translateY(3px); }
+        to { opacity: 1; transform: none; }
+      }
+      .num.is-changing { animation: num-in 160ms ease; }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      body.reduce-motion *,
+      body.reduce-motion *::before,
+      body.reduce-motion *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="demo-bar">
+      <div>
+        <h1>最近添加的时间范围</h1>
+        <p>
+          同一份曲目上的三种页眉。预设只有 7、30、90、365 天。过去 7 天没有新曲。框顶的天数在松手或点选之后才变。
+          <span class="nowrap">聚焦某一档后，用左右键换档。</span>
+        </p>
+      </div>
+      <div class="demo-tools">
+        <button type="button" id="theme">浅色</button>
+        <button type="button" id="motion" aria-pressed="false">减弱动效</button>
+      </div>
+    </header>
+    <main class="boards">
+      <section>
+        <h2>句子标尺</h2>
+        <p class="blurb">
+          悬停或按住天数。标记跟着指针走，曲目数先跳到最近一档，松手后列表才换。四档按对数拉开，每一档的拖动距离接近。
+        </p>
+        <div class="mount" data-scheme="scale"></div>
+      </section>
+      <section>
+        <h2>目录行</h2>
+        <p class="blurb">
+          四个时间词一直可见。当前词是正文色，其余很淡。点一个立刻换列表，这一档没有拖动。
+        </p>
+        <div class="mount" data-scheme="index"></div>
+      </section>
+      <section>
+        <h2>密度窗</h2>
+        <p class="blurb">
+          细柱是过去 52 周的加入，右端是今天。拖动时窗口跟着手走，句子显示将吸住的档，松手后对齐。吸附按真实天数，一年占住大部分行程，一周只是右端一条窄边。
+        </p>
+        <div class="mount" data-scheme="density"></div>
+      </section>
+    </main>
+    <script>
+      const STOPS = [
+        { days: 7, name: '一周' },
+        { days: 30, name: '一个月' },
+        { days: 90, name: '三个月' },
+        { days: 365, name: '一年' },
+      ]
+      const LOG_MIN = Math.log(STOPS[0].days)
+      const LOG_MAX = Math.log(STOPS[STOPS.length - 1].days)
+      const WEEK_COUNT = 52
+      const TRACKS = [
+        ['雨在下午', '南园', '靠窗', 8],
+        ['靠窗的人', '南园', '靠窗', 9],
+        ['Glass House', 'Mina Cole', 'North Rooms', 14],
+        ['Slow Mercury', 'Ada Venn', 'Paper Orbit', 21],
+        ['Paper Birds', 'Ada Venn', 'Paper Orbit', 22],
+        ['把冬天折好', '林小满', '抽屉', 28],
+        ['三月信', '陈见', '未寄出', 36],
+        ['回邮', '陈见', '未寄出', 40],
+        ['Room Tone', 'The Low Rooms', 'After Hours', 45],
+        ['Cedar Stairs', 'Jonah Hale', 'Landing', 52],
+        ['夜航船', '南园', '靠窗', 70],
+        ['港口灯', '旧海岸', '晚点名', 71],
+        ['Kitchen Radio', 'Mina Cole', 'North Rooms', 88],
+        ['盐与风', '旧海岸', '晚点名', 100],
+        ['潮声', '旧海岸', '晚点名', 101],
+        ['旧胶片', '林小满', '抽屉', 120],
+        ['North Platform', 'Ada Venn', 'Paper Orbit', 160],
+        ['Untitled Letter', 'Jonah Hale', 'Landing', 200],
+        ['Landing Lights', 'Jonah Hale', 'Landing', 210],
+        ['回声练习', '陈见', '未寄出', 240],
+        ['After the Shift', 'The Low Rooms', 'After Hours', 300],
+        ['Last Warm Day', 'The Low Rooms', 'After Hours', 340],
+        ['年末', '林小满', '抽屉', 350],
+      ].map(([title, artist, album, daysAgo]) => ({ title, artist, album, daysAgo }))
+
+      function ratioForDays(days) {
+        return (Math.log(days) - LOG_MIN) / (LOG_MAX - LOG_MIN)
+      }
+      function nearestByRatio(ratio) {
+        return STOPS.reduce((best, stop) =>
+          Math.abs(ratioForDays(stop.days) - ratio) < Math.abs(ratioForDays(best.days) - ratio)
+            ? stop
+            : best,
+        )
+      }
+      function nearestByDays(days) {
+        return STOPS.reduce((best, stop) =>
+          Math.abs(stop.days - days) < Math.abs(best.days - days) ? stop : best,
+        )
+      }
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value))
+      }
+      function countWithin(days) {
+        return TRACKS.reduce((count, track) => count + (track.daysAgo <= days ? 1 : 0), 0)
+      }
+      function albumHue(album) {
+        let hue = 0
+        for (const char of album) hue = (hue * 33 + char.charCodeAt(0)) >>> 0
+        return hue % 360
+      }
+      function prefersReduced() {
+        return (
+          document.body.classList.contains('reduce-motion') ||
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        )
+      }
+
+      const placements = []
+      function placeAll() {
+        for (const place of placements) place()
+      }
+      window.addEventListener('resize', placeAll)
+      document.fonts?.ready.then(placeAll)
+
+      function mount(host) {
+        const scheme = host.dataset.scheme
+        const frame = document.createElement('div')
+        frame.className = `frame scheme-${scheme}`
+        frame.innerHTML = `
+          <div class="nav">
+            <span class="nav-name">最近添加</span>
+            <span class="nav-days">30 天</span>
+          </div>
+          <div class="range">
+            <div class="sentence">
+              <p class="phrase">最近 <span class="num">30</span> 天</p>
+              <p class="count" aria-live="polite">0 首</p>
+            </div>
+          </div>
+          <div class="list"></div>
+        `
+        host.append(frame)
+
+        const range = frame.querySelector('.range')
+        const num = frame.querySelector('.num')
+        const count = frame.querySelector('.count')
+        const navDays = frame.querySelector('.nav-days')
+        const list = frame.querySelector('.list')
+        const state = {
+          committed: 30,
+          preview: 30,
+          dragging: false,
+          scrubbed: false,
+          downKind: 'sentence',
+          downDays: null,
+          ratio: null,
+          spanDays: null,
+        }
+        let paintedNumber = null
+
+        const group = document.createElement('div')
+        group.setAttribute('role', 'radiogroup')
+        group.setAttribute('aria-label', '最近添加的时间范围')
+
+        if (scheme === 'scale') {
+          group.className = 'scale'
+          group.innerHTML = `<div class="track">${STOPS.map(
+            (stop) => `
+              <button type="button" class="stop" role="radio" data-days="${stop.days}" style="--p:${ratioForDays(stop.days)}">
+                <span class="stop-name">${stop.name}</span>
+                <span class="stop-days">${stop.days}</span>
+              </button>`,
+          ).join('')}<span class="marker" aria-hidden="true"></span></div>`
+          range.append(group)
+        } else if (scheme === 'density') {
+          const density = document.createElement('div')
+          density.className = 'density'
+          const counts = Array(WEEK_COUNT).fill(0)
+          for (const track of TRACKS) {
+            const fromRight = Math.floor(track.daysAgo / 7)
+            if (fromRight < WEEK_COUNT) counts[WEEK_COUNT - 1 - fromRight] += 1
+          }
+          const max = Math.max(1, ...counts)
+          const bars = document.createElement('div')
+          bars.className = 'bars'
+          bars.setAttribute('aria-hidden', 'true')
+          bars.innerHTML = '<div class="wash"></div><div class="edge"></div>'
+          counts.forEach((value, index) => {
+            const bar = document.createElement('span')
+            bar.className = 'bar'
+            bar.dataset.minDays = String((WEEK_COUNT - 1 - index) * 7)
+            bar.style.height = `${value === 0 ? 2 : Math.round(6 + (value / max) * 28)}px`
+            bars.append(bar)
+          })
+          density.append(bars)
+          group.className = 'index'
+          group.append(markAndStops())
+          density.append(group)
+          range.append(density)
+        } else {
+          group.className = 'index'
+          group.append(markAndStops())
+          range.append(group)
+        }
+
+        function markAndStops() {
+          const fragment = document.createDocumentFragment()
+          const mark = document.createElement('span')
+          mark.className = 'index-mark'
+          mark.setAttribute('aria-hidden', 'true')
+          fragment.append(mark)
+          for (const stop of STOPS) {
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'index-stop'
+            button.setAttribute('role', 'radio')
+            button.dataset.days = String(stop.days)
+            button.textContent = stop.name
+            fragment.append(button)
+          }
+          return fragment
+        }
+
+        const radios = [...group.querySelectorAll('[role="radio"]')]
+        const track = frame.querySelector('.track')
+        const bars = frame.querySelector('.bars')
+        const mark = frame.querySelector('.index-mark')
+        const index = frame.querySelector('.index')
+
+        function placeMark() {
+          if (!mark || !index) return
+          const current = index.querySelector('[aria-checked="true"]')
+          if (!current) return
+          const row = index.getBoundingClientRect()
+          const rect = current.getBoundingClientRect()
+          mark.style.left = `${rect.left - row.left}px`
+          mark.style.width = `${rect.width}px`
+        }
+        if (mark) placements.push(placeMark)
+
+        function paintPreview() {
+          const nextNumber = String(state.preview)
+          if (paintedNumber !== nextNumber) {
+            const animate = paintedNumber !== null && !prefersReduced()
+            paintedNumber = nextNumber
+            num.textContent = nextNumber
+            if (animate) {
+              num.classList.remove('is-changing')
+              void num.offsetWidth
+              num.classList.add('is-changing')
+            }
+          }
+          count.textContent = `${countWithin(state.preview)} 首`
+          navDays.textContent = `${state.committed} 天`
+          for (const radio of radios) {
+            const selected = Number(radio.dataset.days) === state.preview
+            radio.setAttribute('aria-checked', selected ? 'true' : 'false')
+            radio.tabIndex = selected ? 0 : -1
+          }
+          if (track) {
+            const ratio = state.ratio == null ? ratioForDays(state.preview) : state.ratio
+            track.style.setProperty('--marker', String(ratio))
+          }
+          if (bars) {
+            const spanDays = state.spanDays == null ? state.preview : state.spanDays
+            const span = clamp(spanDays / 365, 0, 1)
+            bars.style.setProperty('--span', String(span))
+            for (const bar of bars.querySelectorAll('.bar')) {
+              bar.classList.toggle('is-in', Number(bar.dataset.minDays) < spanDays)
+            }
+          }
+          list.classList.toggle('is-stale', state.preview !== state.committed)
+          placeMark()
+        }
+
+        function renderList() {
+          const tracks = TRACKS.filter((item) => item.daysAgo <= state.committed).sort(
+            (a, b) => a.daysAgo - b.daysAgo,
+          )
+          list.replaceChildren()
+          if (tracks.length === 0) {
+            const empty = document.createElement('p')
+            empty.className = 'empty'
+            empty.textContent = `过去 ${state.committed} 天没有新加入的曲目`
+            list.append(empty)
+            return
+          }
+          for (const item of tracks) {
+            const row = document.createElement('div')
+            row.className = 'row'
+            row.innerHTML = `
+              <span class="swatch" style="--hue:${albumHue(item.album)}"></span>
+              <span class="copy">
+                <span class="title"></span>
+                <span class="meta"></span>
+              </span>
+              <span class="when"></span>
+            `
+            row.querySelector('.title').textContent = item.title
+            row.querySelector('.meta').textContent = `${item.artist} · ${item.album}`
+            row.querySelector('.when').textContent = `${item.daysAgo} 天前`
+            list.append(row)
+          }
+        }
+
+        function commit(days) {
+          const changed = state.committed !== days
+          state.preview = days
+          state.committed = days
+          state.ratio = null
+          state.spanDays = null
+          if (changed) renderList()
+          paintPreview()
+        }
+
+        group.addEventListener('keydown', (event) => {
+          if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+          const current = STOPS.findIndex((stop) => stop.days === state.committed)
+          let next = current
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = Math.min(STOPS.length - 1, current + 1)
+          else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = Math.max(0, current - 1)
+          else if (event.key === 'Home') next = 0
+          else if (event.key === 'End') next = STOPS.length - 1
+          else return
+          event.preventDefault()
+          commit(STOPS[next].days)
+          radios.find((radio) => Number(radio.dataset.days) === STOPS[next].days)?.focus()
+        })
+
+        if (scheme === 'index') {
+          for (const radio of radios) {
+            radio.addEventListener('click', () => commit(Number(radio.dataset.days)))
+          }
+        } else {
+          range.addEventListener('pointerdown', onPointerDown)
+          range.addEventListener('pointermove', onPointerMove)
+          range.addEventListener('pointerup', finishPointer)
+          range.addEventListener('pointercancel', finishPointer)
+        }
+
+        function onPointerDown(event) {
+          if (event.button !== 0 || state.dragging) return
+          const stop = event.target.closest('[data-days]')
+          const surface = event.target.closest('.track, .bars')
+          state.dragging = true
+          state.scrubbed = false
+          state.startX = event.clientX
+          state.startY = event.clientY
+          state.downKind = stop ? 'stop' : surface ? 'surface' : 'sentence'
+          state.downDays = stop ? Number(stop.dataset.days) : null
+          range.classList.add('is-dragging')
+          range.setPointerCapture(event.pointerId)
+          if (state.downKind === 'surface') applyPointer(event)
+        }
+
+        function onPointerMove(event) {
+          if (!state.dragging) return
+          if (!state.scrubbed) {
+            const distance = Math.hypot(event.clientX - state.startX, event.clientY - state.startY)
+            if (distance < 4) return
+            state.scrubbed = true
+          }
+          applyPointer(event)
+        }
+
+        function applyPointer(event) {
+          if (scheme === 'scale') {
+            const rect = track.getBoundingClientRect()
+            if (rect.width <= 0) return
+            state.ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
+            state.preview = nearestByRatio(state.ratio).days
+          } else {
+            const rect = bars.getBoundingClientRect()
+            if (rect.width <= 0) return
+            const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
+            state.spanDays = Math.round((1 - ratio) * 365)
+            state.preview = nearestByDays(state.spanDays).days
+          }
+          paintPreview()
+        }
+
+        function finishPointer() {
+          if (!state.dragging) return
+          const scrubbed = state.scrubbed
+          const downKind = state.downKind
+          const downDays = state.downDays
+          const preview = state.preview
+          const animate = !prefersReduced() && (state.ratio != null || state.spanDays != null)
+          state.dragging = false
+          state.scrubbed = false
+          range.classList.remove('is-dragging')
+          if (animate) void range.offsetWidth
+          state.ratio = null
+          state.spanDays = null
+          if (scrubbed || downKind === 'surface') commit(preview)
+          else if (downKind === 'stop') commit(downDays)
+          else {
+            state.preview = state.committed
+            paintPreview()
+          }
+        }
+
+        paintPreview()
+        renderList()
+        placeMark()
+        requestAnimationFrame(() => {
+          track?.classList.add('is-ready')
+          bars?.classList.add('is-ready')
+          index?.classList.add('is-ready')
+        })
+      }
+
+      for (const host of document.querySelectorAll('.mount')) mount(host)
+
+      document.querySelector('#theme').addEventListener('click', () => {
+        const root = document.documentElement
+        const next = root.dataset.theme === 'dark' ? 'light' : 'dark'
+        root.dataset.theme = next
+        document.querySelector('#theme').textContent = next === 'dark' ? '浅色' : '深色'
+        placeAll()
+      })
+      document.querySelector('#motion').addEventListener('click', (event) => {
+        const on = document.body.classList.toggle('reduce-motion')
+        event.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false')
+      })
+    </script>
+  </body>
+</html>

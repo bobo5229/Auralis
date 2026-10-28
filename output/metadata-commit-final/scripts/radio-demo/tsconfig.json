@@ -1,0 +1,11 @@
+{
+  "extends": "../../node_modules/@electron-toolkit/tsconfig/tsconfig.web.json",
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["*.ts", "*.vue"]
+}

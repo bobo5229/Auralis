@@ -1,0 +1,747 @@
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
+import { resolveMenuNavigationIndex } from '@renderer/shared/menu/menuKeyboardNavigation'
+import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import type {
+  LibraryContextMenuAnchor,
+  LibraryContextMenuSource,
+  LibraryPlaylistFeedback,
+  LibraryViewMode,
+} from '../types/libraryInteraction'
+
+const props = defineProps<{
+  open: boolean
+  source: LibraryContextMenuSource
+  anchor: LibraryContextMenuAnchor
+  trackTitle: string
+  albumTitle: string
+  canLocateCurrent: boolean
+  canInsert: boolean
+  hideInsert?: boolean
+  currentViewMode: LibraryViewMode
+  canSwitchToCover?: boolean
+  playlists: SidebarPlaylistItem[]
+  playlistFeedback: LibraryPlaylistFeedback | null
+  revealFeedback?: { kind: 'error'; message: string } | null
+  playlistLoading: boolean
+  playlistLoadError: string | null
+  creatingPlaylist: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'locateCurrent'): void
+  (e: 'play'): void
+  (e: 'insertAfterCurrent'): void
+  (e: 'addToPlaylist', playlist: SidebarPlaylistItem): void
+  (e: 'createPlaylist'): void
+  (e: 'editMetadata'): void
+  (e: 'switchView', mode: LibraryViewMode): void
+  (e: 'openInExplorer'): void
+}>()
+
+const { t } = useI18n()
+
+const menuRef = ref<HTMLElement | null>(null)
+const subMenuRef = ref<HTMLElement | null>(null)
+
+const playlistButtonRef = ref<HTMLElement | null>(null)
+let menuPosition: ReturnType<typeof startFloatingPosition> | undefined
+let subMenuPosition: ReturnType<typeof startFloatingPosition> | undefined
+const showSubMenu = ref(false)
+const subMenuFlipsLeft = ref(false)
+
+/** 子菜单延迟关闭定时器（悬停切换专用） */
+let subMenuCloseTimer: ReturnType<typeof setTimeout> | undefined
+
+/** 鼠标进入歌单主菜单或子菜单：取消延迟关闭并打开子菜单 */
+function onPlaylistMenuMouseEnter(): void {
+  if (subMenuCloseTimer) {
+    clearTimeout(subMenuCloseTimer)
+    subMenuCloseTimer = undefined
+  }
+  showSubMenu.value = true
+}
+
+/** 鼠标离开主菜单：短暂延迟后再关闭，避免移向子菜单时闪退 */
+function onPlaylistMenuMouseLeave(): void {
+  if (subMenuCloseTimer) clearTimeout(subMenuCloseTimer)
+  subMenuCloseTimer = setTimeout(() => {
+    showSubMenu.value = false
+    subMenuCloseTimer = undefined
+  }, 180)
+}
+
+const activeIndex = ref(0)
+const subActiveIndex = ref(0)
+const isSubMenuFocused = ref(false)
+const isViewSwitchDisabled = computed(
+  () => props.currentViewMode === 'flat' && props.canSwitchToCover === false,
+)
+
+// Item indices and actions mapping for main menu
+interface MenuItemDef {
+  id: string
+  disabled?: boolean
+  hasSubMenu?: boolean
+  action?: () => void
+}
+
+const menuItems = computed<MenuItemDef[]>(() => {
+  const list: MenuItemDef[] = []
+
+  list.push({
+    id: 'locate',
+    disabled: !props.canLocateCurrent,
+    action: () => {
+      emit('locateCurrent')
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'play',
+    action: () => {
+      emit('play')
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'insert',
+    disabled: !props.canInsert || props.hideInsert,
+    action: () => {
+      emit('insertAfterCurrent')
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'playlist',
+    hasSubMenu: true,
+  })
+
+  list.push({
+    id: 'editMetadata',
+    action: () => {
+      emit('editMetadata')
+      // Note: do not emit close here immediately if metadata dialog takes focus return responsibility
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'switchView',
+    disabled: isViewSwitchDisabled.value,
+    action: () => {
+      const targetMode: LibraryViewMode = props.currentViewMode === 'flat' ? 'cover' : 'flat'
+      emit('switchView', targetMode)
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'openInExplorer',
+    action: () => {
+      emit('openInExplorer')
+    },
+  })
+
+  return list
+})
+
+const menuNotice = computed(() => props.playlistFeedback ?? props.revealFeedback ?? null)
+
+const enabledMenuIndices = computed(() =>
+  menuItems.value.map((item, idx) => (item.disabled ? -1 : idx)).filter((idx) => idx !== -1),
+)
+
+interface SubMenuItemDef {
+  id: string
+  type: 'create' | 'playlist'
+  playlist?: SidebarPlaylistItem
+  disabled?: boolean
+  action: () => void
+}
+
+function onCreatePlaylistClick(): void {
+  emit('createPlaylist')
+  showSubMenu.value = false
+}
+
+function onAddToPlaylistClick(pl: SidebarPlaylistItem): void {
+  emit('addToPlaylist', pl)
+  showSubMenu.value = false
+}
+
+const subMenuItems = computed<SubMenuItemDef[]>(() => {
+  const list: SubMenuItemDef[] = []
+
+  list.push({
+    id: 'create-playlist',
+    type: 'create',
+    disabled: props.creatingPlaylist,
+    action: () => onCreatePlaylistClick(),
+  })
+
+  if (!props.playlistLoading && !props.playlistLoadError) {
+    props.playlists.forEach((pl) => {
+      list.push({
+        id: `playlist-${pl.id}`,
+        type: 'playlist',
+        playlist: pl,
+        disabled: false,
+        action: () => onAddToPlaylistClick(pl),
+      })
+    })
+  }
+
+  return list
+})
+
+const enabledSubMenuIndices = computed(() =>
+  subMenuItems.value.map((item, idx) => (item.disabled ? -1 : idx)).filter((idx) => idx !== -1),
+)
+
+watch(
+  () => [
+    props.open,
+    showSubMenu.value,
+    props.playlists.length,
+    props.playlistLoading,
+    props.playlistLoadError,
+    props.creatingPlaylist,
+  ],
+  () => {
+    if (props.open && showSubMenu.value) {
+      nextTick(() => {
+        void subMenuPosition?.update()
+      })
+      if (!enabledSubMenuIndices.value.includes(subActiveIndex.value)) {
+        subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
+        if (isSubMenuFocused.value) {
+          nextTick(() => focusActiveItem())
+        }
+      }
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  [() => props.open, () => props.anchor.clientX, () => props.anchor.clientY],
+  () => {
+    menuPosition?.dispose()
+    subMenuPosition?.dispose()
+    showSubMenu.value = false
+    isSubMenuFocused.value = false
+    activeIndex.value = enabledMenuIndices.value[0] ?? 0
+    subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
+  },
+  { immediate: true, flush: 'sync' },
+)
+
+watch(
+  [menuRef, () => props.open, () => props.anchor.clientX, () => props.anchor.clientY],
+  (_values, _previous, onCleanup) => {
+    if (!props.open || !menuRef.value) return
+    const session = startFloatingPosition({
+      reference: pointReference(props.anchor.clientX, props.anchor.clientY),
+      floating: menuRef.value,
+      profile: 'point-menu',
+      onError: () => emit('close'),
+      onPosition: (_result, first) => {
+        if (first) focusActiveItem()
+        void subMenuPosition?.update()
+      },
+    })
+    menuPosition = session
+    onCleanup(session.dispose)
+  },
+  { flush: 'post' },
+)
+
+watch(
+  showSubMenu,
+  (open) => {
+    if (open) return
+    const hadSubMenuFocus = subMenuRef.value?.contains(document.activeElement)
+    isSubMenuFocused.value = false
+    subMenuPosition?.dispose()
+    subMenuPosition = undefined
+    if (subMenuCloseTimer) clearTimeout(subMenuCloseTimer)
+    subMenuCloseTimer = undefined
+    if (hadSubMenuFocus)
+      nextTick(() => {
+        if (props.open) focusActiveItem()
+      })
+  },
+  { flush: 'sync' },
+)
+
+watch(
+  [subMenuRef, playlistButtonRef, showSubMenu, () => props.open],
+  (_values, _previous, onCleanup) => {
+    if (!props.open || !showSubMenu.value || !subMenuRef.value || !playlistButtonRef.value) return
+    const session = startFloatingPosition({
+      reference: playlistButtonRef.value,
+      floating: subMenuRef.value,
+      profile: 'submenu',
+      onError: () => {
+        showSubMenu.value = false
+        isSubMenuFocused.value = false
+        focusActiveItem()
+      },
+      onPosition: (result, first) => {
+        subMenuFlipsLeft.value = result.placement.startsWith('left')
+        if (first && isSubMenuFocused.value) focusActiveItem()
+      },
+    })
+    subMenuPosition = session
+    onCleanup(session.dispose)
+  },
+  { flush: 'post' },
+)
+
+function focusActiveItem(): void {
+  const menuEl = menuRef.value
+  const subMenuEl = subMenuRef.value
+
+  if (isSubMenuFocused.value && subMenuEl) {
+    if (subMenuEl.style.visibility === 'hidden') return
+    const items = subMenuEl.querySelectorAll<HTMLButtonElement>('[data-context-sub-item]')
+    const target = items[subActiveIndex.value]
+    target?.focus()
+  } else if (menuEl) {
+    const target = menuEl.querySelector<HTMLButtonElement>(
+      `[data-context-main-index="${activeIndex.value}"]`,
+    )
+    target?.focus()
+  }
+}
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (!props.open) return
+
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isSubMenuFocused.value || showSubMenu.value) {
+      showSubMenu.value = false
+      isSubMenuFocused.value = false
+      nextTick(() => focusActiveItem())
+    } else {
+      emit('close')
+    }
+    return
+  }
+
+  if (e.key === 'Tab') {
+    e.preventDefault()
+    e.stopPropagation()
+    emit('close')
+    return
+  }
+
+  if (isSubMenuFocused.value) {
+    handleSubMenuKeyDown(e)
+    return
+  }
+
+  handleMainMenuKeyDown(e)
+}
+
+function handleMainMenuKeyDown(e: KeyboardEvent): void {
+  const enabled = enabledMenuIndices.value
+  if (enabled.length === 0) return
+
+  const nextIndex = resolveMenuNavigationIndex(e.key, activeIndex.value, enabled)
+  if (nextIndex !== null) {
+    e.preventDefault()
+    activeIndex.value = nextIndex
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'ArrowRight') {
+    const item = menuItems.value[activeIndex.value]
+    if (item?.hasSubMenu) {
+      e.preventDefault()
+      showSubMenu.value = true
+      isSubMenuFocused.value = true
+      subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
+      nextTick(() => focusActiveItem())
+    }
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    const item = menuItems.value[activeIndex.value]
+    if (item?.disabled) return
+    if (item?.hasSubMenu) {
+      showSubMenu.value = true
+      isSubMenuFocused.value = true
+      subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
+      nextTick(() => focusActiveItem())
+    } else if (item?.action) {
+      item.action()
+    }
+  }
+}
+
+function handleSubMenuKeyDown(e: KeyboardEvent): void {
+  const enabled = enabledSubMenuIndices.value
+  if (enabled.length === 0) {
+    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+      e.preventDefault()
+      showSubMenu.value = false
+      isSubMenuFocused.value = false
+      nextTick(() => focusActiveItem())
+    }
+    return
+  }
+
+  const currentPos = enabled.indexOf(subActiveIndex.value)
+  const safePos = currentPos >= 0 ? currentPos : 0
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    const nextPos = (safePos + 1) % enabled.length
+    subActiveIndex.value = enabled[nextPos]
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    const prevPos = (safePos - 1 + enabled.length) % enabled.length
+    subActiveIndex.value = enabled[prevPos]
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'Home') {
+    e.preventDefault()
+    subActiveIndex.value = enabled[0]
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'End') {
+    e.preventDefault()
+    subActiveIndex.value = enabled[enabled.length - 1]
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    showSubMenu.value = false
+    isSubMenuFocused.value = false
+    nextTick(() => focusActiveItem())
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    const item = subMenuItems.value[subActiveIndex.value]
+    if (item && !item.disabled && item.action) {
+      item.action()
+    }
+  }
+}
+
+function onCreatePlaylistMouseEnter(): void {
+  if (props.creatingPlaylist) return
+  isSubMenuFocused.value = true
+  subActiveIndex.value = 0
+}
+
+function onPlaylistMouseEnter(idx: number): void {
+  if (props.playlistLoading || props.playlistLoadError) return
+  isSubMenuFocused.value = true
+  subActiveIndex.value = idx + 1
+}
+
+function activateMainItem(index: number): void {
+  const item = menuItems.value[index]
+  if (!item || item.disabled) return
+  item.action?.()
+}
+
+function onBackdropClick(): void {
+  emit('close')
+}
+
+onBeforeUnmount(() => {
+  menuPosition?.dispose()
+  subMenuPosition?.dispose()
+  if (subMenuCloseTimer) clearTimeout(subMenuCloseTimer)
+})
+</script>
+
+<template>
+  <Teleport to="body">
+    <div v-if="open" class="library-overlay" data-library-overlay="context-menu">
+      <div class="fixed inset-0 z-[60]" @click="onBackdropClick" @keydown="onKeyDown">
+        <div
+          ref="menuRef"
+          class="collection-context-menu library-context-menu-root library-context-menu-main-panel library-context-menu-panel frosted-context-menu fixed z-[61] w-58 p-1 select-none"
+          style="visibility: hidden; overflow: auto"
+          role="menu"
+          :aria-label="t('library.contextMenu.ariaLabel')"
+          @click.stop
+        >
+          <!-- 定位当前歌曲 -->
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="0"
+            :disabled="!canLocateCurrent"
+            :tabindex="activeIndex === 0 ? 0 : -1"
+            @click="activateMainItem(0)"
+            @mouseenter="activeIndex = 0"
+          >
+            <span class="i-lucide-locate-fixed"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.locateCurrent')
+            }}</span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 播放曲目 / 播放专辑 -->
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="1"
+            :tabindex="activeIndex === 1 ? 0 : -1"
+            @click="activateMainItem(1)"
+            @mouseenter="activeIndex = 1"
+          >
+            <span class="i-lucide-play"></span>
+            <span class="library-context-menu-text truncate">
+              {{
+                source === 'album-artwork'
+                  ? t('library.contextMenu.playAlbum', { album: albumTitle })
+                  : t('library.contextMenu.playTrack', { title: trackTitle })
+              }}
+            </span>
+          </button>
+
+          <div v-if="!hideInsert" class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 隐藏项不渲染；菜单逻辑索引保持稳定，焦点按显式索引查找。 -->
+          <!-- 插播曲目 / 插播专辑 -->
+          <button
+            v-if="!hideInsert"
+            class="library-context-menu-item library-context-menu-item--insert"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="2"
+            :disabled="!canInsert || hideInsert"
+            :tabindex="activeIndex === 2 ? 0 : -1"
+            @click="activateMainItem(2)"
+            @mouseenter="activeIndex = 2"
+          >
+            <span class="i-lucide-corner-down-right"></span>
+            <span class="library-context-menu-text truncate">
+              {{
+                source === 'album-artwork'
+                  ? t('library.contextMenu.insertAlbum', { album: albumTitle })
+                  : t('library.contextMenu.insertTrack', { title: trackTitle })
+              }}
+            </span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 添加到歌单 (带子菜单) -->
+          <div
+            class="library-context-menu-submenu-root relative"
+            @mouseenter="onPlaylistMenuMouseEnter"
+            @mouseleave="onPlaylistMenuMouseLeave"
+          >
+            <button
+              ref="playlistButtonRef"
+              class="library-context-menu-item"
+              type="button"
+              role="menuitem"
+              data-context-main-item
+              data-context-main-index="3"
+              aria-haspopup="true"
+              :aria-expanded="showSubMenu"
+              :tabindex="activeIndex === 3 ? 0 : -1"
+              @mouseenter="activeIndex = 3"
+              @click="showSubMenu = !showSubMenu"
+            >
+              <span class="i-lucide-folder-plus"></span>
+              <span class="library-context-menu-text truncate">{{
+                t('library.contextMenu.addToPlaylist')
+              }}</span>
+              <span
+                class="library-context-menu-chevron i-lucide-chevron-right"
+                :class="{ 'rotate-180': subMenuFlipsLeft }"
+              ></span>
+            </button>
+          </div>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 编辑元数据 -->
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="4"
+            :tabindex="activeIndex === 4 ? 0 : -1"
+            @click="activateMainItem(4)"
+            @mouseenter="activeIndex = 4"
+          >
+            <span class="i-lucide-pencil"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.editMetadata')
+            }}</span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 切换视图 -->
+          <button
+            class="library-context-menu-item library-context-menu-item--view-switch"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="5"
+            :disabled="isViewSwitchDisabled"
+            :tabindex="activeIndex === 5 && !isViewSwitchDisabled ? 0 : -1"
+            @click="activateMainItem(5)"
+            @mouseenter="!isViewSwitchDisabled && (activeIndex = 5)"
+          >
+            <span
+              :class="currentViewMode === 'flat' ? 'i-lucide-layout-grid' : 'i-lucide-list-music'"
+            ></span>
+            <span class="library-context-menu-text truncate">
+              {{
+                currentViewMode === 'flat'
+                  ? t('library.contextMenu.switchToCover')
+                  : t('library.contextMenu.switchToFlat')
+              }}
+            </span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="6"
+            :tabindex="activeIndex === 6 ? 0 : -1"
+            @click="activateMainItem(6)"
+            @mouseenter="activeIndex = 6"
+          >
+            <span class="i-lucide-folder-open"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.openInExplorer')
+            }}</span>
+          </button>
+
+          <!-- 添加结果保留在主菜单，子菜单关闭后依然可见并朗读。 -->
+          <template v-if="menuNotice">
+            <div class="library-context-menu-separator" role="separator"></div>
+            <div
+              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption font-medium select-none"
+              :class="
+                menuNotice.kind === 'error'
+                  ? 'text-red-500'
+                  : menuNotice.kind === 'success'
+                    ? 'text-emerald-500'
+                    : 'text-[var(--auralis-text-muted)]'
+              "
+              :role="menuNotice.kind === 'error' ? 'alert' : 'status'"
+              aria-live="polite"
+            >
+              <span
+                :class="menuNotice.kind === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-check'"
+                class="text-sm shrink-0"
+              ></span>
+              <span>{{ menuNotice.message }}</span>
+            </div>
+          </template>
+        </div>
+        <!-- 子菜单 -->
+        <div
+          v-if="showSubMenu"
+          ref="subMenuRef"
+          class="collection-context-menu library-context-menu-sub-panel library-context-menu-panel frosted-context-menu fixed z-[62] w-52 p-1"
+          style="visibility: hidden; overflow: auto"
+          role="menu"
+          :aria-label="t('library.contextMenu.addToPlaylist')"
+          @mouseenter="onPlaylistMenuMouseEnter"
+          @mouseleave="onPlaylistMenuMouseLeave"
+          @click.stop
+        >
+          <!-- 新建歌单 -->
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-sub-item
+            :disabled="creatingPlaylist"
+            :tabindex="isSubMenuFocused && subActiveIndex === 0 ? 0 : -1"
+            @click="onCreatePlaylistClick"
+            @mouseenter="onCreatePlaylistMouseEnter"
+          >
+            <span class="i-lucide-plus"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.createPlaylist')
+            }}</span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 歌单列表 -->
+          <div v-if="playlistLoading" class="px-3 py-2 auralis-type-caption opacity-60">
+            {{ t('library.contextMenu.playlistLoading') }}
+          </div>
+          <div v-else-if="playlistLoadError" class="px-3 py-2 auralis-type-caption text-red-500">
+            {{ t('library.contextMenu.playlistLoadError') }}
+          </div>
+          <div
+            v-else-if="playlists.length === 0"
+            class="px-3 py-2 auralis-type-caption text-[var(--auralis-text-muted)]"
+          >
+            {{ t('library.contextMenu.noPlaylists') }}
+          </div>
+          <template v-else>
+            <template v-for="(pl, idx) in playlists" :key="pl.id">
+              <div v-if="idx > 0" class="library-context-menu-separator" role="separator"></div>
+              <button
+                class="library-context-menu-item"
+                type="button"
+                role="menuitem"
+                data-context-sub-item
+                :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
+                @click="onAddToPlaylistClick(pl)"
+                @mouseenter="onPlaylistMouseEnter(idx)"
+              >
+                <span class="i-lucide-list-music"></span>
+                <span v-tooltip.overflow="pl.name" class="library-context-menu-text truncate">{{
+                  pl.name
+                }}</span>
+                <span
+                  v-if="
+                    playlistFeedback &&
+                    playlistFeedback.kind !== 'error' &&
+                    playlistFeedback.playlistId === pl.id
+                  "
+                  class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
+                  aria-live="polite"
+                >
+                  ✓
+                </span>
+              </button>
+            </template>
+          </template>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<style scoped>
+.library-context-menu-sub-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+</style>

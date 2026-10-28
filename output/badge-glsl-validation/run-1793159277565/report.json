@@ -1,0 +1,418 @@
+{
+  "passed": true,
+  "entries": [
+    "hours-10",
+    "hours-100",
+    "hours-500",
+    "hours-1000",
+    "days-7",
+    "days-30",
+    "days-100",
+    "days-365",
+    "days-520",
+    "albums-1",
+    "albums-live"
+  ],
+  "states": 22,
+  "checks": [
+    {
+      "name": "WebGL initializes",
+      "pass": true
+    },
+    {
+      "name": "load hours-10/lit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-10/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-10/lit",
+      "pass": true
+    },
+    {
+      "name": "load hours-10/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-10/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-10/unlit",
+      "pass": true
+    },
+    {
+      "name": "load hours-100/lit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-100/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-100/lit",
+      "pass": true
+    },
+    {
+      "name": "load hours-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "load hours-500/lit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-500/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-500/lit",
+      "pass": true
+    },
+    {
+      "name": "load hours-500/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-500/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-500/unlit",
+      "pass": true
+    },
+    {
+      "name": "load hours-1000/lit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-1000/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-1000/lit",
+      "pass": true
+    },
+    {
+      "name": "load hours-1000/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready hours-1000/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions hours-1000/unlit",
+      "pass": true
+    },
+    {
+      "name": "load days-7/lit",
+      "pass": true
+    },
+    {
+      "name": "ready days-7/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-7/lit",
+      "pass": true
+    },
+    {
+      "name": "load days-7/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready days-7/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-7/unlit",
+      "pass": true
+    },
+    {
+      "name": "load days-30/lit",
+      "pass": true
+    },
+    {
+      "name": "ready days-30/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-30/lit",
+      "pass": true
+    },
+    {
+      "name": "load days-30/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready days-30/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-30/unlit",
+      "pass": true
+    },
+    {
+      "name": "load days-100/lit",
+      "pass": true
+    },
+    {
+      "name": "ready days-100/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-100/lit",
+      "pass": true
+    },
+    {
+      "name": "load days-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready days-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-100/unlit",
+      "pass": true
+    },
+    {
+      "name": "load days-365/lit",
+      "pass": true
+    },
+    {
+      "name": "ready days-365/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-365/lit",
+      "pass": true
+    },
+    {
+      "name": "load days-365/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready days-365/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-365/unlit",
+      "pass": true
+    },
+    {
+      "name": "load days-520/lit",
+      "pass": true
+    },
+    {
+      "name": "ready days-520/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-520/lit",
+      "pass": true
+    },
+    {
+      "name": "load days-520/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready days-520/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions days-520/unlit",
+      "pass": true
+    },
+    {
+      "name": "load albums-1/lit",
+      "pass": true
+    },
+    {
+      "name": "ready albums-1/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions albums-1/lit",
+      "pass": true
+    },
+    {
+      "name": "load albums-1/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready albums-1/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions albums-1/unlit",
+      "pass": true
+    },
+    {
+      "name": "load albums-live/lit",
+      "pass": true
+    },
+    {
+      "name": "ready albums-live/lit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions albums-live/lit",
+      "pass": true
+    },
+    {
+      "name": "load albums-live/unlit",
+      "pass": true
+    },
+    {
+      "name": "ready albums-live/unlit",
+      "pass": true
+    },
+    {
+      "name": "four tilt directions albums-live/unlit",
+      "pass": true
+    },
+    {
+      "name": "idle stops drawing",
+      "pass": true
+    },
+    {
+      "name": "native keyboard changes pose",
+      "pass": true
+    },
+    {
+      "name": "DPR 1",
+      "pass": true
+    },
+    {
+      "name": "DPR 1.25",
+      "pass": true
+    },
+    {
+      "name": "DPR 2",
+      "pass": true
+    },
+    {
+      "name": "reduced motion ignores hover",
+      "pass": true
+    },
+    {
+      "name": "context loss uses static fallback",
+      "pass": true
+    },
+    {
+      "name": "no shader or renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "gpu": {
+    "auxAttributes": {
+      "amdSwitchable": false,
+      "canSupportThreadedTextureMailbox": false,
+      "directMLFeatureLevel": "Not supported",
+      "dx12FeatureLevel": "Not supported",
+      "glImplementationParts": "(gl=none,angle=none)",
+      "glResetNotificationStrategy": 0,
+      "hardwareSupportsVulkan": false,
+      "inProcessGpu": true,
+      "initializationTime": 0,
+      "isAsan": false,
+      "isClangCoverage": false,
+      "jpegDecodeAcceleratorSupported": false,
+      "optimus": false,
+      "overlayInfo": {
+        "bgra8OverlaySupport": "NONE",
+        "directComposition": false,
+        "nv12OverlaySupport": "NONE",
+        "p010OverlaySupport": "NONE",
+        "rgb10a2OverlaySupport": "NONE",
+        "supportsOverlays": false,
+        "yuy2OverlaySupport": "NONE"
+      },
+      "passthroughCmdDecoder": false,
+      "sandboxed": false,
+      "skiaBackendType": "None",
+      "subpixelFontRendering": true,
+      "supportsD3dSharedImages": false,
+      "supportsDirectML": false,
+      "supportsDx12": false,
+      "supportsVulkan": false,
+      "targetCpuBits": 64,
+      "visibilityCallbackCallCount": 0,
+      "vulkanVersion": "Not supported"
+    },
+    "gpuDevice": [
+      {
+        "active": false,
+        "deviceId": 11545,
+        "deviceString": "NVIDIA GeForce RTX 5060 Laptop GPU",
+        "driverVersion": "32.0.15.9219",
+        "gpuPreference": 2,
+        "revision": 161,
+        "subSysId": -1909125060,
+        "vendorId": 4318
+      },
+      {
+        "active": false,
+        "deviceId": 5710,
+        "deviceString": "AMD Radeon(TM) 610M",
+        "driverVersion": "32.0.21039.6001",
+        "gpuPreference": 0,
+        "revision": 216,
+        "subSysId": -1909125060,
+        "vendorId": 4098
+      },
+      {
+        "active": false,
+        "deviceId": 11545,
+        "deviceString": "NVIDIA GeForce RTX 5060 Laptop GPU",
+        "driverVersion": "32.0.15.9219",
+        "gpuPreference": 0,
+        "revision": 161,
+        "subSysId": -1909125060,
+        "vendorId": 4318
+      },
+      {
+        "active": false,
+        "deviceId": 140,
+        "deviceString": "Microsoft Basic Render Driver",
+        "driverVersion": "10.0.26100.9711",
+        "gpuPreference": 0,
+        "revision": 0,
+        "subSysId": 0,
+        "vendorId": 5140
+      }
+    ]
+  },
+  "features": {
+    "2d_canvas": "enabled",
+    "direct_rendering_display_compositor": "disabled_off_ok",
+    "gpu_compositing": "enabled",
+    "multiple_raster_threads": "enabled_on",
+    "opengl": "enabled_on",
+    "rasterization": "enabled",
+    "raw_draw": "disabled_off_ok",
+    "skia_graphite": "disabled_off",
+    "trees_in_viz": "disabled_off",
+    "video_decode": "enabled",
+    "video_encode": "enabled",
+    "vulkan": "disabled_off",
+    "webgl": "enabled",
+    "webgl2": "enabled",
+    "webgpu": "enabled",
+    "webnn": "disabled_off"
+  },
+  "output": "D:\\VSCode\\Auralis\\output\\badge-glsl-validation\\run-1793159277565"
+}

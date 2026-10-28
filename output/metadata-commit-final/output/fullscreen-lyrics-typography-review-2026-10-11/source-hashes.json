@@ -1,0 +1,34 @@
+[
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\app\\layout\\FullscreenPlayerOverlay.vue",
+    "Hash": "789833870CB86B41957C52B9A5CEFD57FFAC561F1466D9079C9012F1CD2BF58E"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\features\\playback\\components\\FullscreenBackgroundControls.vue",
+    "Hash": "5E06F63AF3F7099BC74ABEB5162B0922644004892626ABB92CCE8BD92F6D596B"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\features\\lyrics\\composables\\useFullscreenLyricsTypography.ts",
+    "Hash": "18F9CCC815172525D13FF7CCCB617ED6B8E44A890F109626D24FEF0A726DA842"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\features\\lyrics\\constants\\fullscreenLyricsTypography.ts",
+    "Hash": "D5AD96C01289BD01FFAD35A6A817AB41DBFA077614CEC357FE9CAF7B7FDAE9FA"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\features\\lyrics\\composables\\useFullscreenLyricsViewport.ts",
+    "Hash": "9D4536FFA4F377C83E6356C67E091D108D49D55C8D4E2875C14F6102EEE38FCC"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\features\\lyrics\\composables\\wholeLineLyricsViewport.ts",
+    "Hash": "F964B605080AA642FC3FEB7E39A3644935F3D959A3B32FADB975EA58B6E7FC62"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\locales\\zh-Hans.json",
+    "Hash": "CA4DB57E2FCEC4A5224D5B27109CD2BD2969A562ECC84582ADAC22AE52F2CB76"
+  },
+  {
+    "Path": "D:\\VSCode\\Auralis\\src\\renderer\\locales\\en.json",
+    "Hash": "05F07F539BC784E915084BDFDD6590642856E2DC6FBC15D6A6463364356019AA"
+  }
+]

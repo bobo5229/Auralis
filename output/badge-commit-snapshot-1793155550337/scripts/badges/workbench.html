@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Auralis · 徽章材质工作台</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px;
+        background: #121418;
+        color: #d9e0e8;
+        font-family: system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #a3acb9;
+      }
+      header {
+        max-width: 1320px;
+        margin: auto;
+      }
+      nav {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        background: #252b34;
+        color: inherit;
+        border: 1px solid #4b5666;
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+      button {
+        cursor: pointer;
+      }
+      main {
+        max-width: 1320px;
+        margin: auto;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+      }
+      .card {
+        text-align: center;
+        min-width: 0;
+      }
+      .surface {
+        position: relative;
+        aspect-ratio: 330/370;
+        background: #1c2027;
+        border-radius: 12px;
+        outline-offset: 4px;
+      }
+      .surface img,
+      .surface canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .surface img {
+        position: absolute;
+        inset: 0;
+      }
+      .surface canvas {
+        position: relative;
+      }
+      h2 {
+        font-size: 16px;
+        font-weight: 500;
+      }
+      #small-previews {
+        display: flex;
+        gap: 32px;
+        align-items: end;
+        margin: 24px 0;
+      }
+      #small-previews canvas {
+        height: auto;
+      }
+      #status {
+        white-space: pre-wrap;
+        color: #d9a7a7;
+      }
+      html[data-theme='light'] body {
+        background: #eef0f3;
+        color: #252b34;
+      }
+      html[data-theme='light'] .surface {
+        background: #fff;
+      }
+      html[data-theme='light'] button,
+      html[data-theme='light'] select {
+        background: #fff;
+        color: #252b34;
+      }
+      @media (max-width: 700px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+        body {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>珐琅徽章 · 材质工作台</h1>
+      <p>原版、去反光底色与共享 GLSL；选择任意徽章与状态，固定光照下微倾斜观察。</p>
+      <nav>
+        <select id="badge" aria-label="徽章"></select
+        ><select id="state" aria-label="状态">
+          <option value="lit">点亮</option>
+          <option value="unlit">未点亮</option></select
+        ><label><input id="reflections" type="checkbox" checked /> 表面反光</label
+        ><button id="theme">切换背景</button><button id="reset">姿态复位</button>
+      </nav>
+      <p id="status" role="status"></p>
+    </header>
+    <main>
+      <section class="card">
+        <h2>原始资产</h2>
+        <div class="surface"><img id="original" alt="原始徽章" /></div>
+      </section>
+      <section class="card">
+        <h2>去除固定反光</h2>
+        <div class="surface"><img id="base" alt="去反光底色" /></div>
+      </section>
+      <section class="card">
+        <h2>共享 GLSL 材质</h2>
+        <div
+          class="surface"
+          id="stage"
+          tabindex="0"
+          aria-label="GLSL 徽章预览；方向键调整，Home复位"
+        >
+          <img id="fallback" alt="静态回退" /><canvas id="live" aria-hidden="true"></canvas>
+        </div>
+      </section>
+    </main>
+    <header>
+      <div id="small-previews">
+        <canvas id="small96" style="width: 96px"></canvas
+        ><canvas id="small70" style="width: 70px"></canvas
+        ><canvas id="small44" style="width: 44px"></canvas>
+      </div>
+      <p>下方为 96 / 70 / 44px，均由同一个 WebGL 上下文复制。静置停止绘制。</p>
+    </header>
+    <script type="module" src="/workbench.js"></script>
+  </body>
+</html>

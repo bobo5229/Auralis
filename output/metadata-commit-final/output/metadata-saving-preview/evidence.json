@@ -1,0 +1,36 @@
+{
+  "labels": [
+    {
+      "text": "标题",
+      "size": "12px",
+      "lineHeight": "18px"
+    },
+    {
+      "text": "艺术家",
+      "size": "12px",
+      "lineHeight": "18px"
+    },
+    {
+      "text": "专辑",
+      "size": "12px",
+      "lineHeight": "18px"
+    },
+    {
+      "text": "专辑艺术家",
+      "size": "12px",
+      "lineHeight": "18px"
+    },
+    {
+      "text": "流派",
+      "size": "12px",
+      "lineHeight": "18px"
+    },
+    {
+      "text": "发行日期",
+      "size": "12px",
+      "lineHeight": "18px"
+    }
+  ],
+  "savingText": "正在保存…",
+  "inputsDisabled": true
+}

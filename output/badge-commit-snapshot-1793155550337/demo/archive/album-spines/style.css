@@ -1,0 +1,445 @@
+@import '../../../src/renderer/app/styles/typography.css';
+@import '../../../src/renderer/app/styles/harmony-fonts.css';
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../../../src/renderer/assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+    format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --background: #121212;
+  --text: #f3eee6;
+  --muted: #afb4bc;
+  --faint: #9299a3;
+  --line: rgb(225 221 214 / 16%);
+  --accent: #1dd55f;
+  --hover: rgb(255 255 255 / 6%);
+  --album-size: clamp(230px, 34vh, 300px);
+  --album-pitch: 64px;
+  --spine-angle: 78deg;
+  --pull-depth: 200px;
+  font-family: var(--auralis-font-ui);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: #f5f4f0;
+  --text: #292b2d;
+  --muted: #60656a;
+  --faint: #686e74;
+  --line: rgb(41 43 45 / 16%);
+  --accent: #137d3a;
+  --hover: rgb(41 43 45 / 5%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--background);
+}
+
+.page {
+  width: min(1320px, 100%);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  margin-inline: auto;
+  padding: 32px 40px 28px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+  font-weight: 500;
+}
+
+.header-description {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.theme-toggle {
+  flex-shrink: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.theme-toggle:hover,
+.reset-button:hover {
+  background: var(--hover);
+}
+
+main {
+  min-width: 0;
+}
+
+.viewport {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  overscroll-behavior-x: contain;
+}
+
+.album-row {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 64px 180px 56px;
+  list-style: none;
+}
+
+.album-slot {
+  position: relative;
+  z-index: 0;
+  flex: 0 0 var(--album-pitch);
+  width: var(--album-pitch);
+  height: calc(var(--album-size) + 38px);
+  /* Keep each album's solid faces together instead of intersecting its neighbors. */
+  perspective: 2400px;
+  perspective-origin: 50% 45%;
+  transform-style: flat;
+}
+
+.album-occlusion {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.album-occlusion .album-slot {
+  position: absolute;
+}
+
+.album-occlusion .album-lift,
+.album-occlusion .album-object {
+  transition: none;
+}
+
+.album-slot.is-active {
+  z-index: 10;
+}
+
+.album-trigger {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.album-trigger:focus-visible {
+  outline: none;
+}
+
+.album-trigger:focus-visible .album-rank {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: 2px;
+}
+
+.album-rank {
+  position: absolute;
+  top: calc(var(--album-size) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-active .album-rank {
+  color: var(--accent);
+}
+
+.album-lift,
+.album-envelope {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--album-size);
+  height: var(--album-size);
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+.album-lift {
+  transform: translate3d(-50%, 0, 0);
+  transition: transform 500ms cubic-bezier(0.22, 0.8, 0.22, 1);
+}
+
+.album-envelope {
+  visibility: hidden;
+  transform: translate3d(-50%, -12px, var(--pull-depth));
+}
+
+.is-active .album-lift {
+  transform: translate3d(-50%, -12px, var(--pull-depth));
+  transition: transform 620ms cubic-bezier(0.18, 0.85, 0.24, 1);
+}
+
+.album-object {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: rotateY(var(--spine-angle));
+  transform-style: preserve-3d;
+  transition: transform 500ms cubic-bezier(0.22, 0.8, 0.22, 1);
+}
+
+.is-active .album-object {
+  transform: rotateY(0deg);
+  transition: transform 650ms cubic-bezier(0.2, 1.04, 0.28, 1) 35ms;
+}
+
+.album-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.album-front {
+  background: var(--cover-paper);
+  transform: translateZ(7px);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%);
+}
+
+.album-front svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.album-front::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 14%),
+    transparent 6%,
+    transparent 97%,
+    rgb(255 255 255 / 12%)
+  );
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  content: '';
+}
+
+.album-back {
+  background: var(--cover-paper);
+  transform: rotateY(180deg) translateZ(7px);
+}
+
+.album-spine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  width: 14px;
+  height: 100%;
+  padding: 12px 0;
+  background:
+    linear-gradient(90deg, rgb(0 0 0 / 14%), transparent 38%, rgb(255 255 255 / 9%)),
+    var(--spine-paper);
+  color: var(--cover-ink);
+  transform-origin: left center;
+  transform: translateZ(-7px) rotateY(-90deg);
+  backface-visibility: hidden;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 9px;
+  line-height: 14px;
+  letter-spacing: 0.08em;
+}
+
+.spine-title {
+  font-weight: 500;
+}
+
+.spine-artist {
+  margin-top: auto;
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.album-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  background: var(--spine-paper);
+  transform-origin: center top;
+  transform: translateZ(-7px) rotateX(90deg);
+  backface-visibility: hidden;
+}
+
+.album-info {
+  min-height: 64px;
+  margin: 4px auto 0;
+  text-align: center;
+}
+
+.album-info h2 {
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+  font-weight: 500;
+}
+
+.album-info p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.album-info.is-idle h2 {
+  color: var(--muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 22px 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.parameter {
+  display: grid;
+  grid-template-columns: auto 90px 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.parameter label,
+.parameter output {
+  color: var(--muted);
+}
+
+.parameter output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.reset-button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-size: inherit;
+}
+
+.demo-note {
+  margin-left: auto;
+  color: var(--faint);
+}
+
+@media (max-width: 800px) {
+  .page {
+    padding: 24px;
+  }
+
+  .controls {
+    gap: 18px 24px;
+  }
+
+  .demo-note {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding-inline: 16px;
+  }
+
+  .parameter {
+    grid-template-columns: 60px minmax(90px, 1fr) 44px;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-lift,
+  .album-object,
+  .is-active .album-lift,
+  .is-active .album-object {
+    transition: none;
+  }
+}

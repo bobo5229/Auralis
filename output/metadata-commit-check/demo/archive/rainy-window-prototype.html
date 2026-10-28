@@ -1,0 +1,1260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auralis · 雨夜落地窗背景原型 (Moody Rainy Glass & Urban Bokeh)</title>
+  <style>
+    :root {
+      --bg-void: #03060a;
+      --text-main: #f0f5fa;
+      --text-muted: #8a9ba8;
+      --accent-cyan: #9aefe7;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", "Consolas", monospace;
+
+      /* 3.5" Standard Contour */
+      --floppy-contour: polygon(
+        0% 0%, 
+        calc(100% - 15px) 0%, 
+        100% 15px, 
+        100% 57%, 
+        calc(100% - 3px) 59%, 
+        calc(100% - 3px) 61%, 
+        100% 63%, 
+        100% 100%, 
+        0% 100%, 
+        0% 63%, 
+        3px 61%, 
+        3px 59%, 
+        0% 57%
+      );
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Top App Navigation & Controls Header */
+    header.prototype-header {
+      height: 54px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(4, 7, 12, 0.75);
+      backdrop-filter: blur(20px);
+      position: relative;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: #fff;
+    }
+
+    .brand-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(154, 239, 231, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(154, 239, 231, 0.3);
+      letter-spacing: 0.5px;
+    }
+
+    .control-deck {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .control-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .control-item label {
+      cursor: pointer;
+    }
+
+    .select-input {
+      background: rgba(20, 30, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--text-main);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .range-input {
+      width: 80px;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    .btn-toggle {
+      background: rgba(20, 30, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--text-main);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-toggle:hover {
+      background: rgba(35, 50, 68, 0.9);
+      border-color: rgba(154, 239, 231, 0.4);
+    }
+
+    .btn-toggle.active {
+      background: var(--accent-cyan);
+      color: #061118;
+      border-color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Main Viewport Stage */
+    main.viewport-stage {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: calc(100vh - 54px);
+      overflow: hidden;
+    }
+
+    /* Canvas Layer: Rain & Bokeh Glass */
+    canvas#rain-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: auto;
+      z-index: 1;
+    }
+
+    /* Subtle Architectural Window Mullion (极细现代金属落地窗格) */
+    .window-frame-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr 1px 1.4fr;
+      grid-template-rows: 1fr 1px 1fr;
+      opacity: 0.85;
+      transition: opacity 0.3s ease;
+    }
+
+    .mullion-v {
+      background: linear-gradient(180deg, rgba(8, 14, 20, 0.95) 0%, rgba(18, 28, 38, 0.75) 50%, rgba(6, 10, 16, 0.95) 100%);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(255, 255, 255, 0.08);
+      grid-column: 2;
+      grid-row: 1 / -1;
+    }
+
+    .mullion-h {
+      background: linear-gradient(90deg, rgba(8, 14, 20, 0.95) 0%, rgba(18, 28, 38, 0.75) 50%, rgba(6, 10, 16, 0.95) 100%);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.9), inset 0 0 1px rgba(255, 255, 255, 0.08);
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    /* Ambient Vignette & Room Glow (室内柔和漫反射与暗角) */
+    .room-ambient-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background: 
+        radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(2, 4, 8, 0.65) 85%, rgba(1, 2, 4, 0.92) 100%),
+        linear-gradient(180deg, rgba(2, 5, 10, 0.4) 0%, transparent 25%, transparent 75%, rgba(2, 4, 8, 0.7) 100%);
+    }
+
+    /* Interactive Foreground Stage (Mac 128K & 5x2 Rack) */
+    .foreground-stage {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 46% 54%;
+      height: 100%;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .foreground-stage.is-hidden {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none !important;
+    }
+
+    /* -------------------------------------------------------------
+       LEFT: MACINTOSH 128K 3D DESK VIEW
+       ------------------------------------------------------------- */
+    .mac-desk-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      perspective: 1600px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .mac-rig {
+      position: relative;
+      width: 280px;
+      height: 360px;
+      transform-style: preserve-3d;
+      transform: rotateX(-5deg) rotateY(18deg) rotateZ(0deg);
+      transition: transform 0.4s cubic-bezier(0.18, 0.9, 0.3, 1.2);
+      pointer-events: auto;
+      cursor: grab;
+    }
+
+    .mac-rig:active {
+      cursor: grabbing;
+    }
+
+    /* Cast shadow on desk */
+    .mac-desk-shadow {
+      position: absolute;
+      bottom: -30px;
+      left: 10%;
+      width: 80%;
+      height: 48px;
+      background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.85) 0%, transparent 75%);
+      transform: rotateX(85deg) translateZ(-40px);
+      filter: blur(14px);
+    }
+
+    .mac-case {
+      position: absolute;
+      inset: 0;
+      background: #e4dccb;
+      border-radius: 14px 14px 8px 8px;
+      box-shadow: 
+        inset 2px 2px 4px rgba(255, 255, 255, 0.8),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.4),
+        0 24px 60px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 18px;
+    }
+
+    /* CRT Screen Well */
+    .mac-crt-well {
+      width: 100%;
+      height: 220px;
+      background: #232220;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 
+        inset 3px 3px 8px rgba(0, 0, 0, 0.9),
+        inset -1px -1px 3px rgba(255, 255, 255, 0.3);
+      position: relative;
+    }
+
+    .mac-crt-glass {
+      width: 100%;
+      height: 100%;
+      background: #cad4be;
+      border-radius: 6px;
+      box-shadow: inset 0 0 16px rgba(40, 60, 40, 0.4);
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      position: relative;
+      overflow: hidden;
+      color: #1a2f20;
+    }
+
+    .mac-crt-glass::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.15) 100%);
+      pointer-events: none;
+    }
+
+    .crt-top-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      border-bottom: 1px solid #1a2f20;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .crt-playing-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+
+    .crt-playing-artist {
+      font-size: 11px;
+      opacity: 0.85;
+      margin-bottom: 14px;
+    }
+
+    .crt-playing-wave {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 48px;
+      padding: 4px 0;
+    }
+
+    .wave-bar {
+      flex: 1;
+      background: #1a2f20;
+      border-radius: 1px;
+      animation: waveBounce 1.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes waveBounce {
+      0% { height: 15%; }
+      50% { height: 85%; }
+      100% { height: 40%; }
+    }
+
+    /* Floppy Slot */
+    .mac-floppy-drive {
+      width: 170px;
+      height: 12px;
+      background: #141210;
+      border-radius: 3px;
+      margin-top: 24px;
+      box-shadow: inset 1px 1px 2px #000, 0 1px 1px rgba(255, 255, 255, 0.4);
+      position: relative;
+    }
+
+    .mac-drive-led {
+      position: absolute;
+      right: -24px;
+      top: 2px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #64f0a2;
+      box-shadow: 0 0 8px #64f0a2;
+    }
+
+    /* -------------------------------------------------------------
+       RIGHT: 5×2 DISPLAY RACK STAGE
+       ------------------------------------------------------------- */
+    .rack-stage-area {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px 36px 24px 12px;
+      perspective: 1400px;
+      height: 100%;
+    }
+
+    .rack-glass-card {
+      background: rgba(8, 16, 26, 0.65);
+      border: 1px solid rgba(154, 239, 231, 0.16);
+      backdrop-filter: blur(28px);
+      border-radius: 18px;
+      padding: 22px 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      height: 92%;
+      max-height: 820px;
+    }
+
+    .rack-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      padding: 0 6px;
+      flex-shrink: 0;
+    }
+
+    .rack-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .rack-meta {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .disk-grid-viewport {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 14px;
+      padding: 4px 6px 14px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(154, 239, 231, 0.2) transparent;
+      transform-style: preserve-3d;
+      pointer-events: auto;
+    }
+
+    .grid-disk-cell {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 120px;
+    }
+
+    /* Floppy Disk Entity */
+    .disk-item {
+      position: relative;
+      width: 100%;
+      max-width: 220px;
+      aspect-ratio: 90 / 94;
+      transform-style: preserve-3d;
+      transform: rotateX(6deg) rotateY(-8deg);
+      transition: transform 0.3s cubic-bezier(0.18, 0.9, 0.3, 1.2), filter 0.25s ease;
+      cursor: pointer;
+    }
+
+    .disk-item::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 8px;
+      background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.75) 0%, transparent 72%);
+      opacity: 0.65;
+      transform: translate3d(-8px, 14px, -18px);
+      pointer-events: none;
+      filter: blur(8px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .disk-item:hover {
+      transform: rotateX(2deg) rotateY(-2deg) translateZ(16px) scale(1.045);
+      filter: brightness(1.1);
+    }
+
+    .disk-item:hover::before {
+      opacity: 0.95;
+      transform: translate3d(-12px, 20px, -24px);
+    }
+
+    /* 2.5D Hull Structure */
+    .disk-box {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+    }
+
+    .disk-slices-stack {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transform-style: preserve-3d;
+    }
+
+    .disk-slice-layer {
+      position: absolute;
+      inset: 0;
+      clip-path: var(--floppy-contour);
+      background: rgba(36, 110, 122, 0.42);
+      border: 1px solid rgba(154, 239, 231, 0.3);
+    }
+
+    .disk-slice-layer.parting {
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.85);
+      background: rgba(22, 70, 78, 0.65);
+    }
+
+    .disk-front-plate {
+      position: absolute;
+      inset: 0;
+      clip-path: var(--floppy-contour);
+      background: 
+        radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 65%),
+        linear-gradient(135deg, rgba(42, 127, 140, 0.8) 0%, rgba(12, 45, 56, 0.9) 100%);
+      transform: translateZ(5px);
+      box-shadow: inset 1px 1.5px 1px rgba(255, 255, 255, 0.6), inset -1px -1.5px 2px rgba(0, 0, 0, 0.6);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Shutter */
+    .disk-shutter-leaf {
+      position: absolute;
+      top: 0;
+      left: 20%;
+      width: 58%;
+      height: 31%;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(115deg, #8a9ca5 0%, #ffffff 24%, #687c88 46%, #e3edf5 74%, #7a8f9a 100%);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 1px 1px #fff;
+      transform: translateZ(6.5px);
+    }
+
+    /* Paper Label Cavity */
+    .disk-label-pocket {
+      position: absolute;
+      left: 9%;
+      right: 9%;
+      top: 35%;
+      bottom: 8%;
+      background: #081118;
+      border-radius: 3px;
+      box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.9);
+      padding: 2.5px;
+    }
+
+    .disk-paper-sticker {
+      width: 100%;
+      height: 100%;
+      border-radius: 2px;
+      background: #fbfdff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #0b151c;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+
+    .disk-color-bar {
+      height: 6px;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    .disk-sticker-body {
+      padding: 4px 6px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex: 1;
+    }
+
+    .disk-cover-thumb {
+      width: 38px;
+      height: 38px;
+      border-radius: 3px;
+      background: #182632;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .disk-cover-thumb svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .disk-text-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .disk-title {
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #0d1a24;
+    }
+
+    .disk-artist {
+      font-size: 9.5px;
+      color: #556c7d;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .disk-pills-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .disk-spec-pill {
+      font-size: 8px;
+      font-family: var(--font-mono);
+      padding: 1px 4px;
+      background: #e4edf4;
+      border-radius: 2px;
+      color: #3b5364;
+    }
+
+    /* Empty Bay Placeholder */
+    .bay-empty-slot {
+      position: relative;
+      width: 100%;
+      max-width: 220px;
+      aspect-ratio: 90 / 94;
+      border-radius: 6px;
+      border: 1px dashed rgba(154, 239, 231, 0.2);
+      background: radial-gradient(circle at 50% 50%, rgba(12, 28, 40, 0.3) 0%, rgba(4, 10, 16, 0.5) 100%);
+      clip-path: var(--floppy-contour);
+      transform: rotateX(6deg) rotateY(-8deg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: rgba(138, 155, 168, 0.45);
+      font-size: 9px;
+      font-family: var(--font-mono);
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .bay-empty-slot:hover {
+      border-color: rgba(154, 239, 231, 0.4);
+      color: rgba(154, 239, 231, 0.8);
+    }
+
+    /* Bottom Info Toast */
+    .demo-info-toast {
+      position: absolute;
+      bottom: 20px;
+      left: 28px;
+      z-index: 50;
+      background: rgba(10, 18, 28, 0.85);
+      border: 1px solid rgba(154, 239, 231, 0.2);
+      backdrop-filter: blur(16px);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .demo-info-toast strong {
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation & Interactive Settings -->
+  <header class="prototype-header">
+    <div class="brand-group">
+      <span class="brand-title">AURALIS</span>
+      <span class="brand-tag">风格 5 · 雨夜落地窗原型</span>
+    </div>
+
+    <div class="control-deck">
+      <!-- Rain Intensity -->
+      <div class="control-item">
+        <label for="rain-density">雨量强度：</label>
+        <input type="range" class="range-input" id="rain-density" min="1" max="5" value="3">
+      </div>
+
+      <!-- City Mood Theme -->
+      <div class="control-item">
+        <label for="city-mood">窗外氛围：</label>
+        <select class="select-input" id="city-mood">
+          <option value="midnight">邦迪冷夜 (Bondi Midnight)</option>
+          <option value="amber">东京雨巷 (Warm Amber)</option>
+          <option value="neon">赛博霓虹 (Cyber Neon)</option>
+          <option value="mist">深林雾雨 (Emerald Mist)</option>
+        </select>
+      </div>
+
+      <!-- Window Mullions Toggle -->
+      <button class="btn-toggle active" id="btn-toggle-frame">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+        落地窗格
+      </button>
+
+      <!-- Stage Visibility Toggle -->
+      <button class="btn-toggle active" id="btn-toggle-stage">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        唱片室前景
+      </button>
+
+      <!-- Clear Mist Interaction -->
+      <button class="btn-toggle" id="btn-wipe-glass">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+        擦试水雾
+      </button>
+    </div>
+  </header>
+
+  <!-- Viewport Stage -->
+  <main class="viewport-stage" id="stage-viewport">
+
+    <!-- Rain & Urban Bokeh Canvas -->
+    <canvas id="rain-canvas"></canvas>
+
+    <!-- Window Mullion Silhouette Frame -->
+    <div class="window-frame-overlay" id="window-frame">
+      <div class="mullion-v"></div>
+      <div class="mullion-h"></div>
+    </div>
+
+    <!-- Ambient Room Darkening Vignette -->
+    <div class="room-ambient-vignette"></div>
+
+    <!-- Foreground 3D Stage (Macintosh 128K + 5x2 Rack) -->
+    <div class="foreground-stage" id="foreground-stage">
+
+      <!-- LEFT: Mac 128K on desk -->
+      <div class="mac-desk-area">
+        <div class="mac-rig" id="mac-rig">
+          <div class="mac-desk-shadow"></div>
+          <div class="mac-case">
+            <div class="mac-crt-well">
+              <div class="mac-crt-glass">
+                <div class="crt-top-bar">
+                  <span>AURALIS CRT</span>
+                  <span>1984</span>
+                </div>
+                <div class="crt-playing-title" id="crt-title">Popstar</div>
+                <div class="crt-playing-artist" id="crt-artist">Nessa Barrett · 2024</div>
+                <div class="crt-playing-wave">
+                  <div class="wave-bar" style="animation-delay: 0s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.2s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.4s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.1s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.3s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.5s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.25s;"></div>
+                  <div class="wave-bar" style="animation-delay: 0.35s;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="mac-floppy-drive">
+              <div class="mac-drive-led"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: 5x2 Floppy Display Rack -->
+      <div class="rack-stage-area">
+        <div class="rack-glass-card">
+          <div class="rack-header-row">
+            <div class="rack-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              今日唱片 · 5×2 通高独立陈列架
+            </div>
+            <div class="rack-meta" id="rack-meta">7 / 10 槽已收录 (3 槽空置待听)</div>
+          </div>
+
+          <div class="disk-grid-viewport" id="disk-grid-viewport">
+            <!-- Disks & Empty bays dynamically injected -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Info Toast -->
+    <div class="demo-info-toast">
+      <span>💧 <strong>玻璃物理效果</strong>：包含远景失焦大光斑(Urban Bokeh)、冷凝水雾、重力滑落水滴与水痕。移动鼠标可体验空间微视差。</span>
+    </div>
+
+  </main>
+
+  <script>
+    /* =========================================================================
+       1. MOCK ALBUM DATA & 5×2 RACK RENDERER
+       ========================================================================= */
+    const mockAlbums = [
+      {
+        title: "Popstar",
+        artist: "Nessa Barrett · 2024",
+        gradient: "linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#15242f"/><circle cx="20" cy="20" r="14" fill="#203a4b"/><circle cx="20" cy="20" r="5" fill="#9aefe7"/></svg>`
+      },
+      {
+        title: "Random Access Memories",
+        artist: "Daft Punk · 2013",
+        gradient: "linear-gradient(90deg, #1f4f96 0%, #4688ea 65%, #9ec9ff 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#0b1018"/><circle cx="15" cy="18" r="8" fill="#b9c6cf"/><circle cx="25" cy="18" r="8" fill="#c79d4e"/></svg>`
+      },
+      {
+        title: "Kid A",
+        artist: "Radiohead · 2000",
+        gradient: "linear-gradient(90deg, #b8521a 0%, #e87a38 65%, #f7b483 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#1a2530"/><polygon points="20,8 34,30 6,30" fill="#c93224"/></svg>`
+      },
+      {
+        title: "Aja",
+        artist: "Steely Dan · 1977",
+        gradient: "linear-gradient(90deg, #2b6b4d 0%, #449b71 65%, #88d4af 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#080808"/><circle cx="23" cy="19" r="10" fill="#a42822"/></svg>`
+      },
+      {
+        title: "OK Computer",
+        artist: "Radiohead · 1997",
+        gradient: "linear-gradient(90deg, #1b5b7a 0%, #3ca0cf 65%, #a6d8f0 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#0d212c"/><circle cx="20" cy="20" r="12" fill="none" stroke="#fff" stroke-width="1.5"/></svg>`
+      },
+      {
+        title: "Discovery",
+        artist: "Daft Punk · 2001",
+        gradient: "linear-gradient(90deg, #8c2a7a 0%, #d83f87 65%, #ff8cb2 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#1e0b1c"/><polygon points="20,6 35,20 20,34 5,20" fill="#d83f87"/></svg>`
+      },
+      {
+        title: "Abbey Road",
+        artist: "The Beatles · 1969",
+        gradient: "linear-gradient(90deg, #6e4e1a 0%, #b88628 65%, #edd485 100%)",
+        svg: `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#1c1914"/><rect x="6" y="18" width="28" height="4" fill="#fff"/></svg>`
+      }
+    ];
+
+    function renderRack() {
+      const grid = document.getElementById('disk-grid-viewport');
+      grid.innerHTML = '';
+      const totalSlots = 10;
+
+      for (let i = 0; i < totalSlots; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-disk-cell';
+
+        if (i < mockAlbums.length) {
+          const item = mockAlbums[i];
+          const disk = document.createElement('div');
+          disk.className = 'disk-item';
+          disk.innerHTML = `
+            <div class="disk-box">
+              <div class="disk-slices-stack">
+                <div class="disk-slice-layer" style="transform:translateZ(-4px);"></div>
+                <div class="disk-slice-layer parting" style="transform:translateZ(0px);"></div>
+                <div class="disk-slice-layer" style="transform:translateZ(4px);"></div>
+              </div>
+              <div class="disk-front-plate">
+                <div class="disk-label-pocket">
+                  <div class="disk-paper-sticker">
+                    <div class="disk-color-bar" style="background:${item.gradient};"></div>
+                    <div class="disk-sticker-body">
+                      <div class="disk-cover-thumb">${item.svg}</div>
+                      <div class="disk-text-info">
+                        <div class="disk-title">${item.title}</div>
+                        <div class="disk-artist">${item.artist}</div>
+                        <div class="disk-pills-row">
+                          <span class="disk-spec-pill">Hi-Res</span>
+                          <span class="disk-spec-pill">FLAC</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="disk-shutter-leaf"></div>
+            </div>
+          `;
+          disk.addEventListener('click', () => {
+            document.getElementById('crt-title').textContent = item.title;
+            document.getElementById('crt-artist').textContent = item.artist;
+          });
+          cell.appendChild(disk);
+        } else {
+          const emptyBay = document.createElement('div');
+          emptyBay.className = 'bay-empty-slot';
+          emptyBay.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>
+              <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            <span>SLOT #${String(i + 1).padStart(2, '0')}</span>
+          `;
+          cell.appendChild(emptyBay);
+        }
+
+        grid.appendChild(cell);
+      }
+    }
+    renderRack();
+
+    /* =========================================================================
+       2. RAIN & URBAN BOKEH CANVAS ENGINE (雨夜玻璃物理引擎)
+       ========================================================================= */
+    const canvas = document.getElementById('rain-canvas');
+    const ctx = canvas.getContext('2d');
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+
+    // Atmosphere Color Profiles
+    const moodPalettes = {
+      midnight: {
+        skyGrad: ["#02060b", "#061019", "#0b1c28"],
+        bokehs: [
+          { r: 42, g: 127, b: 140, a: 0.35 },  // Bondi blue
+          { r: 154, g: 239, b: 231, a: 0.28 }, // Cyan glow
+          { r: 50, g: 90, b: 140, a: 0.4 },   // Deep blue
+          { r: 240, g: 200, b: 120, a: 0.22 }, // Streetlight amber
+          { r: 180, g: 220, b: 255, a: 0.32 }  // Distant headlamp
+        ]
+      },
+      amber: {
+        skyGrad: ["#080402", "#180c06", "#2a160a"],
+        bokehs: [
+          { r: 255, g: 160, b: 60, a: 0.38 },  // Amber sodium light
+          { r: 240, g: 100, b: 40, a: 0.32 },  // Warm red-orange
+          { r: 255, g: 220, b: 140, a: 0.35 }, // Shop window gold
+          { r: 140, g: 80, b: 40, a: 0.3 },    // Shadow bronze
+          { r: 255, g: 80, b: 60, a: 0.22 }    // Tail light crimson
+        ]
+      },
+      neon: {
+        skyGrad: ["#050209", "#11071d", "#1f0c2e"],
+        bokehs: [
+          { r: 235, g: 50, b: 140, a: 0.36 },  // Magenta neon
+          { r: 60, g: 160, b: 255, a: 0.38 },  // Cyan cyber
+          { r: 160, g: 70, b: 255, a: 0.34 },  // Violet
+          { r: 255, g: 210, b: 80, a: 0.25 },  // Yellow sign
+          { r: 70, g: 230, b: 200, a: 0.3 }    // Turquoise
+        ]
+      },
+      mist: {
+        skyGrad: ["#020806", "#061612", "#0d2620"],
+        bokehs: [
+          { r: 40, g: 160, b: 120, a: 0.36 },  // Emerald green
+          { r: 90, g: 210, b: 170, a: 0.32 },  // Mint glow
+          { r: 20, g: 90, b: 80, a: 0.4 },     // Deep pine
+          { r: 200, g: 240, b: 210, a: 0.28 }, // Pale moss
+          { r: 230, g: 190, b: 120, a: 0.2 }   // Warm cabin light
+        ]
+      }
+    };
+
+    let currentMood = 'midnight';
+    let rainIntensity = 3;
+
+    /* --- Bokeh Particle Class --- */
+    class BokehBall {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.radius = 40 + Math.random() * 110;
+        this.vx = (Math.random() - 0.5) * 0.18;
+        this.vy = (Math.random() - 0.5) * 0.12 - 0.04;
+        this.colorIdx = Math.floor(Math.random() * 5);
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.pulseSpeed = 0.008 + Math.random() * 0.015;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.pulsePhase += this.pulseSpeed;
+        if (this.x < -this.radius) this.x = width + this.radius;
+        if (this.x > width + this.radius) this.x = -this.radius;
+        if (this.y < -this.radius) this.y = height + this.radius;
+        if (this.y > height + this.radius) this.y = -this.radius;
+      }
+      draw(c, palette) {
+        const col = palette.bokehs[this.colorIdx];
+        const pulse = 0.85 + Math.sin(this.pulsePhase) * 0.15;
+        const curRadius = this.radius * pulse;
+
+        const grad = c.createRadialGradient(this.x, this.y, 0, this.x, this.y, curRadius);
+        grad.addColorStop(0, `rgba(${col.r}, ${col.g}, ${col.b}, ${col.a * 0.95})`);
+        grad.addColorStop(0.55, `rgba(${col.r}, ${col.g}, ${col.b}, ${col.a * 0.45})`);
+        grad.addColorStop(1, `rgba(${col.r}, ${col.g}, ${col.b}, 0)`);
+
+        c.fillStyle = grad;
+        c.beginPath();
+        c.arc(this.x, this.y, curRadius, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+
+    /* --- Static Condensation Micro-Droplet Class --- */
+    class MicroDroplet {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.size = 0.6 + Math.random() * 1.8;
+        this.alpha = 0.15 + Math.random() * 0.45;
+      }
+      draw(c) {
+        c.fillStyle = `rgba(220, 240, 255, ${this.alpha})`;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+
+    /* --- Sliding Heavy Raindrop with Streak --- */
+    class SlidingDroplet {
+      constructor() {
+        this.init();
+      }
+      init() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * -100;
+        this.radius = 2.5 + Math.random() * 3.5;
+        this.speedY = 1.2 + Math.random() * 2.5;
+        this.streakHistory = [];
+        this.pauseTimer = 0;
+        this.wobblePhase = Math.random() * Math.PI * 2;
+      }
+      update() {
+        if (this.pauseTimer > 0) {
+          this.pauseTimer--;
+          return;
+        }
+
+        // Hesitant slide physics (雨滴沿玻璃表面由于表面张力产生的停走滑行)
+        this.wobblePhase += 0.12;
+        const wobbleX = Math.sin(this.wobblePhase) * 0.4;
+        this.x += wobbleX;
+        this.y += this.speedY;
+
+        this.streakHistory.push({ x: this.x, y: this.y, r: this.radius });
+        if (this.streakHistory.length > 28) {
+          this.streakHistory.shift();
+        }
+
+        // Random hesitation
+        if (Math.random() < 0.02) {
+          this.pauseTimer = Math.floor(10 + Math.random() * 35);
+          this.radius *= 0.98; // shed water
+        }
+
+        if (this.y > height + 40) {
+          this.init();
+        }
+      }
+      draw(c) {
+        // Draw trailing streak
+        if (this.streakHistory.length > 1) {
+          c.strokeStyle = 'rgba(210, 235, 255, 0.12)';
+          c.lineWidth = this.radius * 0.9;
+          c.lineCap = 'round';
+          c.beginPath();
+          c.moveTo(this.streakHistory[0].x, this.streakHistory[0].y);
+          for (let i = 1; i < this.streakHistory.length; i++) {
+            c.lineTo(this.streakHistory[i].x, this.streakHistory[i].y);
+          }
+          c.stroke();
+        }
+
+        // Draw physical water droplet with optical shadow & highlight
+        // Dark bottom refraction
+        c.fillStyle = 'rgba(4, 10, 16, 0.7)';
+        c.beginPath();
+        c.arc(this.x, this.y + 1, this.radius, 0, Math.PI * 2);
+        c.fill();
+
+        // Droplet body lens
+        const dropGrad = c.createRadialGradient(
+          this.x - this.radius * 0.3, 
+          this.y - this.radius * 0.3, 
+          0, 
+          this.x, 
+          this.y, 
+          this.radius
+        );
+        dropGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        dropGrad.addColorStop(0.4, 'rgba(180, 225, 245, 0.45)');
+        dropGrad.addColorStop(0.85, 'rgba(40, 90, 120, 0.6)');
+        dropGrad.addColorStop(1, 'rgba(10, 25, 35, 0.85)');
+
+        c.fillStyle = dropGrad;
+        c.beginPath();
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        c.fill();
+
+        // Sharp pinpoint specular glint (水滴顶端高光点)
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.arc(this.x - this.radius * 0.35, this.y - this.radius * 0.35, this.radius * 0.28, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+
+    let bokehs = [];
+    let microDroplets = [];
+    let slidingDroplets = [];
+
+    function setupEngine() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = rect.width;
+      height = rect.height;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Bokeh population
+      bokehs = Array.from({ length: 24 }, () => new BokehBall());
+
+      // Static Condensation Droplets
+      microDroplets = Array.from({ length: 260 }, () => new MicroDroplet());
+
+      // Sliding Heavy Drops
+      rebuildRainDensity();
+    }
+
+    function rebuildRainDensity() {
+      const count = rainIntensity * 8;
+      slidingDroplets = Array.from({ length: count }, () => new SlidingDroplet());
+    }
+
+    window.addEventListener('resize', setupEngine);
+    setupEngine();
+
+    // Mouse Parallax & Wipe Effect
+    let mouse = { x: width / 2, y: height / 2, tx: width / 2, ty: height / 2 };
+    window.addEventListener('mousemove', (e) => {
+      mouse.tx = e.clientX;
+      mouse.ty = e.clientY;
+    });
+
+    // Main Animation Loop
+    function render() {
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+      const pal = moodPalettes[currentMood];
+
+      // 1. Clear & Draw Deep Night Gradient
+      const sky = ctx.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, pal.skyGrad[0]);
+      sky.addColorStop(0.5, pal.skyGrad[1]);
+      sky.addColorStop(1, pal.skyGrad[2]);
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Draw Distant Urban Bokeh Layer (Additive Glow)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const b of bokehs) {
+        b.update();
+        b.draw(ctx, pal);
+      }
+      ctx.restore();
+
+      // 3. Draw Misted Glass Frost / Fog Layer
+      ctx.fillStyle = 'rgba(8, 16, 26, 0.42)';
+      ctx.fillRect(0, 0, width, height);
+
+      // 4. Draw Static Micro-Condensation
+      for (const m of microDroplets) {
+        m.draw(ctx);
+      }
+
+      // 5. Draw Dynamic Sliding Droplets & Streaks
+      for (const s of slidingDroplets) {
+        s.update();
+        s.draw(ctx);
+      }
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    /* =========================================================================
+       3. INTERACTIVE CONTROLS BINDING
+       ========================================================================= */
+    // Rain Density Slider
+    const rainSlider = document.getElementById('rain-density');
+    rainSlider.addEventListener('input', (e) => {
+      rainIntensity = Number(e.target.value);
+      rebuildRainDensity();
+    });
+
+    // Mood Selector
+    const moodSelect = document.getElementById('city-mood');
+    moodSelect.addEventListener('change', (e) => {
+      currentMood = e.target.value;
+    });
+
+    // Window Frame Toggle
+    const btnFrame = document.getElementById('btn-toggle-frame');
+    const frameOverlay = document.getElementById('window-frame');
+    btnFrame.addEventListener('click', () => {
+      btnFrame.classList.toggle('active');
+      frameOverlay.style.display = btnFrame.classList.contains('active') ? 'grid' : 'none';
+    });
+
+    // Stage Toggle
+    const btnStage = document.getElementById('btn-toggle-stage');
+    const stageEl = document.getElementById('foreground-stage');
+    btnStage.addEventListener('click', () => {
+      btnStage.classList.toggle('active');
+      stageEl.classList.toggle('is-hidden', !btnStage.classList.contains('active'));
+    });
+
+    // Wipe Glass / Clear Mist Effect
+    const btnWipe = document.getElementById('btn-wipe-glass');
+    btnWipe.addEventListener('click', () => {
+      // Re-seed droplets to clear path
+      microDroplets = microDroplets.filter(m => Math.hypot(m.x - width / 2, m.y - height / 2) > 280);
+      setTimeout(() => {
+        microDroplets = Array.from({ length: 260 }, () => new MicroDroplet());
+      }, 4000);
+    });
+
+    // Mac 3D Desk Tilt Parallax
+    const macRig = document.getElementById('mac-rig');
+    window.addEventListener('mousemove', (e) => {
+      const normX = (e.clientX / width - 0.5) * 2;
+      const normY = (e.clientY / height - 0.5) * 2;
+      macRig.style.transform = `
+        rotateX(${-5 - normY * 6}deg) 
+        rotateY(${18 + normX * 8}deg)
+      `;
+    });
+  </script>
+</body>
+</html>

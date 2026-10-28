@@ -1,0 +1,1 @@
+function f(t){if(t==null||!Number.isFinite(t)||t<0)return"";const o=Math.floor(t),r=Math.floor(o/3600),n=Math.floor(o%3600/60),a=o%60;return(r>0?[r,n,a]:[n,a]).map(i=>String(i).padStart(2,"0")).join(":")}export{f};

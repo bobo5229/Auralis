@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="zh-CN" data-accent="green">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 专辑详情控件材质</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0e0e0e;
+        --page-fg: #f3eee6;
+        --page-muted: #9299a3;
+        --accent: #1dd55f;
+        --on-accent: #121212;
+        font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--page-fg);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      :focus { outline: none; }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 28px 0 64px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+      header p {
+        margin: 8px 0 0;
+        max-width: 62ch;
+        color: var(--page-muted);
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .toolbar span { color: var(--page-muted); margin-right: 4px; }
+      .choice, .color {
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid rgba(243, 238, 230, 0.16);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--page-fg);
+      }
+      .choice[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      .color {
+        width: 32px;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .boards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 22px;
+      }
+      .board {
+        padding: 18px 16px 8px;
+        border-radius: 18px;
+      }
+      .board h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .board-dark {
+        background: #121212;
+        color: #f3eee6;
+        --fg: #f3eee6;
+        --muted: #9299a3;
+        --paper: #f3eee6;
+        --paper-ink: #1a1814;
+        --paper-edge: rgba(26, 24, 20, 0.16);
+        --neutral: color-mix(in srgb, #d7dde3 22%, #2a3036);
+        --neutral-ink: #f3eee6;
+        --lacquer-sheen: rgba(255, 255, 255, 0.22);
+        --lacquer-top: #242424;
+        --lacquer-bottom: #070707;
+        --lacquer-ink: #f3eee6;
+        --lacquer-edge: rgba(255, 255, 255, 0.14);
+        --lacquer-highlight: rgba(255, 255, 255, 0.34);
+        --lacquer-shadow: rgba(0, 0, 0, 0.42);
+      }
+      .board-light {
+        background: #f0f1f2;
+        color: #1c1e20;
+        --fg: #1c1e20;
+        --muted: #62656a;
+        --paper: #f7f1e6;
+        --paper-ink: #1a1814;
+        --paper-edge: rgba(41, 43, 45, 0.2);
+        --neutral: color-mix(in srgb, #6d747c 18%, #e3e6e9);
+        --neutral-ink: #1c1e20;
+        --lacquer-sheen: rgba(255, 255, 255, 0.92);
+        --lacquer-top: #fbfbfc;
+        --lacquer-bottom: #dfe2e5;
+        --lacquer-ink: #1c1e20;
+        --lacquer-edge: rgba(41, 43, 45, 0.16);
+        --lacquer-highlight: #ffffff;
+        --lacquer-shadow: rgba(28, 30, 32, 0.1);
+      }
+      .board h2, .specimen h3, .note { color: var(--muted); }
+
+      .specimen { padding: 8px 4px 18px; }
+      .specimen h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .note {
+        margin: 2px 0 10px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 148px minmax(0, 1fr);
+        column-gap: 18px;
+        min-height: 148px;
+      }
+      .hero img {
+        width: 148px;
+        height: 148px;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #2a2a2a;
+      }
+      .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 0;
+        min-height: 148px;
+        padding-bottom: 2px;
+      }
+      .title {
+        margin: 0;
+        color: var(--fg);
+        font-size: 22px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .meta {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+      .play, .shuffle {
+        display: inline-flex;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+        line-height: 20px;
+        user-select: none;
+        transition:
+          background 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          border-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      .play { min-width: 96px; padding: 0 16px; }
+      .shuffle { width: 40px; padding: 0; flex-shrink: 0; }
+      .icon { display: inline-flex; }
+      .play:active, .shuffle:active { transform: translateY(0.5px); }
+
+      /* 现在的正式样式：强调色拉丝 + 固定镀铬 */
+      .set-metal .play {
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, #ffffff 38%, var(--accent)) 0%,
+          var(--accent) 24%,
+          color-mix(in srgb, #ffffff 42%, var(--accent)) 46%,
+          color-mix(in srgb, #000000 24%, var(--accent)) 72%,
+          var(--accent) 100%
+        );
+        border: 1px solid color-mix(in srgb, #ffffff 45%, var(--accent));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.8),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+          inset 0 0 8px rgba(0, 0, 0, 0.22),
+          0 4px 16px rgba(0, 0, 0, 0.4),
+          0 2px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+        color: var(--on-accent);
+      }
+      .set-metal .label {
+        text-shadow: 0 -0.5px 0 rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.65);
+      }
+      .set-metal .icon {
+        filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
+      }
+      .set-metal .play:hover {
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, #ffffff 46%, var(--accent)) 0%,
+          color-mix(in srgb, #ffffff 6%, var(--accent)) 24%,
+          color-mix(in srgb, #ffffff 50%, var(--accent)) 46%,
+          color-mix(in srgb, #000000 16%, var(--accent)) 72%,
+          color-mix(in srgb, #ffffff 6%, var(--accent)) 100%
+        );
+        border-color: color-mix(in srgb, #ffffff 60%, var(--accent));
+      }
+      .set-metal .shuffle {
+        background: linear-gradient(160deg, #fff 0%, #c8d0d9 16%, #515b65 23%, #9aa4ad 28%, #f9fbfd 34%, #fff 46%, #dce2e8 61%, #a0aab4 72%, #49535d 79%, #c5cdd5 85%, #f8fafc 94%, #89939d 100%);
+        border: 1px solid #87919b;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.95),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+          inset 1px 0 0 rgba(255, 255, 255, 0.5),
+          inset -1px 0 0 rgba(0, 0, 0, 0.18),
+          0 3px 8px rgba(0, 0, 0, 0.3);
+        color: #121417;
+      }
+      .set-metal .play:active, .set-metal .shuffle:active {
+        box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+
+      /* 阳极氧化：平色金属，一条上沿高光 */
+      .set-anodized .play, .set-anodized .shuffle {
+        box-shadow:
+          inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+          inset 0 -1px 0 color-mix(in srgb, #000000 24%, transparent);
+      }
+      .set-anodized .play {
+        background: var(--accent);
+        border: 1px solid color-mix(in srgb, #ffffff 34%, var(--accent));
+        color: var(--on-accent);
+      }
+      .set-anodized .play:hover {
+        background: color-mix(in srgb, #ffffff 12%, var(--accent));
+      }
+      .set-anodized .shuffle {
+        background: var(--neutral);
+        border: 1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+        color: var(--neutral-ink);
+      }
+      .set-anodized .shuffle:hover {
+        background: color-mix(in srgb, #ffffff 14%, var(--neutral));
+      }
+      .set-anodized .play:active, .set-anodized .shuffle:active {
+        box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.35);
+      }
+
+      /* 内页纸 */
+      .set-paper .play, .set-paper .shuffle {
+        background: var(--paper);
+        border: 1px solid var(--paper-edge);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 1px 1px rgba(0, 0, 0, 0.08);
+        color: var(--paper-ink);
+      }
+      .set-paper .play:hover, .set-paper .shuffle:hover {
+        background: color-mix(in srgb, #ffffff 28%, var(--paper));
+      }
+      .set-paper .play:active, .set-paper .shuffle:active {
+        box-shadow: inset 0 1.5px 2px rgba(26, 24, 20, 0.16);
+      }
+
+      /* 钢琴漆；浅色底换成薄瓷光 */
+      .set-lacquer .play, .set-lacquer .shuffle {
+        background:
+          linear-gradient(180deg, var(--lacquer-sheen), transparent 36%),
+          linear-gradient(180deg, var(--lacquer-top), var(--lacquer-bottom));
+        border: 1px solid var(--lacquer-edge);
+        box-shadow:
+          inset 0 1px 0 var(--lacquer-highlight),
+          0 6px 14px var(--lacquer-shadow);
+        color: var(--lacquer-ink);
+      }
+      .set-lacquer .play {
+        box-shadow:
+          inset 0 1px 0 var(--lacquer-highlight),
+          inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent),
+          0 6px 14px var(--lacquer-shadow);
+      }
+      .set-lacquer .play:hover, .set-lacquer .shuffle:hover {
+        background:
+          linear-gradient(180deg, var(--lacquer-highlight), transparent 42%),
+          linear-gradient(180deg, var(--lacquer-top), var(--lacquer-bottom));
+      }
+      .set-lacquer .play:active, .set-lacquer .shuffle:active {
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+      }
+
+      @media (max-width: 980px) {
+        .boards { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .play, .shuffle { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>专辑详情控件材质</h1>
+        <p>
+          播放和随机共用一套材质。按钮是正式尺寸：高 40px，播放是胶囊，随机是圆。悬停看高光，按下看内凹。未接入正式界面。
+        </p>
+        <div class="toolbar">
+          <span>强调色</span>
+          <button class="choice" type="button" data-accent-choice="green" aria-pressed="true">绿</button>
+          <button class="choice" type="button" data-accent-choice="gray" aria-pressed="false">浅色默认灰</button>
+          <input class="color" type="color" value="#1dd55f" aria-label="自定义强调色" />
+        </div>
+      </header>
+      <div class="boards">
+        <section class="board board-dark" aria-label="深色底"></section>
+        <section class="board board-light" aria-label="浅色底"></section>
+      </div>
+    </main>
+
+    <template id="specimen">
+      <article class="specimen">
+        <h3></h3>
+        <p class="note"></p>
+        <div class="hero">
+          <img src="assets/album-sleeve-cover.webp" alt="" />
+          <div class="copy">
+            <div>
+              <p class="title">Feel My Rhythm</p>
+              <p class="meta">Red Velvet · 2022</p>
+            </div>
+            <div class="actions">
+              <button class="play" type="button">
+                <span class="icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m8 5 12 7-12 7V5Z" />
+                  </svg>
+                </span>
+                <span class="label">播放</span>
+              </button>
+              <button class="shuffle" type="button" aria-label="随机播放">
+                <span class="icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m18 14 4 4-4 4M18 2l4 4-4 4M2 18h2.5a6 6 0 0 0 5-3l5-8a6 6 0 0 1 5-3H22M2 6h2.5a6 6 0 0 1 5 3l5 8a6 6 0 0 0 5 3H22" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+    <script>
+      const sets = [
+        ["set-metal", "现在 · 拉丝金属", "播放跟强调色走斜向拉丝，随机是固定镀铬。换成灰强调色时，白字上的凹刻会发糊。"],
+        ["set-anodized", "阳极氧化", "两枚都是平的金属，只有上沿一条高光。播放染色，随机保持中性灰。"],
+        ["set-paper", "内页纸", "暖纸贴纸。深色底上会亮出来；浅色底靠更暖的纸色和边线分开。"],
+        ["set-lacquer", "钢琴漆", "深色底是黑漆，播放只在内缘带强调色。浅色底改成薄瓷光。"],
+      ]
+      const template = document.querySelector("#specimen")
+      for (const board of document.querySelectorAll(".board")) {
+        const heading = document.createElement("h2")
+        heading.textContent = board.classList.contains("board-dark") ? "深色" : "浅色"
+        board.append(heading)
+        for (const [className, title, note] of sets) {
+          const node = template.content.firstElementChild.cloneNode(true)
+          node.classList.add(className)
+          node.querySelector("h3").textContent = title
+          node.querySelector(".note").textContent = note
+          board.append(node)
+        }
+      }
+
+      const presets = {
+        green: ["#1dd55f", "#121212"],
+        gray: ["#585b5f", "#ffffff"],
+      }
+      const color = document.querySelector(".color")
+      const choices = [...document.querySelectorAll("[data-accent-choice]")]
+      function applyAccent(hex, ink, pressed) {
+        const root = document.documentElement
+        root.style.setProperty("--accent", hex)
+        root.style.setProperty("--on-accent", ink)
+        root.dataset.accent = pressed
+        color.value = hex
+        for (const choice of choices) choice.setAttribute("aria-pressed", String(choice.dataset.accentChoice === pressed))
+      }
+      function inkFor(hex) {
+        const value = Number.parseInt(hex.slice(1), 16)
+        const y = (((value >> 16) & 255) * 299 + ((value >> 8) & 255) * 587 + (value & 255) * 114) / 1000
+        return y > 150 ? "#121212" : "#ffffff"
+      }
+      for (const choice of choices) {
+        choice.addEventListener("click", () => {
+          const [hex, ink] = presets[choice.dataset.accentChoice]
+          applyAccent(hex, ink, choice.dataset.accentChoice)
+        })
+      }
+      color.addEventListener("input", () => applyAccent(color.value, inkFor(color.value), "custom"))
+    </script>
+  </body>
+</html>

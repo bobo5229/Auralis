@@ -1,0 +1,200 @@
+[
+  {
+    "theme": "dark",
+    "mode": "flat",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(29, 213, 95)",
+      "rgb": [
+        29,
+        213,
+        95
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 838.6974090576172,
+      "y": 120
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "color(srgb 0.0887059 0.651529 0.290588)",
+      "rgb": [
+        23,
+        166,
+        74
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 838.6974090576172,
+      "y": 168
+    },
+    "contrast": 5.878624994945831
+  },
+  {
+    "theme": "dark",
+    "mode": "cover",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(29, 213, 95)",
+      "rgb": [
+        29,
+        213,
+        95
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 68
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "color(srgb 0.0887059 0.651529 0.290588)",
+      "rgb": [
+        23,
+        166,
+        74
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 116
+    },
+    "contrast": 5.878624994945831
+  },
+  {
+    "theme": "dark",
+    "mode": "cover-long",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(29, 213, 95)",
+      "rgb": [
+        29,
+        213,
+        95
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 68
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "color(srgb 0.0887059 0.651529 0.290588)",
+      "rgb": [
+        23,
+        166,
+        74
+      ],
+      "text": "rgb(18, 18, 18)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 116
+    },
+    "contrast": 5.878624994945831
+  },
+  {
+    "theme": "light",
+    "mode": "flat",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(88, 91, 95)",
+      "rgb": [
+        88,
+        91,
+        95
+      ],
+      "text": "rgb(255, 255, 255)",
+      "height": 48,
+      "x": 838.6974090576172,
+      "y": 120
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "rgb(223, 226, 229)",
+      "rgb": [
+        223,
+        226,
+        229
+      ],
+      "text": "rgb(41, 43, 45)",
+      "height": 48,
+      "x": 838.6974090576172,
+      "y": 168
+    },
+    "contrast": 10.927303944749339
+  },
+  {
+    "theme": "light",
+    "mode": "cover",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(88, 91, 95)",
+      "rgb": [
+        88,
+        91,
+        95
+      ],
+      "text": "rgb(255, 255, 255)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 68
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "rgb(223, 226, 229)",
+      "rgb": [
+        223,
+        226,
+        229
+      ],
+      "text": "rgb(41, 43, 45)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 116
+    },
+    "contrast": 10.927303944749339
+  },
+  {
+    "theme": "light",
+    "mode": "cover-long",
+    "selected": {
+      "selected": "true",
+      "context": false,
+      "background": "rgb(88, 91, 95)",
+      "rgb": [
+        88,
+        91,
+        95
+      ],
+      "text": "rgb(255, 255, 255)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 68
+    },
+    "context": {
+      "selected": "true",
+      "context": true,
+      "background": "rgb(223, 226, 229)",
+      "rgb": [
+        223,
+        226,
+        229
+      ],
+      "text": "rgb(41, 43, 45)",
+      "height": 48,
+      "x": 939.2974090576172,
+      "y": 116
+    },
+    "contrast": 10.927303944749339
+  }
+]

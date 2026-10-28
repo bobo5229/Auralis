@@ -1,0 +1,36 @@
+
+ RUN  v3.2.4 D:/VSCode/Auralis
+
+ ✓ src/main/features/audio/rendererReadLeaseOwner.test.ts (7 tests) 6ms
+ ✓ src/renderer/features/library/composables/useLibraryMetadataEditor.test.ts (29 tests) 16ms
+ ✓ src/main/features/metadata/metadataWatchService.test.ts (3 tests) 12ms
+ ✓ src/main/features/metadata/metadataWatchService.rootBoundary.test.ts (13 tests) 22ms
+ ✓ src/main/features/audio/nativePlaybackLeaseLifecycle.test.ts (5 tests) 5ms
+ ✓ src/renderer/features/playback/runtime/playbackController.test.ts (71 tests) 1887ms
+ ✓ src/main/features/metadata/metadataRefreshService.test.ts (37 tests) 2178ms
+ ✓ src/main/features/audio/nativePlaybackService.softTransition.test.ts (22 tests) 2494ms
+ ✓ src/main/features/audio/nativePlaybackService.test.ts (11 tests | 1 skipped) 11162ms
+   ✓ native mpv integration (isolated audio) > handles pause, seek, resume, cancel, stale sessions and natural advance  7112ms
+   ✓ native mpv integration (isolated audio) > preserves all nonzero PCM at 44100 Hz  469ms
+   ✓ native mpv integration (isolated audio) > preserves all nonzero PCM at 48000 Hz  447ms
+   ✓ native mpv integration (isolated audio) > preserves all nonzero PCM at 96000 Hz  453ms
+   ✓ native mpv integration (isolated audio) > matches every independently decoded PCM sample for 'offset ALAC'  861ms
+   ✓ native mpv integration (isolated audio) > matches every independently decoded PCM sample for 'MP3 decoder warmup'  878ms
+ ✓ src/main/features/audio/nativePlaybackService.tagWrite.test.ts (17 tests) 69609ms
+   ✓ buffered tag writes with real mpv and isolated music > writes wav tags while paused without losing composer or track number  588ms
+   ✓ buffered tag writes with real mpv and isolated music > writes ogg tags while paused without losing composer or track number  444ms
+   ✓ buffered tag writes with real mpv and isolated music > saves M4A while paused without loading a PCM bridge or changing the playback lease  520ms
+   ✓ buffered tag writes with real mpv and isolated music > saves while paused, retains non-edited tags, and restores the same position without unpausing  471ms
+   ✓ buffered tag writes with real mpv and isolated music > continues playing with one logical song during a real file replacement  13900ms
+   ✓ buffered tag writes with real mpv and isolated music > retains the original and continues from the recovery snapshot when another process denies replacement  6041ms
+   ✓ buffered tag writes with real mpv and isolated music > reports a restore failure and keeps the snapshot playing when reconciliation outlasts the PCM buffer  15332ms
+   ✓ buffered tag writes with real mpv and isolated music > saves a shortened tail buffer and emits exactly one real song end  9166ms
+   ✓ buffered tag writes with real mpv and isolated music > serializes repeated saves and lets a later seek leave the EDL continuation  14189ms
+   ✓ buffered tag writes with real mpv and isolated music > cancels and replans a queued soft transition while saving the current song  1006ms
+   ✓ buffered tag writes with real mpv and isolated music > lets seek during the exclusive window cancel the old continuation without losing recovery audio  5946ms
+
+ Test Files  10 passed (10)
+      Tests  214 passed | 1 skipped (215)
+   Start at  02:00:19
+   Duration  70.42s (transform 1.19s, setup 0ms, collect 2.89s, tests 87.39s, environment 1ms, prepare 1.75s)
+

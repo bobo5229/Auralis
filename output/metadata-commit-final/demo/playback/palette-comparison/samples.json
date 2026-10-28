@@ -1,0 +1,74 @@
+[
+  {
+    "id": "melodrama",
+    "title": "Melodrama",
+    "artist": "Lorde",
+    "kind": "深蓝 / 绘画人像",
+    "note": "深蓝阴影与暖色人像",
+    "file": "assets/melodrama.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/58/11/b1/5811b172-e180-25a6-69e6-4385fbbfb5dc/17UM1IM02207.rgb.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "post",
+    "title": "Post",
+    "artist": "Björk",
+    "kind": "高彩 / 多色",
+    "note": "多种鲜艳色与人像竞争",
+    "file": "assets/post.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/69/62/1c/69621c9a-514f-00cf-1de6-6e49f004fb28/075596174060.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "feel-my-rhythm",
+    "title": "Feel My Rhythm",
+    "artist": "Red Velvet",
+    "kind": "绿色 / 密集细节",
+    "note": "绿植、蓝天与粉色人物",
+    "file": "../../albums/assets/album-sleeve-cover.webp",
+    "source": "复用仓库 demo/albums/assets/album-sleeve-cover.webp；本次未从外部重新获取。"
+  },
+  {
+    "id": "kind-of-blue",
+    "title": "Kind of Blue",
+    "artist": "Miles Davis",
+    "kind": "暗色 / 摄影人像",
+    "note": "暗底、肤色与冷色文字",
+    "file": "assets/kind-of-blue.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music/7f/9f/d6/mzi.vtnaewef.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "1989",
+    "title": "1989",
+    "artist": "Taylor Swift",
+    "kind": "柔和 / 暖灰",
+    "note": "低彩度纸面与人物肤色",
+    "file": "assets/1989.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/89/4a/4a/894a4ab9-b0b0-9ea5-ca41-8da0b9b79453/14UMDIM03405.rgb.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "abbey-road",
+    "title": "Abbey Road",
+    "artist": "The Beatles",
+    "kind": "自然 / 摄影场景",
+    "note": "树木、路面与人物",
+    "file": "assets/abbey-road.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/48/53/43/485343e3-dd6a-0034-faec-f4b6403f8108/13UMGIM63890.rgb.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "unknown-pleasures",
+    "title": "Unknown Pleasures",
+    "artist": "Joy Division",
+    "kind": "黑底 / 白色细线",
+    "note": "黑白封面不应强行产生彩色",
+    "file": "assets/unknown-pleasures.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/13/90/c0/1390c072-4249-3739-7b3d-fd73ee4a5698/825646562831.jpg/480x480bb.jpg"
+  },
+  {
+    "id": "white-album",
+    "title": "The White Album",
+    "artist": "The Beatles",
+    "kind": "白底 / 极简",
+    "note": "大面积近白与细小文字",
+    "file": "assets/white-album.jpg",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/fa/5b/89/fa5b898d-bad6-e053-4195-260e5c74f2bb/00602567725466.rgb.jpg/480x480bb.jpg"
+  }
+]

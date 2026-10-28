@@ -1,0 +1,3623 @@
+@import './typography.css';
+@import './harmony-fonts.css';
+@import './misans-fonts.css';
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../../assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+    format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../../assets/fonts/Inter/Inter-latin-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  src: url('../../assets/fonts/Public_Sans/PublicSans-latin-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../assets/fonts/Geist/Geist-latin-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Rubik';
+  src: url('../../assets/fonts/Rubik/Rubik-latin-variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.woff2') format('woff2');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Serif SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.woff2') format('woff2');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dark-only tokens on :root. data-theme="dark" kept as an alias for any
+   residual [data-theme='dark'] selectors and future multi-theme work. */
+/* Common typography and layout tokens on :root */
+:root {
+  font-family: var(--auralis-font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Layout dimensions (theme-independent) */
+  --auralis-playbar-height: 64px;
+  --auralis-full-playbar-height: 80px;
+  --auralis-playbar-max-width: 760px;
+  --auralis-playbar-safe-area: calc(
+    var(--auralis-playbar-height) + var(--auralis-player-bottom-gap)
+  );
+  --auralis-shell-edge-gap: 12px;
+  --auralis-shell-vertical-gap: 24px;
+  --auralis-player-bottom-gap: 40px;
+  --auralis-frosted-surface-filter: blur(24px) saturate(1.08);
+  --auralis-frosted-surface-tint-opacity: 40%;
+  --auralis-app-background: var(--auralis-app-bg);
+  --auralis-window-chrome-bg: var(--auralis-bg);
+  --auralis-window-chrome-border: var(--auralis-border-strong);
+
+  /* Warm white for the annual summary caption in either application theme. */
+  --auralis-archive-summary-text: #f5f2ec;
+
+  /* Player slider tokens */
+  /* Fullscreen sliders use a neutral fill on their immersive dark surface. */
+  --auralis-fullscreen-slider-fill: #e1e1e1;
+  --auralis-fullscreen-pause-fill: #f6f2ea;
+  /* Resolve at the theme root before the immersive player overrides text colors. */
+  --auralis-fullscreen-controls-bg: var(--auralis-surface-floating);
+  --auralis-fullscreen-controls-text: var(--auralis-text);
+  --auralis-fullscreen-controls-muted: var(--auralis-text-muted);
+  --auralis-fullscreen-controls-border: var(--auralis-border-subtle);
+  --auralis-player-slider-thumb: #ffffff;
+  --auralis-player-volume-thumb-shadow:
+    0 0 5px rgba(255, 255, 255, 0.45), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --auralis-player-volume-thumb-active-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ==========================================================================
+   Dark Theme Tokens (:root default & [data-theme='dark'])
+   ========================================================================== */
+:root,
+[data-theme='dark'] {
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+  color-scheme: dark;
+
+  /* Theme Accent Token */
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
+
+  /* Foundation & Shell: default dark surfaces */
+  --auralis-bg: #121212;
+  --auralis-main-bg: #121212;
+  --auralis-dialog-bg: #202020;
+  --auralis-sidebar-bg: #1a1a1a;
+  --auralis-now-playing-bg: #1a1a1a;
+  --auralis-surface-raised: #202020;
+  --auralis-surface-floating: #262626;
+  --auralis-border-subtle: rgba(225, 221, 214, 0.08);
+  --auralis-border-strong: rgba(225, 221, 214, 0.14);
+  --auralis-text: #f3eee6;
+  --auralis-text-muted: #afb4bc;
+  --auralis-text-subtle: #9299a3;
+  --auralis-text-faint: #9299a3;
+  --auralis-text-disabled: rgba(175, 180, 188, 0.35);
+  --auralis-sidebar-brand-text: color-mix(in srgb, #ffffff 88%, transparent);
+
+  /* Controls & Focus */
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-control-primary-bg: var(--auralis-theme-accent);
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
+  --auralis-focus-ring: var(--auralis-theme-accent);
+  --auralis-danger: #c95555;
+  --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-dark);
+  --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
+  --auralis-player-control-active-text: var(--auralis-theme-accent);
+  --auralis-artwork-background-fallback: #0e0d0b;
+  --auralis-surface-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  --auralis-progress-track: rgba(225, 221, 214, 0.08);
+  --auralis-progress-fill: var(--auralis-theme-accent);
+  --auralis-volume-fill: var(--auralis-theme-accent);
+  --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
+
+  /* Playbar Island */
+  --auralis-playbar-bg: #1a1a1a;
+  --auralis-frosted-surface-bg: #1a1a1a;
+  --auralis-playbar-border: rgba(255, 255, 255, 0.16);
+  --auralis-playbar-control-fg: #dddcd9;
+  --auralis-playbar-control-strong-fg: #f4f3f0;
+  --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
+  --auralis-playbar-transport-hover-fg: var(--auralis-playbar-control-hover-fg);
+  --auralis-playbar-control-hover-fg: var(--auralis-playbar-control-strong-fg);
+  --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-hover-fg);
+  --auralis-playbar-control-disabled-fg: rgba(183, 174, 162, 0.35);
+  --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
+  --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
+  --auralis-playbar-album-alpha: 0;
+  --auralis-playbar-album-saturate: 1;
+  --auralis-playbar-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.12);
+  --auralis-playbar-reduced-transparency-bg: #1a1a1a;
+
+  /* Song list tokens */
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
+  --auralis-track-context-text: var(--auralis-control-primary-text);
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
+  --auralis-song-row-border: rgba(225, 221, 214, 0.08);
+  --auralis-song-row-now-playing-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
+  --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
+
+  /* Lyrics tokens */
+  --auralis-lyrics-active: #d8d8d8;
+  --auralis-lyrics-inactive: #515152;
+
+  /* Sidebar active state */
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
+  --auralis-sidebar-active-text: var(--auralis-theme-accent);
+
+  /* Search bar & overlays */
+  --auralis-search-bg: #262626;
+  --auralis-search-border: rgba(225, 221, 214, 0.1);
+  --auralis-search-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  --auralis-context-menu-bg: #262626;
+
+  /* Cover view */
+  --auralis-cover-divider: rgba(225, 221, 214, 0.1);
+  --auralis-cover-track-divider: color-mix(in srgb, #7b828b 50%, var(--auralis-bg));
+
+  /* App environment */
+  --auralis-app-bg: #121212;
+  --auralis-album-detail-more-bg: #0c0c0c;
+
+  /* Scrollbar & Selection */
+  --auralis-scrollbar-thumb: color-mix(in srgb, var(--auralis-text) 22%, transparent);
+  --auralis-scrollbar-thumb-hover: color-mix(in srgb, var(--auralis-text) 36%, transparent);
+  --auralis-selection-bg: color-mix(in srgb, var(--auralis-theme-accent) 28%, transparent);
+}
+
+/* ==========================================================================
+   Light Theme Tokens ([data-theme='light'])
+   Cool Porcelain Grey palette
+   ========================================================================== */
+[data-theme='light'] {
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+  color-scheme: light;
+
+  /* Theme accent */
+  --auralis-theme-accent: var(--auralis-light-accent, #585b5f);
+  --auralis-theme-accent-soft: var(--auralis-light-accent-soft, #dfe2e5);
+
+  /* Foundation & Shell */
+  --auralis-bg: #f0f1f2;
+  --auralis-main-bg: #ffffff;
+  --auralis-dialog-bg: #f8f9fa;
+  --auralis-sidebar-bg: #f9f9fb;
+  --auralis-now-playing-bg: #f9f9fb;
+  --auralis-surface-raised: #e7e9eb;
+  --auralis-surface-floating: #f8f9fa;
+  --auralis-border-subtle: rgba(41, 43, 45, 0.06);
+  --auralis-border-strong: rgba(41, 43, 45, 0.12);
+
+  /* Typography */
+  --auralis-text: #292b2d;
+  --auralis-text-muted: #60656a;
+  --auralis-text-subtle: #64696e;
+  --auralis-text-faint: #686e74;
+  --auralis-text-disabled: #a8adb2;
+  --auralis-sidebar-brand-text: var(--auralis-text);
+
+  /* Controls & Focus */
+  --auralis-control-bg: transparent;
+  --auralis-control-hover-bg: rgba(41, 43, 45, 0.05);
+  --auralis-control-active-bg: var(--auralis-theme-accent-soft);
+  --auralis-control-primary-bg: var(--auralis-theme-accent);
+  --auralis-control-primary-text: var(--auralis-light-on-accent, #ffffff);
+  --auralis-focus-ring: var(--auralis-theme-accent);
+  --auralis-danger: #b83636;
+  --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-light);
+  --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
+  --auralis-player-control-active-text: var(--auralis-theme-accent);
+  --auralis-artwork-background-fallback: #e7e9eb;
+  --auralis-surface-shadow: 0 10px 28px rgba(41, 43, 45, 0.08), 0 2px 6px rgba(41, 43, 45, 0.04);
+  --auralis-progress-track: rgba(41, 43, 45, 0.08);
+  --auralis-progress-fill: var(--auralis-theme-accent);
+  --auralis-volume-fill: var(--auralis-theme-accent);
+  --auralis-artwork-placeholder-bg: rgba(41, 43, 45, 0.08);
+
+  /* Playbar Island */
+  --auralis-playbar-bg: var(--auralis-now-playing-bg);
+  --auralis-frosted-surface-bg: rgba(248, 249, 250, 0.94);
+  --auralis-playbar-border: rgba(41, 43, 45, 0.12);
+  --auralis-playbar-control-fg: var(--auralis-playbar-control-strong-fg);
+  --auralis-playbar-control-strong-fg: #292b2d;
+  --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
+  --auralis-playbar-transport-hover-fg: var(--auralis-playbar-control-hover-fg);
+  --auralis-playbar-control-hover-fg: #707070;
+  --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-strong-fg);
+  --auralis-playbar-control-disabled-fg: #a8adb2;
+  --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
+  --auralis-playbar-highlight-soft: transparent;
+  --auralis-playbar-album-alpha: 0;
+  --auralis-playbar-album-saturate: 1.08;
+  --auralis-playbar-shadow: 0 8px 24px rgba(41, 43, 45, 0.06), 0 2px 6px rgba(41, 43, 45, 0.03);
+  --auralis-playbar-reduced-transparency-bg: var(--auralis-playbar-bg);
+
+  /* Song list tokens */
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: var(--auralis-theme-accent-soft);
+  --auralis-track-context-text: var(--auralis-text);
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: rgba(41, 43, 45, 0.025);
+  --auralis-song-row-border: rgba(41, 43, 45, 0.05);
+  --auralis-song-row-now-playing-bg: var(--auralis-theme-accent-soft);
+  --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
+
+  /* Lyrics tokens */
+  --auralis-lyrics-active: #2b2e32;
+  --auralis-lyrics-inactive: #979da4;
+
+  /* Sidebar active state */
+  --auralis-sidebar-active-bg: var(--auralis-theme-accent-soft);
+  --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
+  --auralis-sidebar-active-text: var(--auralis-theme-accent);
+
+  /* Search bar & overlays */
+  --auralis-search-bg: #f8f9fa;
+  --auralis-search-border: rgba(41, 43, 45, 0.12);
+  --auralis-search-shadow: 0 2px 8px rgba(41, 43, 45, 0.06);
+  --auralis-context-menu-bg: #f8f9fa;
+
+  /* Cover view */
+  --auralis-cover-divider: rgba(41, 43, 45, 0.06);
+  --auralis-cover-track-divider: color-mix(in srgb, #3f4345 50%, var(--auralis-bg));
+
+  /* App environment */
+  --auralis-app-bg: #f0f1f2;
+  --auralis-album-detail-more-bg: var(--auralis-surface-floating);
+
+  /* Scrollbar & Selection */
+  --auralis-scrollbar-thumb: rgba(41, 43, 45, 0.2);
+  --auralis-scrollbar-thumb-hover: rgba(41, 43, 45, 0.35);
+  --auralis-selection-bg: color-mix(in srgb, var(--auralis-theme-accent) 20%, transparent);
+}
+
+/* Scoped dark-shell palette preservation for main window & overlays */
+:is(
+  [data-theme='dark'] .app-window,
+  [data-theme='dark'] .library-overlay,
+  [data-theme='dark'] .albums-overlay,
+  [data-theme='dark'] .sidebar-overlay
+),
+:root:not([data-theme='light'])
+  :is(.app-window, .library-overlay, .albums-overlay, .sidebar-overlay) {
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
+  --auralis-bg: #121212;
+  --auralis-main-bg: #121212;
+  --auralis-dialog-bg: #202020;
+  --auralis-sidebar-bg: #1a1a1a;
+  --auralis-now-playing-bg: #1a1a1a;
+  --auralis-surface-raised: #202020;
+  --auralis-surface-floating: #262626;
+  --auralis-border-subtle: rgba(225, 221, 214, 0.08);
+  --auralis-border-strong: rgba(225, 221, 214, 0.14);
+  --auralis-text: #f3eee6;
+  --auralis-text-muted: #afb4bc;
+  --auralis-text-subtle: #9299a3;
+  --auralis-text-faint: #9299a3;
+  --auralis-text-disabled: rgba(175, 180, 188, 0.35);
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-control-primary-bg: var(--auralis-theme-accent);
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
+  --auralis-focus-ring: var(--auralis-theme-accent);
+  --auralis-progress-track: rgba(225, 221, 214, 0.08);
+  --auralis-progress-fill: var(--auralis-theme-accent);
+  --auralis-volume-fill: var(--auralis-theme-accent);
+  --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
+  --auralis-track-context-text: var(--auralis-control-primary-text);
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
+  --auralis-song-row-border: rgba(225, 221, 214, 0.08);
+  --auralis-song-row-now-playing-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
+  --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
+  --auralis-sidebar-active-text: var(--auralis-theme-accent);
+  --auralis-search-bg: #262626;
+  --auralis-search-border: rgba(225, 221, 214, 0.1);
+  --auralis-context-menu-bg: #262626;
+  --auralis-cover-divider: rgba(225, 221, 214, 0.1);
+  --auralis-cover-track-divider: color-mix(in srgb, #7b828b 50%, var(--auralis-bg));
+  --auralis-app-bg: #121212;
+  --auralis-album-detail-more-bg: #0c0c0c;
+  --auralis-window-chrome-bg: #121212;
+  --auralis-window-chrome-border: var(--auralis-border-strong);
+}
+
+:is(.app-window, .library-overlay, .albums-overlay, .sidebar-overlay) ::selection {
+  color: var(--auralis-text);
+  background: var(--auralis-selection-bg, rgba(225, 221, 214, 0.28));
+}
+
+.shell-drag-region {
+  position: absolute;
+  top: 14px;
+  left: 112px;
+  width: 128px;
+  height: 32px;
+  -webkit-app-region: drag;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.shell-drag-region--cd {
+  top: 9px;
+  right: 112px;
+  left: auto;
+  width: 96px;
+  height: 34px;
+}
+
+/* Leave the sidebar's resize hit area outside Electron's native window drag region. */
+.app-shell:not(.is-cd-albums):not(.is-sidebar-collapsed) > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 120px));
+}
+
+.app-window.is-sidebar-floating .app-shell > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 136px));
+}
+
+/* 收起态在窗口按钮下方留出整条可拖拽区域；品牌区自 54px 起。 */
+.app-shell.is-sidebar-collapsed:not(.is-cd-albums) > .shell-drag-region {
+  top: 0;
+  left: 0;
+  width: var(--auralis-sidebar-rail-width, 60px);
+  height: 54px;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+}
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+*:focus {
+  outline: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.track-title,
+.queue-item-title,
+.fullscreen-player-meta h1 {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Scoped dark-player palette preservation */
+:is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar) {
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
+  --auralis-dialog-bg: #202020;
+  --auralis-sidebar-bg: #1a1a1a;
+  --auralis-surface-raised: #202020;
+  --auralis-surface-floating: #262626;
+  --auralis-border-subtle: rgba(255, 255, 255, 0.08);
+  --auralis-border-strong: rgba(255, 255, 255, 0.14);
+  --auralis-text-subtle: #9299a3;
+  --auralis-text-disabled: rgba(175, 180, 188, 0.35);
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-control-primary-bg: var(--auralis-theme-accent);
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
+  --auralis-focus-ring: var(--auralis-theme-accent);
+  --auralis-progress-track: rgba(255, 255, 255, 0.08);
+  --auralis-artwork-placeholder-bg: rgba(255, 255, 255, 0.12);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
+  --auralis-sidebar-active-text: var(--auralis-theme-accent);
+  --auralis-text-muted: #afb4bc;
+  --auralis-text-faint: #9299a3;
+  --auralis-playbar-bg: #1a1a1a;
+  --auralis-frosted-surface-bg: #1a1a1a;
+  --auralis-playbar-reduced-transparency-bg: #1a1a1a;
+  --player-surface-bg: #1a1a1a;
+  --player-surface-tint: transparent;
+  --playbar-album-layer-opacity: 0;
+}
+
+:is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar)
+  .player-bar-overflow-panel {
+  --player-surface-bg: #262626;
+  --player-surface-tint: transparent;
+}
+
+/* 与降级规则保持相同优先级，使减少透明度时能关闭封面染色。 */
+:where([data-theme='dark'], :root:not([data-theme='light'])) .player-bar {
+  --playbar-album-layer-opacity: 0;
+  --player-surface-tint: transparent;
+  --player-surface-bg: #1a1a1a;
+}
+
+.player-bar {
+  --auralis-playbar-slider-fill: var(--auralis-theme-accent);
+  --auralis-volume-fill: var(--auralis-playbar-slider-fill);
+  --auralis-playbar-control-selected-fg: var(--auralis-playbar-slider-fill);
+  --auralis-playbar-control-selected-hover-fg: var(--auralis-playbar-control-selected-fg);
+  --auralis-playbar-control-focus-ring: var(--auralis-playbar-brand-fg);
+  --player-surface-bg: var(--auralis-frosted-surface-bg);
+  --player-surface-blur: var(--auralis-frosted-surface-filter);
+  --player-surface-tint: color-mix(in srgb, var(--auralis-active-album-tint) 12%, transparent);
+  position: fixed;
+  z-index: 50;
+  isolation: isolate;
+  background: transparent;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: visible;
+  transition:
+    background 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    left 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Transparent host spanning the main column; chrome lives on the island. */
+.player-bar {
+  left: var(--auralis-sidebar-width, 260px);
+  right: 0;
+  bottom: var(--auralis-player-bottom-gap);
+  width: auto;
+  min-width: 0;
+  height: var(--auralis-playbar-height);
+  transform: none;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.app-shell {
+  --auralis-lyrics-progress: 1;
+  --auralis-lyrics-column-width: calc(20% * var(--auralis-lyrics-progress, 1));
+  /* 网格列、播放栏左边界与背景裁切共用展开宽度，收起态独立覆盖。 */
+  --auralis-sidebar-width: var(--auralis-sidebar-expanded-width, 260px);
+  transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.app-shell.is-sidebar-collapsed:not(.is-cd-albums) {
+  --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 60px);
+}
+
+/* Keep page backdrops behind the full-width glass; scroll padding protects the last item. */
+.app-shell:has(> .player-bar[data-playbar-layout='full']) {
+  --auralis-playbar-safe-area: calc(var(--auralis-full-playbar-height) + 16px);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-shell:has(> .player-bar[data-playbar-layout='full']) > .app-sidebar {
+  padding-bottom: var(--auralis-full-playbar-height);
+}
+
+.app-shell:has(> .player-bar[data-playbar-layout='full']) > .now-playing-panel {
+  padding-bottom: calc(var(--auralis-full-playbar-height) + 16px);
+}
+
+/* 歌词动效自行协调布局终点，避免叠加侧边栏的列宽过渡。 */
+.app-shell.is-lyrics-resizing,
+.app-shell.is-sidebar-resizing,
+.app-shell.is-lyrics-width-resizing {
+  transition: none;
+}
+
+.app-shell.is-lyrics-resizing > .player-bar,
+.app-shell.is-sidebar-resizing > .player-bar,
+.app-shell.is-lyrics-width-resizing > .player-bar {
+  transition: none !important;
+}
+
+body.is-column-resizing,
+body.is-column-resizing * {
+  cursor: col-resize !important;
+}
+
+.lyrics-layout-playerbar-snapshot {
+  transition: none !important;
+  pointer-events: none !important;
+}
+
+@media (min-width: 1280px) {
+  .app-shell:not(.is-cd-albums) {
+    grid-template-columns:
+      var(--auralis-sidebar-width, 260px) minmax(0, 1fr)
+      var(--auralis-lyrics-column-width, 20%);
+  }
+
+  .player-bar {
+    right: var(--auralis-player-lyrics-inset, var(--auralis-lyrics-column-width, 20%));
+  }
+}
+
+.now-playing-panel {
+  overflow: hidden;
+  border-left-color: color-mix(
+    in srgb,
+    var(--auralis-border-subtle) calc(100% * var(--auralis-lyrics-progress, 1)),
+    transparent
+  );
+}
+
+.now-playing-panel--collapsed {
+  display: none !important;
+  border-left: none !important;
+  width: 0 !important;
+  padding: 0 !important;
+}
+
+.now-playing-panel-content {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: var(--auralis-lyrics-progress, 1);
+  will-change: opacity;
+}
+
+/* Overlay the full main grid area; the playbar independently leaves room on its right. */
+.app-shell.is-lyrics-floating:not(.is-cd-albums) > .app-main {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  z-index: 20;
+  width: min(var(--auralis-lyrics-target-width, 20vw), 100%);
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  pointer-events: auto;
+  background: var(--auralis-now-playing-bg);
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel > .now-playing-panel-content {
+  max-width: 100%;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell.is-lyrics-floating > .now-playing-panel {
+    background: color-mix(in srgb, var(--auralis-now-playing-bg) 40%, transparent);
+    -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+    backdrop-filter: var(--auralis-frosted-surface-filter);
+  }
+}
+
+.player-bar .player-bar-island {
+  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: stretch;
+  width: min(var(--auralis-playbar-max-width), calc(100% - 64px));
+  height: var(--auralis-playbar-height);
+  min-width: 0;
+  border-radius: 999px;
+  border: 1px solid var(--auralis-playbar-border);
+  box-shadow: var(--auralis-playbar-shadow);
+  overflow: visible;
+  container-type: inline-size;
+  container-name: modern-player-bar;
+}
+
+.player-bar .player-bar-island::before {
+  content: none;
+}
+
+.player-bar .player-bar-island {
+  --volume-growth: min(
+    130px,
+    max(16px, calc((100% - var(--auralis-playbar-max-width) - 32px) / 2))
+  );
+  width: calc(
+    min(var(--auralis-playbar-max-width), calc(100% - 64px)) + var(--volume-growth) *
+      var(--volume-reveal, 0)
+  );
+  margin-right: calc(-1 * var(--volume-growth) * var(--volume-reveal, 0));
+}
+
+.player-bar .volume-inline-reveal {
+  width: calc(130px * var(--volume-reveal, 0));
+  opacity: var(--volume-reveal, 0);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.player-bar .volume-inline-panel {
+  display: flex;
+  align-items: center;
+  width: 130px;
+  height: 48px;
+  /* 分别为 0% / 100% 留出半个标签的空间，数值仍与填充末端居中对齐。 */
+  padding-inline: 6px 18px;
+  flex-shrink: 0;
+}
+
+.player-bar .volume-slider-field {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-bar .volume-slider-field .volume-slider {
+  display: block;
+}
+
+.player-bar .player-bar-album-tint {
+  border-radius: inherit;
+}
+
+.player-bar .player-bar-row {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 20px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 20px;
+}
+
+.player-bar .track-info-card {
+  min-width: 0;
+  z-index: 4;
+}
+
+.player-bar .transport-controls {
+  gap: 2px;
+}
+
+.player-bar .player-bar-progress-clock {
+  margin: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--auralis-text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.player-bar .playback-actions {
+  justify-self: end;
+  min-width: 0;
+  z-index: 4;
+  gap: 4px;
+}
+
+.player-bar .track-info-row {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  gap: 10px;
+}
+
+.player-bar .track-info-row::after {
+  content: '';
+  position: absolute;
+  /* Feather outside the cover; the lower 4px fade fits above the progress row. */
+  inset: -8px -8px -4px;
+  z-index: 1;
+  backdrop-filter: blur(4px);
+  mask-image:
+    linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent),
+    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 4px), transparent);
+  mask-composite: intersect;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease,
+    visibility 160ms;
+}
+
+.player-bar
+  .track-info-card:has(.track-progress:not(.track-progress--idle):hover)
+  .track-info-row::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-info-row::after {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar .track-info-row::after {
+    transition: none;
+  }
+}
+
+.player-bar .track-cover {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.player-bar .track-text {
+  height: 36px;
+}
+
+.player-bar .track-subtitle {
+  line-height: 18px;
+}
+
+.player-bar .track-info-empty {
+  align-items: center;
+  min-height: 44px;
+}
+
+.player-bar .track-text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-bar .track-title,
+.player-bar .track-subtitle {
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-bar .track-title {
+  letter-spacing: -0.01em;
+}
+
+.player-bar .player-bar-progress-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.player-bar .player-bar-progress-row--idle {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.player-bar .player-bar-progress-row .track-progress {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  margin-top: 0;
+  height: 3px;
+  z-index: 5;
+}
+
+.player-bar .player-bar-progress-row .track-progress:hover {
+  height: 6px;
+}
+
+.player-bar .track-progress--idle {
+  opacity: 0.28;
+  cursor: default;
+  pointer-events: none;
+}
+
+.player-bar .track-progress--idle:hover {
+  height: 3px;
+}
+
+.player-bar .track-progress--idle .track-progress-fill::after {
+  display: none;
+  animation: none;
+}
+
+.player-bar .player-bar-overflow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.player-bar .player-bar-overflow-panel {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 72;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 176px;
+  padding: 8px;
+  border-radius: 16px;
+}
+
+.player-bar .player-bar-overflow-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.player-bar .player-bar-overflow-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auralis-text);
+  white-space: nowrap;
+}
+
+@container modern-player-bar (max-width: 640px) {
+  .player-bar .player-bar-row {
+    column-gap: 12px;
+    padding-inline: 12px;
+  }
+
+  .player-bar .transport-controls .transport-control-primary {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player-bar .transport-control-primary > span {
+    width: 24px;
+    height: 24px;
+  }
+
+  .player-bar .transport-control > svg {
+    width: 20px;
+    height: 16px;
+  }
+
+  .player-bar .track-cover {
+    width: 32px;
+    height: 32px;
+  }
+
+  .player-bar-overflow {
+    display: inline-flex;
+  }
+}
+
+/* Full-width playbar layout: one row, with the seek rail on the bottom edge. */
+.player-bar[data-playbar-layout='full'] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--auralis-full-playbar-height);
+  justify-content: stretch;
+}
+
+.player-bar .player-bar-island--full {
+  --volume-growth: 0px;
+  width: 100%;
+  height: 100%;
+  margin-right: 0;
+  border: 0;
+  border-top: 1px solid var(--auralis-playbar-border);
+  border-radius: 0;
+  box-shadow: 0 -12px 35px rgba(0, 0, 0, 0.04);
+}
+
+.player-bar .player-bar-island--full .player-bar-row {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: 'now transport actions';
+  column-gap: 20px;
+  padding: 8px 24px 12px;
+}
+
+.player-bar .player-bar-island--full .transport-controls {
+  position: relative;
+  display: grid;
+  grid-area: transport;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0 12px;
+}
+
+.player-bar .player-bar-island--full .transport-controls > button {
+  grid-row: 1;
+}
+
+.player-bar .player-bar-full-mode {
+  position: absolute;
+  display: flex;
+  top: 4px;
+  left: calc(100% + 12px);
+  z-index: 5;
+}
+
+.player-bar .player-bar-mode-trigger {
+  height: 32px;
+  gap: 3px;
+  padding: 6px 4px;
+}
+
+.player-bar .player-bar-full-mode .playback-mode-menu {
+  left: calc(100% + 8px);
+  right: auto;
+  bottom: 0;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-time {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--auralis-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-time-divider {
+  opacity: 0.55;
+}
+
+.player-bar .player-bar-island--full .track-info-card {
+  grid-area: now;
+}
+
+.player-bar .player-bar-island--full .track-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+}
+
+.player-bar .player-bar-island--full .track-text {
+  height: auto;
+}
+
+.player-bar .player-bar-island--full .track-title {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.player-bar .player-bar-island--full .track-subtitle {
+  margin-top: 2px;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.player-bar .player-bar-island--full .playback-actions {
+  grid-area: actions;
+  gap: 8px;
+}
+
+.player-bar .player-bar-island--full .volume-inline-reveal {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 72;
+  width: 180px;
+  height: 56px;
+  overflow: visible;
+}
+
+.player-bar
+  .player-bar-island--full
+  .volume-control-group[data-volume-open='false']
+  .volume-inline-reveal {
+  visibility: hidden;
+}
+
+.player-bar .player-bar-island--full .volume-inline-panel {
+  --auralis-volume-fill: var(--auralis-theme-accent);
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--auralis-playbar-border);
+  border-radius: 10px;
+  background: var(--auralis-parameter-surface-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
+  backdrop-filter: var(--auralis-parameter-surface-filter);
+}
+
+.player-bar .player-bar-island--full .volume-slider-field {
+  display: grid;
+  grid-template-rows: 14px 24px;
+}
+
+.player-bar .player-bar-island--full .volume-slider {
+  grid-area: 2 / 1;
+}
+
+.player-bar .player-bar-island--full .volume-overlay-value {
+  position: static;
+  grid-area: 1 / 1;
+  justify-self: end;
+  transform: none;
+  text-align: right;
+  color: var(--auralis-text-muted);
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress {
+  --auralis-playbar-slider-fill: var(--auralis-theme-accent);
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  height: 10px;
+  align-items: flex-end;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress {
+  width: 100%;
+  height: 10px;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 0;
+  background: var(--auralis-progress-track);
+  pointer-events: none;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress:hover::before {
+  height: 6px;
+}
+
+.player-bar .player-bar-island--full .player-bar-full-progress .track-progress-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: 0;
+  pointer-events: none;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.player-bar
+  .player-bar-island--full
+  .player-bar-full-progress
+  .track-progress:hover
+  .track-progress-fill {
+  height: 6px;
+}
+
+@container modern-player-bar (max-width: 700px) {
+  .player-bar .player-bar-island--full .player-bar-row {
+    column-gap: 12px;
+    padding: 8px 16px 12px;
+  }
+
+  .player-bar .player-bar-island--full .transport-controls {
+    gap: 0 6px;
+  }
+
+  .player-bar .player-bar-island--full .track-cover {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-bar .player-bar-island--full .track-subtitle {
+    display: none;
+  }
+
+  .player-bar .player-bar-island--full .player-bar-full-time {
+    font-size: 9px;
+  }
+}
+
+.player-bar .volume-overlay-value {
+  position: absolute;
+  left: var(--volume-percent);
+  bottom: calc(50% + 6px);
+  transform: translateX(-50%);
+  /* 音量轨道上方的紧凑数值标注，使用独立于普通说明文字的规格。 */
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  width: max-content;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--auralis-text);
+  pointer-events: none;
+}
+
+:where([data-reduced-motion='true']) .player-bar .transport-controls,
+:where([data-reduced-motion='true']) .player-bar .track-text,
+:where([data-reduced-motion='true']) .player-bar .playback-actions {
+  transition: none;
+}
+
+:where([data-reduced-motion='true'])
+  input[type='range'].volume-slider::-webkit-slider-runnable-track,
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-webkit-slider-thumb,
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-moz-range-track,
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-moz-range-thumb {
+  transition: none;
+}
+
+/* Shared material for page parameters, fullscreen settings and frosted Playbar surfaces. */
+:is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
+  --auralis-parameter-surface-alpha: 0.68;
+  --auralis-parameter-surface-bg: rgb(
+    from var(--auralis-frosted-surface-bg) r g b / var(--auralis-parameter-surface-alpha)
+  );
+  --auralis-parameter-surface-filter: blur(14px) saturate(1.15);
+}
+
+:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
+  --auralis-parameter-surface-alpha: 0.64;
+}
+
+.player-bar > :not(.player-bar-album-tint, .player-bar-surface) {
+  position: relative;
+  z-index: 4;
+}
+
+/* Fullscreen keeps its menu material; Playbar supplies a shared FrostedSurface layer. */
+.playback-mode-menu:not(.playback-mode-menu--playbar) {
+  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+  backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+}
+
+.player-bar .queue-popover > :not(.frosted-surface),
+.playback-mode-menu > :not(.frosted-surface) {
+  position: relative;
+  z-index: 2;
+}
+
+.player-bar .queue-item:hover {
+  background: var(--auralis-control-hover-bg);
+}
+
+.player-bar .queue-item-active,
+.player-bar .queue-item-active:hover {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+}
+
+.player-bar .queue-item-active .queue-item-title,
+.player-bar .queue-item-active .queue-item-subtitle,
+.player-bar .queue-item-active .queue-item-cover span {
+  color: var(--auralis-control-primary-text);
+}
+
+.player-bar .queue-item:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.player-bar .queue-item-active:focus-visible {
+  outline-color: var(--auralis-control-primary-text);
+}
+
+.queue-popover-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-track,
+.queue-popover-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  background-clip: padding-box;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 22%, transparent);
+  background-clip: padding-box;
+}
+
+.player-bar-album-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  opacity: var(--playbar-album-layer-opacity);
+  filter: saturate(var(--auralis-playbar-album-saturate));
+  pointer-events: none;
+  transition: background-color 420ms ease;
+}
+
+.player-bar-album-tint-previous {
+  animation: playbar-album-tint-fade-out 420ms ease forwards;
+}
+
+/* The overflow panel keeps its own material; queue and mode menus use FrostedSurface. */
+.player-bar .player-bar-overflow-panel {
+  border: none;
+  background:
+    linear-gradient(var(--player-surface-tint), var(--player-surface-tint)),
+    var(--player-surface-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: var(--player-surface-blur);
+  backdrop-filter: var(--player-surface-blur);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
+    --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
+    --auralis-parameter-surface-filter: none;
+  }
+
+  .player-bar {
+    --player-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
+    --player-surface-tint: transparent;
+    --player-surface-blur: none;
+    --playbar-album-layer-opacity: 0;
+  }
+
+  .player-bar .player-bar-overflow-panel {
+    background: var(--player-surface-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
+    --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
+    --auralis-parameter-surface-filter: none;
+  }
+
+  .player-bar {
+    --player-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
+    --player-surface-tint: transparent;
+    --player-surface-blur: none;
+    --playbar-album-layer-opacity: 0;
+  }
+
+  .player-bar .player-bar-overflow-panel {
+    background: var(--player-surface-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+:where([data-reduced-motion='true']) .player-bar .player-bar-surface {
+  transition: none;
+}
+
+@keyframes playbar-album-tint-fade-out {
+  from {
+    opacity: var(--playbar-album-layer-opacity, 0.85);
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.playbar-action-icon {
+  display: block;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+/* 菜单内的填充图标及碟片仍按原图形校正；描边图标自行校正几何。 */
+.player-bar
+  .playbar-action-icon:not(.playbar-action-stroke-icon):is(
+    .i-ph-subtitles,
+    .i-ph-speaker-high,
+    .i-ph-speaker-low,
+    .i-ph-speaker-slash,
+    .i-ph-vinyl-record
+  ) {
+  transform: scale(0.9);
+  transform-origin: center;
+}
+
+.player-bar .playback-actions > .player-bar-control,
+.player-bar .player-bar-overflow > .player-bar-control,
+.player-bar .volume-control-group > .player-bar-control {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.player-bar .player-bar-control {
+  border-radius: 8px;
+  background: transparent;
+  color: var(--auralis-playbar-control-fg);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+  box-shadow: none;
+}
+
+.player-bar .player-bar-control:focus,
+.player-bar .transport-control:focus {
+  outline: none;
+}
+
+.player-bar .player-bar-control:focus-visible,
+.player-bar .transport-control:focus-visible,
+.player-bar .transport-control-primary:focus-visible {
+  outline: 2px solid var(--auralis-playbar-control-focus-ring);
+  outline-offset: 2px;
+}
+
+.player-bar .track-cover:focus-visible,
+.player-bar .track-progress:focus-visible {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-player-static-accent));
+  outline-offset: 2px;
+}
+
+.player-bar .volume-slider:focus-visible {
+  outline: 2px solid var(--auralis-volume-fill);
+  outline-offset: 2px;
+}
+
+.player-bar .player-bar-control:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-playbar-control-hover-fg);
+}
+
+.player-bar .player-bar-control:active:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-playbar-control-pressed-fg);
+}
+
+.player-bar .player-bar-control-active:not(:disabled) {
+  background: transparent;
+  color: var(--auralis-playbar-control-selected-fg);
+  box-shadow: none;
+}
+
+.player-bar .player-bar-control-active:hover:not(:disabled),
+.player-bar .player-bar-control-active:active:not(:disabled) {
+  background: transparent;
+  color: var(--auralis-playbar-control-selected-hover-fg);
+}
+
+.track-cover {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.track-cover:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent);
+}
+
+.player-bar .track-cover,
+.player-bar .track-cover:hover,
+.player-bar .track-progress-fill {
+  border: none;
+  box-shadow: none;
+}
+
+.player-bar .track-cover:hover {
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-cover {
+  transition: none;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-cover:hover {
+  transform: none;
+}
+
+.player-bar input[type='range'].volume-slider::-webkit-slider-thumb {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.player-bar input[type='range'].volume-slider:hover::-webkit-slider-thumb,
+.player-bar input[type='range'].volume-slider:active::-webkit-slider-thumb {
+  box-shadow: none;
+}
+
+.player-bar input[type='range'].volume-slider::-moz-range-thumb {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.player-bar input[type='range'].volume-slider:hover::-moz-range-thumb,
+.player-bar input[type='range'].volume-slider:active::-moz-range-thumb {
+  box-shadow: none;
+}
+
+.player-bar .transport-control-primary {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--auralis-playbar-control-strong-fg);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.player-bar .transport-control-primary--playing:not(:disabled) {
+  color: var(--auralis-playbar-control-strong-fg);
+}
+
+.player-bar .transport-control-primary:hover:not(:disabled) {
+  color: var(--auralis-playbar-transport-hover-fg);
+  background: transparent;
+}
+
+.player-bar .transport-control-primary:active:not(:disabled) {
+  background: transparent;
+  color: var(--auralis-playbar-control-pressed-fg);
+  opacity: 0.75;
+}
+
+.player-bar .transport-control-primary:disabled {
+  color: var(--auralis-playbar-control-disabled-fg);
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.player-bar .transport-control-primary:disabled[aria-busy='true'] {
+  color: var(--auralis-playbar-control-strong-fg);
+  cursor: default;
+}
+
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary,
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:hover:not(:disabled),
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:active:not(:disabled),
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:disabled {
+  transition: none !important;
+  transform: none !important;
+}
+
+.player-bar .transport-control {
+  border-radius: 8px;
+  color: var(--auralis-playbar-transport-fg);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.player-bar .transport-control:hover:not(:disabled) {
+  background: transparent;
+  color: var(--auralis-playbar-transport-hover-fg);
+}
+
+.player-bar .transport-control:active:not(:disabled) {
+  background: transparent;
+  color: var(--auralis-playbar-control-pressed-fg);
+  opacity: 0.75;
+}
+
+.player-bar .transport-controls--empty .transport-control,
+.player-bar .transport-controls--empty .transport-control:hover:not(:disabled),
+.player-bar .transport-controls--empty .transport-control:active:not(:disabled) {
+  color: var(--auralis-playbar-control-disabled-fg);
+  opacity: 1;
+}
+
+.player-bar :is(.player-bar-control, .transport-control, .transport-control-primary):disabled,
+.player-bar :is(.player-bar-control, .transport-control, .transport-control-primary):disabled:hover,
+.player-bar
+  :is(.player-bar-control, .transport-control, .transport-control-primary):disabled:active {
+  color: var(--auralis-playbar-control-disabled-fg);
+}
+
+.track-progress {
+  height: 3px;
+  border-radius: 99px;
+  background: var(--auralis-progress-track);
+  position: relative;
+  overflow: visible !important;
+  cursor: pointer;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.track-progress:hover {
+  height: 6px;
+}
+
+.track-progress-fill {
+  background: var(--auralis-playbar-slider-fill, var(--auralis-active-album-accent)) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--auralis-active-album-accent) 30%, transparent);
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  border-radius: inherit;
+}
+
+:where([data-theme='light']) .player-bar {
+  --auralis-playbar-slider-fill: var(--auralis-text);
+  --auralis-volume-fill: var(--auralis-playbar-slider-fill);
+}
+
+.volume-control-group {
+  position: relative;
+}
+
+input[type='range'].volume-slider {
+  width: 90px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--auralis-volume-fill) !important;
+  cursor: pointer;
+  background: transparent !important;
+  border: none;
+  position: relative;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type='range'].volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(
+    --volume-track-bg,
+    linear-gradient(
+      to right,
+      var(--auralis-volume-fill) 0%,
+      var(--auralis-volume-fill) var(--volume-percent, 100%),
+      var(--auralis-progress-track) var(--volume-percent, 100%),
+      var(--auralis-progress-track) 100%
+    )
+  );
+  transition: height 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-webkit-slider-runnable-track {
+  height: 6px;
+}
+
+input[type='range'].volume-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--auralis-player-slider-thumb);
+  border: 2px solid var(--auralis-volume-fill);
+  box-shadow: var(--auralis-player-volume-thumb-shadow);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -4px;
+  opacity: 0.85;
+  transform: scale(0.5);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-top 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-webkit-slider-thumb,
+input[type='range'].volume-slider:active::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+  margin-top: -3px;
+  box-shadow: var(--auralis-player-volume-thumb-active-shadow);
+}
+
+input[type='range'].volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(
+    --volume-track-bg,
+    linear-gradient(
+      to right,
+      var(--auralis-volume-fill) 0%,
+      var(--auralis-volume-fill) var(--volume-percent, 100%),
+      var(--auralis-progress-track) var(--volume-percent, 100%),
+      var(--auralis-progress-track) 100%
+    )
+  );
+  transition: height 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-moz-range-track {
+  height: 6px;
+}
+
+input[type='range'].volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--auralis-player-slider-thumb);
+  border: 2px solid var(--auralis-volume-fill);
+  box-shadow: var(--auralis-player-volume-thumb-shadow);
+  cursor: pointer;
+  opacity: 0.85;
+  transform: scale(0.5);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-moz-range-thumb,
+input[type='range'].volume-slider:active::-moz-range-thumb {
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: var(--auralis-player-volume-thumb-active-shadow);
+}
+
+input[type='range'].volume-overlay-slider {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  margin: 0;
+}
+
+::selection {
+  color: #f6f2ea;
+  background: rgba(143, 167, 187, 0.28);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--auralis-text) 22%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 36%, transparent);
+}
+
+/* Lyrics dot animation */
+.lyric-dot {
+  color: var(--auralis-lyrics-inactive);
+  opacity: 0.15;
+  animation: dot-fill 1s ease forwards;
+}
+
+.lyric-dot:nth-child(2) {
+  animation-delay: 1s;
+}
+
+.lyric-dot:nth-child(3) {
+  animation-delay: 2s;
+}
+
+@keyframes dot-fill {
+  from {
+    opacity: 0.15;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 主窗口客户区：底色 / 内描边由静态壳 token 提供。 */
+.app-window {
+  background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+  box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
+  transition:
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.app-window:not(.is-cd-albums) {
+  background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+}
+
+.app-window.is-sidebar-floating:not(.is-cd-albums) {
+  background: var(--auralis-main-bg);
+  /* Match the main panel's immediate token update to keep the surrounding surface continuous. */
+  transition: box-shadow 280ms ease;
+}
+
+.app-shell:not(.is-cd-albums) > .app-main {
+  --main-page-inset-start: 32px;
+  --main-page-inset-end: 8px;
+  --main-page-inset-top: 16px;
+  --main-page-scrollbar-size: 12px;
+  background: var(--auralis-main-bg);
+}
+
+.main-page-frame {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding-inline: var(--main-page-inset-start) var(--main-page-inset-end);
+}
+
+:where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums),
+:where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums) .player-bar {
+  transition: none;
+}
+
+/* Sidebar */
+.app-sidebar {
+  --sidebar-icon-size: 16px;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  /* Preserve the floating card's original 12px leading / 16px trailing gutters. */
+  width: calc(100% - var(--auralis-shell-edge-gap) - 16px);
+  padding-bottom: 0;
+  background: var(--auralis-sidebar-bg) !important;
+  border-right: 1px solid var(--auralis-border-subtle);
+  box-shadow: none;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease;
+}
+
+.app-sidebar.app-sidebar--full-height {
+  width: 100%;
+  height: 100%;
+  margin-block: 0;
+  margin-left: 0;
+  border-radius: 0;
+}
+
+/* A wider invisible hit area keeps the visible divider quiet and easy to grab. */
+.sidebar-resize-handle,
+.lyrics-resize-handle {
+  position: absolute;
+  z-index: 5;
+  inset: 8px 0 8px auto;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.app-sidebar--full-height > .sidebar-resize-handle {
+  inset-block: 0;
+}
+
+.lyrics-resize-handle {
+  inset: 0 auto 0 0;
+}
+
+.sidebar-resize-handle::after,
+.lyrics-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.lyrics-resize-handle::after {
+  inset-inline: 0 auto;
+}
+
+.sidebar-resize-handle:not([aria-disabled='true']):hover::after,
+.sidebar-resize-handle:focus-visible::after,
+.sidebar-resize-handle.is-resizing::after,
+.lyrics-resize-handle:not([aria-disabled='true']):hover::after,
+.lyrics-resize-handle:focus-visible::after,
+.lyrics-resize-handle.is-resizing::after {
+  opacity: 1;
+}
+
+.sidebar-resize-handle:focus-visible,
+.lyrics-resize-handle:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-resize-handle[aria-disabled='true'],
+.lyrics-resize-handle[aria-disabled='true'] {
+  pointer-events: none;
+}
+
+:where([data-reduced-motion='true']) .sidebar-resize-handle::after,
+:where([data-reduced-motion='true']) .lyrics-resize-handle::after {
+  transition: none;
+}
+
+/* 全高布局下品牌区为收起/展开切换按钮；悬浮布局保持纯展示。 */
+.sidebar-brand-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.sidebar-brand-toggle:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+
+/* 收起图标栏：仅保留入口图标，名称经悬停/聚焦 tooltip 与 aria-label 提供。 */
+.app-sidebar.app-sidebar--collapsed {
+  --sidebar-icon-size: 18px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-header {
+  padding-inline: 10px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-mark {
+  width: 34px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-left {
+  position: relative;
+  justify-content: center;
+  gap: 0;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-copy {
+  position: absolute;
+  left: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px);
+  clip-path: inset(0 100% 0 0);
+  pointer-events: none;
+  transition:
+    opacity 120ms ease-out,
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    clip-path 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 180ms;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-symbol {
+  width: 20px;
+  height: 20px;
+  transform: none;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-footer,
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card,
+.app-sidebar.app-sidebar--collapsed .sidebar-actions-row,
+.app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-tool-button {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-actions-row {
+  width: 100%;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card {
+  flex: none;
+  width: 38px;
+  height: 24px;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  border-color: transparent;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-card-main {
+  justify-content: center;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
+  width: auto;
+  padding: 0;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-status-label,
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-label,
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-shortcut {
+  display: none;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-settings-button {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  justify-content: center;
+  padding: 0;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-section-label {
+  display: none;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-link {
+  justify-content: center;
+  height: 40px;
+  margin-block: 4px;
+  padding: 0;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-link-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-link-icon > span {
+  width: var(--sidebar-icon-size);
+  height: var(--sidebar-icon-size);
+}
+
+.app-sidebar.app-sidebar--collapsed .sidebar-link-label,
+.app-sidebar.app-sidebar--collapsed .sidebar-link-count {
+  display: none;
+}
+
+.app-sidebar.app-sidebar--collapsed .smart-playlist-section-header {
+  justify-content: center;
+  margin: 0 10px;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.app-sidebar.app-sidebar--collapsed .smart-playlist-add-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.app-sidebar.app-sidebar--collapsed .smart-playlist-add-button span {
+  width: 18px;
+  height: 18px;
+}
+
+.app-sidebar.app-sidebar--collapsed .smart-playlist-empty {
+  display: none;
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+  padding: 54px 16px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  background: transparent;
+}
+
+/* 品牌独占顶部，工具固定在底部。 */
+.sidebar-header-main {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.sidebar-brand-left {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  overflow: hidden;
+}
+
+.app-sidebar:not(.app-sidebar--collapsed) .sidebar-brand-left {
+  /* Align the logo box with navigation icons: margin + border + padding - header inset. */
+  padding-left: calc(10px + 1px + 12px - 16px);
+}
+
+.sidebar-brand-mark {
+  display: inline-flex;
+  /* Logo occupies the initial A; the rail keeps its wider centered mark above. */
+  width: 20px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-sidebar-active-indicator);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.sidebar-brand-symbol {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+  flex: 0 0 auto;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  clip-path: inset(0);
+  transition:
+    opacity 180ms ease-out 60ms,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
+    clip-path 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
+    visibility 0s;
+}
+
+.sidebar-brand-name {
+  --sidebar-brand-ink: var(
+    --auralis-sidebar-brand-text,
+    color-mix(in srgb, #ffffff 88%, transparent)
+  );
+  --sidebar-brand-echo: color-mix(
+    in srgb,
+    var(--sidebar-brand-ink) 55%,
+    var(--auralis-sidebar-active-indicator)
+  );
+  color: var(--sidebar-brand-ink);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 10px;
+  border-top: 1px solid var(--auralis-border-subtle);
+  background: transparent;
+}
+
+/* Layer 1: Self-contained library status capsule card */
+.sidebar-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-text-main) 3.5%, transparent);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text-muted);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.sidebar-status-card:hover {
+  background: color-mix(in srgb, var(--auralis-text-main) 6%, transparent);
+  border-color: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-indicator) 30%,
+    var(--auralis-border-subtle)
+  );
+}
+
+.sidebar-status-card:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-status-card-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-status-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+/* Reuse the shell's green and existing warning/error palette. */
+.sidebar-status-card[data-tone='success'] .sidebar-status-dot {
+  background: #28c840;
+  box-shadow: 0 0 0 2px rgba(40, 200, 64, 0.2);
+}
+
+.sidebar-status-card[data-tone='warning'] .sidebar-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.sidebar-status-card[data-tone='error'] .sidebar-status-dot {
+  background: var(--auralis-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-danger) 25%, transparent);
+}
+
+.sidebar-status-label {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 溢出时右侧带有柔和透明渐变淡出，提示后面还有文字 */
+.sidebar-status-label--marquee {
+  mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+}
+
+.sidebar-flavor-text {
+  display: inline-block;
+  white-space: nowrap;
+  flex-shrink: 0;
+  will-change: transform;
+}
+
+/* 溢出时启动平滑匀速巡航跑马灯 */
+.sidebar-status-label--marquee .sidebar-flavor-text {
+  animation: sidebar-flavor-marquee var(--flavor-scroll-duration, 8s) cubic-bezier(0.37, 0, 0.63, 1)
+    infinite;
+}
+
+/* 鼠标悬停在卡片上时：保持滚动以供持续阅读 */
+.sidebar-status-card:hover .sidebar-status-label--marquee .sidebar-flavor-text {
+  animation-play-state: running;
+}
+
+@keyframes sidebar-flavor-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  65%,
+  82% {
+    transform: translateX(calc(-1 * var(--flavor-scroll-distance, 0px)));
+  }
+  94%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* 尊重系统减少动态效果偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-status-label--marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .sidebar-status-label--marquee .sidebar-flavor-text {
+    animation: none !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.sidebar-status-refresh-button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.sidebar-status-refresh-button:hover {
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+}
+
+.sidebar-status-refresh-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-status-refresh-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sidebar-status-refresh-button > .sidebar-symbol {
+  width: 13px;
+  height: 13px;
+}
+
+/* Layer 2: Actions row (settings button on left, compact tools on right) */
+.sidebar-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.sidebar-tools-grid {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.sidebar-tool-button {
+  display: inline-flex;
+  width: 30px;
+  flex: 0 0 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.sidebar-tool-button:hover {
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  transform: translateY(-0.5px);
+}
+
+.sidebar-tool-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-tool-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-tool-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  transform: none;
+}
+
+.sidebar-tool-button[aria-disabled='true'] {
+  opacity: 0.5;
+  transform: none;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  cursor: default;
+}
+
+.sidebar-footer .sidebar-tool-button > .sidebar-symbol,
+.sidebar-footer .sidebar-settings-icon > .sidebar-symbol {
+  width: var(--sidebar-icon-size);
+  height: var(--sidebar-icon-size);
+}
+
+.sidebar-settings-button {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  flex-basis: auto;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  text-align: left;
+  color: var(--auralis-text-muted);
+}
+
+.sidebar-settings-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-settings-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar-settings-shortcut {
+  display: inline-flex;
+  min-width: 28px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0 4px;
+  flex-shrink: 0;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 4px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text-muted);
+  font-family: 'Segoe UI Symbol', var(--auralis-font-ui);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.sidebar-tool-button-active .sidebar-settings-shortcut {
+  border-color: color-mix(in srgb, currentColor 25%, transparent);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+}
+
+.sidebar-tool-button-active,
+.sidebar-tool-button-active:hover {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+}
+
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.sidebar-navigation--empty {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.sidebar-navigation--empty .sidebar-primary-section,
+.sidebar-navigation--empty .smart-playlist-section-header {
+  flex-shrink: 0;
+}
+
+.sidebar-primary-section {
+  flex-shrink: 0;
+  padding-bottom: 8px;
+}
+
+.sidebar-playlist-section {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-playlist-section > .sidebar-link,
+.sidebar-playlist-section > .smart-playlist-section-header,
+.sidebar-playlist-section > .smart-playlist-empty {
+  flex-shrink: 0;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 12%, transparent);
+}
+
+.sidebar-section-label {
+  padding: 0 16px 8px;
+  padding-left: 24px;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-section-title .sidebar-section-label {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+/* Redesigned Links as Light Cards */
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  margin: 2px 10px;
+  padding: 0 12px;
+  gap: 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--auralis-text-muted);
+  text-decoration: none;
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sidebar-link:hover {
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  color: var(--auralis-text);
+}
+
+.sidebar-link-with-count {
+  justify-content: flex-start;
+}
+
+.sidebar-link:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-link-active:focus-visible {
+  outline-color: var(--auralis-control-primary-text);
+}
+
+.sidebar-link-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-text-muted);
+  transition:
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.sidebar-link .sidebar-link-icon > span {
+  /* 拖拽预览挂在 body，无法继承侧栏变量。 */
+  width: var(--sidebar-icon-size, 16px);
+  height: var(--sidebar-icon-size, 16px);
+}
+
+.sidebar-link-label {
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Counts inside active links */
+.sidebar-link-count {
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
+  font-family: var(--auralis-font-ui);
+  opacity: 0;
+  transform: translateX(12px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.2s ease;
+  will-change: transform, opacity;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.sidebar-link:hover .sidebar-link-count {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--auralis-text-faint) !important;
+}
+
+.sidebar-link-active .sidebar-link-count {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.sidebar-link-active:hover .sidebar-link-count {
+  color: var(--auralis-control-primary-text) !important;
+}
+
+/* 与播放器曲目选中态共享实色强调背景及其前景色。 */
+.sidebar-link-active {
+  background: var(--auralis-theme-accent) !important;
+  border: 1px solid transparent !important;
+  color: var(--auralis-control-primary-text) !important;
+  box-shadow: none;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-link-active .sidebar-link-icon {
+  color: var(--auralis-control-primary-text) !important;
+}
+
+.sidebar-link-active .sidebar-link-label {
+  font-weight: 600;
+}
+
+.sidebar-link-active:hover {
+  background: var(--auralis-theme-accent) !important;
+  border-color: transparent !important;
+}
+
+.sidebar-link[data-smart-playlist-id] {
+  padding-right: 12px;
+}
+
+.smart-playlist-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px;
+  padding-left: 24px;
+}
+
+.smart-playlist-add-button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--auralis-text-faint);
+  transition: all 150ms ease;
+}
+
+.smart-playlist-add-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.smart-playlist-add-button:hover {
+  color: var(--auralis-text);
+  transform: scale(1.08);
+}
+
+.smart-playlist-add-button:active {
+  transform: scale(0.95);
+}
+
+.smart-playlist-add-button span {
+  width: 14px;
+  height: 14px;
+}
+
+.smart-playlist-empty {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 16px;
+}
+
+.sidebar-playlist-empty-action {
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--auralis-text-faint);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-underline-offset: 4px;
+}
+
+.sidebar-playlist-empty-action:hover {
+  text-decoration: underline;
+}
+
+.sidebar-playlist-empty-action:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.smart-playlist-link-pressed {
+  background: var(--auralis-control-hover-bg);
+}
+
+.sidebar-playlist-section > .sidebar-link {
+  content-visibility: auto;
+  transition:
+    background-color 250ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 250ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.smart-playlist-link-dragging {
+  z-index: 1;
+  cursor: grabbing !important;
+}
+
+.sidebar-playlist-drag-origin {
+  opacity: 0;
+  transition: none;
+}
+
+.sidebar-playlist-drag-layer {
+  position: fixed;
+  z-index: 80;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+}
+
+.sidebar-link.sidebar-playlist-drag-preview {
+  position: absolute;
+  margin: 0;
+  border: 0;
+  background: var(--auralis-surface-floating);
+  box-shadow: var(--auralis-surface-shadow);
+  opacity: 1;
+  transition: none;
+  will-change: transform;
+}
+
+.sidebar-playlist-drag-preview .sidebar-link-count {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  will-change: auto;
+}
+
+.sidebar-playlist-drag-preview--rail .sidebar-link-label,
+.sidebar-playlist-drag-preview--rail .sidebar-link-count {
+  display: none;
+}
+
+.sidebar-playlist-drag-preview--rail {
+  justify-content: center;
+}
+
+.sidebar-playlist-drag-preview--rail .sidebar-link-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-playlist-drag-preview--rail .sidebar-link-icon > span {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-playlist-drop-marker {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--auralis-theme-accent);
+}
+
+.sidebar-playlist-drop-marker[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
+.sidebar-playlist-reorder-error {
+  margin: 0 16px 8px;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+:where([data-reduced-motion='true']) .sidebar-playlist-section > .sidebar-link,
+:where([data-reduced-motion='true']) .sidebar-playlist-section .sidebar-link-count,
+:where([data-reduced-motion='true']) .sidebar-playlist-section .sidebar-link-icon {
+  transition: none;
+}
+
+.song-row {
+  box-sizing: border-box;
+  background-color: var(--auralis-song-row-bg, transparent);
+  border-bottom: 1px solid var(--auralis-song-row-border, transparent);
+  /* 滚动时 hover 会不断换行；即时反馈避免叠加背景过渡的逐帧绘制。 */
+}
+
+.song-row--even {
+  background-color: var(--auralis-song-row-bg, transparent);
+}
+
+.song-row--odd,
+.song-row--alt {
+  background-color: var(--auralis-song-row-alt-bg);
+}
+
+.song-row:hover {
+  background-color: var(--auralis-control-hover-bg);
+}
+
+/* 选中与播放沿用主题高亮；菜单目标通过局部语义色覆盖，hover 保持当前状态。 */
+.song-row:is(.song-row--selected, .song-row--playing),
+.song-row:is(.song-row--selected, .song-row--playing):hover,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing),
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):hover {
+  background-color: var(--auralis-track-selected-bg);
+  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
+  border-radius: 12px;
+  border-color: transparent;
+}
+
+.song-row:is(.song-row--selected, .song-row--playing)
+  :is(.song-title, .song-title-main, .song-artist, .song-album, .song-duration, .song-play-count),
+.song-row:is(.song-row--selected, .song-row--playing) .song-cover > span,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing)
+  :is(
+    .cover-track-number,
+    .cover-track-title,
+    .cover-track-artist-line,
+    .cover-track-genre,
+    .cover-track-duration,
+    .cover-track-bitrate,
+    .cover-track-bars
+  ) {
+  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
+}
+
+.library-list-shell--play-count {
+  container-type: inline-size;
+}
+
+.song-row:focus-visible,
+.cover-track-row:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.song-row:is(.song-row--selected, .song-row--playing):focus-visible,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):focus-visible {
+  outline-color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
+}
+
+/* 菜单目标沿用主题色相，深色主题压暗、浅色主题使用柔和底色；优先于播放与 hover 背景。 */
+:is(.song-row, .cover-track-row).library-track-context-selected,
+:is(.song-row, .cover-track-row).library-track-context-selected:hover {
+  --auralis-track-highlight-text: var(--auralis-track-context-text);
+  background-color: var(--auralis-track-context-bg);
+}
+
+/* Library search bar */
+.library-search-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.library-search-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
+  opacity: 0;
+}
+
+.page-search-tools {
+  --page-search-tools-width: 360px;
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: var(--page-search-tools-width);
+  max-width: calc(100% - 48px);
+  height: 38px;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.page-search-tools--parameters {
+  --page-search-tools-width: 406px;
+}
+
+.library-search-bar {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--auralis-search-border);
+  background: var(--auralis-search-bg);
+  box-shadow: var(--auralis-search-shadow);
+}
+
+.page-parameter-trigger {
+  display: inline-flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--auralis-search-border);
+  background: var(--auralis-search-bg);
+  box-shadow: var(--auralis-search-shadow);
+  color: var(--auralis-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.page-parameter-trigger:hover,
+.page-parameter-trigger--active {
+  color: var(--auralis-theme-accent);
+}
+
+.page-parameter-trigger:focus-visible {
+  outline: 2px solid var(--auralis-theme-accent);
+  outline-offset: 2px;
+}
+
+.page-parameter-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.library-search-bar--parameters {
+  padding-right: 4px;
+}
+
+.page-search-parameters {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-search-parameters::before {
+  width: 1px;
+  height: 20px;
+  background: var(--auralis-border-strong);
+  content: '';
+}
+
+.page-search-parameters .page-parameter-trigger {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.page-search-parameters .page-parameter-trigger:hover,
+.page-search-parameters .page-parameter-trigger--active {
+  background: var(--auralis-control-hover-bg);
+}
+
+.page-search-parameters .page-parameter-trigger:focus-visible {
+  outline-offset: 0;
+}
+
+.library-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--auralis-text);
+}
+
+.library-search-input::placeholder {
+  color: var(--auralis-text-faint);
+}
+
+.search-overlay-enter-active .page-search-tools,
+.search-overlay-leave-active .page-search-tools {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.search-overlay-leave-active .page-search-tools {
+  pointer-events: none;
+}
+
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.search-overlay-enter-to .page-search-tools,
+.search-overlay-leave-from .page-search-tools {
+  transform: translateX(-50%) translateY(0);
+}
+
+.library-context-menu {
+  overflow: visible;
+  padding: 6px;
+}
+
+.library-context-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 4px 12px;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  text-align: left;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.library-context-menu-item:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.library-context-menu-item.smart-playlist-context-danger {
+  color: var(--auralis-danger);
+}
+
+.library-context-menu-item.smart-playlist-context-danger:hover:not(:disabled) {
+  color: var(--auralis-danger);
+}
+
+.library-context-menu-item:disabled {
+  cursor: default;
+}
+
+.library-context-menu-item--insert:disabled > span,
+.library-context-menu-item.library-context-menu-item--view-switch:disabled > span {
+  color: var(--auralis-text-disabled);
+}
+
+.library-context-menu-item span:first-child {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 1em;
+  color: currentColor;
+}
+
+.library-context-menu-item span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-context-menu-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-context-menu-chevron {
+  width: 1em !important;
+  min-width: 1em !important;
+  margin-left: auto;
+  overflow: visible !important;
+  opacity: 0.62;
+}
+
+.library-context-menu-submenu-root {
+  position: relative;
+}
+
+.sidebar-smart-create-submenu {
+  padding-top: 4px;
+  padding-left: 20px;
+}
+
+.sidebar-smart-create-expand-enter-active {
+  overflow: hidden;
+  animation: sidebar-smart-create-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sidebar-smart-create-expand-leave-active {
+  overflow: hidden;
+  animation: sidebar-smart-create-collapse 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
+@keyframes sidebar-smart-create-expand {
+  from {
+    height: 0;
+    padding-top: 0;
+  }
+  to {
+    height: 140px;
+    padding-top: 4px;
+  }
+}
+
+@keyframes sidebar-smart-create-collapse {
+  from {
+    height: 140px;
+    padding-top: 4px;
+  }
+  to {
+    height: 0;
+    padding-top: 0;
+  }
+}
+
+:where([data-reduced-motion='true']) .sidebar-smart-create-expand-enter-active,
+:where([data-reduced-motion='true']) .sidebar-smart-create-expand-leave-active {
+  animation: none;
+}
+
+.sidebar-create-error {
+  padding: 4px 12px;
+  color: var(--auralis-danger);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.library-context-menu-separator {
+  width: calc(100% + 12px);
+  height: 1px;
+  margin: 4px -6px;
+  background: var(--auralis-border-subtle);
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu {
+  padding: 4px;
+  border: none;
+  border-radius: 16px;
+  background: var(--auralis-frosted-surface-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+  backdrop-filter: var(--auralis-frosted-surface-filter);
+  color: var(--auralis-text);
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-item {
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  font-weight: 400;
+  color: var(--auralis-text-muted);
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-item:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-item:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-separator {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  flex-shrink: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-separator::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--auralis-border-subtle);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
+    background: var(--auralis-dialog-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
+    background: var(--auralis-dialog-bg);
+  }
+}
+
+/* 深色菜单在正常和透明度降级状态下都使用不透明浮层色。 */
+:where([data-theme='dark'], :root:not([data-theme='light']))
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu {
+  background: var(--auralis-context-menu-bg);
+}
+
+:where([data-theme='light'])
+  .library-overlay[data-library-overlay='context-menu']
+  .library-context-menu-panel,
+:where([data-theme='light']) :is(.fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+  background: var(--auralis-context-menu-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 歌单、曲目（含子菜单）和专辑右键菜单共用填充色与轻阴影。 */
+:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #303030;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+:where([data-theme='light'])
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(41, 43, 45, 0.12);
+}
+
+.sidebar-overlay .sidebar-create-menu.frosted-context-menu {
+  background: var(--auralis-context-menu-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-item.smart-playlist-context-danger,
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu
+  .library-context-menu-item.smart-playlist-context-danger:hover:not(:disabled) {
+  color: var(--auralis-danger);
+}
+
+.smart-playlist-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.smart-playlist-dialog {
+  width: min(360px, calc(100vw - 48px));
+  padding: 18px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 20px;
+  background: var(--auralis-dialog-bg);
+  box-shadow: var(--auralis-surface-shadow, 0 18px 55px rgba(0, 0, 0, 0.22));
+}
+
+.smart-playlist-dialog h2 {
+  margin: 0 0 16px;
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+  font-weight: 700;
+}
+
+.smart-playlist-dialog input,
+.smart-playlist-dialog textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 6px;
+  outline: none;
+  color: var(--auralis-text);
+  background: var(--auralis-control-bg);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.smart-playlist-dialog textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.smart-playlist-dialog input:focus,
+.smart-playlist-dialog textarea:focus {
+  border-color: var(--auralis-focus-ring);
+}
+
+.smart-playlist-dialog-error {
+  margin: 6px 0 0;
+  color: var(--auralis-danger);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.smart-playlist-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.smart-playlist-dialog-actions button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.smart-playlist-dialog-actions button:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-control-hover-bg);
+}
+
+.smart-playlist-dialog-actions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.smart-playlist-dialog-actions .smart-playlist-dialog-primary {
+  color: var(--auralis-sidebar-active-text);
+  background: var(--auralis-sidebar-active-bg);
+}
+
+/* 专辑详情页退出 ➔ 专辑列表页：与进入对称的原位交叉淡入淡出 */
+.album-detail-exit-fade-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+  will-change: opacity;
+  z-index: 20;
+}
+
+.album-detail-exit-fade-enter-active {
+  transition: opacity 180ms ease-out;
+  will-change: opacity;
+  z-index: 10;
+}
+
+.album-detail-exit-fade-leave-to,
+.album-detail-exit-fade-enter-from {
+  opacity: 0;
+}
+
+/* Library view switch fade */
+.library-view-fade-enter-active,
+.library-view-fade-leave-active {
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.library-view-fade-enter-from,
+.library-view-fade-leave-to {
+  opacity: 0;
+}
+
+.library-view-fade-enter-to,
+.library-view-fade-leave-from {
+  opacity: 1;
+}
+
+:where([data-reduced-motion='true']) .app-window {
+  transition: none;
+}
+
+:where([data-reduced-motion='true']) .sidebar-brand-mark,
+:where([data-reduced-motion='true']) .sidebar-brand-symbol,
+:where([data-reduced-motion='true']) .sidebar-brand-copy,
+:where([data-reduced-motion='true']) .sidebar-brand-name,
+:where([data-reduced-motion='true']) .sidebar-brand-letter {
+  transition: none;
+}
+
+:where([data-reduced-motion='true'])
+  .sidebar-brand-left:is(:hover, :focus-visible)
+  .sidebar-brand-name {
+  color: var(--sidebar-brand-echo);
+}
+
+:where([data-reduced-motion='true']) .library-view-fade-enter-active,
+:where([data-reduced-motion='true']) .library-view-fade-leave-active {
+  transition-duration: 0ms !important;
+}
+
+/* Library 搜索层：减少动态效果时瞬时切换 */
+
+:where([data-reduced-motion='true']) .search-overlay-enter-active .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .page-search-tools {
+  transition-duration: 0ms !important;
+}
+
+:where([data-reduced-motion='true']) .search-overlay-enter-from .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-enter-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-from .page-search-tools {
+  transform: translateX(-50%);
+}
+
+:where([data-reduced-motion='true']) .album-detail-exit-fade-leave-active,
+:where([data-reduced-motion='true']) .album-detail-exit-fade-enter-active {
+  transition: none;
+  will-change: auto;
+}
+
+:where([data-reduced-motion='true']) .player-bar-album-tint-previous {
+  animation: none !important;
+}
+
+:where([data-reduced-motion='true']) .lyric-dot {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* 右侧歌词面板高亮行使用主题化的歌词活动色。 */
+.now-playing-panel .lyric-active {
+  color: var(--auralis-lyrics-active);
+}
+
+/* 专辑详情保留滚动能力，不占用右侧滚动条宽度。 */
+.album-detail-scroll-wrapper {
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+.main-page-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+
+.main-page-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.album-detail-scroll-wrapper::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.main-page-scroll::-webkit-scrollbar {
+  width: var(--main-page-scrollbar-size);
+  height: var(--main-page-scrollbar-size);
+}
+
+.main-page-scroll::-webkit-scrollbar-track,
+.main-page-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 主页面滚动条共用材质，悬停只高亮。 */
+.main-page-scroll::-webkit-scrollbar-thumb {
+  background: var(
+    --auralis-scrollbar-thumb,
+    color-mix(in srgb, var(--auralis-text) 22%, transparent)
+  );
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.main-page-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(
+    --auralis-scrollbar-thumb-hover,
+    color-mix(in srgb, var(--auralis-text) 36%, transparent)
+  );
+  /* 全局 hover 使用 background 简写，这里保留裁剪以避免滑块变粗。 */
+  background-clip: padding-box;
+}

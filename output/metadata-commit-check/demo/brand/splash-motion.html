@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'none'"
+    />
+    <title>Auralis · 一声成形</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/typography.css" />
+    <link rel="stylesheet" href="../../src/renderer/app/styles/harmony-fonts.css" />
+    <link rel="stylesheet" href="splash-motion.css" />
+    <script src="splash-motion.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>一声成形</h1>
+          <p>从一段声音，成为 Auralis。</p>
+        </div>
+        <fieldset>
+          <legend>画布</legend>
+          <label><input type="radio" name="theme" value="light" /><span>浅色</span></label>
+          <label><input type="radio" name="theme" value="dark" checked /><span>深色</span></label>
+        </fieldset>
+      </header>
+      <section class="stage" aria-label="开屏动画预览">
+        <div class="brand" role="img" aria-label="Auralis 共鸣 A">
+          <svg id="mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <path id="left-leg" d="M10 52 27.3 13C28.2 10.95 30.1 9.925 32 9.925" />
+            <path id="right-leg" d="M54 52 36.7 13C35.8 10.95 33.9 9.925 32 9.925" />
+            <path id="contour" d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+            <path id="wave" d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" />
+          </svg>
+          <span id="wordmark">Auralis</span>
+        </div>
+        <span class="stage-caption">开屏动效草案</span>
+      </section>
+      <div class="playback">
+        <button id="play" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 10 7-10 7Z" /></svg>
+          <span>重新播放</span>
+        </button>
+        <label class="speed"
+          >速度<select id="speed">
+            <option value="1">正常 · 1×</option>
+            <option value="0.5">慢速 · 0.5×</option>
+            <option value="0.25">细看 · 0.25×</option>
+          </select></label
+        >
+        <label class="motion"><input id="reduce" type="checkbox" />减少动态效果</label>
+        <output id="time">900 ms</output>
+      </div>
+      <div class="timeline">
+        <label for="seek" class="visually-hidden">动画时间位置</label>
+        <input id="seek" type="range" min="0" max="900" value="900" step="1" />
+        <div class="beats" aria-hidden="true">
+          <span>声音出现</span><span>A 成形</span><span>余音收束</span><span>静静停留</span>
+        </div>
+      </div>
+      <p class="note">
+        拖动时间轴细看动作。播放一次后停留在完整 Logo；实际接入时，待应用就绪再淡出。
+      </p>
+      <footer><a href="logo-exploration.html">Logo 设计比较</a><span>共鸣 A · 900 ms</span></footer>
+    </main>
+  </body>
+</html>

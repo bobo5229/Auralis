@@ -1,0 +1,57 @@
+{
+  "root": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-xv0Xlk",
+  "mode": "quick",
+  "results": [
+    {
+      "name": "aac-48000-2-front",
+      "frames": 576512,
+      "expectedFrames": 576512,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 12924.9479,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.133333,
+          "afterTime": 2.368,
+          "milliseconds": 231.03729999999996,
+          "oldId": "2814749768120347",
+          "newId": "3659174698252319",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.16,
+          "afterTime": 4.394667,
+          "milliseconds": 234.10630000000037,
+          "oldId": "3659174698252319",
+          "newId": "2814749768120352",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.229333,
+          "afterTime": 6.442667,
+          "milliseconds": 214.5524000000005,
+          "oldId": "2814749768120352",
+          "newId": "3940649674962975",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "moov", "free", "mdat"]
+    }
+  ],
+  "errors": [],
+  "mpvVersion": "mpv v0.41.0-dev-gc64675679 Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects\r\n built on Sep 22 2026 07:30:14\r\nlibplacebo version: v7.372.0\r\nFFmpeg version: ff04763\r\nFFmpeg library versions:\r\n   libavcodec      62.28.102\r\n   libavdevice     62.3.102\r\n   libavfilter     11.14.102\r\n   libavformat     62.12.102\r\n   libavutil       60.26.102\r\n   libswresample   6.3.102\r\n   libswscale      9.5.102\r\n",
+  "mpvSha256": "acabdf60eee6d3bf92b5dddde2f1371774e1ef1fceab3e674cf7a7f594ddc060",
+  "writerSha256": "6e630f52bbd62591da2f952a27d306cc2e4a5574b2b83765bfcad807a45b96be",
+  "transportSha256": "bced03896577aa51b974f35c61b482098718a2dafd22ecf991d095732fa37455"
+}

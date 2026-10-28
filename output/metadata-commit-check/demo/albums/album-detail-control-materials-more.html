@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN" data-accent="green">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 专辑详情控件材质续</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #0e0e0e;
+        --page-fg: #f3eee6;
+        --page-muted: #9299a3;
+        --accent: #1dd55f;
+        --on-accent: #121212;
+        font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--page-fg);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      a { color: inherit; }
+      :focus { outline: none; }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 28px 0 64px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+      header p {
+        margin: 8px 0 0;
+        max-width: 68ch;
+        color: var(--page-muted);
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .toolbar span { color: var(--page-muted); margin-right: 4px; }
+      .choice, .color {
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid rgba(243, 238, 230, 0.16);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--page-fg);
+      }
+      .choice[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      .color {
+        width: 32px;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .boards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 22px;
+      }
+      .board {
+        padding: 18px 16px 8px;
+        border-radius: 18px;
+      }
+      .board h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .board-dark {
+        background: #121212;
+        color: #f3eee6;
+        --fg: #f3eee6;
+        --muted: #9299a3;
+        --enamel-neutral: #efe6d8;
+        --enamel-neutral-ink: #1c1e20;
+        --enamel-rim: rgba(255, 255, 255, 0.78);
+        --enamel-edge: rgba(28, 24, 18, 0.28);
+        --ink-neutral: #f3eee6;
+        --ink-neutral-ink: #1a1814;
+        --ink-edge: rgba(26, 24, 20, 0.45);
+        --blast: #4a525a;
+        --blast-ink: #e8ebef;
+        --blast-play: color-mix(in srgb, var(--accent) 64%, #8b939b);
+        --grain-light: rgba(255, 255, 255, 0.34);
+        --grain-dark: rgba(0, 0, 0, 0.4);
+        --flat-neutral: #2a2f33;
+        --flat-neutral-ink: #f3eee6;
+      }
+      .board-light {
+        background: #f0f1f2;
+        color: #1c1e20;
+        --fg: #1c1e20;
+        --muted: #62656a;
+        --enamel-neutral: #f7f8f8;
+        --enamel-neutral-ink: #1c1e20;
+        --enamel-rim: #ffffff;
+        --enamel-edge: rgba(41, 43, 45, 0.28);
+        --ink-neutral: #292b2d;
+        --ink-neutral-ink: #f4f5f6;
+        --ink-edge: rgba(255, 255, 255, 0.22);
+        --blast: #c5cacf;
+        --blast-ink: #1c1e20;
+        --blast-play: color-mix(in srgb, var(--accent) 58%, #aeb4ba);
+        --grain-light: rgba(255, 255, 255, 0.85);
+        --grain-dark: rgba(41, 43, 45, 0.28);
+        --flat-neutral: #d7dbdf;
+        --flat-neutral-ink: #1c1e20;
+      }
+      .board h2, .specimen h3, .note { color: var(--muted); }
+
+      .specimen { padding: 8px 4px 18px; }
+      .specimen h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .note {
+        margin: 2px 0 10px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 148px minmax(0, 1fr);
+        column-gap: 18px;
+        min-height: 148px;
+      }
+      .hero img {
+        width: 148px;
+        height: 148px;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #2a2a2a;
+      }
+      .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 0;
+        min-height: 148px;
+        padding-bottom: 2px;
+      }
+      .title {
+        margin: 0;
+        color: var(--fg);
+        font-size: 22px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .meta {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+      .play, .shuffle {
+        display: inline-flex;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+        line-height: 20px;
+        user-select: none;
+        transition:
+          background-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          border-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          box-shadow 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
+          transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      .play { min-width: 96px; padding: 0 16px; }
+      .shuffle { width: 40px; padding: 0; flex-shrink: 0; }
+      .icon { display: inline-flex; }
+
+      /* 搪瓷：实色，一圈内缘，没有上沿硬高光 */
+      .set-enamel .play,
+      .set-enamel .shuffle {
+        box-shadow:
+          inset 0 0 0 1px var(--enamel-rim),
+          inset 0 0 0 2px color-mix(in srgb, #000000 12%, transparent);
+      }
+      .set-enamel .play {
+        background: var(--accent);
+        border: 1px solid color-mix(in srgb, #000000 32%, var(--accent));
+        color: var(--on-accent);
+      }
+      .set-enamel .play:hover {
+        background: color-mix(in srgb, #ffffff 8%, var(--accent));
+      }
+      .set-enamel .shuffle {
+        background: var(--enamel-neutral);
+        border: 1px solid var(--enamel-edge);
+        color: var(--enamel-neutral-ink);
+      }
+      .set-enamel .shuffle:hover {
+        background: color-mix(in srgb, #ffffff 35%, var(--enamel-neutral));
+      }
+      .set-enamel .play:active,
+      .set-enamel .shuffle:active {
+        transform: translateY(0.5px);
+        box-shadow: inset 0 1.5px 2px rgba(0, 0, 0, 0.28);
+      }
+
+      /* 丝印：铺实的油墨和一圈印边，没有高光 */
+      .set-ink .play,
+      .set-ink .shuffle {
+        box-shadow: none;
+      }
+      .set-ink .play {
+        background: var(--accent);
+        border: 1px solid color-mix(in srgb, #000000 28%, var(--accent));
+        color: var(--on-accent);
+      }
+      .set-ink .play:hover {
+        background: color-mix(in srgb, #000000 8%, var(--accent));
+      }
+      .set-ink .shuffle {
+        background: var(--ink-neutral);
+        border: 1px solid var(--ink-edge);
+        color: var(--ink-neutral-ink);
+      }
+      .set-ink .shuffle:hover {
+        background: color-mix(in srgb, #000000 8%, var(--ink-neutral));
+      }
+      .set-ink .play:active,
+      .set-ink .shuffle:active {
+        transform: none;
+        box-shadow: none;
+      }
+      .set-ink .play:active { background: color-mix(in srgb, #000000 16%, var(--accent)); }
+      .set-ink .shuffle:active { background: color-mix(in srgb, #000000 16%, var(--ink-neutral)); }
+
+      /* 喷砂：干颗粒，没有方向性的丝，也没有亮线 */
+      .set-blast .play,
+      .set-blast .shuffle {
+        background-image:
+          radial-gradient(var(--grain-light) 0.5px, transparent 0.7px),
+          radial-gradient(var(--grain-dark) 0.5px, transparent 0.7px);
+        background-size: 3px 3px, 5px 5px;
+        background-position: 0 0, 1.5px 1px;
+        background-repeat: repeat;
+        border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
+        box-shadow: none;
+      }
+      .set-blast .play {
+        background-color: var(--blast-play);
+        color: var(--on-accent);
+      }
+      .set-blast .play:hover {
+        background-color: color-mix(in srgb, #ffffff 10%, var(--blast-play));
+      }
+      .set-blast .shuffle {
+        background-color: var(--blast);
+        color: var(--blast-ink);
+      }
+      .set-blast .shuffle:hover {
+        background-color: color-mix(in srgb, #ffffff 10%, var(--blast));
+      }
+      .set-blast .play:active,
+      .set-blast .shuffle:active {
+        transform: translateY(0.5px);
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+      }
+
+      /* 扁平：没有边、阴影、高光；按下只换色 */
+      .set-flat .play,
+      .set-flat .shuffle {
+        border: 0;
+        box-shadow: none;
+      }
+      .set-flat .play {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+      .set-flat .play:hover {
+        background: color-mix(in srgb, #ffffff 10%, var(--accent));
+      }
+      .set-flat .shuffle {
+        background: var(--flat-neutral);
+        color: var(--flat-neutral-ink);
+      }
+      .set-flat .shuffle:hover {
+        background: color-mix(in srgb, #ffffff 10%, var(--flat-neutral));
+      }
+      .set-flat .play:active,
+      .set-flat .shuffle:active {
+        transform: none;
+        box-shadow: none;
+      }
+      .set-flat .play:active { background: color-mix(in srgb, #000000 14%, var(--accent)); }
+      .set-flat .shuffle:active { background: color-mix(in srgb, #000000 10%, var(--flat-neutral)); }
+
+      @media (max-width: 980px) {
+        .boards { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .play, .shuffle { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <h1>专辑详情控件材质 · 续</h1>
+        <p>
+          搪瓷、丝印油墨、喷砂，以及一套没有任何材质的扁平按钮。播放和随机仍共用一套做法。按钮是正式尺寸：高 40px，播放是胶囊，随机是圆。悬停和按下可以比较。未接入正式界面。上一版在
+          <a href="album-detail-control-materials.html">拉丝金属 / 阳极氧化 / 内页纸 / 钢琴漆</a>。
+        </p>
+        <div class="toolbar">
+          <span>强调色</span>
+          <button class="choice" type="button" data-accent-choice="green" aria-pressed="true">绿</button>
+          <button class="choice" type="button" data-accent-choice="gray" aria-pressed="false">浅色默认灰</button>
+          <input class="color" type="color" value="#1dd55f" aria-label="自定义强调色" />
+        </div>
+      </header>
+      <div class="boards">
+        <section class="board board-dark" aria-label="深色底"></section>
+        <section class="board board-light" aria-label="浅色底"></section>
+      </div>
+    </main>
+
+    <template id="specimen">
+      <article class="specimen">
+        <h3></h3>
+        <p class="note"></p>
+        <div class="hero">
+          <img src="assets/album-sleeve-cover.webp" alt="" />
+          <div class="copy">
+            <div>
+              <p class="title">Feel My Rhythm</p>
+              <p class="meta">Red Velvet · 2022</p>
+            </div>
+            <div class="actions">
+              <button class="play" type="button">
+                <span class="icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m8 5 12 7-12 7V5Z" />
+                  </svg>
+                </span>
+                <span class="label">播放</span>
+              </button>
+              <button class="shuffle" type="button" aria-label="随机播放">
+                <span class="icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m18 14 4 4-4 4M18 2l4 4-4 4M2 18h2.5a6 6 0 0 0 5-3l5-8a6 6 0 0 1 5-3H22M2 6h2.5a6 6 0 0 1 5 3l5 8a6 6 0 0 0 5 3H22" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+    <script>
+      const sets = [
+        ["set-enamel", "搪瓷", "实色徽章，一圈内缘。没有拉丝，也没有上沿那条硬高光。播放是强调色瓷，随机是中性瓷。"],
+        ["set-ink", "丝印油墨", "铺实的油墨，只有一圈印边。悬停变深，没有高光。深色底上随机是浅墨，浅色底上随机是深墨。"],
+        ["set-blast", "喷砂", "干的金属颗粒，没有方向性的丝，也没有亮线。播放只被强调色轻轻染过。"],
+        ["set-flat", "扁平", "没有边、没有阴影、没有高光。按下只换一块更实的颜色，按钮本身不动。"],
+      ]
+      const template = document.querySelector("#specimen")
+      for (const board of document.querySelectorAll(".board")) {
+        const heading = document.createElement("h2")
+        heading.textContent = board.classList.contains("board-dark") ? "深色" : "浅色"
+        board.append(heading)
+        for (const [className, title, note] of sets) {
+          const node = template.content.firstElementChild.cloneNode(true)
+          node.classList.add(className)
+          node.querySelector("h3").textContent = title
+          node.querySelector(".note").textContent = note
+          board.append(node)
+        }
+      }
+
+      const presets = {
+        green: ["#1dd55f", "#121212"],
+        gray: ["#585b5f", "#ffffff"],
+      }
+      const color = document.querySelector(".color")
+      const choices = [...document.querySelectorAll("[data-accent-choice]")]
+      function applyAccent(hex, ink, pressed) {
+        const root = document.documentElement
+        root.style.setProperty("--accent", hex)
+        root.style.setProperty("--on-accent", ink)
+        root.dataset.accent = pressed
+        color.value = hex
+        for (const choice of choices) {
+          choice.setAttribute("aria-pressed", String(choice.dataset.accentChoice === pressed))
+        }
+      }
+      function inkFor(hex) {
+        const value = Number.parseInt(hex.slice(1), 16)
+        const y = (((value >> 16) & 255) * 299 + ((value >> 8) & 255) * 587 + (value & 255) * 114) / 1000
+        return y > 150 ? "#121212" : "#ffffff"
+      }
+      for (const choice of choices) {
+        choice.addEventListener("click", () => {
+          const [hex, ink] = presets[choice.dataset.accentChoice]
+          applyAccent(hex, ink, choice.dataset.accentChoice)
+        })
+      }
+      color.addEventListener("input", () => applyAccent(color.value, inkFor(color.value), "custom"))
+    </script>
+  </body>
+</html>

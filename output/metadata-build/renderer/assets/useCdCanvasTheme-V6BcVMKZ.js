@@ -1,0 +1,1 @@
+import{a as n,r as s}from"./index-Dt5IIbwy.js";const t="auralis-cd-canvas-theme";function c(){try{return localStorage.getItem(t)==="dark"?"dark":"light"}catch{return"light"}}const a=s(c());function o(r){const e=r==="dark"?"dark":"light";if(a.value!==e){a.value=e;try{localStorage.setItem(t,e)}catch{}}}function u(){return{cdCanvasTheme:n(a),setCdCanvasTheme:o}}export{u};

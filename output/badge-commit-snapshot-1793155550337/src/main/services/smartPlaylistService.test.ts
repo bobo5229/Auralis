@@ -1,0 +1,225 @@
+import { describe, expect, it, vi } from 'vitest'
+import type { SmartPlaylistRule } from '@shared/types/smartPlaylist'
+import { assertValidSmartPlaylistRule } from './smartPlaylistService'
+import { SmartPlaylistService } from './smartPlaylistService'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import type { SmartPlaylist } from '@shared/types/smartPlaylist'
+import type { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
+import type { TrackRepository } from '@main/repositories/trackRepository'
+import * as delimitedValues from '@shared/utils/delimitedValues'
+
+describe('smart playlist counts', () => {
+  it('evaluates 64 genre alternatives without repeating field parsing or rule normalization', () => {
+    const rule: SmartPlaylistRule = {
+      expression: {
+        type: 'or',
+        operands: Array.from({ length: 64 }, (_, index) => ({
+          type: 'predicate',
+          field: 'genre',
+          operator: 'has',
+          value: `Genre ${index}`,
+        })),
+      },
+    }
+    assertValidSmartPlaylistRule(rule)
+    let revision = '1'
+    let tracks = Array.from({ length: 10_000 }, (_, index) => ({
+      id: index + 1,
+      genre: `GENRE ${index % 2000}`,
+    })) as TrackListItem[]
+    const getAll = vi.fn(() => tracks)
+    const service = new SmartPlaylistService(
+      { list: () => [{ id: 1, rule }] } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken: () => revision } as unknown as TrackRepository,
+    )
+    const split = vi.spyOn(delimitedValues, 'splitDelimitedValues')
+    const normalize = vi.spyOn(delimitedValues, 'normalizeDelimitedValue')
+    try {
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 320 }])
+      expect(split.mock.calls.length).toBeLessThanOrEqual(tracks.length)
+      expect(normalize.mock.calls.length).toBeLessThanOrEqual(tracks.length + 64)
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 320 }])
+      expect(getAll).toHaveBeenCalledTimes(1)
+      tracks = [{ id: 1, genre: 'Genre 0; Other' }] as TrackListItem[]
+      revision = '2'
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 1 }])
+      expect(getAll).toHaveBeenCalledTimes(2)
+    } finally {
+      split.mockRestore()
+      normalize.mockRestore()
+    }
+  })
+
+  it('does not read the catalog or its revision when no smart playlists exist', () => {
+    const getAll = vi.fn()
+    const getChangeToken = vi.fn()
+    const service = new SmartPlaylistService(
+      { list: () => [] } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken } as unknown as TrackRepository,
+    )
+
+    expect(service.listTrackCounts()).toEqual([])
+    expect(service.listTrackCounts()).toEqual([])
+    expect(getAll).not.toHaveBeenCalled()
+    expect(getChangeToken).not.toHaveBeenCalled()
+  })
+
+  it('releases an unused catalog and reads again when smart playlists return', () => {
+    const playlist = {
+      id: 1,
+      rule: { expression: { type: 'predicate', field: 'genre', operator: 'isEmpty' } },
+    } as SmartPlaylist
+    let playlists = [playlist]
+    const getAll = vi
+      .fn()
+      .mockReturnValueOnce([{ id: 1, genre: null }])
+      .mockReturnValueOnce([
+        { id: 1, genre: null },
+        { id: 2, genre: null },
+      ])
+    const service = new SmartPlaylistService(
+      { list: () => playlists } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken: () => 'unchanged' } as unknown as TrackRepository,
+    )
+
+    expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 1 }])
+    playlists = []
+    expect(service.listTrackCounts()).toEqual([])
+    expect(getAll).toHaveBeenCalledTimes(1)
+    playlists = [playlist]
+    expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 2 }])
+    expect(getAll).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('recent added album order', () => {
+  function track(id: number, overrides: Partial<TrackListItem> = {}): TrackListItem {
+    return {
+      id,
+      title: null,
+      artist: 'Artist',
+      albumArtist: 'Artist',
+      album: 'A',
+      discNo: 1,
+      trackNo: 1,
+      releaseDate: null,
+      copyright: null,
+      composer: null,
+      bitrateBps: null,
+      durationSeconds: null,
+      artworkCacheKey: null,
+      genre: null,
+      availability: 'available',
+      playCount: 0,
+      lastPlayedAt: null,
+      createdAt: new Date(Date.now() - 1000).toISOString(),
+      ...overrides,
+    }
+  }
+
+  it.each<SmartPlaylistRule>([
+    { preset: 'recentAdded', days: 30 },
+    {
+      expression: {
+        type: 'predicate',
+        field: 'added',
+        operator: 'addedWithin',
+        value: '30 days ago',
+      },
+    },
+  ])('orders albums by newest addition and tracks by disc and track number: %j', (rule) => {
+    const older = new Date(Date.now() - 86_400_000).toISOString()
+    const tracks = [
+      track(1, { trackNo: 3 }),
+      track(2, { trackNo: 2, createdAt: older }),
+      track(3, { trackNo: 1, discNo: 2 }),
+      track(4, { trackNo: 1, discNo: null }),
+      track(5, { trackNo: null }),
+      track(6, { album: 'B', createdAt: older }),
+      track(7, { albumArtist: 'Other', createdAt: older }),
+      track(8, {
+        album: 'Expired',
+        createdAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+      }),
+    ]
+    const playlist: SmartPlaylist = {
+      id: 1,
+      name: '最近添加',
+      rule,
+      viewMode: 'cover',
+      sortOrder: 0,
+      createdAt: older,
+      updatedAt: older,
+    }
+    const service = new SmartPlaylistService(
+      { getById: () => playlist } as unknown as SmartPlaylistRepository,
+      { getAll: () => tracks, getChangeToken: () => '1' } as unknown as TrackRepository,
+    )
+    expect(service.getDetail(1)?.tracks.map((item) => item.id)).toEqual([4, 2, 1, 5, 3, 7, 6])
+    expect(tracks.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+  })
+})
+
+describe('assertValidSmartPlaylistRule', () => {
+  it('accepts custom recent frequent days and rejects malformed preset rules', () => {
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        preset: 'recentFrequent',
+        days: 30,
+        startDate: '2026-01-01',
+      } as never),
+    ).toThrow(/预设/)
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent', days: 12 })).not.toThrow()
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent', days: 0 })).toThrow(
+      /正整数/,
+    )
+    expect(() => assertValidSmartPlaylistRule({ preset: 'unknown', days: 30 } as never)).toThrow(
+      /预设/,
+    )
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent' } as never)).toThrow(
+      /正整数/,
+    )
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        preset: 'recentFrequent',
+        days: 30,
+        conditions: [],
+      } as never),
+    ).toThrow(/预设/)
+  })
+
+  it('rejects unsupported field and operator combinations', () => {
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        expression: {
+          type: 'predicate',
+          field: 'genre',
+          operator: 'addedBefore',
+          value: '30 days ago',
+        },
+      }),
+    ).toThrow(/不支持操作符/)
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        expression: { type: 'predicate', field: 'added', operator: 'has', value: 'ambient' },
+      }),
+    ).toThrow(/ADDED/)
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        expression: {
+          type: 'predicate',
+          field: 'mood' as never,
+          operator: 'has',
+          value: 'ambient',
+        },
+      }),
+    ).toThrow(/不支持的查询字段/)
+  })
+
+  it('rejects a rule that is not a usable representation', () => {
+    expect(() => assertValidSmartPlaylistRule({} as SmartPlaylistRule)).toThrow(
+      /无效的智能歌单规则/,
+    )
+    expect(() => assertValidSmartPlaylistRule({ conditions: [] })).toThrow(/不能为空/)
+  })
+})

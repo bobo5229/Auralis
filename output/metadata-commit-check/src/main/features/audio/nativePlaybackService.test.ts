@@ -1,0 +1,479 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join, resolve, sep } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import type { NativePlaybackEvent } from '@shared/ipc/contracts'
+import { NativePlaybackService } from './nativePlaybackService'
+import { PlaybackFileCoordinator } from './playbackFileCoordinator'
+import { DigitalSilenceAnalyzer, DigitalZeroCounter, type DigitalBoundary } from './digitalSilence'
+
+const mpvPath = resolve('resources/audio/mpv.exe')
+const ffmpegPath = resolve('resources/audio/ffmpeg.exe')
+const available = process.platform === 'win32' && existsSync(mpvPath) && existsSync(ffmpegPath)
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
+  let directory: string
+  const events: NativePlaybackEvent[] = []
+  const services: NativePlaybackService[] = []
+  const boundaryStatuses: string[] = []
+  const warnings: unknown[] = []
+  beforeAll(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'auralis-mpv-test-'))
+    for (const rate of [44100, 48000, 96000])
+      for (const id of [1, 2]) {
+        const data = Buffer.alloc(rate * 4 * 2 * 2)
+        for (let frame = 0; frame < rate * 4; frame++) {
+          const silent = id === 1 ? frame >= rate * 4 - 192 : frame < 1984
+          const sample = silent ? 0 : frame % 2 ? -1000 : 1000
+          data.writeInt16LE(sample, frame * 4)
+          data.writeInt16LE(sample, frame * 4 + 2)
+        }
+        const raw = join(directory, `${rate}-${id}.raw`)
+        await writeFile(raw, data)
+        execFileSync(
+          ffmpegPath,
+          [
+            '-v',
+            'error',
+            '-f',
+            's16le',
+            '-ar',
+            String(rate),
+            '-ac',
+            '2',
+            '-i',
+            raw,
+            '-metadata',
+            'album=Test Live',
+            '-metadata',
+            'artist=Test Artist',
+            '-metadata',
+            'disc=1',
+            '-metadata',
+            `track=${id}`,
+            join(directory, `${rate}-${id}.flac`),
+          ],
+          { windowsHide: true },
+        )
+      }
+    return async () => {
+      if (
+        !resolve(directory).startsWith(resolve(tmpdir()) + sep) ||
+        !basename(directory).startsWith('auralis-mpv-test-')
+      ) {
+        throw new Error('Refusing to remove unexpected test directory')
+      }
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+  afterEach(() => {
+    services.splice(0).forEach((service) => service.dispose())
+    events.length = 0
+    boundaryStatuses.length = 0
+    warnings.length = 0
+    vi.restoreAllMocks()
+  })
+  function create(args: string[], rate = 48000) {
+    const service = new NativePlaybackService({
+      mpvPath,
+      ffmpegPath,
+      mpvArgs: args,
+      resolveTrack: async (id) => {
+        if (id > 2) throw new Error('Unknown track')
+        return join(directory, `${rate}-${id}.flac`)
+      },
+      emit: (event) => events.push(event),
+      onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
+      warn: (error) => warnings.push(error),
+    })
+    services.push(service)
+    return service
+  }
+  async function waitFor(predicate: () => boolean, timeout = 10000) {
+    const deadline = Date.now() + timeout
+    while (!predicate() && Date.now() < deadline) await delay(20)
+    expect(events.filter((event) => event.kind === 'error')).toEqual([])
+    expect(predicate()).toBe(true)
+  }
+  it('handles pause, seek, resume, cancel, stale sessions and natural advance', async () => {
+    const service = create(['--ao=null'])
+    await service.command({ action: 'start', session: 1, trackId: 1, volume: 0, muted: true })
+    await service.command({ action: 'pause', session: 1 })
+    await waitFor(() => events.at(-1)?.isPlaying === false)
+    await service.command({ action: 'seek', session: 1, time: 1 })
+    await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: false })
+    await service.command({ action: 'cancel-next', session: 1 })
+    expect(await service.command({ action: 'seek', session: 0, time: 3 })).toEqual({
+      accepted: false,
+    })
+    await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: false })
+    await service.command({ action: 'resume', session: 1 })
+    await waitFor(() => events.some((event) => event.kind === 'boundary' && event.trackId === 2))
+    await waitFor(() => events.some((event) => event.kind === 'ended'))
+    expect(events.filter((event) => event.kind === 'boundary')).toHaveLength(1)
+  }, 15000)
+  it.each([44100, 48000, 96000])(
+    'preserves all nonzero PCM at %i Hz',
+    async (rate) => {
+      const pcm = join(directory, 'joined.pcm')
+      const service = create(
+        [
+          '--ao=pcm',
+          '--ao-pcm-waveheader=no',
+          `--ao-pcm-file=${pcm}`,
+          '--audio-format=s16',
+          '--pause=yes',
+        ],
+        rate,
+      )
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      expect(
+        await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
+      ).toEqual({ accepted: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'))
+      service.dispose()
+      await delay(100)
+      const left = await readFile(join(directory, `${rate}-1.raw`))
+      const right = await readFile(join(directory, `${rate}-2.raw`))
+      const expected = Buffer.concat([
+        left.subarray(0, (rate * 4 - 192) * 4),
+        right.subarray(1984 * 4),
+      ])
+      const actual = await readFile(pcm)
+      let firstDifference = 0
+      while (
+        firstDifference < actual.length &&
+        actual[firstDifference] === expected[firstDifference]
+      )
+        firstDifference++
+      expect({ length: actual.length, firstDifference }).toEqual({
+        length: expected.length,
+        firstDifference: expected.length,
+      })
+      expect(actual.equals(expected)).toBe(true)
+      expect(warnings).toEqual([])
+    },
+    15000,
+  )
+  it.each([
+    { name: 'offset ALAC', codec: 'alac', extension: 'm4a', offset: 0.5 },
+    { name: 'MP3 decoder warmup', codec: 'libmp3lame', extension: 'mp3', offset: 0 },
+  ])(
+    'matches every independently decoded PCM sample for $name',
+    async ({ codec, extension, offset }) => {
+      const paths: string[] = []
+      const decoded: Buffer[] = []
+      const counts: DigitalZeroCounter[] = []
+      for (const id of [1, 2]) {
+        const raw = join(directory, `${codec}-${id}.f32`)
+        const path = join(directory, `${codec}-${id}.${extension}`)
+        const data = Buffer.alloc(48000 * 4 * 8)
+        for (let frame = 0; frame < 48000 * 4; frame++) {
+          const silent = id === 1 ? frame >= 48000 * 4 - 1920 : frame < 1920
+          const sample = silent ? 0 : Math.sin(frame * 0.2) * 0.2
+          data.writeFloatLE(sample, frame * 8)
+          data.writeFloatLE(sample, frame * 8 + 4)
+        }
+        await writeFile(raw, data)
+        execFileSync(
+          ffmpegPath,
+          [
+            '-v',
+            'error',
+            '-f',
+            'f32le',
+            '-ar',
+            '48000',
+            '-ac',
+            '2',
+            '-i',
+            raw,
+            '-c:a',
+            codec,
+            ...(codec === 'libmp3lame' ? ['-b:a', '320k'] : []),
+            '-output_ts_offset',
+            String(offset),
+            '-metadata',
+            'album=Regression',
+            '-metadata',
+            'artist=Regression',
+            '-metadata',
+            'disc=1',
+            '-metadata',
+            `track=${id}`,
+            path,
+          ],
+          { windowsHide: true },
+        )
+        const single = join(directory, `${codec}-${id}.pcm`)
+        execFileSync(
+          mpvPath,
+          [
+            '--no-config',
+            '--load-scripts=no',
+            '--terminal=no',
+            '--video=no',
+            '--ao=pcm',
+            '--ao-pcm-waveheader=no',
+            `--ao-pcm-file=${single}`,
+            '--audio-format=float',
+            '--replaygain=no',
+            '--volume=100',
+            path,
+          ],
+          { windowsHide: true, timeout: 10000 },
+        )
+        const pcm = await readFile(single)
+        const counter = new DigitalZeroCounter(2)
+        counter.push(pcm)
+        counter.finish()
+        paths.push(path)
+        decoded.push(pcm)
+        counts.push(counter)
+      }
+      expect(counts[0].trailing).toBeGreaterThan(0)
+      expect(counts[1].leading).toBeGreaterThan(0)
+      expect(counts[0].trailing + counts[1].leading).toBeLessThanOrEqual(4800)
+      const joined = join(directory, `${codec}-joined.pcm`)
+      const service = new NativePlaybackService({
+        mpvPath,
+        ffmpegPath,
+        mpvArgs: ['--ao=pcm', '--ao-pcm-waveheader=no', `--ao-pcm-file=${joined}`, '--pause=yes'],
+        resolveTrack: async (id) => paths[id - 1],
+        emit: (event) => events.push(event),
+        onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
+        warn: (error) => warnings.push(error),
+      })
+      services.push(service)
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'))
+      service.dispose()
+      await delay(100)
+      const expected = Buffer.concat([
+        decoded[0].subarray(0, (counts[0].frames - counts[0].trailing) * 8),
+        decoded[1].subarray(counts[1].leading * 8),
+      ])
+      const actual = await readFile(joined)
+      let differentFrames = 0
+      for (let frame = 0; frame < Math.min(actual.length, expected.length) / 8; frame++)
+        if (
+          !actual
+            .subarray(frame * 8, frame * 8 + 8)
+            .equals(expected.subarray(frame * 8, frame * 8 + 8))
+        )
+          differentFrames++
+      expect({ frames: actual.length / 8, differentFrames }).toEqual({
+        frames: expected.length / 8,
+        differentFrames: 0,
+      })
+      expect(actual.equals(expected)).toBe(true)
+      expect(warnings).toEqual([])
+    },
+    20000,
+  )
+  it.each(['late', 'failed'] as const)(
+    'keeps all original PCM when analysis is %s',
+    async (reason) => {
+      let resolveAnalysis!: (boundary: DigitalBoundary | null) => void
+      let rejectAnalysis!: (error: Error) => void
+      const analysis = new Promise<DigitalBoundary | null>((resolve, reject) => {
+        resolveAnalysis = resolve
+        rejectAnalysis = reject
+      })
+      const analyze = vi
+        .spyOn(DigitalSilenceAnalyzer.prototype, 'boundary')
+        .mockReturnValueOnce(analysis)
+      const pcm = join(directory, `ordinary-${reason}.pcm`)
+      const service = create([
+        '--ao=pcm',
+        '--ao-pcm-waveheader=no',
+        `--ao-pcm-file=${pcm}`,
+        '--audio-format=s16',
+        '--pause=yes',
+      ])
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      expect(
+        await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
+      ).toEqual({ accepted: true })
+      if (reason === 'failed') {
+        await vi.waitFor(() => expect(analyze).toHaveBeenCalledOnce())
+        rejectAnalysis(new Error('scan timed out'))
+        await waitFor(() => boundaryStatuses.includes('failed'))
+      }
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'))
+      if (reason === 'late') {
+        resolveAnalysis({ start: 1984 / 48000, end: (48000 * 4 - 192) / 48000 })
+        await waitFor(() => boundaryStatuses.includes('cancelled'))
+      }
+      service.dispose()
+      await delay(100)
+      const expected = Buffer.concat([
+        await readFile(join(directory, '48000-1.raw')),
+        await readFile(join(directory, '48000-2.raw')),
+      ])
+      expect((await readFile(pcm)).equals(expected)).toBe(true)
+      expect(events.filter((event) => event.kind === 'boundary')).toHaveLength(1)
+      expect(warnings).toHaveLength(reason === 'failed' ? 1 : 0)
+    },
+    15000,
+  )
+  it.skipIf(!process.env.AURALIS_MPV_REAL_REPORT)(
+    'matches the approved real AAC pair without modifying sources',
+    async () => {
+      const reportPath = process.env.AURALIS_MPV_REAL_REPORT!
+      const report = JSON.parse(await readFile(reportPath, 'utf8')) as {
+        files: { path: string; sha256: string; mtimeMs: number }[]
+      }
+      const pcm = join(directory, 'real-joined.pcm')
+      const service = new NativePlaybackService({
+        mpvPath,
+        ffmpegPath,
+        mpvArgs: [
+          '--ao=pcm',
+          '--ao-pcm-waveheader=no',
+          `--ao-pcm-file=${pcm}`,
+          '--audio-format=s16',
+          '--pause=yes',
+        ],
+        resolveTrack: async (id) => report.files[id - 1].path,
+        emit: (event) => events.push(event),
+        onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
+        warn: (error) => {
+          throw error
+        },
+      })
+      services.push(service)
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      expect(
+        await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
+      ).toEqual({ accepted: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'), 30000)
+      service.dispose()
+      await delay(100)
+      const left = await readFile(join(dirname(reportPath), 'single-1.pcm'))
+      const right = await readFile(join(dirname(reportPath), 'single-2.pcm'))
+      // Float32 analysis found 1984 all-zero frames. Do not also remove the two
+      // very quiet frames that become zero only after s16 quantization.
+      const expected = Buffer.concat([left, right.subarray(1984 * 4)])
+      const actual = await readFile(pcm)
+      expect(actual.length).toBe(expected.length)
+      expect(actual.equals(expected)).toBe(true)
+      for (const file of report.files) {
+        const hash = createHash('sha256')
+          .update(await readFile(file.path))
+          .digest('hex')
+        expect(hash).toBe(file.sha256)
+        expect((await stat(file.path)).mtimeMs).toBe(file.mtimeMs)
+      }
+    },
+    45000,
+  )
+
+  it('manages coordinator read leases for active playback, preloading, and disposal', async () => {
+    const acquireReadLease = vi.fn(async () => ({
+      leaseId: `mock_lease_${Math.random()}`,
+      version: 1,
+    }))
+    const releaseReadLease = vi.fn()
+    const coordinator = { acquireReadLease, releaseReadLease, isReadLeaseForTrack: () => true }
+
+    const track1Path = join(directory, '48000-1.flac')
+    const track2Path = join(directory, '48000-2.flac')
+
+    const service = new NativePlaybackService({
+      mpvPath,
+      ffmpegPath,
+      mpvArgs: ['--ao=null', '--pause=yes'],
+      resolveTrack: async (id) => (id === 1 ? track1Path : track2Path),
+      coordinator,
+      emit: () => {},
+      warn: () => {},
+    })
+    services.push(service)
+
+    // Start track 1
+    const started = await service.command({
+      action: 'start',
+      session: 1,
+      trackId: 1,
+      volume: 1,
+      muted: false,
+    })
+    expect(started.accepted).toBe(true)
+    expect(acquireReadLease).toHaveBeenCalledWith(
+      track1Path,
+      'mpv-current',
+      expect.any(AbortSignal),
+    )
+
+    // Preload track 2
+    const scheduled = await service.command({
+      action: 'next',
+      session: 1,
+      trackId: 2,
+      trimDigitalSilence: false,
+    })
+    expect(scheduled.accepted).toBe(true)
+    expect(acquireReadLease).toHaveBeenCalledWith(track2Path, 'mpv-next', expect.any(AbortSignal))
+
+    // Cancel next
+    await service.command({ action: 'cancel-next', session: 1 })
+    expect(releaseReadLease).toHaveBeenCalledTimes(1)
+
+    // Stop playback
+    await service.command({ action: 'stop', session: 2 })
+    expect(releaseReadLease).toHaveBeenCalledTimes(2)
+
+    service.dispose()
+  })
+
+  it('unlocks the original file after real mpv stop and permits immediate replacement', async () => {
+    const path = join(directory, '48000-1.flac')
+    const backup = `${path}.lease-check`
+    const original = await readFile(path)
+    const coordinator = new PlaybackFileCoordinator({
+      getTrackFilePath: () => path,
+      getTrackIdsByFilePath: () => [1],
+      sendToRenderer: () => {},
+    })
+    const service = new NativePlaybackService({
+      mpvPath,
+      ffmpegPath,
+      mpvArgs: ['--ao=null', '--pause=yes'],
+      resolveTrack: async () => path,
+      coordinator,
+      emit: () => {},
+      warn: () => {},
+    })
+    services.push(service)
+    await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+    await service.command({ action: 'pause', session: 1 })
+    expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+    await service.command({ action: 'stop', session: 2 })
+    const write = coordinator.tryAcquireWriteLease(path)
+    if (!write.ok) throw new Error('File remained locked after stop')
+    try {
+      await rename(path, backup)
+      try {
+        await writeFile(path, original)
+      } finally {
+        await rename(backup, path)
+      }
+      expect((await readFile(path)).equals(original)).toBe(true)
+    } finally {
+      coordinator.releaseWriteLease(write.leaseId)
+    }
+  })
+})

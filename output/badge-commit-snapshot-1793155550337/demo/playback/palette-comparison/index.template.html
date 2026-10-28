@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Auralis · 封面取色比较</title>
+    <style>
+      /* DEMO_CSS */
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="wordmark" href="#">Auralis<span>色彩实验室</span></a
+      ><span class="offline">独立原型 · 本地运行</span>
+    </header>
+    <main>
+      <div class="intro">
+        <div>
+          <p class="eyebrow">封面 → 主色 → 聆听画布</p>
+          <h1>同一张封面，三种取色。</h1>
+          <p class="lede">先看颜色是否属于这张唱片，再看它是否适合陪伴一整张专辑。</p>
+        </div>
+        <label class="upload"
+          >＋ 添加本地封面<input id="upload" type="file" accept="image/*" multiple
+        /></label>
+      </div>
+      <div class="workspace">
+        <aside class="collection">
+          <div class="section-label">封面样本 <span id="sample-count"></span></div>
+          <div id="samples" role="group" aria-label="选择封面"></div>
+          <p class="aside-note">
+            含真实专辑封面与标明的合成边界样本。添加的图片仅在当前页面内处理。
+          </p>
+        </aside>
+        <section class="comparison" aria-label="取色结果">
+          <div class="toolbar">
+            <div>
+              <h2 id="album-title">正在准备样本…</h2>
+              <p id="album-subtitle"></p>
+            </div>
+            <div class="view-switch" role="group" aria-label="显示方式">
+              <button id="compare-view" aria-pressed="true">并排比较</button
+              ><button id="overview-view" aria-pressed="false">全部封面</button>
+            </div>
+          </div>
+          <div class="settings">
+            <label
+              >背景明度
+              <input
+                id="lightness"
+                type="range"
+                min="0.24"
+                max="0.44"
+                step="0.01"
+                value="0.34"
+              /><output id="lightness-value">0.34</output></label
+            ><label
+              >彩度上限
+              <input
+                id="chroma"
+                type="range"
+                min="0.02"
+                max="0.12"
+                step="0.005"
+                value="0.075"
+              /><output id="chroma-value">0.075</output></label
+            ><button id="reset">重置适配</button>
+          </div>
+          <p class="common-rule">三列共用明度、彩度上限与对比度规则。拖动参数同时更新三列。</p>
+          <p id="error" role="alert" hidden></p>
+          <p id="status" role="status" aria-live="polite"></p>
+          <div id="panels"></div>
+          <div id="overview" hidden></div>
+          <details class="method">
+            <summary>如何公平比较这三种方案</summary>
+            <div class="method-content">
+              <p>
+                <b>共同输入：</b>每张图片解码一次，统一缩放至 48 × 48；忽略 alpha &lt; 128
+                的像素。最多 5 个色群，忽略占比 &lt; 1.5% 的色群。
+              </p>
+              <p>
+                <b>现有 Wu：</b>直接调用正式取色函数，取其未经背景适配的 dominant；先按 OKLab 距离
+                &lt; 0.035 合并，再取面积最大者。
+              </p>
+              <p>
+                <b>调整选色后的 Wu：</b>沿用相同 Wu 色群；额外合并色相差 ≤ 18°、明度差 ≤ 0.22
+                的有彩色群（C ≥ 0.025），再按“面积 ×（0.9 + 0.1 × min(C / 0.12,
+                1)）”评分。黑白不被排除。
+              </p>
+              <p>
+                <b>OKLab K-means：</b>确定性的加权最远点初始化，最多 30 次 Lloyd
+                迭代；使用与调整后的 Wu 相同的合并和评分规则。两者差异主要来自聚类。
+              </p>
+              <p>
+                <b>统一适配：</b>固定 OKLCH
+                明度，保留色相；彩度取原始彩度与上限中的较小值，再通过降低彩度映射至 sRGB。主次文字
+                ≥ 4.5:1，控件 ≥ 3:1；数字基于实际合成与取整后的颜色。这里没有沿用正式 Wu
+                的背景压暗规则。
+              </p>
+              <p>
+                这是颜色比较工具；歌词、时间和播放图形为静态示意。没有音频播放、曲库读取、上传或偏好写入。相近结果也如实展示，不人为拉开差异。
+              </p>
+            </div>
+          </details>
+        </section>
+      </div>
+    </main>
+    <dialog id="focus">
+      <div class="focus-top">
+        <span id="focus-label"></span>
+        <div class="focus-actions">
+          <button id="previous-algorithm" aria-label="上一个算法">←</button
+          ><button id="next-algorithm" aria-label="下一个算法">→</button
+          ><button id="close-focus">关闭 · Esc</button>
+        </div>
+      </div>
+      <div id="focus-content"></div>
+    </dialog>
+    <footer>
+      取色与背景适配独立比较 · 封面版权归各自权利人所有
+      <details>
+        <summary>素材与依赖来源</summary>
+        <div id="credits"></div>
+        <pre>/* LICENSES */</pre>
+      </details>
+    </footer>
+    <script>
+      /* DEMO_JS */
+    </script>
+  </body>
+</html>

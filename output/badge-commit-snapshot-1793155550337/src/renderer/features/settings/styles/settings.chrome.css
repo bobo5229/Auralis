@@ -1,0 +1,174 @@
+/* Settings-only content chrome. */
+
+.settings-surface .about-mark {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+}
+
+.settings-surface .about-logo {
+  display: grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--auralis-sidebar-active-text);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+}
+
+.settings-surface .about-logo span {
+  width: 22px;
+  height: 22px;
+}
+
+.settings-surface .about-mark > div {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-surface .about-mark strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--auralis-text);
+}
+
+.settings-surface .about-mark div span {
+  color: var(--auralis-text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.settings-surface .about-details {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.settings-surface .about-diagnostics-button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-family: var(--auralis-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-surface .about-diagnostics-button:hover:not(:disabled) {
+  color: var(--auralis-text);
+}
+
+.settings-surface .about-diagnostics-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.settings-surface .about-diagnostics-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.settings-surface .about-settings .settings-value {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-surface .about-document {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.settings-surface .about-document > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 48px;
+  padding: 9px 16px;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  list-style: none;
+  cursor: pointer;
+}
+
+.settings-surface .about-document > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-surface .about-document-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+}
+
+.settings-surface .about-document-action .i-lucide-chevron-down {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-surface .about-document[open] .i-lucide-chevron-down {
+  transform: rotate(180deg);
+}
+
+.settings-surface .about-document-content {
+  max-height: 360px;
+  margin: 0;
+  padding: 12px 16px 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  color: var(--auralis-text-subtle);
+  font-family: var(--auralis-font-ui);
+  font-size: 12px;
+  line-height: 1.65;
+  scrollbar-width: thin;
+  scrollbar-color: var(--auralis-text-faint) transparent;
+}
+
+.settings-surface .about-document > summary:focus-visible,
+.settings-surface .about-document-content:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: -2px;
+}
+
+.settings-surface .settings-compact-actions .database-path {
+  font-family: var(--auralis-font-ui);
+}
+
+.settings-surface .database-path {
+  overflow: hidden;
+  max-width: 480px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+  font-family: var(--auralis-font-ui);
+  color: var(--auralis-sidebar-active-text) !important;
+  font-size: 11px !important;
+}
+
+@media (max-width: 560px) {
+  .settings-surface .settings-row--path {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-block: 16px;
+    gap: 12px;
+  }
+
+  .settings-surface .database-path {
+    max-width: calc(100vw - 72px);
+  }
+}
+
+:where([data-reduced-motion='true']) .settings-surface .about-logo {
+  transition: none;
+  transform: none;
+}

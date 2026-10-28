@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 闪卡底图原型</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">AURALIS / CARD STUDIES</span>
+        <h1>七种底图，同一张专辑</h1>
+        <p>比较卡面自身的画面构图。悬停卡片查看现有闪膜。</p>
+      </div>
+      <div class="tools">
+        <label class="button">导入封面<input type="file" id="cover" accept="image/*" /></label
+        ><button id="coating" aria-pressed="true">虹彩：分区增强</button
+        ><button id="foil" aria-pressed="true">闪膜：开启</button
+        ><button id="theme">切换浅色背景</button><button id="regenerate">重新生成图案</button>
+      </div>
+    </header>
+    <nav aria-label="底图方向">
+      <button data-view="recent" aria-pressed="true">新增三种</button
+      ><button data-view="all" aria-pressed="false">全部比较</button
+      ><button data-view="glass">01 折光空间</button><button data-view="metal">02 液态金属</button
+      ><button data-view="tunnel">03 光轨隧道</button><button data-view="aurora">04 极光云幕</button
+      ><button data-view="paper">05 层叠纸雕</button><button data-view="terrain">06 地形浮雕</button
+      ><button data-view="flow">07 丝带流场</button>
+    </nav>
+    <div class="palette-row" aria-label="当前封面取色">
+      <span id="palette-note">正在提取封面配色</span>
+      <div id="palette-swatches"></div>
+    </div>
+    <main>
+      <div id="stage" aria-label="可悬停倾斜的专辑卡面"></div>
+      <div id="captions"></div>
+    </main>
+    <footer>
+      <span id="status" role="status">准备卡面…</span
+      ><span id="source-note">程序绘制示例封面 · 正式卡面渲染</span>
+    </footer>
+    <script type="module" src="./renderer.ts"></script>
+  </body>
+</html>

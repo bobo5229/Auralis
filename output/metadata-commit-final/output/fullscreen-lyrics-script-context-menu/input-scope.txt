@@ -1,0 +1,1 @@
+Synthetic LRC/plain lyrics and playback state; no real library or audio files were read. Electron offscreen window loaded the browser-preview Renderer at 127.0.0.1:5188 and reloaded the Renderer in the same isolated session. Temporary userData profile: C:\Users\BoBo\AppData\Local\Temp\auralis-lyrics-script-menu-qDw3by.

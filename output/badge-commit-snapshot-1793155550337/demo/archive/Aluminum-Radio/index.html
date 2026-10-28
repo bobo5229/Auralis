@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e9e9e6">
+<title>Aluminum radio</title>
+<style>
+  @font-face { font-family: "Radio Pixel 12"; src: url("./assets/radio-pixel-12.woff") format("woff"); font-style: normal; font-weight: 400; font-display: swap; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  :root { color-scheme: light; background: #e9e9e6; }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+  body { background: radial-gradient(ellipse at 46% 35%, #f8f8f5 0%, #edede9 48%, #dfe1de 100%); }
+  .stage { position: relative; width: 100%; height: 100%; height: 100svh; overflow: hidden; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; outline: none; }
+  .stage.dragging { cursor: grabbing; }
+  .stage:focus-visible { box-shadow: inset 0 0 0 2px #a4aaab; }
+  .perspective { position: absolute; inset: 0; perspective: 1800px; perspective-origin: 50% 47%; pointer-events: none; }
+  .scale, .radio { position: absolute; width: 0; height: 0; left: 50%; top: 50%; transform-style: preserve-3d; }
+  .scale { transform: scale(var(--scale, 1)); }
+  .radio { left: 0; top: 0; transform: rotateX(-13deg) rotateY(-25deg); }
+  .shadow { position: absolute; width: min(470px, 71vw); height: 61px; left: 50%; top: calc(50% + var(--shadow-offset, 185px)); transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(ellipse, #3038362b 0%, #39413e15 42%, #3e454000 72%); filter: blur(11px); pointer-events: none; }
+  .part, .assembly { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+  .surface { position: absolute; left: 0; top: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .skin { width: 539px; height: 315px; border-radius: 26px; background-color: #c7ccce; background-image: repeating-linear-gradient(0deg, #ffffff08 0, #ffffff08 .7px, #4f626506 .9px, transparent 1.8px), linear-gradient(116deg, #ffffff53, #ffffff12 36%, #59666d14 76%, #edf2f432); box-shadow: inset 0 0 0 .7px #ffffff9c, inset 0 1.8px 1px #fff8, inset 0 -1px .6px #4d56534d; }
+  .skin.rear { background-color: #b9bfc1; background-image: repeating-linear-gradient(0deg, #ffffff06 0, #ffffff06 .7px, #35464c07 .9px, transparent 1.8px), linear-gradient(118deg, #ffffff39, #3b454914 88%); }
+  .wall { background-image: repeating-linear-gradient(90deg, #ffffff0a 0, #ffffff0a .7px, #26364006 .9px, transparent 1.9px), linear-gradient(0deg, #00000012, #ffffff12 7%, #ffffff04 52%, #ffffff1f 91%, #0000000b); }
+  .bevel { background-image: linear-gradient(90deg, #ffffff06, #ffffff1c 45%, #26363b08); }
+  .details { position: absolute; left: 0; top: 0; width: 538px; height: 314px; transform-style: preserve-3d; }
+  .speaker { position: absolute; left: 31px; top: 47px; width: 221px; height: 221px; border-radius: 50%; background: linear-gradient(145deg, #8e989d, #f3f6f6 41%, #a5afb3 79%); box-shadow: 0 1px 1px #fff9, 0 -1px 1px #717a7e66, inset 0 0 0 1px #a2adb2; backface-visibility: hidden; }
+  .speaker::before { content: ""; position: absolute; inset: 3px; border-radius: inherit; background-color: #b9c1c4; background-image: radial-gradient(circle, #30393e 0 1.12px, #727d82 1.3px, #ecf0f150 1.68px, transparent 1.9px), radial-gradient(circle, #30393e 0 1.12px, #727d82 1.3px, #ecf0f150 1.68px, transparent 1.9px), linear-gradient(140deg, #d4dcdf, #a6b0b5 67%, #c7ced0); background-size: 6.3px 10.91px, 6.3px 10.91px, 100% 100%; background-position: 0 0, 3.15px 5.455px, 0 0; box-shadow: inset 0 0 8px #283a3b19, inset 0 0 0 .8px #64717445; }
+  .speaker::after { content: ""; position: absolute; inset: 4px; border-radius: inherit; background: radial-gradient(ellipse at 32% 22%, #ffffff26, transparent 58%, #394c5212); }
+  .display { position: absolute; left: 291px; top: 40px; width: 201px; height: 90px; border-radius: 8px; padding: 5px; background: linear-gradient(135deg, #7c878d, #e2e7e8 40%, #6f7b80); box-shadow: 0 1px 1px #fff9, 0 -1px 1px #5e686a33; backface-visibility: hidden; }
+  .glass { position: relative; width: 100%; height: 100%; border-radius: 4px; overflow: hidden; background: linear-gradient(115deg, #26312f, #1e2826 47%, #2d3833); box-shadow: inset 0 1px 5px #000b, inset 0 0 0 1px #101a1780; }
+  .glass::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(166deg, #e4f5de1c 0%, #f5ffeb0c 45%, transparent 46%); }
+  .screen-content { position: absolute; inset: 0; padding: 12px; display: flex; flex-direction: column; justify-content: center; gap: 12px; color: #c0a779; font-family: "Radio Pixel 12", monospace; font-weight: 400; -webkit-font-smoothing: none; text-shadow: 0 0 3px #c59a5d25; }
+  .station-row { display: flex; align-items: center; gap: 9px; height: 25px; white-space: nowrap; }
+  .frequency { display: block; width: 74px; height: 21px; flex: 0 0 74px; fill: currentColor; opacity: .94; filter: drop-shadow(0 0 1.5px #c59a5d30); }
+  .station-name { font-size: 18px; line-height: 24px; white-space: nowrap; letter-spacing: 0; }
+  .track-viewport { width: 100%; height: 18px; overflow: hidden; }
+  .track-copy { display: block; width: max-content; font-size: 12px; line-height: 18px; white-space: nowrap; color: #b39c72; transform: translateX(0); }
+  .rocker-bed { width: 124px; height: 30px; border-radius: 11px; background: linear-gradient(#819095, #dfe7e9 64%, #a7b4b9); box-shadow: 0 1px 1px #fff9, 0 1px 3px #3d4c4e36, inset 0 0 0 1px #9aa7ac; }
+  .track-key { transform: translateZ(0); transition: transform 125ms ease-out; }
+  .track-key.pressed { transform: translateZ(-3px); transition-duration: 45ms; }
+  .track-key-face { width: 55.6px; height: 24.6px; border-radius: 8.3px; background: repeating-linear-gradient(0deg, #ffffff09 0 .7px, #56656b05 1px 1.8px), linear-gradient(#edf2f3, #cad4d8 45%, #c1cbd0 52%, #dce4e7); box-shadow: 0 2px 3px #34465035, inset 0 0 0 .7px #f4f8fa, inset 0 -1px .7px #92a0a6; transition: box-shadow 125ms ease-out; }
+  .track-key-face::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(#24394530, transparent 68%); opacity: 0; transition: opacity 125ms ease-out; pointer-events: none; }
+  .track-key.pressed .track-key-face { box-shadow: 0 .5px 1px #34465055, inset 0 0 0 .7px #edf4f6, inset 0 1px 2px #34465055; transition-duration: 45ms; }
+  .track-key.pressed .track-key-face::before { opacity: 1; transition-duration: 45ms; }
+  .rocker-hit-area { width: 118px; height: 26px; }
+  .track-button { position: absolute; top: 0; width: 57px; height: 100%; border-radius: 9px; appearance: none; -webkit-appearance: none; padding: 0; margin: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; touch-action: none; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .track-button.previous { left: 0; }
+  .track-button.next { right: 0; }
+  .track-icon { position: absolute; inset: 0; pointer-events: none; }
+  .track-icon svg { position: absolute; width: 13px; height: 12px; left: calc(50% - 6.5px); top: calc(50% - 6px); fill: #65757d; filter: drop-shadow(0 1px .2px #ffffffc0); pointer-events: none; }
+  .track-button:focus-visible { outline: 1.5px solid #a58c63; outline-offset: -3px; }
+  .dial-rotor { transform: translateZ(0); transition: transform 95ms ease-out; }
+  .dial-rotor.pressed { transform: translateZ(-1.8px); }
+  .indicator { position: absolute; left: 293px; top: 156px; width: 5px; height: 5px; border-radius: 50%; background: #ccaa6a; box-shadow: inset 0 .7px 1px #6e551d, 0 .5px .5px #fffc; }
+  .dial-base { background: radial-gradient(circle, transparent 64%, #67757a 65%, #c2cacd 67%, #e7ecee 69%, #a5afb4 71%); box-shadow: 0 1px 3px #303c413b; }
+  .dial-face { background: repeating-radial-gradient(circle at 50% 50%, transparent 0 1px, #ffffff0b 1.2px 1.7px, #253c4509 1.9px 2.2px), conic-gradient(from 29deg, #b1bcc1, #edf1f2 38deg, #bdc7cc 87deg, #e3e8eb 140deg, #a3afb5 194deg, #dce3e6 244deg, #f0f4f5 289deg, #b1bcc1); box-shadow: inset 0 0 0 .8px #f4f8fa, inset 0 0 0 2px #bcc6cb, inset 0 0 0 3px #e8edf0, inset 0 0 8px #5c727c1c; }
+  .dial-button { appearance: none; -webkit-appearance: none; margin: 0; border: 0; padding: 0; cursor: pointer; pointer-events: auto; touch-action: none; }
+  .dial-button:focus-visible { outline: 2px solid #a58c63; outline-offset: 3px; }
+  .stage.dragging .dial-button, .stage.dragging .track-button { cursor: grabbing; }
+  .dial-face::after { content: ""; position: absolute; left: calc(50% - 1px); top: 8px; width: 2px; height: 9px; border-radius: 1px; background: #5b686f; box-shadow: 1px 0 #ffffff9c; transform: rotate(-22deg); transform-origin: 1px 40px; }
+  .dial-face.small::after { top: 5px; height: 5px; width: 1.3px; transform: rotate(28deg); transform-origin: 1px 13px; }
+  .rear-panel { position: absolute; inset: 25px 27px; border-radius: 13px; box-shadow: inset 0 0 0 .8px #7e8a8eaa, 0 .8px .5px #faffff93; background: linear-gradient(120deg, #ffffff12, #707b8008); backface-visibility: hidden; }
+  .screw { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #dce2e5, #8c979e 70%); box-shadow: 0 .5px .4px #fff9, 0 0 0 .7px #788389; }
+  .screw::before, .screw::after { content: ""; position: absolute; background: #58666e; left: 2px; right: 2px; height: 1px; top: 3.5px; transform: rotate(24deg); box-shadow: 0 .4px #e2e9eb; }
+  .screw::after { transform: rotate(114deg); }
+  .vents { position: absolute; left: 112px; right: 112px; top: 59px; height: 80px; display: grid; grid-template-columns: repeat(13, 1fr); gap: 8px; }
+  .vent { border-radius: 3px; background: linear-gradient(90deg, #5b686c, #354348 65%, #5f6a6e); box-shadow: inset 1px 1px 1px #26343870, 1px 0 .5px #f3f6f485; }
+  .battery { position: absolute; left: 119px; top: 174px; width: 245px; height: 65px; border-radius: 6px; border: .8px solid #7d898d; box-shadow: 0 .7px .5px #f9ffff85, inset 0 .7px 1px #4a575e1c; background: #bbc2c419; }
+  .battery::after { content: ""; position: absolute; width: 33px; height: 5px; border-radius: 0 0 3px 3px; left: calc(50% - 16px); top: 0; background: #828f9366; box-shadow: inset 0 1px 1px #4f5a5f55; }
+  .port { position: absolute; left: 50px; top: 198px; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, #222e33 0 30%, #839197 34% 42%, #2a373e 45% 63%, #c2ced2 66% 72%, #7b8a91 75%); box-shadow: 0 .6px 1px #fff8; }
+  .port.second { left: auto; right: 50px; width: 21px; height: 10px; top: 201px; border-radius: 4px; background: linear-gradient(#455157, #202d33); box-shadow: inset 0 0 0 2px #859399, 0 .7px .5px #faffff9c; }
+  .bottom-detail { width: 366px; height: 91px; border-radius: 8px; box-shadow: inset 0 0 0 .6px #7b878b66; background: repeating-linear-gradient(90deg, #ffffff03 0 1px, transparent 1px 2px); }
+  .bottom-detail::after { content: ""; position: absolute; left: 148px; right: 148px; top: 32px; height: 22px; border-radius: 2px; background: repeating-linear-gradient(90deg, #87939877 0 3px, transparent 3px 7px); }
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto; }
+    .track-key, .track-key-face, .track-key-face::before, .dial-rotor { transition: none; }
+    .track-copy { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  }
+</style>
+</head>
+<body>
+<main class="stage" id="stage" tabindex="0" role="group" aria-label="阳极铝收音机。拖动或使用方向键旋转，Home 键恢复视角。大旋钮切换电台，双向按键切换歌曲。">
+  <div class="shadow" aria-hidden="true"></div>
+  <div class="perspective"><div class="scale" id="scale"><div class="radio" id="radio"></div></div></div>
+</main>
+<script>
+(() => {
+  'use strict';
+  const stage = document.getElementById('stage');
+  const radio = document.getElementById('radio');
+  const scale = document.getElementById('scale');
+  const lights = [];
+  const TAU = Math.PI * 2;
+  const vec = (x, y, z) => [x, y, z];
+  const sub = (a, b) => a.map((x, i) => x - b[i]);
+  const dot = (a, b) => a.reduce((sum, x, i) => sum + x * b[i], 0);
+  const mul = (a, s) => a.map(x => x * s);
+  const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const unit = a => mul(a, 1 / Math.hypot(...a));
+  const fixed = n => Math.abs(n) < 1e-8 ? 0 : Number(n.toFixed(7));
+
+  function el(tag, cls, parent) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+  function disk(parent, cls, radius, z, tag = 'div') {
+    const node = el(tag, 'surface ' + cls, parent);
+    Object.assign(node.style, { width: radius * 2 + 'px', height: radius * 2 + 'px', borderRadius: '50%', transform: `translate(-50%,-50%) translateZ(${z}px)` });
+    return node;
+  }
+  // Every piece is an actual plane in CSS 3D. The rounded extrusion uses a
+  // closed, clockwise perimeter, and the two beveled ends are sealed by caps.
+  function perimeter(width, height, radius, steps = 18) {
+    const points = [];
+    const corners = [
+      [width/2-radius, -height/2+radius, -Math.PI/2],
+      [width/2-radius, height/2-radius, 0],
+      [-width/2+radius, height/2-radius, Math.PI/2],
+      [-width/2+radius, -height/2+radius, Math.PI]
+    ];
+    for (const [cx, cy, start] of corners) {
+      for (let i = 0; i <= steps; i++) {
+        const theta = start + i * Math.PI / (steps * 2);
+        points.push([cx + radius * Math.cos(theta), cy + radius * Math.sin(theta)]);
+      }
+    }
+    return points;
+  }
+  function plane(parent, vertices, cls, normalOverride, dark = false) {
+    vertices = vertices.slice().reverse();
+    const origin = vertices[0];
+    const u = unit(sub(vertices[1], origin));
+    const normal = unit(cross(sub(vertices[1], origin), sub(vertices[2], origin)));
+    const v = cross(normal, u);
+    let xy = vertices.map(p => [dot(sub(p, origin), u), dot(sub(p, origin), v)]);
+    const minX = Math.min(...xy.map(p => p[0])), minY = Math.min(...xy.map(p => p[1]));
+    const maxX = Math.max(...xy.map(p => p[0])), maxY = Math.max(...xy.map(p => p[1]));
+    // Subpixel overlap hides antialiasing hairlines between adjacent facets.
+    const pad = .28;
+    const width = maxX-minX + pad*2, height = maxY-minY + pad*2;
+    const cx = (maxX+minX)/2, cy = (maxY+minY)/2;
+    xy = xy.map(([x,y]) => [(x-minX+pad) + Math.sign(x-cx)*pad, (y-minY+pad) + Math.sign(y-cy)*pad]);
+    const position = origin.map((x,i) => x + u[i]*(minX-pad) + v[i]*(minY-pad));
+    const node = el('div', 'surface ' + cls, parent);
+    const matrix = [...u, 0, ...v, 0, ...normal, 0, ...position, 1].map(fixed);
+    Object.assign(node.style, { width: width+'px', height: height+'px', transformOrigin: '0 0', transform: `matrix3d(${matrix.join(',')})`, clipPath: `polygon(${xy.map(p => `${p[0]}px ${p[1]}px`).join(',')})` });
+    if (dark) node.style.background = 'linear-gradient(90deg,#41494b,#596164 50%,#41494b)';
+    else lights.push({ node, normal: normalOverride || normal, cls });
+    return node;
+  }
+  const outer = perimeter(550,326,32);
+  const inner = perimeter(538,314,26);
+  for (let i = 0; i < outer.length; i++) {
+    const j = (i+1)%outer.length;
+    const a = outer[i], b = outer[j], ia = inner[i], ib = inner[j];
+    plane(radio, [vec(...a,62), vec(...b,62), vec(...b,-62), vec(...a,-62)], 'wall');
+    plane(radio, [vec(...a,62), vec(...ia,68), vec(...ib,68), vec(...b,62)], 'bevel');
+    plane(radio, [vec(...b,-62), vec(...ib,-68), vec(...ia,-68), vec(...a,-62)], 'bevel');
+  }
+  const front = el('div', 'surface skin', radio);
+  front.style.transform = 'translate(-50%,-50%) translateZ(68px)';
+  const rear = el('div', 'surface skin rear', radio);
+  rear.style.transform = 'translate(-50%,-50%) rotateY(180deg) translateZ(68px)';
+  lights.push({node: front, normal:[0,0,1], cls:'skin'});
+  lights.push({node: rear, normal:[0,0,-1], cls:'skin'});
+
+  const details = el('div','details',radio);
+  details.style.transform = 'translate(-50%,-50%) translateZ(68.75px)';
+  el('div','speaker',details);
+  const display = el('div','display',details);
+  const glass = el('div','glass',display);
+  display.setAttribute('role','status');
+  display.setAttribute('aria-live','polite');
+  display.setAttribute('aria-atomic','true');
+  glass.setAttribute('aria-hidden','true');
+  const status = el('span','sr-only',display);
+  const screenContent = el('div','screen-content',glass);
+  const stationRow = el('div','station-row',screenContent);
+  const frequency = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  frequency.setAttribute('class','frequency');
+  frequency.setAttribute('viewBox','0 0 25 7');
+  frequency.setAttribute('aria-hidden','true');
+  stationRow.appendChild(frequency);
+  const stationName = el('span','station-name',stationRow);
+  const trackViewport = el('div','track-viewport',screenContent);
+  const trackCopy = el('span','track-copy',trackViewport);
+  // Local display data only: tuning and track selection never load audio.
+  const stations = [
+    { frequency:'105.7', name:'南粤之声', tracks:[
+      ['陈奕迅','富士山下'], ['王菲','红豆'], ['张国荣','风继续吹']
+    ] },
+    { frequency:'106.2', name:'雾都夜航', tracks:[
+      ['Craig David','Fill Me In'], ['Artful Dodger','Re-Rewind'], ['MJ Cole','Sincere']
+    ] },
+    { frequency:'98.5', name:'午夜蓝调', tracks:[
+      ['Miles Davis','Blue in Green'], ['Chet Baker','I Fall in Love Too Easily'], ['Bill Evans','Waltz for Debby']
+    ] },
+    { frequency:'101.7', name:'城市漫游', tracks:[
+      ['朴树','平凡之路'], ['陈绮贞','旅行的意义'], ['告五人','爱人错过']
+    ] },
+    { frequency:'104.3', name:'落日海岸', tracks:[
+      ['Stan Getz & João Gilberto','The Girl from Ipanema'], ['Antônio Carlos Jobim','Wave'], ['Lisa Ono','Fly Me to the Moon']
+    ] }
+  ];
+  let station = 0;
+  const trackIndices = stations.map(() => 0);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let marquee = null, marqueeFrame = 0;
+  function resetTrackScroll() {
+    marquee?.cancel();
+    marquee = null;
+    if(marqueeFrame) cancelAnimationFrame(marqueeFrame);
+    trackCopy.style.transform = 'translateX(0)';
+    marqueeFrame = requestAnimationFrame(() => {
+      marqueeFrame = 0;
+      const overflow = trackCopy.scrollWidth - trackViewport.clientWidth;
+      if(reducedMotion.matches || overflow <= 1 || !trackCopy.animate) return;
+      const travel = overflow / 12 * 1000;
+      const duration = travel + 4800;
+      const start = 'translateX(0)', end = `translateX(-${overflow}px)`;
+      marquee = trackCopy.animate([
+        { transform:start, offset:0 },
+        { transform:start, offset:2400/duration },
+        { transform:end, offset:(2400+travel)/duration },
+        { transform:end, offset:1 }
+      ], { duration, iterations:Infinity, direction:'alternate', easing:'linear' });
+    });
+  }
+  reducedMotion.addEventListener('change',resetTrackScroll);
+  if(document.fonts) document.fonts.ready.then(resetTrackScroll);
+  const glyphs = {
+    '0':['01110','10001','10011','10101','11001','10001','01110'],
+    '1':['00100','01100','00100','00100','00100','00100','01110'],
+    '2':['01110','10001','00001','00010','00100','01000','11111'],
+    '3':['11110','00001','00001','01110','00001','00001','11110'],
+    '4':['00010','00110','01010','10010','11111','00010','00010'],
+    '5':['11111','10000','10000','11110','00001','00001','11110'],
+    '6':['01110','10000','10000','11110','10001','10001','01110'],
+    '7':['11111','00001','00010','00100','01000','01000','01000'],
+    '8':['01110','10001','10001','01110','10001','10001','01110'],
+    '9':['01110','10001','10001','01111','00001','00001','01110'],
+    '.':['0','0','0','0','0','0','1'],
+    ' ':['00000','00000','00000','00000','00000','00000','00000']
+  };
+  function showStation() {
+    frequency.replaceChildren();
+    let x = 0;
+    for (const character of stations[station].frequency.padStart(5,' ')) {
+      const glyph = glyphs[character];
+      glyph.forEach((row,y) => [...row].forEach((pixel,column) => {
+        if (pixel !== '1') return;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',x+column+.09);
+        rect.setAttribute('y',y+.09);
+        rect.setAttribute('width','.82');
+        rect.setAttribute('height','.82');
+        frequency.appendChild(rect);
+      }));
+      x += glyph[0].length+1;
+    }
+    const current = stations[station];
+    const track = current.tracks[trackIndices[station]].join(' - ');
+    stationName.textContent = current.name;
+    trackCopy.textContent = track;
+    trackViewport.title = track;
+    status.textContent = `${current.frequency} ${current.name}，${track}`;
+    tuningButton.setAttribute('aria-label',`切换电台，当前 ${current.frequency} ${current.name}`);
+    resetTrackScroll();
+  }
+  function nextStation() { station = (station+1)%stations.length; showStation(); }
+  function changeTrack(direction) {
+    const count = stations[station].tracks.length;
+    trackIndices[station] = (trackIndices[station]+direction+count)%count;
+    showStation();
+  }
+  el('div','indicator',details);
+
+  function knob(x,y,radius,depth,interactive = false) {
+    const group = el('div','assembly',radio);
+    group.style.transform = `translate3d(${x}px,${y}px,69px)`;
+    disk(group,'dial-base',radius+5,0.2);
+    const rotor = el('div','assembly dial-rotor',group);
+    const count = Math.round(radius * 2);
+    for (let i=0;i<count;i++) {
+      const theta = i*TAU/count, next = (i+1)*TAU/count;
+      const a = [Math.cos(theta)*radius,Math.sin(theta)*radius];
+      const b = [Math.cos(next)*radius,Math.sin(next)*radius];
+      const node = plane(rotor,[vec(...a,depth),vec(...b,depth),vec(...b,2),vec(...a,2)],'bevel');
+      node.style.backgroundImage = 'linear-gradient(90deg,#ffffff55 0%,#ffffff22 22%,#26373d50 78%,#26373d70)';
+    }
+    return disk(rotor,'dial-face' + (radius < 30 ? ' small' : '') + (interactive ? ' dial-button' : ''),radius,depth+.15,interactive ? 'button' : 'div');
+  }
+  const tuningButton = knob(133,77,47,19,true);
+  tuningButton.type = 'button';
+  tuningButton.title = '切换电台';
+  knob(40,77,19,12);
+
+  const rocker = el('div','assembly',radio);
+  rocker.style.transform = 'translate3d(133px,4px,69px)';
+  const rockerBed = el('div','surface rocker-bed',rocker);
+  rockerBed.style.transform = 'translate(-50%,-50%) translateZ(.2px)';
+  // Two 57px bodies share the original bed, with a real 4px gap between them.
+  // Fixed transparent hit targets stay above the moving caps at every depth.
+  const rockerHits = el('div','surface rocker-hit-area',rocker);
+  rockerHits.style.transform = 'translate(-50%,-50%) translateZ(5.8px)';
+  const trackKeys = new Map();
+  function trackButton(direction,label,path) {
+    const mount = el('div','assembly',rocker);
+    mount.style.transform = `translateX(${direction==='previous'?-30.5:30.5}px)`;
+    const key = el('div',`assembly track-key ${direction}`,mount);
+    const outline = perimeter(57,26,9,6);
+    const capOutline = perimeter(55.6,24.6,8.3,6);
+    for(let i=0;i<outline.length;i++) {
+      const j=(i+1)%outline.length;
+      const a=outline[i], b=outline[j], ca=capOutline[i], cb=capOutline[j];
+      plane(key,[vec(...a,4.95),vec(...b,4.95),vec(...b,1),vec(...a,1)],'bevel');
+      plane(key,[vec(...ca,5.65),vec(...cb,5.65),vec(...b,4.95),vec(...a,4.95)],'bevel');
+    }
+    const face = el('div','surface track-key-face',key);
+    face.style.transform = 'translate(-50%,-50%) translateZ(5.7px)';
+    const button = el('button',`track-button ${direction}`,rockerHits);
+    button.type='button';
+    button.setAttribute('aria-label',label);
+    button.title=label;
+    trackKeys.set(button,key);
+    const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    icon.setAttribute('viewBox','0 0 13 12');
+    icon.setAttribute('aria-hidden','true');
+    const shape=document.createElementNS('http://www.w3.org/2000/svg','path');
+    shape.setAttribute('d',path);
+    icon.appendChild(shape);
+    const visual = el('span','track-icon',face);
+    visual.setAttribute('aria-hidden','true');
+    visual.appendChild(icon);
+    return button;
+  }
+  const previousButton=trackButton('previous','上一首','M2 2h1.5v8H2z M10.5 2v8L4 6z');
+  const nextButton=trackButton('next','下一首','M9.5 2H11v8H9.5z M2.5 2L9 6l-6.5 4z');
+  const controls=[
+    { button:tuningButton, action:nextStation },
+    { button:previousButton, action:()=>changeTrack(-1) },
+    { button:nextButton, action:()=>changeTrack(1) }
+  ];
+  const pressStates = new Map(controls.map(({button})=>[button,{started:0,timer:0}]));
+  function setPressedVisual(button,pressed) {
+    const key=trackKeys.get(button) || button.parentElement;
+    key.classList.toggle('pressed',pressed);
+  }
+  function pressControl(button,pressed,immediate=false) {
+    const state=pressStates.get(button);
+    clearTimeout(state.timer);
+    state.timer=0;
+    if(pressed) {
+      state.started=performance.now();
+      setPressedVisual(button,true);
+      return;
+    }
+    // A fast tap gets a full visible press; a held button stays down until up.
+    const remaining=button!==tuningButton && !immediate?110-(performance.now()-state.started):0;
+    if(remaining>0) state.timer=setTimeout(()=>{
+      state.timer=0;
+      setPressedVisual(button,false);
+    },remaining);
+    else setPressedVisual(button,false);
+  }
+  function clearPressedControls() {
+    controls.forEach(({button})=>pressControl(button,false,true));
+  }
+  showStation();
+
+  const backDetails = el('div','details',radio);
+  backDetails.style.transform = 'translate(-50%,-50%) rotateY(180deg) translateZ(68.8px)';
+  const panel = el('div','rear-panel',backDetails);
+  const vents = el('div','vents',panel);
+  for(let i=0;i<13;i++) el('i','vent',vents);
+  el('div','battery',panel);
+  el('div','port',panel);
+  el('div','port second',panel);
+  for(const [x,y] of [[14,14],[462,14],[14,242],[462,242]]) {
+    const screw = el('div','screw',panel);
+    screw.style.left=x+'px'; screw.style.top=y+'px';
+  }
+
+  const bottom = el('div','surface bottom-detail',radio);
+  bottom.style.transform = 'translate(-50%,-50%) translateY(163.35px) rotateX(-90deg)';
+  for(const x of [-191,191]) {
+    const foot = el('div','assembly',radio);
+    foot.style.transform = `translate3d(${x}px,166px,0) rotateX(-90deg)`;
+    const outline = perimeter(42,86,7,8);
+    for(let i=0;i<outline.length;i++) {
+      const j=(i+1)%outline.length;
+      plane(foot,[vec(...outline[i],4),vec(...outline[j],4),vec(...outline[j],-3),vec(...outline[i],-3)],'',null,true);
+    }
+    const pad = el('div','surface',foot);
+    Object.assign(pad.style,{width:'42px',height:'86px',borderRadius:'7px',transform:'translate(-50%,-50%) translateZ(4.15px)',background:'repeating-linear-gradient(0deg,#424b4d 0 2px,#465052 2px 3px)',boxShadow:'inset 0 0 0 1px #303b3e,inset 0 0 0 2px #596366'});
+  }
+
+  let rx=-13, ry=-25, raf=0, sceneScale=1;
+  const light = unit([-0.5,-0.8,1]);
+  function frontFacing() {
+    const ax=rx*Math.PI/180, ay=ry*Math.PI/180;
+    // Face normal dotted with the camera vector, including the perspective
+    // origin and the front face's depth. Avoid hits through the rear shell.
+    return Math.cos(ay)*(1800*Math.cos(ax)+stage.clientHeight*.03*Math.sin(ax)) > sceneScale*88.15;
+  }
+  function render() {
+    raf=0;
+    radio.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;
+    const facing=frontFacing();
+    for(const {button} of controls) {
+      button.disabled=!facing;
+      button.style.pointerEvents=facing?'auto':'none';
+    }
+    if(!facing) clearPressedControls();
+    const ax=rx*Math.PI/180, ay=ry*Math.PI/180;
+    const cx=Math.cos(ax), sx=Math.sin(ax), cy=Math.cos(ay), sy=Math.sin(ay);
+    for(const {node,normal,cls} of lights) {
+      const [x,y,z]=normal;
+      const yx=x*cy+z*sy, yz=-x*sy+z*cy;
+      const rotated=[yx,y*cx-yz*sx,y*sx+yz*cx];
+      const lit=dot(rotated,light);
+      const shade = (cls==='skin'?189:cls==='bevel'?187:164) + lit*(cls==='bevel'?44:36);
+      const r=Math.round(shade), g=Math.round(shade+5), b=Math.round(shade+7);
+      node.style.backgroundColor=`rgb(${r},${g},${b})`;
+    }
+  }
+  function schedule() { if(!raf) raf=requestAnimationFrame(render); }
+  function resize() {
+    const factor=Math.max(.18,Math.min((stage.clientWidth-40)/700,(stage.clientHeight-40)/700,1.12));
+    sceneScale=factor;
+    scale.style.setProperty('--scale',factor);
+    stage.style.setProperty('--shadow-offset',(184*factor)+'px');
+    schedule();
+    resetTrackScroll();
+  }
+  let drag=null;
+  stage.addEventListener('pointerdown',event=>{
+    if(drag || event.isPrimary===false || event.button!==0) return;
+    const control=frontFacing() && controls.find(({button})=>button.contains(event.target));
+    drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,path:0,maxDistance:0,control,eligible:!!control};
+    if(control) pressControl(control.button,true);
+    stage.setPointerCapture(event.pointerId);
+    stage.classList.add('dragging');
+  });
+  function moveDrag(event) {
+    if(!drag || event.pointerId!==drag.id) return;
+    const dx=event.clientX-drag.x, dy=event.clientY-drag.y;
+    drag.path+=Math.hypot(dx,dy);
+    drag.maxDistance=Math.max(drag.maxDistance,Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY));
+    if(drag.path>=5 || drag.maxDistance>=5) {
+      drag.eligible=false;
+      clearPressedControls();
+    }
+    ry+=dx*.4;
+    rx-=dy*.4;
+    drag.x=event.clientX; drag.y=event.clientY;
+    rx=((rx+180)%360+360)%360-180;
+    ry=((ry+180)%360+360)%360-180;
+    schedule();
+  }
+  stage.addEventListener('pointermove',event=>{
+    const samples=event.getCoalescedEvents?.() || [];
+    for(const sample of samples) moveDrag(sample);
+    moveDrag(event);
+  });
+  function endDrag(event) {
+    if(!drag || event.pointerId!==drag.id) return;
+    if(event.type==='pointerup') moveDrag(event);
+    const hit=event.type==='pointerup' && document.elementFromPoint(event.clientX,event.clientY);
+    const control=drag.control;
+    const activate=event.type==='pointerup' && drag.eligible && drag.path<5 && drag.maxDistance<5 && frontFacing() && control?.button.contains(hit);
+    drag=null;
+    if(activate) pressControl(control.button,false);
+    else clearPressedControls();
+    stage.classList.remove('dragging');
+    if(stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+    if(activate) control.action();
+  }
+  stage.addEventListener('pointerup',endDrag);
+  stage.addEventListener('pointercancel',endDrag);
+  stage.addEventListener('lostpointercapture',endDrag);
+  // Captured pointers activate only after a verified tap. Native zero-detail
+  // clicks preserve Enter/Space and assistive activation without double firing.
+  for(const {button,action} of controls) {
+    button.addEventListener('click',event=>{
+      if(event.detail===0 && !event.pointerType && !drag && !button.disabled && frontFacing()) action();
+    });
+    button.addEventListener('keydown',event=>{
+      if(event.key!=='Enter' && event.key!==' ') return;
+      if(event.repeat) { event.preventDefault(); return; }
+      if(frontFacing()) pressControl(button,true);
+    });
+    button.addEventListener('keyup',event=>{
+      if(event.key==='Enter' || event.key===' ') pressControl(button,false);
+    });
+    button.addEventListener('blur',()=>pressControl(button,false,true));
+  }
+  function cancelControlInteraction() {
+    if(drag) endDrag({type:'pointercancel',pointerId:drag.id});
+    clearPressedControls();
+  }
+  window.addEventListener('blur',cancelControlInteraction);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) cancelControlInteraction();
+  });
+  stage.addEventListener('keydown',event=>{
+    const step=event.shiftKey?20:5;
+    if(event.key==='ArrowLeft') ry-=step;
+    else if(event.key==='ArrowRight') ry+=step;
+    else if(event.key==='ArrowUp') rx+=step;
+    else if(event.key==='ArrowDown') rx-=step;
+    else if(event.key==='Home') { rx=-13; ry=-25; }
+    else return;
+    event.preventDefault(); schedule();
+  });
+  window.addEventListener('resize',resize,{passive:true});
+  resize(); render();
+})();
+</script>
+</body>
+</html>

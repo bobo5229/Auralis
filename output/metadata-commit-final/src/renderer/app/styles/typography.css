@@ -1,0 +1,91 @@
+/* 全局语义字体角色：按文字用途命名，字体家族与后备顺序集中在此维护。
+ * 全局字体资源的 @font-face 声明保留在 main.css 与 harmony-fonts.css；
+ * 通用字号与行高按语义角色集中维护；字重仍由信息层级决定。
+ * 曲目行、歌词、CD 浏览等专用排版继续使用各自的规格。 */
+:root {
+  /* 通用文字规格：字号与默认行高成对使用，不改变全局根字号。 */
+  --auralis-type-caption-size: 12px;
+  --auralis-type-caption-line-height: 18px;
+  --auralis-type-control-size: 14px;
+  --auralis-type-control-line-height: 20px;
+  --auralis-type-body-size: 16px;
+  --auralis-type-body-line-height: 24px;
+  --auralis-type-section-size: 18px;
+  --auralis-type-section-line-height: 26px;
+  --auralis-type-page-size: 24px;
+  --auralis-type-page-line-height: 32px;
+  /* 展示标题沿用专辑详情标题规格。 */
+  --auralis-type-hero-title-size: clamp(24px, 2.8vw, 38px);
+  --auralis-type-hero-title-line-height: 1.22;
+  --auralis-type-hero-title-weight: 800;
+  --auralis-type-hero-title-letter-spacing: -0.02em;
+  --auralis-type-overline-size: 10px;
+  --auralis-type-overline-line-height: 16px;
+
+  /* Album-card roles. Compact 1.25 line boxes preserve the fixed metadata geometry. */
+  --album-list-type-title-size: var(--auralis-type-control-size);
+  --album-list-type-title-line-height: 1.25;
+  --album-list-type-title-weight: 700;
+  --album-list-type-artist-size: var(--auralis-type-caption-size);
+  --album-list-type-artist-line-height: 1.25;
+  --album-list-type-artist-weight: 400;
+  --album-list-type-year-size: 11px;
+  --album-list-type-year-line-height: 1.25;
+  --album-list-type-year-weight: 400;
+
+  /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
+  --auralis-font-latin: 'Plus Jakarta Sans';
+
+  /* 中文界面字体：默认鸿蒙黑体，可在设置的中文字体选择器中切换。
+   * 碟片标题与唱片室的字体体系是特意设计的，不随此选择联动。 */
+  --auralis-font-cjk: 'HarmonyOS Sans SC';
+
+  /* 通用界面：根节点继承，覆盖设置、音乐来源路径与常规控件。 */
+  --auralis-font-ui:
+    var(--auralis-font-latin), var(--auralis-font-cjk), 'Arial Unicode MS', 'Nirmala UI',
+    'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* 颜色数值：HEX、RGB 输入与显示，数字和字母统一使用现有英文字体。 */
+  --auralis-font-color-value: var(--auralis-font-latin), ui-sans-serif, system-ui, sans-serif;
+
+  /* 碟片标题：歌曲封面视图、专辑详情与设置预览共用。
+   * 特意设计：Georgia 提供西文衬线质感，中文固定使用 HarmonyOS Sans SC，
+   * 与主界面无衬线栈形成对比。不要随主界面字体或英文字体选择器联动修改；
+   * 确需调整时先与用户确认。 */
+  --auralis-font-disc-heading: Georgia, 'HarmonyOS Sans SC', sans-serif;
+
+  /* 唱片室的字体体系（--cd-font-*）独立维护于 features/albums/styles/cdTypography.css，
+   * 刻意不依赖本文件的字体角色；主界面字体调整不要联动唱片室。 */
+}
+
+/* Vue 模板可直接使用这些类；CSS 规则也可引用对应 token。 */
+.auralis-type-caption {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.auralis-type-control {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.auralis-type-body {
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
+}
+
+.auralis-type-section {
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+}
+
+.auralis-type-page {
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+}
+
+.auralis-type-overline {
+  font-size: var(--auralis-type-overline-size);
+  line-height: var(--auralis-type-overline-line-height);
+}

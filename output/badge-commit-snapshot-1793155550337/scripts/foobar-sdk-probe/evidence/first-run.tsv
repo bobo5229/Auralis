@@ -1,0 +1,245 @@
+host-profile	file://C:\Users\BoBo\AppData\Local\Temp\auralis-fb2k-sdk-7b077c2c9d55425cb5efda69b450a2f3\host\profile
+sample-bytes	8
+output-device	Null Output
+output-device	Primary Sound Driver
+output-device	U2790B (NVIDIA High Definition Audio)
+output-device	Speaker (Realtek(R) Audio)
+output-device	Headphone (Realtek(R) Audio)
+output-device	Primary Sound Driver [exclusive]
+output-device	U2790B (NVIDIA High Definition Audio) [exclusive]
+output-device	Speaker (Realtek(R) Audio) [exclusive]
+output-device	Headphone (Realtek(R) Audio) [exclusive]
+write-request	cooperative	1
+write-ok	cooperative	1	4.4306	18.3393	6
+reopened	aac-48000-2-back.m4a	1	96256	19.5286
+write-request	cooperative	2
+write-ok	cooperative	2	14.271	26.1022	131072
+reopened	aac-48000-2-back.m4a	2	192512	27.6845
+write-request	cooperative	3
+write-ok	cooperative	3	14.1224	26.8699	6
+reopened	aac-48000-2-back.m4a	3	288768	27.7623
+cooperative-result	aac-48000-2-back.m4a	3	481024	481024	0
+format	aac-48000-2-back.m4a	48000	2
+write-request	cooperative	1
+write-ok	cooperative	1	8.713	37.4053	6
+reopened	aac-48000-2-front.m4a	1	96256	38.5655
+write-request	cooperative	2
+write-ok	cooperative	2	14.2826	29.653	131072
+reopened	aac-48000-2-front.m4a	2	192512	31.0809
+write-request	cooperative	3
+write-ok	cooperative	3	12.6113	30.2428	6
+reopened	aac-48000-2-front.m4a	3	288768	31.1939
+cooperative-result	aac-48000-2-front.m4a	3	481024	481024	0
+format	aac-48000-2-front.m4a	48000	2
+write-request	cooperative	1
+write-ok	cooperative	1	13.904	29.9459	6
+reopened	aac-44100-1-back.m4a	1	89088	30.7609
+write-request	cooperative	2
+write-ok	cooperative	2	13.2987	31.1979	131072
+reopened	aac-44100-1-back.m4a	2	177152	32.1816
+write-request	cooperative	3
+write-ok	cooperative	3	11.6329	30.0023	6
+reopened	aac-44100-1-back.m4a	3	265216	30.7152
+cooperative-result	aac-44100-1-back.m4a	3	442024	442024	0
+format	aac-44100-1-back.m4a	44100	1
+write-request	cooperative	1
+write-ok	cooperative	1	12.822	33.9367	6
+reopened	aac-44100-1-front.m4a	1	89088	34.9972
+write-request	cooperative	2
+write-ok	cooperative	2	8.0124	23.4186	131072
+reopened	aac-44100-1-front.m4a	2	177152	26.9256
+write-request	cooperative	3
+write-ok	cooperative	3	10.8006	44.88	6
+reopened	aac-44100-1-front.m4a	3	265216	45.7311
+cooperative-result	aac-44100-1-front.m4a	3	442024	442024	0
+format	aac-44100-1-front.m4a	44100	1
+write-request	cooperative	1
+write-ok	cooperative	1	6.842	37.2914	6
+reopened	alac-48000-2-back.m4a	1	98304	37.8052
+write-request	cooperative	2
+write-ok	cooperative	2	11.1367	38.9435	131072
+reopened	alac-48000-2-back.m4a	2	192512	39.7192
+write-request	cooperative	3
+write-ok	cooperative	3	13.4628	54.7731	6
+reopened	alac-48000-2-back.m4a	3	290816	55.302
+cooperative-result	alac-48000-2-back.m4a	3	480000	480000	0
+format	alac-48000-2-back.m4a	48000	2
+write-request	cooperative	1
+write-ok	cooperative	1	11.3453	32.6971	6
+reopened	alac-48000-2-front.m4a	1	98304	33.2006
+write-request	cooperative	2
+write-ok	cooperative	2	4.8033	16.2534	131072
+reopened	alac-48000-2-front.m4a	2	192512	16.9624
+write-request	cooperative	3
+write-ok	cooperative	3	15.0838	36.4693	6
+reopened	alac-48000-2-front.m4a	3	290816	36.9459
+cooperative-result	alac-48000-2-front.m4a	3	480000	480000	0
+format	alac-48000-2-front.m4a	48000	2
+write-request	cooperative	1
+write-ok	cooperative	1	7.442	30.365	6
+reopened	alac-96000-2-back.m4a	1	192512	30.8792
+write-request	cooperative	2
+write-ok	cooperative	2	12.1173	34.0126	131072
+reopened	alac-96000-2-back.m4a	2	385024	34.6979
+write-request	cooperative	3
+write-ok	cooperative	3	14.8127	40.9482	6
+reopened	alac-96000-2-back.m4a	3	577536	41.4126
+cooperative-result	alac-96000-2-back.m4a	3	960000	960000	0
+format	alac-96000-2-back.m4a	96000	2
+write-request	cooperative	1
+write-ok	cooperative	1	6.4193	35.2685	6
+reopened	alac-96000-2-front.m4a	1	192512	36.4468
+write-request	cooperative	2
+write-ok	cooperative	2	14.5788	34.693	131072
+reopened	alac-96000-2-front.m4a	2	385024	35.4265
+write-request	cooperative	3
+write-ok	cooperative	3	15.3614	40.3895	6
+reopened	alac-96000-2-front.m4a	3	577536	40.8715
+cooperative-result	alac-96000-2-front.m4a	3	960000	960000	0
+format	alac-96000-2-front.m4a	96000	2
+playback-start	aac-48000-2-back.m4a	0
+playback-new-track	aac-48000-2-back.m4a	0
+playback-stop	aac-48000-2-back.m4a	0	1	481024	0	36.9653
+playback-start	aac-48000-2-back.m4a	1
+playback-new-track	aac-48000-2-back.m4a	1
+playback-write-at	aac-48000-2-back.m4a	1	97186	2031.02
+write-request	playback	1
+write-ok	playback	1	0.1766	50.188	14
+playback-edited-event
+playback-write-at	aac-48000-2-back.m4a	2	193164	4030.7
+write-request	playback	2
+write-ok	playback	2	0.1905	26.6429	131072
+playback-edited-event
+playback-write-at	aac-48000-2-back.m4a	3	288882	6024.71
+write-request	playback	3
+write-ok	playback	3	0.2479	28.3788	14
+playback-edited-event
+playback-stop	aac-48000-2-back.m4a	1	1	480878	3	37.9528
+playback-start	aac-48000-2-front.m4a	0
+playback-new-track	aac-48000-2-front.m4a	0
+playback-stop	aac-48000-2-front.m4a	0	1	480827	0	37.8507
+playback-start	aac-48000-2-front.m4a	1
+playback-new-track	aac-48000-2-front.m4a	1
+playback-write-at	aac-48000-2-front.m4a	1	97497	2036.45
+write-request	playback	1
+write-ok	playback	1	0.2221	16.0696	14
+playback-edited-event
+playback-write-at	aac-48000-2-front.m4a	2	193501	4036.64
+write-request	playback	2
+write-ok	playback	2	0.2321	27.9189	131072
+playback-edited-event
+playback-write-at	aac-48000-2-front.m4a	3	289483	6036.15
+write-request	playback	3
+write-ok	playback	3	0.3292	34.8289	14
+playback-edited-event
+playback-stop	aac-48000-2-front.m4a	1	1	481024	3	37.6436
+playback-start	aac-44100-1-back.m4a	0
+playback-new-track	aac-44100-1-back.m4a	0
+playback-stop	aac-44100-1-back.m4a	0	1	442024	0	38.1309
+playback-start	aac-44100-1-back.m4a	1
+playback-new-track	aac-44100-1-back.m4a	1
+playback-write-at	aac-44100-1-back.m4a	1	88260	2007.05
+write-request	playback	1
+write-ok	playback	1	0.2441	57.6636	14
+playback-edited-event
+playback-write-at	aac-44100-1-back.m4a	2	176442	4006.63
+write-request	playback	2
+write-ok	playback	2	0.1158	51.9681	131072
+playback-edited-event
+playback-write-at	aac-44100-1-back.m4a	3	264636	6006.5
+write-request	playback	3
+write-ok	playback	3	0.2307	76.8322	14
+playback-edited-event
+playback-stop	aac-44100-1-back.m4a	1	1	442024	3	36.4116
+playback-start	aac-44100-1-front.m4a	0
+playback-new-track	aac-44100-1-front.m4a	0
+playback-stop	aac-44100-1-front.m4a	0	1	441445	0	37.4821
+playback-start	aac-44100-1-front.m4a	1
+playback-new-track	aac-44100-1-front.m4a	1
+playback-write-at	aac-44100-1-front.m4a	1	89519	2035.09
+write-request	playback	1
+write-ok	playback	1	0.3302	81.7321	14
+playback-edited-event
+playback-write-at	aac-44100-1-front.m4a	2	177474	4029.54
+write-request	playback	2
+write-ok	playback	2	0.2193	23.9312	131072
+playback-edited-event
+playback-write-at	aac-44100-1-front.m4a	3	265937	6035.51
+write-request	playback	3
+write-ok	playback	3	0.3308	36.814	14
+playback-edited-event
+playback-stop	aac-44100-1-front.m4a	1	1	442024	3	39.0079
+playback-start	alac-48000-2-back.m4a	0
+playback-new-track	alac-48000-2-back.m4a	0
+playback-stop	alac-48000-2-back.m4a	0	1	480000	0	38.6144
+playback-start	alac-48000-2-back.m4a	1
+playback-new-track	alac-48000-2-back.m4a	1
+playback-write-at	alac-48000-2-back.m4a	1	97074	2028.13
+write-request	playback	1
+write-ok	playback	1	0.1058	43.9038	14
+playback-edited-event
+playback-write-at	alac-48000-2-back.m4a	2	193236	4031.53
+write-request	playback	2
+write-ok	playback	2	0.0713	17.1025	131072
+playback-edited-event
+playback-write-at	alac-48000-2-back.m4a	3	289252	6031.87
+write-request	playback	3
+write-ok	playback	3	0.2281	52.8957	14
+playback-edited-event
+playback-stop	alac-48000-2-back.m4a	1	1	480000	3	36.4504
+playback-start	alac-48000-2-front.m4a	0
+playback-new-track	alac-48000-2-front.m4a	0
+playback-stop	alac-48000-2-front.m4a	0	1	479702	0	36.7077
+playback-start	alac-48000-2-front.m4a	1
+playback-new-track	alac-48000-2-front.m4a	1
+playback-write-at	alac-48000-2-front.m4a	1	96999	2026.93
+write-request	playback	1
+write-ok	playback	1	0.1887	28.1877	14
+playback-edited-event
+playback-write-at	alac-48000-2-front.m4a	2	193007	4027.1
+write-request	playback	2
+write-ok	playback	2	0.0944	78.2503	131072
+playback-edited-event
+playback-write-at	alac-48000-2-front.m4a	3	288977	6026.5
+write-request	playback	3
+write-ok	playback	3	0.176	110.754	14
+playback-edited-event
+playback-stop	alac-48000-2-front.m4a	1	1	480000	3	38.5241
+playback-start	alac-96000-2-back.m4a	0
+playback-new-track	alac-96000-2-back.m4a	0
+playback-stop	alac-96000-2-back.m4a	0	1	960000	0	39.0723
+playback-start	alac-96000-2-back.m4a	1
+playback-new-track	alac-96000-2-back.m4a	1
+playback-write-at	alac-96000-2-back.m4a	1	192286	2008.22
+write-request	playback	1
+write-ok	playback	1	0.098	56.6688	14
+playback-edited-event
+playback-write-at	alac-96000-2-back.m4a	2	384965	4015.33
+write-request	playback	2
+write-ok	playback	2	0.0977	21.7053	131072
+playback-edited-event
+playback-write-at	alac-96000-2-back.m4a	3	576571	6011.21
+write-request	playback	3
+write-ok	playback	3	0.1659	24.6277	14
+playback-edited-event
+playback-stop	alac-96000-2-back.m4a	1	1	960000	3	39.0987
+playback-start	alac-96000-2-front.m4a	0
+playback-new-track	alac-96000-2-front.m4a	0
+playback-stop	alac-96000-2-front.m4a	0	1	960000	0	38.3502
+playback-start	alac-96000-2-front.m4a	1
+playback-new-track	alac-96000-2-front.m4a	1
+playback-write-at	alac-96000-2-front.m4a	1	193907	2025.26
+write-request	playback	1
+write-ok	playback	1	0.0936	76.4236	14
+playback-edited-event
+playback-write-at	alac-96000-2-front.m4a	2	386228	4028.6
+write-request	playback	2
+write-ok	playback	2	0.1181	46.8308	131072
+playback-edited-event
+playback-write-at	alac-96000-2-front.m4a	3	578221	6028.54
+write-request	playback	3
+write-ok	playback	3	0.0996	57.5074	14
+playback-edited-event
+playback-stop	alac-96000-2-front.m4a	1	1	960000	3	38.0951
+DONE
+QUIT

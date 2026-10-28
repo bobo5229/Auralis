@@ -1,0 +1,211 @@
+.album-tracklist-panel {
+  min-width: 0;
+}
+
+.album-detail-track-list {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
+  box-shadow: none;
+}
+
+.album-detail-disc-header {
+  padding: 12px 14px 6px;
+  color: var(--auralis-text-muted);
+  font-family: var(--auralis-font-disc-heading);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.album-detail-disc-header:first-child {
+  padding-top: 4px;
+}
+
+.album-detail-track {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  align-items: center;
+  padding: 6px 16px 6px 8px;
+  color: var(--auralis-text);
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.album-detail-track:not(:first-child)::before {
+  content: '';
+  top: 0;
+}
+
+.album-detail-disc-header + .album-detail-track::before {
+  display: none;
+}
+
+/* 仅一轨时补底部分隔，避免细行漂在空白里 */
+.album-detail-track:only-of-type::after {
+  content: '';
+  bottom: 0;
+}
+
+.album-detail-track--selected,
+.album-detail-track--playing,
+.album-detail-track--search-highlight {
+  background-color: var(--auralis-control-hover-bg);
+  transform: translateX(3px);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+.album-detail-track:hover {
+  background-color: var(--auralis-control-hover-bg);
+  transform: none;
+  box-shadow: none;
+}
+
+.album-detail-track--search-highlight {
+  animation: album-track-search-highlight 1.8s ease-out;
+}
+
+@keyframes album-track-search-highlight {
+  0%,
+  35% {
+    background-color: var(--auralis-song-row-now-playing-bg);
+  }
+  100% {
+    background-color: var(--auralis-control-hover-bg);
+  }
+}
+
+.album-detail-track.album-detail-track--selected,
+.album-detail-track.album-detail-track--playing {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  box-shadow: none;
+  transform: none;
+}
+
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
+  :is(.album-detail-track-number, .album-detail-track-duration, .album-detail-track-artist) {
+  color: var(--auralis-control-primary-text);
+}
+
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
+  .album-detail-track-play-icon {
+  color: var(--auralis-control-primary-text);
+}
+
+.album-detail-track:hover::before,
+.album-detail-track.album-detail-track--selected::before,
+.album-detail-track.album-detail-track--playing::before,
+.album-detail-track.album-detail-track--search-highlight::before {
+  display: none;
+}
+
+.album-detail-track:hover + .album-detail-track::before,
+.album-detail-track--selected + .album-detail-track::before,
+.album-detail-track--playing + .album-detail-track::before,
+.album-detail-track--search-highlight + .album-detail-track::before {
+  display: none;
+}
+
+.album-detail-track:hover::after,
+.album-detail-track.album-detail-track--selected::after,
+.album-detail-track.album-detail-track--playing::after,
+.album-detail-track.album-detail-track--search-highlight::after {
+  display: none;
+}
+
+.album-detail-track-number {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 28px;
+  color: var(--auralis-text-faint);
+  font-size: var(--album-detail-type-track-number-size);
+  line-height: var(--album-detail-type-track-number-line-height);
+  font-weight: var(--album-detail-type-track-number-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.album-detail-track-index {
+  transition: opacity 0.15s ease;
+}
+
+.album-detail-track-play-icon {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  color: var(--auralis-text);
+  transition: opacity 0.15s ease;
+}
+
+.album-detail-track-eq {
+  position: absolute;
+  color: inherit;
+}
+
+/* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-index {
+  opacity: 0;
+}
+
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-play-icon {
+  opacity: 1;
+}
+
+.album-detail-track--playing .album-detail-track-index,
+.album-detail-track--playing .album-detail-track-play-icon {
+  opacity: 0;
+}
+
+.album-detail-track-duration {
+  color: var(--auralis-text-faint);
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.album-detail-track-title,
+.album-detail-track-artist {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-detail-track-title {
+  font-size: var(--album-detail-type-track-title-size);
+  line-height: var(--album-detail-type-track-title-line-height);
+  font-weight: var(--album-detail-type-track-title-weight);
+}
+
+.album-detail-track-artist {
+  margin-top: 3px;
+  color: var(--auralis-text-muted);
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
+}
+
+:where([data-reduced-motion='true']) .album-detail-track:hover,
+:where([data-reduced-motion='true']) .album-detail-track--selected,
+:where([data-reduced-motion='true']) .album-detail-track--playing {
+  transform: none;
+}
+
+:where([data-reduced-motion='true']) .album-detail-track--search-highlight {
+  animation: none;
+}

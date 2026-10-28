@@ -1,0 +1,369 @@
+{
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-cold-open\\isolated-profile\\profile-K9lYQc",
+  "errors": [],
+  "attempts": [
+    {
+      "attempt": "first",
+      "start": 1501.2000000029802,
+      "events": [
+        {
+          "type": "mount",
+          "time": 41.099999997764826,
+          "state": [
+            {
+              "id": "hours10",
+              "ready": false,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-lit-45bLq3xo.png"
+            },
+            {
+              "id": "hours100",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-lit--AEOPJ65.png"
+            },
+            {
+              "id": "hours500",
+              "ready": false,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-lit-CMKDFj0W.png"
+            },
+            {
+              "id": "hours1000",
+              "ready": false,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-lit-BB1ruylw.png"
+            }
+          ]
+        },
+        {
+          "type": "load",
+          "time": 43.29999999701977,
+          "id": "hours100"
+        },
+        {
+          "type": "load",
+          "time": 43.399999998509884,
+          "id": "hours1000"
+        },
+        {
+          "type": "load",
+          "time": 43.399999998509884,
+          "id": "hours500"
+        },
+        {
+          "type": "load",
+          "time": 43.399999998509884,
+          "id": "hours10"
+        }
+      ],
+      "frames": [
+        {
+          "time": 331.5999999977648,
+          "state": [
+            {
+              "id": "hours10",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-lit-45bLq3xo.png"
+            },
+            {
+              "id": "hours100",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-lit--AEOPJ65.png"
+            },
+            {
+              "id": "hours500",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-lit-CMKDFj0W.png"
+            },
+            {
+              "id": "hours1000",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-lit-BB1ruylw.png"
+            }
+          ]
+        }
+      ],
+      "resources": [],
+      "nativeFrames": [
+        {
+          "elapsed": 354,
+          "name": "first-00-354ms.jpg"
+        },
+        {
+          "elapsed": 378,
+          "name": "first-01-378ms.jpg"
+        },
+        {
+          "elapsed": 475,
+          "name": "first-02-475ms.jpg"
+        },
+        {
+          "elapsed": 501,
+          "name": "first-03-501ms.jpg"
+        },
+        {
+          "elapsed": 559,
+          "name": "first-04-559ms.jpg"
+        },
+        {
+          "elapsed": 894,
+          "name": "first-05-894ms.jpg"
+        },
+        {
+          "elapsed": 923,
+          "name": "first-06-923ms.jpg"
+        },
+        {
+          "elapsed": 953,
+          "name": "first-07-953ms.jpg"
+        },
+        {
+          "elapsed": 982,
+          "name": "first-08-982ms.jpg"
+        },
+        {
+          "elapsed": 1010,
+          "name": "first-09-1010ms.jpg"
+        },
+        {
+          "elapsed": 1044,
+          "name": "first-10-1044ms.jpg"
+        },
+        {
+          "elapsed": 1074,
+          "name": "first-11-1074ms.jpg"
+        }
+      ]
+    },
+    {
+      "attempt": "reopen",
+      "start": 3048.2000000029802,
+      "events": [
+        {
+          "type": "mount",
+          "time": 23.399999998509884,
+          "state": [
+            {
+              "id": "hours10",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-lit-45bLq3xo.png"
+            },
+            {
+              "id": "hours100",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-lit--AEOPJ65.png"
+            },
+            {
+              "id": "hours500",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-lit-CMKDFj0W.png"
+            },
+            {
+              "id": "hours1000",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-lit-BB1ruylw.png"
+            }
+          ]
+        },
+        {
+          "type": "load",
+          "time": 30.799999997019768,
+          "id": "hours10"
+        },
+        {
+          "type": "load",
+          "time": 30.799999997019768,
+          "id": "hours100"
+        },
+        {
+          "type": "load",
+          "time": 30.799999997019768,
+          "id": "hours500"
+        },
+        {
+          "type": "load",
+          "time": 30.799999997019768,
+          "id": "hours1000"
+        }
+      ],
+      "frames": [
+        {
+          "time": 24.399999998509884,
+          "state": [
+            {
+              "id": "hours10",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-10-lit-45bLq3xo.png"
+            },
+            {
+              "id": "hours100",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-lit--AEOPJ65.png"
+            },
+            {
+              "id": "hours500",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-500-lit-CMKDFj0W.png"
+            },
+            {
+              "id": "hours1000",
+              "ready": true,
+              "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-1000-lit-BB1ruylw.png"
+            }
+          ]
+        }
+      ],
+      "resources": [],
+      "nativeFrames": [
+        {
+          "elapsed": 30,
+          "name": "reopen-00-30ms.jpg"
+        },
+        {
+          "elapsed": 74,
+          "name": "reopen-01-74ms.jpg"
+        },
+        {
+          "elapsed": 108,
+          "name": "reopen-02-108ms.jpg"
+        },
+        {
+          "elapsed": 139,
+          "name": "reopen-03-139ms.jpg"
+        },
+        {
+          "elapsed": 169,
+          "name": "reopen-04-169ms.jpg"
+        },
+        {
+          "elapsed": 200,
+          "name": "reopen-05-200ms.jpg"
+        },
+        {
+          "elapsed": 231,
+          "name": "reopen-06-231ms.jpg"
+        },
+        {
+          "elapsed": 262,
+          "name": "reopen-07-262ms.jpg"
+        },
+        {
+          "elapsed": 295,
+          "name": "reopen-08-295ms.jpg"
+        },
+        {
+          "elapsed": 340,
+          "name": "reopen-09-340ms.jpg"
+        },
+        {
+          "elapsed": 371,
+          "name": "reopen-10-371ms.jpg"
+        },
+        {
+          "elapsed": 402,
+          "name": "reopen-11-402ms.jpg"
+        },
+        {
+          "elapsed": 433,
+          "name": "reopen-12-433ms.jpg"
+        },
+        {
+          "elapsed": 463,
+          "name": "reopen-13-463ms.jpg"
+        },
+        {
+          "elapsed": 494,
+          "name": "reopen-14-494ms.jpg"
+        },
+        {
+          "elapsed": 527,
+          "name": "reopen-15-527ms.jpg"
+        },
+        {
+          "elapsed": 572,
+          "name": "reopen-16-572ms.jpg"
+        },
+        {
+          "elapsed": 603,
+          "name": "reopen-17-603ms.jpg"
+        },
+        {
+          "elapsed": 634,
+          "name": "reopen-18-634ms.jpg"
+        },
+        {
+          "elapsed": 663,
+          "name": "reopen-19-663ms.jpg"
+        },
+        {
+          "elapsed": 696,
+          "name": "reopen-20-696ms.jpg"
+        },
+        {
+          "elapsed": 742,
+          "name": "reopen-21-742ms.jpg"
+        },
+        {
+          "elapsed": 770,
+          "name": "reopen-22-770ms.jpg"
+        },
+        {
+          "elapsed": 805,
+          "name": "reopen-23-805ms.jpg"
+        },
+        {
+          "elapsed": 835,
+          "name": "reopen-24-835ms.jpg"
+        },
+        {
+          "elapsed": 866,
+          "name": "reopen-25-866ms.jpg"
+        },
+        {
+          "elapsed": 897,
+          "name": "reopen-26-897ms.jpg"
+        },
+        {
+          "elapsed": 942,
+          "name": "reopen-27-942ms.jpg"
+        },
+        {
+          "elapsed": 974,
+          "name": "reopen-28-974ms.jpg"
+        },
+        {
+          "elapsed": 1005,
+          "name": "reopen-29-1005ms.jpg"
+        },
+        {
+          "elapsed": 1031,
+          "name": "reopen-30-1031ms.jpg"
+        },
+        {
+          "elapsed": 1066,
+          "name": "reopen-31-1066ms.jpg"
+        }
+      ]
+    }
+  ],
+  "previews": [
+    {
+      "src": "file:///D:/VSCode/Auralis/out/renderer/assets/hours-100-lit--AEOPJ65.png",
+      "complete": true,
+      "width": 330
+    },
+    {
+      "src": "file:///D:/VSCode/Auralis/out/renderer/assets/days-30-lit-tXk99HwO.png",
+      "complete": true,
+      "width": 330
+    },
+    {
+      "src": "file:///D:/VSCode/Auralis/out/renderer/assets/albums-1-lit-CXlYJlDJ.png",
+      "complete": true,
+      "width": 330
+    }
+  ],
+  "environment": {
+    "dpr": 1.5,
+    "width": 1440,
+    "height": 900,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Auralis/38.8.6 Chrome/140.0.7339.249 Electron/38.8.6 Safari/537.36"
+  }
+}

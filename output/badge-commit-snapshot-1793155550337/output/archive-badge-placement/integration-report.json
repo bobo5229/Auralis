@@ -1,0 +1,1635 @@
+{
+  "scope": "Actual integrated ArchivePage and milestone components, real repository queries over read-only local DB; other IPC uses inert preview responses; no prototype DOM/CSS injection",
+  "checks": [
+    {
+      "name": "case sits beside banner at approved height",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 1441,
+          "height": 961,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 806.4479370117188,
+          "y": 24,
+          "width": 300.875,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 1107.3229370117188,
+          "bottom": 148.33333587646484,
+          "left": 806.4479370117188
+        },
+        "banner": {
+          "x": 294,
+          "y": 24,
+          "width": 496.44793701171875,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 790.4479370117188,
+          "bottom": 148.33333587646484,
+          "left": 294
+        },
+        "heatmap": {
+          "x": 292,
+          "y": 168.33334350585938,
+          "width": 817.3333740234375,
+          "height": 230,
+          "top": 168.33334350585938,
+          "right": 1109.3333740234375,
+          "bottom": 398.3333435058594,
+          "left": 292
+        },
+        "header": {
+          "x": 822.6146240234375,
+          "y": 36.16666793823242,
+          "width": 57.40625,
+          "height": 20,
+          "top": 36.16666793823242,
+          "right": 880.0208740234375,
+          "bottom": 56.16666793823242,
+          "left": 822.6146240234375
+        },
+        "button": {
+          "x": 1028.15625,
+          "y": 37.16666793823242,
+          "width": 63,
+          "height": 18,
+          "top": 37.16666793823242,
+          "right": 1091.15625,
+          "bottom": 55.16666793823242,
+          "left": 1028.15625
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 829.6979370117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 899.6979370117188,
+              "bottom": 138.41666793823242,
+              "left": 829.6979370117188
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 921.875,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 991.875,
+              "bottom": 138.41666793823242,
+              "left": 921.875
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 1014.0521240234375,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 1084.0521240234375,
+              "bottom": 138.41666793823242,
+              "left": 1014.0521240234375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "desktop case has no clipped content",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 1441,
+          "height": 961,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 806.4479370117188,
+          "y": 24,
+          "width": 300.875,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 1107.3229370117188,
+          "bottom": 148.33333587646484,
+          "left": 806.4479370117188
+        },
+        "banner": {
+          "x": 294,
+          "y": 24,
+          "width": 496.44793701171875,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 790.4479370117188,
+          "bottom": 148.33333587646484,
+          "left": 294
+        },
+        "heatmap": {
+          "x": 292,
+          "y": 168.33334350585938,
+          "width": 817.3333740234375,
+          "height": 230,
+          "top": 168.33334350585938,
+          "right": 1109.3333740234375,
+          "bottom": 398.3333435058594,
+          "left": 292
+        },
+        "header": {
+          "x": 822.6146240234375,
+          "y": 36.16666793823242,
+          "width": 57.40625,
+          "height": 20,
+          "top": 36.16666793823242,
+          "right": 880.0208740234375,
+          "bottom": 56.16666793823242,
+          "left": 822.6146240234375
+        },
+        "button": {
+          "x": 1028.15625,
+          "y": 37.16666793823242,
+          "width": 63,
+          "height": 18,
+          "top": 37.16666793823242,
+          "right": 1091.15625,
+          "bottom": 55.16666793823242,
+          "left": 1028.15625
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 829.6979370117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 899.6979370117188,
+              "bottom": 138.41666793823242,
+              "left": 829.6979370117188
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 921.875,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 991.875,
+              "bottom": 138.41666793823242,
+              "left": 921.875
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 1014.0521240234375,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 1084.0521240234375,
+              "bottom": 138.41666793823242,
+              "left": 1014.0521240234375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "changing year preserves lifetime catalogue",
+      "pass": true
+    },
+    {
+      "name": "view all opens 11 badge designs",
+      "pass": true
+    },
+    {
+      "name": "only selected badge owns a canvas",
+      "pass": true
+    },
+    {
+      "name": "case uses generated GLSL images",
+      "pass": true,
+      "details": [
+        {
+          "loaded": true,
+          "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+          "box": {
+            "x": 829.6979370117188,
+            "y": 59.91666793823242,
+            "width": 70,
+            "height": 78.5,
+            "top": 59.91666793823242,
+            "right": 899.6979370117188,
+            "bottom": 138.41666793823242,
+            "left": 829.6979370117188
+          }
+        },
+        {
+          "loaded": true,
+          "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+          "box": {
+            "x": 921.875,
+            "y": 59.91666793823242,
+            "width": 70,
+            "height": 78.5,
+            "top": 59.91666793823242,
+            "right": 991.875,
+            "bottom": 138.41666793823242,
+            "left": 921.875
+          }
+        },
+        {
+          "loaded": true,
+          "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+          "box": {
+            "x": 1014.0521240234375,
+            "y": 59.91666793823242,
+            "width": 70,
+            "height": 78.5,
+            "top": 59.91666793823242,
+            "right": 1084.0521240234375,
+            "bottom": 138.41666793823242,
+            "left": 1014.0521240234375
+          }
+        }
+      ]
+    },
+    {
+      "name": "hours-10/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-10",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 2,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-10/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-10",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 3,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-100/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-100",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 4,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-100/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-100",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 5,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-500/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-500",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 6,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-500/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-500",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 7,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-1000/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-1000",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 8,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "hours-1000/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "hours-1000",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 9,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-7/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-7",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 10,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-7/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-7",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 11,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-30/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-30",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 12,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-30/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-30",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 13,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-100/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-100",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 14,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-100/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-100",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 15,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-365/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-365",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 16,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-365/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-365",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 17,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-520/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-520",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 18,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "days-520/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "days-520",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 19,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "albums-1/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "albums-1",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 20,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "albums-1/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "albums-1",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 21,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "albums-live/lit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "albums-live",
+        "state": "lit",
+        "ready": true,
+        "disposed": false,
+        "frames": 22,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "albums-live/unlit loads a complete texture set",
+      "pass": true,
+      "details": {
+        "badgeId": "albums-live",
+        "state": "unlit",
+        "ready": true,
+        "disposed": false,
+        "frames": 23,
+        "textures": 5,
+        "dpr": 1.5,
+        "pose": {
+          "x": 0,
+          "y": 0
+        },
+        "failed": false,
+        "running": false,
+        "reducedMotion": false
+      }
+    },
+    {
+      "name": "native arrow input tilts badge",
+      "pass": true
+    },
+    {
+      "name": "product preview stops drawing at rest",
+      "pass": true
+    },
+    {
+      "name": "pointer tilt is bounded at 8 degrees",
+      "pass": true
+    },
+    {
+      "name": "native hidden event suspends rendering",
+      "pass": true
+    },
+    {
+      "name": "in-app reduced motion prevents hover tilt",
+      "pass": true
+    },
+    {
+      "name": "product DPR 1",
+      "pass": true
+    },
+    {
+      "name": "product DPR 1.25",
+      "pass": true
+    },
+    {
+      "name": "product DPR 2",
+      "pass": true
+    },
+    {
+      "name": "system reduced motion prevents hover tilt",
+      "pass": true
+    },
+    {
+      "name": "rapid selection commits only the final texture set",
+      "pass": true
+    },
+    {
+      "name": "keyboard focus stays inside gallery",
+      "pass": true
+    },
+    {
+      "name": "Escape closes and restores focus",
+      "pass": true
+    },
+    {
+      "name": "closing gallery releases textures and renderer",
+      "pass": true
+    },
+    {
+      "name": "WebGL loss displays GLSL static fallback",
+      "pass": true
+    },
+    {
+      "name": "fallback follows badge and appearance selection",
+      "pass": true
+    },
+    {
+      "name": "close button restores focus",
+      "pass": true
+    },
+    {
+      "name": "backdrop closes gallery",
+      "pass": true
+    },
+    {
+      "name": "compact case fits",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 1102,
+          "height": 802,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 774.4896240234375,
+          "y": 24,
+          "width": 281.5,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 1055.9896240234375,
+          "bottom": 148.33333587646484,
+          "left": 774.4896240234375
+        },
+        "banner": {
+          "x": 294,
+          "y": 24,
+          "width": 464.4895935058594,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 758.4895935058594,
+          "bottom": 148.33333587646484,
+          "left": 294
+        },
+        "heatmap": {
+          "x": 292,
+          "y": 168.33334350585938,
+          "width": 766,
+          "height": 230,
+          "top": 168.33334350585938,
+          "right": 1058,
+          "bottom": 398.3333435058594,
+          "left": 292
+        },
+        "header": {
+          "x": 790.65625,
+          "y": 36.16666793823242,
+          "width": 57.40625,
+          "height": 20,
+          "top": 36.16666793823242,
+          "right": 848.0625,
+          "bottom": 56.16666793823242,
+          "left": 790.65625
+        },
+        "button": {
+          "x": 976.8229370117188,
+          "y": 37.16666793823242,
+          "width": 63,
+          "height": 18,
+          "top": 37.16666793823242,
+          "right": 1039.8229370117188,
+          "bottom": 55.16666793823242,
+          "left": 976.8229370117188
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 794.5104370117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 864.5104370117188,
+              "bottom": 138.41666793823242,
+              "left": 794.5104370117188
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 880.2291870117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 950.2291870117188,
+              "bottom": 138.41666793823242,
+              "left": 880.2291870117188
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 965.9479370117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 1035.9479370117188,
+              "bottom": 138.41666793823242,
+              "left": 965.9479370117188
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "narrow layout becomes a compact strip",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 900,
+          "height": 760,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 282,
+          "y": 164,
+          "width": 584,
+          "height": 70,
+          "top": 164,
+          "right": 866,
+          "bottom": 234,
+          "left": 282
+        },
+        "banner": {
+          "x": 282,
+          "y": 24,
+          "width": 584,
+          "height": 124,
+          "top": 24,
+          "right": 866,
+          "bottom": 148,
+          "left": 282
+        },
+        "heatmap": {
+          "x": 280,
+          "y": 254,
+          "width": 588,
+          "height": 230,
+          "top": 254,
+          "right": 868,
+          "bottom": 484,
+          "left": 280
+        },
+        "header": {
+          "x": 298.16668701171875,
+          "y": 179,
+          "width": 57.40625,
+          "height": 20,
+          "top": 179,
+          "right": 355.57293701171875,
+          "bottom": 199,
+          "left": 298.16668701171875
+        },
+        "button": {
+          "x": 298.16668701171875,
+          "y": 201,
+          "width": 63,
+          "height": 18,
+          "top": 201,
+          "right": 361.16668701171875,
+          "bottom": 219,
+          "left": 298.16668701171875
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 692.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 736.8333740234375,
+              "bottom": 223.75,
+              "left": 692.8333740234375
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 748.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 792.8333740234375,
+              "bottom": 223.75,
+              "left": 748.8333740234375
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 804.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 848.8333740234375,
+              "bottom": 223.75,
+              "left": 804.8333740234375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "narrow strip keeps badges inside",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 900,
+          "height": 760,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 282,
+          "y": 164,
+          "width": 584,
+          "height": 70,
+          "top": 164,
+          "right": 866,
+          "bottom": 234,
+          "left": 282
+        },
+        "banner": {
+          "x": 282,
+          "y": 24,
+          "width": 584,
+          "height": 124,
+          "top": 24,
+          "right": 866,
+          "bottom": 148,
+          "left": 282
+        },
+        "heatmap": {
+          "x": 280,
+          "y": 254,
+          "width": 588,
+          "height": 230,
+          "top": 254,
+          "right": 868,
+          "bottom": 484,
+          "left": 280
+        },
+        "header": {
+          "x": 298.16668701171875,
+          "y": 179,
+          "width": 57.40625,
+          "height": 20,
+          "top": 179,
+          "right": 355.57293701171875,
+          "bottom": 199,
+          "left": 298.16668701171875
+        },
+        "button": {
+          "x": 298.16668701171875,
+          "y": 201,
+          "width": 63,
+          "height": 18,
+          "top": 201,
+          "right": 361.16668701171875,
+          "bottom": 219,
+          "left": 298.16668701171875
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 692.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 736.8333740234375,
+              "bottom": 223.75,
+              "left": 692.8333740234375
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 748.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 792.8333740234375,
+              "bottom": 223.75,
+              "left": 748.8333740234375
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 804.8333740234375,
+              "y": 174.25,
+              "width": 44,
+              "height": 49.5,
+              "top": 174.25,
+              "right": 848.8333740234375,
+              "bottom": 223.75,
+              "left": 804.8333740234375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "gallery fits narrow window without horizontal overflow",
+      "pass": true
+    },
+    {
+      "name": "English labels fit",
+      "pass": true,
+      "details": {
+        "viewport": {
+          "width": 1440,
+          "height": 960,
+          "dpr": 1.5
+        },
+        "case": {
+          "x": 805.6146240234375,
+          "y": 24,
+          "width": 300.375,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 1105.9896240234375,
+          "bottom": 148.33333587646484,
+          "left": 805.6146240234375
+        },
+        "banner": {
+          "x": 294,
+          "y": 24,
+          "width": 495.6145935058594,
+          "height": 124.33333587646484,
+          "top": 24,
+          "right": 789.6145935058594,
+          "bottom": 148.33333587646484,
+          "left": 294
+        },
+        "heatmap": {
+          "x": 292,
+          "y": 168.33334350585938,
+          "width": 816,
+          "height": 230,
+          "top": 168.33334350585938,
+          "right": 1108,
+          "bottom": 398.3333435058594,
+          "left": 292
+        },
+        "header": {
+          "x": 821.78125,
+          "y": 36.16666793823242,
+          "width": 141.92709350585938,
+          "height": 20,
+          "top": 36.16666793823242,
+          "right": 963.7083435058594,
+          "bottom": 56.16666793823242,
+          "left": 821.78125
+        },
+        "button": {
+          "x": 1032.90625,
+          "y": 37.16666793823242,
+          "width": 56.91666793823242,
+          "height": 18,
+          "top": 37.16666793823242,
+          "right": 1089.8229179382324,
+          "bottom": 55.16666793823242,
+          "left": 1032.90625
+        },
+        "images": [
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+            "box": {
+              "x": 828.78125,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 898.78125,
+              "bottom": 138.41666793823242,
+              "left": 828.78125
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+            "box": {
+              "x": 920.7916870117188,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 990.7916870117188,
+              "bottom": 138.41666793823242,
+              "left": 920.7916870117188
+            }
+          },
+          {
+            "loaded": true,
+            "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+            "box": {
+              "x": 1012.8021240234375,
+              "y": 59.91666793823242,
+              "width": 70,
+              "height": 78.5,
+              "top": 59.91666793823242,
+              "right": 1082.8021240234375,
+              "bottom": 138.41666793823242,
+              "left": 1012.8021240234375
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "English labels translated",
+      "pass": true
+    },
+    {
+      "name": "leaving archive removes gallery and releases background",
+      "pass": true
+    },
+    {
+      "name": "route exit disposes preview resources",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true,
+      "details": []
+    }
+  ],
+  "desktop": {
+    "viewport": {
+      "width": 1441,
+      "height": 961,
+      "dpr": 1.5
+    },
+    "case": {
+      "x": 806.4479370117188,
+      "y": 24,
+      "width": 300.875,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 1107.3229370117188,
+      "bottom": 148.33333587646484,
+      "left": 806.4479370117188
+    },
+    "banner": {
+      "x": 294,
+      "y": 24,
+      "width": 496.44793701171875,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 790.4479370117188,
+      "bottom": 148.33333587646484,
+      "left": 294
+    },
+    "heatmap": {
+      "x": 292,
+      "y": 168.33334350585938,
+      "width": 817.3333740234375,
+      "height": 230,
+      "top": 168.33334350585938,
+      "right": 1109.3333740234375,
+      "bottom": 398.3333435058594,
+      "left": 292
+    },
+    "header": {
+      "x": 822.6146240234375,
+      "y": 36.16666793823242,
+      "width": 57.40625,
+      "height": 20,
+      "top": 36.16666793823242,
+      "right": 880.0208740234375,
+      "bottom": 56.16666793823242,
+      "left": 822.6146240234375
+    },
+    "button": {
+      "x": 1028.15625,
+      "y": 37.16666793823242,
+      "width": 63,
+      "height": 18,
+      "top": 37.16666793823242,
+      "right": 1091.15625,
+      "bottom": 55.16666793823242,
+      "left": 1028.15625
+    },
+    "images": [
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+        "box": {
+          "x": 829.6979370117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 899.6979370117188,
+          "bottom": 138.41666793823242,
+          "left": 829.6979370117188
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+        "box": {
+          "x": 921.875,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 991.875,
+          "bottom": 138.41666793823242,
+          "left": 921.875
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+        "box": {
+          "x": 1014.0521240234375,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 1084.0521240234375,
+          "bottom": 138.41666793823242,
+          "left": 1014.0521240234375
+        }
+      }
+    ]
+  },
+  "compact": {
+    "viewport": {
+      "width": 1102,
+      "height": 802,
+      "dpr": 1.5
+    },
+    "case": {
+      "x": 774.4896240234375,
+      "y": 24,
+      "width": 281.5,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 1055.9896240234375,
+      "bottom": 148.33333587646484,
+      "left": 774.4896240234375
+    },
+    "banner": {
+      "x": 294,
+      "y": 24,
+      "width": 464.4895935058594,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 758.4895935058594,
+      "bottom": 148.33333587646484,
+      "left": 294
+    },
+    "heatmap": {
+      "x": 292,
+      "y": 168.33334350585938,
+      "width": 766,
+      "height": 230,
+      "top": 168.33334350585938,
+      "right": 1058,
+      "bottom": 398.3333435058594,
+      "left": 292
+    },
+    "header": {
+      "x": 790.65625,
+      "y": 36.16666793823242,
+      "width": 57.40625,
+      "height": 20,
+      "top": 36.16666793823242,
+      "right": 848.0625,
+      "bottom": 56.16666793823242,
+      "left": 790.65625
+    },
+    "button": {
+      "x": 976.8229370117188,
+      "y": 37.16666793823242,
+      "width": 63,
+      "height": 18,
+      "top": 37.16666793823242,
+      "right": 1039.8229370117188,
+      "bottom": 55.16666793823242,
+      "left": 976.8229370117188
+    },
+    "images": [
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+        "box": {
+          "x": 794.5104370117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 864.5104370117188,
+          "bottom": 138.41666793823242,
+          "left": 794.5104370117188
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+        "box": {
+          "x": 880.2291870117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 950.2291870117188,
+          "bottom": 138.41666793823242,
+          "left": 880.2291870117188
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+        "box": {
+          "x": 965.9479370117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 1035.9479370117188,
+          "bottom": 138.41666793823242,
+          "left": 965.9479370117188
+        }
+      }
+    ]
+  },
+  "narrow": {
+    "viewport": {
+      "width": 900,
+      "height": 760,
+      "dpr": 1.5
+    },
+    "case": {
+      "x": 282,
+      "y": 164,
+      "width": 584,
+      "height": 70,
+      "top": 164,
+      "right": 866,
+      "bottom": 234,
+      "left": 282
+    },
+    "banner": {
+      "x": 282,
+      "y": 24,
+      "width": 584,
+      "height": 124,
+      "top": 24,
+      "right": 866,
+      "bottom": 148,
+      "left": 282
+    },
+    "heatmap": {
+      "x": 280,
+      "y": 254,
+      "width": 588,
+      "height": 230,
+      "top": 254,
+      "right": 868,
+      "bottom": 484,
+      "left": 280
+    },
+    "header": {
+      "x": 298.16668701171875,
+      "y": 179,
+      "width": 57.40625,
+      "height": 20,
+      "top": 179,
+      "right": 355.57293701171875,
+      "bottom": 199,
+      "left": 298.16668701171875
+    },
+    "button": {
+      "x": 298.16668701171875,
+      "y": 201,
+      "width": 63,
+      "height": 18,
+      "top": 201,
+      "right": 361.16668701171875,
+      "bottom": 219,
+      "left": 298.16668701171875
+    },
+    "images": [
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+        "box": {
+          "x": 692.8333740234375,
+          "y": 174.25,
+          "width": 44,
+          "height": 49.5,
+          "top": 174.25,
+          "right": 736.8333740234375,
+          "bottom": 223.75,
+          "left": 692.8333740234375
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+        "box": {
+          "x": 748.8333740234375,
+          "y": 174.25,
+          "width": 44,
+          "height": 49.5,
+          "top": 174.25,
+          "right": 792.8333740234375,
+          "bottom": 223.75,
+          "left": 748.8333740234375
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+        "box": {
+          "x": 804.8333740234375,
+          "y": 174.25,
+          "width": 44,
+          "height": 49.5,
+          "top": 174.25,
+          "right": 848.8333740234375,
+          "bottom": 223.75,
+          "left": 804.8333740234375
+        }
+      }
+    ]
+  },
+  "english": {
+    "viewport": {
+      "width": 1440,
+      "height": 960,
+      "dpr": 1.5
+    },
+    "case": {
+      "x": 805.6146240234375,
+      "y": 24,
+      "width": 300.375,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 1105.9896240234375,
+      "bottom": 148.33333587646484,
+      "left": 805.6146240234375
+    },
+    "banner": {
+      "x": 294,
+      "y": 24,
+      "width": 495.6145935058594,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 789.6145935058594,
+      "bottom": 148.33333587646484,
+      "left": 294
+    },
+    "heatmap": {
+      "x": 292,
+      "y": 168.33334350585938,
+      "width": 816,
+      "height": 230,
+      "top": 168.33334350585938,
+      "right": 1108,
+      "bottom": 398.3333435058594,
+      "left": 292
+    },
+    "header": {
+      "x": 821.78125,
+      "y": 36.16666793823242,
+      "width": 141.92709350585938,
+      "height": 20,
+      "top": 36.16666793823242,
+      "right": 963.7083435058594,
+      "bottom": 56.16666793823242,
+      "left": 821.78125
+    },
+    "button": {
+      "x": 1032.90625,
+      "y": 37.16666793823242,
+      "width": 56.91666793823242,
+      "height": 18,
+      "top": 37.16666793823242,
+      "right": 1089.8229179382324,
+      "bottom": 55.16666793823242,
+      "left": 1032.90625
+    },
+    "images": [
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/hours-100-lit.png",
+        "box": {
+          "x": 828.78125,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 898.78125,
+          "bottom": 138.41666793823242,
+          "left": 828.78125
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/days-30-lit.png",
+        "box": {
+          "x": 920.7916870117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 990.7916870117188,
+          "bottom": 138.41666793823242,
+          "left": 920.7916870117188
+        }
+      },
+      {
+        "loaded": true,
+        "src": "/features/archive/assets/milestones/materials/previews/albums-1-lit.png",
+        "box": {
+          "x": 1012.8021240234375,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 1082.8021240234375,
+          "bottom": 138.41666793823242,
+          "left": 1012.8021240234375
+        }
+      }
+    ]
+  },
+  "errors": [
+    "[intlify] Not found 'settings.musicLibrary.addFolder' key in 'zh' locale messages.",
+    "[intlify] Not found 'settings.musicLibrary.addFolder' key in 'en' locale messages.",
+    "[intlify] Fall back to translate 'settings.musicLibrary.addFolder' key with 'zh-Hans' locale.",
+    "[intlify] Fall back to translate 'settings.musicLibrary.addFolder' key with 'zh' locale.",
+    "[intlify] Not found 'settings.musicLibrary.addFolder' key in 'zh' locale messages."
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "initial catalogue reflects legacy baseline rather than a global appearance toggle",
+      "pass": true
+    },
+    {
+      "name": "legacy hours baseline remains below ten hours",
+      "pass": true
+    },
+    {
+      "name": "locked badge can be inspected with its real progress",
+      "pass": true
+    },
+    {
+      "name": "real playback advances elapsed hours and the one-hour listening day",
+      "pass": true
+    },
+    {
+      "name": "two real track playbacks complete the local album but title Live does not classify it",
+      "pass": true
+    },
+    {
+      "name": "paused transport stops accruing actual time",
+      "pass": true
+    },
+    {
+      "name": "lit and unlit badges coexist in fixed milestone order",
+      "pass": true
+    },
+    {
+      "name": "earned badge exposes achieved caption",
+      "pass": true
+    },
+    {
+      "name": "direct navigation crosses earned and unearned models and restores locked progress",
+      "pass": true
+    },
+    {
+      "name": "three-line achievement caption fits the minimum viewport",
+      "pass": true
+    },
+    {
+      "name": "days series uses one qualifying day per local date",
+      "pass": true
+    },
+    {
+      "name": "album series distinguishes completed album from completed live album",
+      "pass": true
+    },
+    {
+      "name": "all genres containing Live activates live-album completion",
+      "pass": true
+    },
+    {
+      "name": "adding an unheard track revokes both album achievements",
+      "pass": true
+    },
+    {
+      "name": "reset updates the visible box to unearned",
+      "pass": true
+    },
+    {
+      "name": "delayed pre-reset batch is rejected without restoring achievements",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-achievements\\isolated-profile\\profile-nny4t5"
+}

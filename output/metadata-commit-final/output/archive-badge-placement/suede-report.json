@@ -1,0 +1,473 @@
+{
+  "scope": "Current full renderer and production archive repository queries; readonly local database; artwork cache read-only; all other APIs inert preview responses; temporary profile; no playback. Proposal images inject temporary DOM/CSS only; badge examples do not indicate actual awards.",
+  "profile": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-archive-placement-XA43KR",
+  "desktop": {
+    "viewport": {
+      "width": 1441,
+      "height": 961,
+      "dpr": 1.5
+    },
+    "theme": "dark",
+    "blocks": {
+      ".archive-page": {
+        "x": 260,
+        "y": 0,
+        "width": 893.3333740234375,
+        "height": 961.3333740234375,
+        "top": 0,
+        "right": 1153.3333740234375,
+        "bottom": 961.3333740234375,
+        "left": 260,
+        "scrollHeight": 1231,
+        "clientHeight": 961
+      },
+      ".archive-season-banner": {
+        "x": 294,
+        "y": 24,
+        "width": 813.3333740234375,
+        "height": 124,
+        "top": 24,
+        "right": 1107.3333740234375,
+        "bottom": 148,
+        "left": 294,
+        "scrollHeight": 124,
+        "clientHeight": 124
+      },
+      ".annual-heatmap": {
+        "x": 292,
+        "y": 168,
+        "width": 817.3333740234375,
+        "height": 230,
+        "top": 168,
+        "right": 1109.3333740234375,
+        "bottom": 398,
+        "left": 292,
+        "scrollHeight": 230,
+        "clientHeight": 230
+      },
+      ".archive-day-albums": {
+        "x": 292,
+        "y": 426,
+        "width": 817.3333740234375,
+        "height": 677.3333740234375,
+        "top": 426,
+        "right": 1109.3333740234375,
+        "bottom": 1103.3333740234375,
+        "left": 292,
+        "scrollHeight": 677,
+        "clientHeight": 677
+      },
+      ".archive-day-albums-header": {
+        "x": 292,
+        "y": 454.66668701171875,
+        "width": 817.3333740234375,
+        "height": 48,
+        "top": 454.66668701171875,
+        "right": 1109.3333740234375,
+        "bottom": 502.66668701171875,
+        "left": 292,
+        "scrollHeight": 48,
+        "clientHeight": 48
+      },
+      ".archive-day-albums-panel": {
+        "x": 292,
+        "y": 526.6666870117188,
+        "width": 817.3333740234375,
+        "height": 420,
+        "top": 526.6666870117188,
+        "right": 1109.3333740234375,
+        "bottom": 946.6666870117188,
+        "left": 292,
+        "scrollHeight": 420,
+        "clientHeight": 420
+      },
+      ".archive-day-tracks-panel": {
+        "x": 292,
+        "y": 966.6666870117188,
+        "width": 817.3333740234375,
+        "height": 136.6666717529297,
+        "top": 966.6666870117188,
+        "right": 1109.3333740234375,
+        "bottom": 1103.3333587646484,
+        "left": 292,
+        "scrollHeight": 136,
+        "clientHeight": 136
+      }
+    },
+    "date": "2026-10-24",
+    "albums": 1,
+    "text": "2026 · 年度总结\n2\n0\n2\n6\n1,538 次播放\n65 个活跃日\n1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月\n周一\n周二\n周三\n周四\n周五\n周六\n周日\n今天\n少\n多\n10.24\n星期六\n2026\n当日专辑\n01\n李宗盛的理性与感性作品音乐会\n李宗盛\n常听曲目\n01\n\n当爱已成往事\n\n李宗盛 & 梁静茹\n\n1 次"
+  },
+  "compact": {
+    "viewport": {
+      "width": 1102,
+      "height": 802,
+      "dpr": 1.5
+    },
+    "theme": "dark",
+    "blocks": {
+      ".archive-page": {
+        "x": 260,
+        "y": 0,
+        "width": 842,
+        "height": 802,
+        "top": 0,
+        "right": 1102,
+        "bottom": 802,
+        "left": 260,
+        "scrollHeight": 1231,
+        "clientHeight": 802
+      },
+      ".archive-season-banner": {
+        "x": 294,
+        "y": 24,
+        "width": 762,
+        "height": 124,
+        "top": 24,
+        "right": 1056,
+        "bottom": 148,
+        "left": 294,
+        "scrollHeight": 124,
+        "clientHeight": 124
+      },
+      ".annual-heatmap": {
+        "x": 292,
+        "y": 168,
+        "width": 766,
+        "height": 230,
+        "top": 168,
+        "right": 1058,
+        "bottom": 398,
+        "left": 292,
+        "scrollHeight": 230,
+        "clientHeight": 230
+      },
+      ".archive-day-albums": {
+        "x": 292,
+        "y": 426,
+        "width": 766,
+        "height": 677.3333740234375,
+        "top": 426,
+        "right": 1058,
+        "bottom": 1103.3333740234375,
+        "left": 292,
+        "scrollHeight": 677,
+        "clientHeight": 677
+      },
+      ".archive-day-albums-header": {
+        "x": 292,
+        "y": 454.66668701171875,
+        "width": 766,
+        "height": 48,
+        "top": 454.66668701171875,
+        "right": 1058,
+        "bottom": 502.66668701171875,
+        "left": 292,
+        "scrollHeight": 48,
+        "clientHeight": 48
+      },
+      ".archive-day-albums-panel": {
+        "x": 292,
+        "y": 526.6666870117188,
+        "width": 766,
+        "height": 420,
+        "top": 526.6666870117188,
+        "right": 1058,
+        "bottom": 946.6666870117188,
+        "left": 292,
+        "scrollHeight": 420,
+        "clientHeight": 420
+      },
+      ".archive-day-tracks-panel": {
+        "x": 292,
+        "y": 966.6666870117188,
+        "width": 766,
+        "height": 136.6666717529297,
+        "top": 966.6666870117188,
+        "right": 1058,
+        "bottom": 1103.3333587646484,
+        "left": 292,
+        "scrollHeight": 136,
+        "clientHeight": 136
+      }
+    },
+    "date": "2026-10-24",
+    "albums": 1,
+    "text": "2026 · 年度总结\n2\n0\n2\n6\n1,538 次播放\n65 个活跃日\n1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月\n周一\n周二\n周三\n周四\n周五\n周六\n周日\n今天\n少\n多\n10.24\n星期六\n2026\n当日专辑\n01\n李宗盛的理性与感性作品音乐会\n李宗盛\n常听曲目\n01\n\n当爱已成往事\n\n李宗盛 & 梁静茹\n\n1 次"
+  },
+  "proposedDesktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 960,
+      "dpr": 1.5
+    },
+    "theme": "dark",
+    "blocks": {
+      ".archive-page": {
+        "x": 260,
+        "y": 0,
+        "width": 892,
+        "height": 960,
+        "top": 0,
+        "right": 1152,
+        "bottom": 960,
+        "left": 260,
+        "scrollHeight": 1232,
+        "clientHeight": 960
+      },
+      ".archive-season-banner": {
+        "x": 294,
+        "y": 24,
+        "width": 495.6145935058594,
+        "height": 124.33333587646484,
+        "top": 24,
+        "right": 789.6145935058594,
+        "bottom": 148.33333587646484,
+        "left": 294,
+        "scrollHeight": 124,
+        "clientHeight": 124
+      },
+      ".annual-heatmap": {
+        "x": 292,
+        "y": 168.33334350585938,
+        "width": 816,
+        "height": 230,
+        "top": 168.33334350585938,
+        "right": 1108,
+        "bottom": 398.3333435058594,
+        "left": 292,
+        "scrollHeight": 230,
+        "clientHeight": 230
+      },
+      ".archive-day-albums": {
+        "x": 292,
+        "y": 426.3333435058594,
+        "width": 816,
+        "height": 677.3333740234375,
+        "top": 426.3333435058594,
+        "right": 1108,
+        "bottom": 1103.6667175292969,
+        "left": 292,
+        "scrollHeight": 677,
+        "clientHeight": 677
+      },
+      ".archive-day-albums-header": {
+        "x": 292,
+        "y": 455,
+        "width": 816,
+        "height": 48,
+        "top": 455,
+        "right": 1108,
+        "bottom": 503,
+        "left": 292,
+        "scrollHeight": 48,
+        "clientHeight": 48
+      },
+      ".archive-day-albums-panel": {
+        "x": 292,
+        "y": 527,
+        "width": 816,
+        "height": 420,
+        "top": 527,
+        "right": 1108,
+        "bottom": 947,
+        "left": 292,
+        "scrollHeight": 420,
+        "clientHeight": 420
+      },
+      ".archive-day-tracks-panel": {
+        "x": 292,
+        "y": 967,
+        "width": 816,
+        "height": 136.6666717529297,
+        "top": 967,
+        "right": 1108,
+        "bottom": 1103.6666717529297,
+        "left": 292,
+        "scrollHeight": 136,
+        "clientHeight": 136
+      }
+    },
+    "date": "2026-10-24",
+    "albums": 1,
+    "text": "2026 · 年度总结\n聆听纪念\n查看全部\n2\n0\n2\n6\n1,538 次播放\n65 个活跃日\n1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月\n周一\n周二\n周三\n周四\n周五\n周六\n周日\n今天\n少\n多\n10.24\n星期六\n2026\n当日专辑\n01\n李宗盛的理性与感性作品音乐会\n李宗盛\n常听曲目\n01\n\n当爱已成往事\n\n李宗盛 & 梁静茹\n\n1 次"
+  },
+  "proposedCompact": {
+    "viewport": {
+      "width": 1100,
+      "height": 800,
+      "dpr": 1.5
+    },
+    "theme": "dark",
+    "blocks": {
+      ".archive-page": {
+        "x": 260,
+        "y": 0,
+        "width": 840,
+        "height": 800,
+        "top": 0,
+        "right": 1100,
+        "bottom": 800,
+        "left": 260,
+        "scrollHeight": 1232,
+        "clientHeight": 800
+      },
+      ".archive-season-banner": {
+        "x": 294,
+        "y": 24,
+        "width": 463.2395935058594,
+        "height": 124.33333587646484,
+        "top": 24,
+        "right": 757.2395935058594,
+        "bottom": 148.33333587646484,
+        "left": 294,
+        "scrollHeight": 124,
+        "clientHeight": 124
+      },
+      ".annual-heatmap": {
+        "x": 292,
+        "y": 168.33334350585938,
+        "width": 764,
+        "height": 230,
+        "top": 168.33334350585938,
+        "right": 1056,
+        "bottom": 398.3333435058594,
+        "left": 292,
+        "scrollHeight": 230,
+        "clientHeight": 230
+      },
+      ".archive-day-albums": {
+        "x": 292,
+        "y": 426.3333435058594,
+        "width": 764,
+        "height": 677.3333740234375,
+        "top": 426.3333435058594,
+        "right": 1056,
+        "bottom": 1103.6667175292969,
+        "left": 292,
+        "scrollHeight": 677,
+        "clientHeight": 677
+      },
+      ".archive-day-albums-header": {
+        "x": 292,
+        "y": 455,
+        "width": 764,
+        "height": 48,
+        "top": 455,
+        "right": 1056,
+        "bottom": 503,
+        "left": 292,
+        "scrollHeight": 48,
+        "clientHeight": 48
+      },
+      ".archive-day-albums-panel": {
+        "x": 292,
+        "y": 527,
+        "width": 764,
+        "height": 420,
+        "top": 527,
+        "right": 1056,
+        "bottom": 947,
+        "left": 292,
+        "scrollHeight": 420,
+        "clientHeight": 420
+      },
+      ".archive-day-tracks-panel": {
+        "x": 292,
+        "y": 967,
+        "width": 764,
+        "height": 136.6666717529297,
+        "top": 967,
+        "right": 1056,
+        "bottom": 1103.6666717529297,
+        "left": 292,
+        "scrollHeight": 136,
+        "clientHeight": 136
+      }
+    },
+    "date": "2026-10-24",
+    "albums": 1,
+    "text": "2026 · 年度总结\n聆听纪念\n查看全部\n2\n0\n2\n6\n1,538 次播放\n65 个活跃日\n1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月\n周一\n周二\n周三\n周四\n周五\n周六\n周日\n今天\n少\n多\n10.24\n星期六\n2026\n当日专辑\n01\n李宗盛的理性与感性作品音乐会\n李宗盛\n常听曲目\n01\n\n当爱已成往事\n\n李宗盛 & 梁静茹\n\n1 次"
+  },
+  "material": {
+    "box": {
+      "x": 773.2396240234375,
+      "y": 24,
+      "width": 280.75,
+      "height": 124.33333587646484,
+      "top": 24,
+      "right": 1053.9896240234375,
+      "bottom": 148.33333587646484,
+      "left": 773.2396240234375
+    },
+    "header": {
+      "x": 789.40625,
+      "y": 36.16666793823242,
+      "width": 248.4166717529297,
+      "height": 20,
+      "top": 36.16666793823242,
+      "right": 1037.8229217529297,
+      "bottom": 56.16666793823242,
+      "left": 789.40625
+    },
+    "images": [
+      {
+        "loaded": true,
+        "box": {
+          "x": 793.1354370117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 863.1354370117188,
+          "bottom": 138.41666793823242,
+          "left": 793.1354370117188
+        }
+      },
+      {
+        "loaded": true,
+        "box": {
+          "x": 878.6041870117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 948.6041870117188,
+          "bottom": 138.41666793823242,
+          "left": 878.6041870117188
+        }
+      },
+      {
+        "loaded": true,
+        "box": {
+          "x": 964.0729370117188,
+          "y": 59.91666793823242,
+          "width": 70,
+          "height": 78.5,
+          "top": 59.91666793823242,
+          "right": 1034.0729370117188,
+          "bottom": 138.41666793823242,
+          "left": 964.0729370117188
+        }
+      }
+    ]
+  },
+  "requests": [
+    "app.setLocale",
+    "window.getMaximized",
+    "library.getRoots",
+    "library.getScanStatus",
+    "playlists.listSidebarItems",
+    "smartPlaylists.list",
+    "library.getStats",
+    "library.getTrackPage",
+    "window.getVisibility",
+    "app.claimStartupAlbum",
+    "archive.getAnnualPlayCounts",
+    "archive.getDayTopAlbums",
+    "archive.getDayTopTracks"
+  ],
+  "errors": [
+    "[intlify] Not found 'settings.musicLibrary.addFolder' key in 'zh' locale messages."
+  ]
+}

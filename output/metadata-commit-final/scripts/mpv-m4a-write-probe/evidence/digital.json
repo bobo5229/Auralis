@@ -1,0 +1,379 @@
+{
+  "root": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-Wgrk5L",
+  "mode": "digital",
+  "results": [
+    {
+      "name": "aac-48000-2-back",
+      "frames": 576512,
+      "expectedFrames": 576512,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 12842.1985,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.112,
+          "afterTime": 2.346667,
+          "milliseconds": 232.31579999999985,
+          "oldId": "3659174698250582",
+          "newId": "3377699721539930",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.16,
+          "afterTime": 4.394667,
+          "milliseconds": 234.08259999999973,
+          "oldId": "3377699721539930",
+          "newId": "3377699721539931",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.229333,
+          "afterTime": 6.464,
+          "milliseconds": 234.58899999999994,
+          "oldId": "3377699721539931",
+          "newId": "3659174698250586",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "free", "mdat", "moov"]
+    },
+    {
+      "name": "aac-48000-2-front",
+      "frames": 576512,
+      "expectedFrames": 576512,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 25398.0949,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.133333,
+          "afterTime": 2.368,
+          "milliseconds": 216.30099999999948,
+          "oldId": "3096224744829277",
+          "newId": "3096224744829281",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.16,
+          "afterTime": 4.394667,
+          "milliseconds": 234.53989999999976,
+          "oldId": "3096224744829281",
+          "newId": "3377699721539938",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.208,
+          "afterTime": 6.442667,
+          "milliseconds": 234.54320000000007,
+          "oldId": "3377699721539938",
+          "newId": "3659174698250593",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "moov", "free", "mdat"]
+    },
+    {
+      "name": "aac-44100-1-back",
+      "frames": 529408,
+      "expectedFrames": 529408,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 37766.6231,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.159456,
+          "afterTime": 2.391655,
+          "milliseconds": 232.27999999999884,
+          "oldId": "3659174698250596",
+          "newId": "3096224744829290",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.133152,
+          "afterTime": 4.365351,
+          "milliseconds": 234.35379999999714,
+          "oldId": "3096224744829290",
+          "newId": "3377699721539947",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.199728,
+          "afterTime": 6.431927,
+          "milliseconds": 230.7628999999979,
+          "oldId": "3377699721539947",
+          "newId": "3659174698250602",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "free", "mdat", "moov"]
+    },
+    {
+      "name": "aac-44100-1-front",
+      "frames": 529408,
+      "expectedFrames": 529408,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 50148.1631,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.159456,
+          "afterTime": 2.391655,
+          "milliseconds": 234.40789999999834,
+          "oldId": "3096224744829298",
+          "newId": "4503599628382571",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.226032,
+          "afterTime": 4.435011,
+          "milliseconds": 217.78789999999572,
+          "oldId": "4503599628382571",
+          "newId": "3659174698250604",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.176508,
+          "afterTime": 6.408707,
+          "milliseconds": 233.30490000000282,
+          "oldId": "3659174698250604",
+          "newId": "5066549581803883",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "moov", "free", "mdat"]
+    },
+    {
+      "name": "alac-48000-2-back",
+      "frames": 576000,
+      "expectedFrames": 576000,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 62470.8556,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.304,
+          "afterTime": 2.474667,
+          "milliseconds": 170.9820999999938,
+          "oldId": "3377699721539954",
+          "newId": "13510798882344466",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.181333,
+          "afterTime": 4.352,
+          "milliseconds": 170.96749999999884,
+          "oldId": "13510798882344466",
+          "newId": "3940649674961276",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.229333,
+          "afterTime": 6.4,
+          "milliseconds": 170.12049999999726,
+          "oldId": "3940649674961276",
+          "newId": "13792273859055122",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "free", "mdat", "moov"]
+    },
+    {
+      "name": "alac-48000-2-front",
+      "frames": 576000,
+      "expectedFrames": 576000,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 74770.919,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.304,
+          "afterTime": 2.474667,
+          "milliseconds": 171.35229999999865,
+          "oldId": "3377699721539966",
+          "newId": "3377699721539970",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.181333,
+          "afterTime": 4.522667,
+          "milliseconds": 344.0048000000097,
+          "oldId": "3377699721539970",
+          "newId": "3377699721539971",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.229333,
+          "afterTime": 6.4,
+          "milliseconds": 171.8744000000006,
+          "oldId": "3377699721539971",
+          "newId": "3659174698250626",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "moov", "free", "mdat"]
+    },
+    {
+      "name": "alac-96000-2-back",
+      "frames": 1152000,
+      "expectedFrames": 1152000,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 87186.9612,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.176,
+          "afterTime": 2.432,
+          "milliseconds": 246.34410000000207,
+          "oldId": "3377699721539974",
+          "newId": "3377699721539978",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.224,
+          "afterTime": 4.48,
+          "milliseconds": 248.3350999999966,
+          "oldId": "3377699721539978",
+          "newId": "3659174698250635",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.144,
+          "afterTime": 6.4,
+          "milliseconds": 263.8402999999962,
+          "oldId": "3659174698250635",
+          "newId": "3377699721539980",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "free", "mdat", "moov"]
+    },
+    {
+      "name": "alac-96000-2-front",
+      "frames": 1152000,
+      "expectedFrames": 1152000,
+      "pcmExact": true,
+      "starts": 1,
+      "ends": [
+        {
+          "at": 99606.6085,
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        }
+      ],
+      "errors": [],
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 2.176,
+          "afterTime": 2.432,
+          "milliseconds": 250.75560000000405,
+          "oldId": "3096224744829327",
+          "newId": "3096224744829331",
+          "titleBytes": 8
+        },
+        {
+          "n": 2,
+          "beforeTime": 4.224,
+          "afterTime": 4.48,
+          "milliseconds": 249.15689999998722,
+          "oldId": "3096224744829331",
+          "newId": "3377699721539988",
+          "titleBytes": 396000
+        },
+        {
+          "n": 3,
+          "beforeTime": 6.144,
+          "afterTime": 6.4,
+          "milliseconds": 261.6508000000031,
+          "oldId": "3377699721539988",
+          "newId": "3377699721539987",
+          "titleBytes": 8
+        }
+      ],
+      "originalAtoms": ["ftyp", "moov", "free", "mdat"]
+    }
+  ],
+  "errors": [],
+  "mpvVersion": "mpv v0.41.0-dev-gc64675679 Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects\r\n built on Sep 22 2026 07:30:14\r\nlibplacebo version: v7.372.0\r\nFFmpeg version: ff04763\r\nFFmpeg library versions:\r\n   libavcodec      62.28.102\r\n   libavdevice     62.3.102\r\n   libavfilter     11.14.102\r\n   libavformat     62.12.102\r\n   libavutil       60.26.102\r\n   libswresample   6.3.102\r\n   libswscale      9.5.102\r\n",
+  "mpvSha256": "acabdf60eee6d3bf92b5dddde2f1371774e1ef1fceab3e674cf7a7f594ddc060",
+  "writerSha256": "6e630f52bbd62591da2f952a27d306cc2e4a5574b2b83765bfcad807a45b96be",
+  "transportSha256": "bced03896577aa51b974f35c61b482098718a2dafd22ecf991d095732fa37455"
+}

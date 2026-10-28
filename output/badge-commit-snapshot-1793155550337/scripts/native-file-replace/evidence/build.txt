@@ -1,0 +1,187 @@
+
+> auralis@1.1.0 prebuild
+> npm run locales:check && npm run build:file-replace
+
+
+> auralis@1.1.0 locales:check
+> node scripts/check-locale-keys.mjs
+
+[locales:check] OK: zh-Hans / en (725 keys)
+
+> auralis@1.1.0 build:file-replace
+> powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/native-file-replace/build.ps1
+
+
+  replace.vcxproj -> D:\VSCode\Auralis\resources\audio\auralis-file-replace.exe
+
+> auralis@1.1.0 build
+> npm run typecheck && electron-vite build
+
+
+> auralis@1.1.0 typecheck
+> vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo
+
+vite v6.4.3 building SSR bundle for production...
+transforming...
+✓ 324 modules transformed.
+rendering chunks...
+out/main/chunks/delimitedValues-HIJsOKN8.js             1.02 kB
+out/main/logging/rollingLogTransport.js                 1.12 kB
+out/main/chunks/resolveArtworkForFile-CZafSatj.js       1.39 kB
+out/main/chunks/AbstractID3Parser-DYBIwSnU.js           1.61 kB
+out/main/features/metadata/metadataRefreshWorker.js     1.64 kB
+out/main/chunks/readStableMetadata-C4mN9gpu.js          2.36 kB
+out/main/features/startupAlbum/startupAlbumWorker.js    3.22 kB
+out/main/chunks/DsfParser-HHCYiU0e.js                   3.59 kB
+out/main/chunks/logSanitizer-BxKsoqIP.js                4.87 kB
+out/main/chunks/rollingLogStore-DH0sUGNn.js             5.06 kB
+out/main/chunks/AiffParser-D78ykSEW.js                  6.21 kB
+out/main/chunks/WavPackParser-SO5f520i.js               7.11 kB
+out/main/chunks/DsdiffParser-BT1a9iXM.js                7.15 kB
+out/main/chunks/MusepackParser-CiA19ExS.js              9.83 kB
+out/main/chunks/WaveParser-C6rfm1E-.js                 10.19 kB
+out/main/chunks/OggParser-UZv9JW9K.js                  13.71 kB
+out/main/chunks/FlacParser-BSzMlb99.js                 14.11 kB
+out/main/features/libraryScan/libraryScanWorker.js     14.79 kB
+out/main/chunks/AsfParser-BcdvbDtz.js                  21.74 kB
+out/main/chunks/MpegParser-DcT5gaXP.js                 22.00 kB
+out/main/chunks/ID3v2Parser-tZ2io2Cm.js                24.56 kB
+out/main/chunks/MatroskaParser-DqTlXF8Y.js             24.99 kB
+out/main/chunks/MP4Parser-CkHLDRqh.js                  38.98 kB
+out/main/chunks/resolveLyricsForFile-kG_Najht.js      256.55 kB
+out/main/chunks/startupAlbum-CXZEuYvm.js              442.42 kB
+out/main/index.js                                     517.30 kB
+✓ built in 1.40s
+vite v6.4.3 building SSR bundle for production...
+transforming...
+✓ 2 modules transformed.
+rendering chunks...
+out/preload/index.cjs  11.32 kB
+✓ built in 41ms
+vite v6.4.3 building for production...
+transforming...
+✓ 986 modules transformed.
+rendering chunks...
+../../out/renderer/index.html                                                2.38 kB
+../../out/renderer/assets/PlusJakartaSans-latin-variable-eXO_dkmS.woff2     27.35 kB
+../../out/renderer/assets/EBGaramond-normal-latin-CRpggXlh.woff2            44.34 kB
+../../out/renderer/assets/EBGaramond-italic-latin-AvGrCMCN.woff2            47.94 kB
+../../out/renderer/assets/artworkPalette.worker-C_VqqE58.js                 54.21 kB
+../../out/renderer/assets/BodoniModa-variable-Bc6UtL-i.woff2                76.26 kB
+../../out/renderer/assets/EBGaramond-italic-latin-ext-CYvIfuu9.woff2        88.58 kB
+../../out/renderer/assets/Allura-Regular-GzSXkOgk.woff2                     89.04 kB
+../../out/renderer/assets/SourceSerif4-normal-latin-ext-HoL-AExg.woff2     100.87 kB
+../../out/renderer/assets/SourceSerif4-italic-latin-ext-BhUEwDRF.woff2     110.32 kB
+../../out/renderer/assets/EBGaramond-normal-latin-ext-B6IpcvL2.woff2       113.93 kB
+../../out/renderer/assets/SourceSerif4-normal-latin-BpEBLj1O.woff2         122.36 kB
+../../out/renderer/assets/SourceSerif4-italic-latin-BOLXpvkj.woff2         130.19 kB
+../../out/renderer/assets/GenRyuMin2TC-EL-BMLItIPf.woff2                 6,963.78 kB
+../../out/renderer/assets/GenRyuMin2TC-L-nsrBkheu.woff2                  7,701.19 kB
+../../out/renderer/assets/GenRyuMin2TC-R-SCh8ZMJT.woff2                  7,852.10 kB
+../../out/renderer/assets/GenRyuMin2TC-H-CDOzg8gA.woff2                  7,969.30 kB
+../../out/renderer/assets/GenRyuMin2TC-M-gLNski3T.woff2                  8,004.38 kB
+../../out/renderer/assets/GenRyuMin2TC-SB-BxXYwGxR.woff2                 8,057.30 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Black-4qD8Wqjt.ttf           8,125.61 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Bold-DTtO5jJ5.ttf            8,159.00 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Medium-C0JYcCxp.ttf          8,227.31 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Regular-DdsgBYS9.ttf         8,261.13 kB
+../../out/renderer/assets/GenRyuMin2TC-B-CIM-bLx4.woff2                  8,310.12 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Light-BQH2noGc.ttf           8,336.36 kB
+../../out/renderer/assets/HarmonyOS_Sans_SC_Thin-C6IJG8X_.ttf            8,409.00 kB
+../../out/renderer/assets/PlayingIndicator-D3A_dQxc.css                      0.36 kB
+../../out/renderer/assets/cardTypography-BZK7D8V5.css                        0.56 kB
+../../out/renderer/assets/librarySearchKeyboard-CjljCtNG.css                 1.51 kB
+../../out/renderer/assets/StartupAlbumOverlay-BirBGB75.css                   4.38 kB
+../../out/renderer/assets/CdAlbumIndexPage-BplMUm5s.css                      6.58 kB
+../../out/renderer/assets/ArchivePage-Ct27Kbo2.css                           7.61 kB
+../../out/renderer/assets/CdViewSwitch-wul673qh.css                          8.55 kB
+../../out/renderer/assets/AlbumsPage-HSK0SENu.css                           10.43 kB
+../../out/renderer/assets/LibraryPage-BpDnBnhD.css                          15.11 kB
+../../out/renderer/assets/AlbumDetailPage-BpXlNYOc.css                      28.40 kB
+../../out/renderer/assets/CdAlbumsPage-BZhkY4ej.css                         33.65 kB
+../../out/renderer/assets/SettingsContent-CfQl6RXb.css                      39.03 kB
+../../out/renderer/assets/App-DeZr_TBT.css                                  90.39 kB
+../../out/renderer/assets/index-DIvnw1S-.css                               161.69 kB
+../../out/renderer/assets/getArtworkUrl-PzJLS-qv.js                          0.07 kB
+../../out/renderer/assets/albumIdentity-BmCew_FC.js                          0.20 kB
+../../out/renderer/assets/formatArtist-DPjCpDhZ.js                           0.21 kB
+../../out/renderer/assets/formatDuration-BbIZgwx8.js                         0.22 kB
+../../out/renderer/assets/albumGridTransitionPlan-RcJlnaO-.js                0.33 kB
+../../out/renderer/assets/usePlayingIconPreference-23_eCsQ-.js               0.41 kB
+../../out/renderer/assets/cdViewSwitchTransition-B1G_adln.js                 0.54 kB
+../../out/renderer/assets/useWindowVisibility-qSot2iAZ.js                    0.68 kB
+../../out/renderer/assets/_plugin-vue_export-helper-BXtNI9HA.js              0.71 kB
+../../out/renderer/assets/albumCatalogIndex-WmfpvZb0.js                      0.87 kB
+../../out/renderer/assets/cardTypography-DGHb5uRa.js                         0.87 kB
+../../out/renderer/assets/index-CWFFCsBh.js                                  1.02 kB
+../../out/renderer/assets/usePageParameters-h1G4ykdE.js                      1.28 kB
+../../out/renderer/assets/albumGrouping-C6XY1bDR.js                          1.35 kB
+../../out/renderer/assets/PlayingIndicator-BwQbLBmg.js                       1.36 kB
+../../out/renderer/assets/routeWarmup-54DouJJt.js                            1.65 kB
+../../out/renderer/assets/librarySearchKeyboard-CY9cxX4G.js                  2.45 kB
+../../out/renderer/assets/formatPlaybackClock-x9jTlX4r.js                    2.89 kB
+../../out/renderer/assets/useArtworkPalette-CEDfvEn0.js                      2.93 kB
+../../out/renderer/assets/routeComponentLoaders-DEp5yFRy.js                  2.95 kB
+../../out/renderer/assets/StartupAlbumOverlay-BfPBW4vX.js                    7.24 kB
+../../out/renderer/assets/CdAlbumIndexPage-DaWDMAED.js                       8.02 kB
+../../out/renderer/assets/AlbumDetailPage-uqi69E2H.js                       21.69 kB
+../../out/renderer/assets/index-C5qssnu_.js                                 22.32 kB
+../../out/renderer/assets/ArchivePage-C03diz9U.js                           22.83 kB
+../../out/renderer/assets/vue-router-CSyiY_lu.js                            26.12 kB
+../../out/renderer/assets/useSongCoverInfoLayout-DW5qQ_Mr.js                40.02 kB
+../../out/renderer/assets/AlbumsPage-DhbpcjJz.js                            41.20 kB
+../../out/renderer/assets/usePlayback-BEaM3ofw.js                           44.64 kB
+../../out/renderer/assets/vue-i18n-ZHsYMtnD.js                              55.88 kB
+../../out/renderer/assets/CdAlbumsPage-BmmyaMSI.js                          65.75 kB
+../../out/renderer/assets/index-Bu0PlG2W.js                                 67.58 kB
+../../out/renderer/assets/SettingsContent-CmZFjnge.js                       82.90 kB
+../../out/renderer/assets/LibraryPage-r94AEfwi.js                          100.28 kB
+../../out/renderer/assets/index-0NEji4zL.js                                143.22 kB
+../../out/renderer/assets/App-BPFsm_pz.js                                  242.88 kB
+../../out/renderer/assets/cardArtwork-CkRY8e53.js                          267.19 kB
+../../out/renderer/assets/CdViewSwitch-D2gWWG7-.js                         306.48 kB
+../../out/renderer/assets/scene-BLt22beL.js                                352.37 kB
+../../out/renderer/assets/amll-core-BVxNNCV9.js                            406.54 kB
+../../out/renderer/assets/useChineseTextDisplay-DeS7wJiO.js              1,103.17 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.93s
+
+> auralis@1.1.0 postbuild
+> npm run check:budget
+
+
+> auralis@1.1.0 check:budget
+> node scripts/check-bundle-budget.mjs
+
+
+========================================
+📦 Auralis 构建资产预算校验 (Bundle Budget Check)
+========================================
+📁 产物目录: D:\VSCode\Auralis\out
+
+🔍 [Renderer JS] (43 个文件)
+   总大小: 3.35 MB / 上限 5.00 MB [✅ 通过]
+   最大单文件: out/renderer/assets/useChineseTextDisplay-DeS7wJiO.js (1.05 MB) / 上限 2.50 MB [✅ 通过]
+
+🔍 [Renderer CSS] (15 个文件)
+   总大小: 401.41 KB / 上限 1.00 MB [✅ 通过]
+   最大单文件: out/renderer/assets/index-DIvnw1S-.css (157.90 KB) / 上限 500.00 KB [✅ 通过]
+
+🔍 [Renderer Fonts] (24 个文件)
+   总大小: 100.45 MB / 上限 110.00 MB [✅ 通过]
+   最大单文件: out/renderer/assets/HarmonyOS_Sans_SC_Thin-C6IJG8X_.ttf (8.02 MB) / 上限 20.00 MB [✅ 通过]
+
+🔍 [Main Process JS] (26 个文件)
+   总大小: 1.39 MB / 上限 5.00 MB [✅ 通过]
+   最大单文件: out/main/index.js (505.18 KB) / 上限 2.50 MB [✅ 通过]
+
+🔍 [Preload JS] (1 个文件)
+   总大小: 11.05 KB / 上限 1.00 MB [✅ 通过]
+   最大单文件: out/preload/index.cjs (11.05 KB) / 上限 500.00 KB [✅ 通过]
+
+========================================
+✨ 资产预算校验全部通过！所有生成资源均在预算控制范围内。

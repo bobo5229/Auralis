@@ -1,0 +1,18 @@
+
+ RUN  v3.2.4 D:/VSCode/Auralis
+
+ ✓ src/main/features/audio/playbackFileCoordinator.test.ts (18 tests) 17ms
+ ✓ src/main/features/audio/m4aFileReplacement.test.ts (5 tests) 71ms
+ ✓ src/main/features/metadata/metadataWatchService.boundaries.test.ts (15 tests) 17ms
+ ✓ src/main/features/metadata/metadataRefreshService.test.ts (35 tests) 2044ms
+ ✓ src/renderer/features/playback/runtime/playbackController.gapless.test.ts (23 tests) 2302ms
+ ✓ src/main/features/audio/playbackSpectrumService.test.ts (6 tests) 4285ms
+   ✓ timestamped playback spectrum using real FFmpeg > does not lose phase-opposed stereo music when analyzing its frequency content  706ms
+   ✓ timestamped playback spectrum using real FFmpeg > follows low/high/silent sections and seeks, with bounded buffers and no paused work  2265ms
+   ✓ timestamped playback spectrum using real FFmpeg > drops replaced tracks, old revisions and disabled subscriptions  1087ms
+
+ Test Files  6 passed (6)
+      Tests  102 passed (102)
+   Start at  01:54:16
+   Duration  5.42s (transform 870ms, setup 0ms, collect 1.45s, tests 8.74s, environment 1ms, prepare 2.95s)
+

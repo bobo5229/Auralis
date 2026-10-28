@@ -1,0 +1,115 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "actual preload uses an isolated database",
+      "pass": true
+    },
+    {
+      "name": "aluminium case is the entire dialog surface",
+      "pass": true,
+      "detail": {
+        "panel": {
+          "x": 160.6666717529297,
+          "y": 227.6666717529297,
+          "width": 1120,
+          "height": 446,
+          "top": 227.6666717529297,
+          "right": 1280.6666717529297,
+          "bottom": 673.6666717529297,
+          "left": 160.6666717529297
+        },
+        "box": {
+          "x": 160.6666717529297,
+          "y": 227.6666717529297,
+          "width": 1120,
+          "height": 446,
+          "top": 227.6666717529297,
+          "right": 1280.6666717529297,
+          "bottom": 673.6666717529297,
+          "left": 160.6666717529297
+        },
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "0px",
+        "shadow": "none",
+        "focus": "case-close"
+      }
+    },
+    {
+      "name": "no standard header, explanatory note or middle-dot connector",
+      "pass": true
+    },
+    {
+      "name": "controls live inside the metal rim with initial focus on close",
+      "pass": true
+    },
+    {
+      "name": "category changes show five day badges",
+      "pass": true
+    },
+    {
+      "name": "horizontal arrow browsing works",
+      "pass": true
+    },
+    {
+      "name": "appearance switch changes static assets",
+      "pass": true
+    },
+    {
+      "name": "click still starts the inspection",
+      "pass": true
+    },
+    {
+      "name": "failed inspection has a visible icon and accessible status without a text paragraph",
+      "pass": true
+    },
+    {
+      "name": "inspection can retry and clears the compact failure indicator",
+      "pass": true
+    },
+    {
+      "name": "continuous inspection retains the same category",
+      "pass": true
+    },
+    {
+      "name": "first Escape returns to the box and original button",
+      "pass": true
+    },
+    {
+      "name": "second Escape closes the box and restores archive focus",
+      "pass": true
+    },
+    {
+      "name": "minimum window fits whole case without inner vertical scrolling",
+      "pass": true
+    },
+    {
+      "name": "rim close button dismisses the collection",
+      "pass": true
+    },
+    {
+      "name": "existing settings retains its default dialog header and close button",
+      "pass": true
+    },
+    {
+      "name": "default dialog still restores settings trigger focus",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-case-shell\\isolated-profile\\profile-p11vTT",
+  "base": "7d4da9e46321c991dfc05c67367543a3d562b4fb",
+  "sourceHashes": {
+    "src/renderer/shared/dialog/AppDialog.vue": "59a57c63d2f6b431e01697424cb3856dfb2d46feae4a5c8f24e23c0d44759e70",
+    "src/renderer/features/archive/components/ArchiveMilestoneGallery.vue": "7db58fa8576eeabaa4a07bd06aefc39c57dd3cc3febebe29bae4d47633528317",
+    "src/renderer/features/archive/styles/badgeGallery.css": "703415b5e0bff05a67c5f3fb84aea71bdbb4cc2a0dc43b322137276405a7a3c5",
+    "src/renderer/locales/zh-Hans.json": "62cf64710ef5d578f49b94c16e830cfcc98761eccf83cc329baaa5256156b11c",
+    "src/renderer/locales/en.json": "0974550c217b02f1829a067d0324b1a5ac79c82b90c2d5bfdecd003121bafeef"
+  },
+  "scope": "Built Electron application, real archive/settings dialogs, isolated empty database; native click/Escape paths, physical surface geometry, context-loss feedback and immediate retry. Existing shader/foam algorithms unchanged."
+}

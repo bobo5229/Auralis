@@ -1,0 +1,115 @@
+:root {
+  color: #292929;
+  background: #eeeeec;
+  font-family: system-ui, sans-serif;
+  color-scheme: light;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  width: min(780px, calc(100% - 64px));
+  margin: 48px auto;
+}
+h1 {
+  font-size: 28px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+.intro {
+  color: #62625b;
+  margin: 0 0 32px;
+  line-height: 1.6;
+}
+.tracks,
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+button {
+  font: inherit;
+  color: inherit;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+button.selected {
+  border-color: currentColor;
+}
+button:hover {
+  color: #9b5273;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #9b5273;
+  outline-offset: 4px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.spectrum {
+  display: flex;
+  gap: 6px;
+  height: 120px;
+  margin-top: 24px;
+}
+.bass-square-area {
+  display: grid;
+  place-items: center;
+  height: 140px;
+}
+.bass-square {
+  width: 72px;
+  height: 72px;
+  background: #a75679;
+}
+.spectrum span {
+  flex: 1;
+  background: #a75679;
+  transform: scaleY(0.015);
+  transform-origin: bottom;
+}
+.labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #62625b;
+  margin: 16px 0 40px;
+}
+input[type='range'] {
+  width: 100%;
+  accent-color: #a75679;
+  cursor: pointer;
+}
+.controls {
+  margin-top: 20px;
+}
+.controls span {
+  margin-left: auto;
+  color: #62625b;
+  font-size: 13px;
+}
+::selection {
+  color: #fff;
+  background: #9b5273;
+}
+@media (max-width: 600px) {
+  main {
+    margin-top: 40px;
+  }
+  .spectrum {
+    height: 100px;
+    gap: 3px;
+  }
+  .tracks {
+    gap: 12px;
+  }
+}

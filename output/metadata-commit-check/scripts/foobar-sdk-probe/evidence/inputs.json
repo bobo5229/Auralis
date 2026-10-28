@@ -1,0 +1,22 @@
+{
+  "SDK.7z": {
+    "sha256": "d4c55077336fae81bf8df0259b5b2748fa45ea84132c656ead93eb123cbcdc26",
+    "size": 793738
+  },
+  "foobar-installer.exe": {
+    "sha256": "72fe15a88b085ee4e49d68114e2bb9655000c2e0fdf40dcc128bbef8bcaf3600",
+    "size": 8013712
+  },
+  "foobar2000.exe": {
+    "sha256": "742f1eda040d65522a79f73423297d55814fcfb12a22ffe8fa01b88889420670",
+    "size": 5002640
+  },
+  "foo_auralis_probe.dll": {
+    "sha256": "44dff264c6fbcaa268029a247a7fd729cf23e2fd6962f9423ab1d425fe1ea1c4",
+    "size": 958976
+  },
+  "probe.cpp": {
+    "sha256": "c0393ed2a0e103b6d96f49906bdfbd147027e7f97b8218acb213f35056d4ffaf",
+    "size": 12986
+  }
+}

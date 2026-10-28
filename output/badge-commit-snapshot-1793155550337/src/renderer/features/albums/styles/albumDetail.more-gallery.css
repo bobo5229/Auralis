@@ -1,0 +1,258 @@
+.album-more-gallery {
+  --gallery-card-min-width: 180px;
+  --gallery-card-gap: 18px;
+  margin-top: 36px;
+  margin-inline: 0;
+  min-width: 0;
+  padding: 24px var(--album-detail-inline-padding, 32px);
+  border-top: none;
+  background: var(--auralis-album-detail-more-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.album-more-gallery-title {
+  margin: 0 0 16px;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.album-more-gallery-scroller {
+  --gallery-inline-padding: 16px;
+  display: grid;
+  grid-auto-flow: column;
+  /* 尚未取得有效宽度时保留正常封面尺寸，避免按一列撑满区域。 */
+  grid-auto-columns: var(--gallery-card-min-width);
+  gap: var(--gallery-card-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px var(--gallery-inline-padding) 16px;
+  margin-top: -4px;
+  margin-inline: calc(-1 * var(--gallery-inline-padding));
+  /* 焦点滚动时，为封面保留左右内边距；滚轮浏览保持连续位移。 */
+  scroll-padding-inline: var(--gallery-inline-padding);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  transition:
+    -webkit-mask-image 0.25s ease,
+    mask-image 0.25s ease;
+}
+
+.album-more-gallery-scroller.is-layout-ready {
+  /* 完整列等分可用宽度，封面保持正方形；更多作品仍可横向滚动。 */
+  grid-auto-columns: calc(
+    (100% - (var(--gallery-column-count) - 1) * var(--gallery-card-gap)) /
+      var(--gallery-column-count)
+  );
+}
+
+.album-more-gallery-scroller.is-at-start {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+}
+
+.album-more-gallery-scroller.is-at-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+}
+
+.album-more-gallery-scroller.is-unscrollable,
+.album-more-gallery-scroller.is-at-start.is-at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.album-more-gallery-scroller::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.album-more-gallery-scroller.is-single-row {
+  overflow-x: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.album-more-gallery-card {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+}
+
+.album-more-gallery-card:disabled {
+  cursor: default;
+}
+
+.album-more-gallery-card:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.album-more-gallery-visual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.album-more-gallery-cover {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--auralis-artwork-placeholder-bg);
+  box-shadow: none;
+  transition: box-shadow 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-image {
+  filter: brightness(1);
+  transition: filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-placeholder {
+  filter: brightness(1);
+  transition: filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-placeholder-icon {
+  flex-shrink: 0;
+}
+
+.album-more-gallery-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--auralis-surface-floating) 88%, transparent);
+  color: var(--auralis-text);
+  border: 1px solid var(--auralis-border-subtle);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 200ms cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 2;
+}
+
+.album-more-gallery-hint-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) {
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-cover {
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.3),
+      0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
+  }
+
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-image {
+    filter: brightness(0.94);
+  }
+
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-placeholder {
+    filter: brightness(0.94);
+  }
+
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-hint {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .album-more-gallery-card:not(:disabled) .album-more-gallery-hint:hover {
+    background: color-mix(in srgb, var(--auralis-text) 12%, var(--auralis-surface-floating));
+    border-color: color-mix(in srgb, var(--auralis-text) 30%, transparent);
+  }
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-cover {
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.3),
+    0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-image {
+  filter: brightness(0.94);
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-placeholder {
+  filter: brightness(0.94);
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-hint {
+  opacity: 1;
+}
+
+.album-more-gallery-meta {
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.album-more-gallery-album-title {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-control-size);
+  font-weight: 650;
+  line-height: var(--auralis-type-control-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-more-gallery-year {
+  margin-top: 4px;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+:where([data-reduced-motion='true']) .album-more-gallery-scroller,
+:where([data-reduced-motion='true']) .album-more-gallery-cover,
+:where([data-reduced-motion='true']) .album-more-gallery-image,
+:where([data-reduced-motion='true']) .album-more-gallery-placeholder,
+:where([data-reduced-motion='true']) .album-more-gallery-hint {
+  transition: none;
+}

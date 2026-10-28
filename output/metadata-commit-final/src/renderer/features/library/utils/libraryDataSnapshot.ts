@@ -1,0 +1,63 @@
+import type { TrackListItem } from '@shared/types/libraryScan'
+import type { PlaylistDetail } from '@shared/types/playlist'
+import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
+import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
+import type { LibraryViewMode } from '../types/libraryInteraction'
+import type { RecentAddedLibraryRange } from './recentAddedLibrary'
+import {
+  createLibraryIdentity,
+  createPlaylistIdentity,
+  createSmartPlaylistIdentity,
+} from './libraryPageIdentity'
+import { selectRecentAddedLibraryTracks } from './recentAddedLibrary'
+
+export interface LibraryDataSnapshot {
+  identity: LibraryPageIdentity
+  tracks: TrackListItem[]
+  viewMode: LibraryViewMode
+}
+
+export function createAllSongsLibrarySnapshot(
+  tracks: TrackListItem[],
+  viewMode: LibraryViewMode,
+): LibraryDataSnapshot {
+  return {
+    identity: createLibraryIdentity(),
+    tracks,
+    viewMode,
+  }
+}
+
+export function createRecentAddedLibrarySnapshot(
+  tracks: readonly TrackListItem[],
+  range: RecentAddedLibraryRange,
+  viewMode: LibraryViewMode,
+  nowMs = Date.now(),
+): LibraryDataSnapshot {
+  return {
+    identity: { kind: 'recent-added', range },
+    tracks: selectRecentAddedLibraryTracks(tracks, range, nowMs),
+    viewMode,
+  }
+}
+
+export function createPlaylistLibrarySnapshot(detail: PlaylistDetail): LibraryDataSnapshot {
+  return {
+    identity: createPlaylistIdentity(detail.playlist.id, detail.playlist.name),
+    tracks: detail.tracks,
+    viewMode: detail.playlist.viewMode,
+  }
+}
+
+export function createSmartPlaylistLibrarySnapshot(
+  detail: SmartPlaylistDetail,
+): LibraryDataSnapshot {
+  return {
+    identity: {
+      ...createSmartPlaylistIdentity(detail.playlist.id, detail.playlist.name),
+      ...('preset' in detail.playlist.rule ? { preset: detail.playlist.rule.preset } : {}),
+    },
+    tracks: detail.tracks,
+    viewMode: detail.playlist.viewMode,
+  }
+}

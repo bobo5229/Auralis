@@ -1,0 +1,115 @@
+{
+  "passed": true,
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-all\\profile-FHargS",
+  "checks": [
+    {
+      "name": "cold all view stays invisible and inert until all 11 previews decode",
+      "pass": true
+    },
+    {
+      "name": "last delayed preview keeps the whole box hidden",
+      "pass": true
+    },
+    {
+      "name": "default all tab has 11 unique badges in three ordered groups",
+      "pass": true
+    },
+    {
+      "name": "one shared foam canvas paints before presentation",
+      "pass": true
+    },
+    {
+      "name": "mixed earned and unearned states preserve existing archive representatives",
+      "pass": true
+    },
+    {
+      "name": "wide grid retains badge size and four hour columns",
+      "pass": true
+    },
+    {
+      "name": "all view has vertical scroll and no horizontal arrows",
+      "pass": true
+    },
+    {
+      "name": "native vertical wheel leaves toolbar fixed",
+      "pass": true
+    },
+    {
+      "name": "PageDown crosses hours to days without changing all view",
+      "pass": true
+    },
+    {
+      "name": "cross-group return restores correct visible slot and focus",
+      "pass": true
+    },
+    {
+      "name": "button navigation crosses days to albums",
+      "pass": true
+    },
+    {
+      "name": "all first boundary does not wrap",
+      "pass": true
+    },
+    {
+      "name": "all final boundary does not wrap",
+      "pass": true
+    },
+    {
+      "name": "Escape cancels cross-group switch without late restart",
+      "pass": true
+    },
+    {
+      "name": "continuous inspection reuses exactly one WebGL context",
+      "pass": true
+    },
+    {
+      "name": "returned case stops GL and foam drawing when idle",
+      "pass": true
+    },
+    {
+      "name": "minimum window has three columns and a contained 420px viewport",
+      "pass": true
+    },
+    {
+      "name": "small cross-group inspection keeps caption in viewport",
+      "pass": true
+    },
+    {
+      "name": "single category restores horizontal layout and resets both scroll axes",
+      "pass": true
+    },
+    {
+      "name": "single-category horizontal arrow still scrolls",
+      "pass": true
+    },
+    {
+      "name": "single category inspection remains within category",
+      "pass": true
+    },
+    {
+      "name": "hours category and scroll reset remain intact",
+      "pass": true
+    },
+    {
+      "name": "album category remains a two-badge row",
+      "pass": true
+    },
+    {
+      "name": "reopening always defaults to all",
+      "pass": true
+    },
+    {
+      "name": "reduced motion crosses groups and returns to the correct slot",
+      "pass": true
+    },
+    {
+      "name": "narrow view wraps to two columns without horizontal overflow",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

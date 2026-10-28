@@ -1,0 +1,551 @@
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useLyricLineSeek } from '../composables/useLyricLineSeek'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibility'
+import { useReducedMotion } from '../composables/useReducedMotion'
+import { getLyricsScrollEasing, useLyricsScrollPreset } from '../lyricsScrollPreset'
+import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'
+import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
+import LyricsFractureDots from './LyricsFractureDots.vue'
+import {
+  resolveLyricsFollowBehavior,
+  shouldAnimateLyricsFollow,
+  type LyricsFollowBehavior,
+} from '../utils/lyricsMotion'
+import type { LyricLine } from '../types'
+
+const props = withDefaults(
+  defineProps<{
+    active?: boolean
+    interactive?: boolean
+    lines: LyricLine[]
+    activeIndex: number
+    isPrelude: boolean
+    showPrelude: boolean
+    preludeLitDotCount: number
+    preludeElapsed?: number
+  }>(),
+  { active: true, interactive: true, preludeElapsed: 0 },
+)
+
+const { t } = useI18n()
+const { effects } = useLyricsEffectsPreference()
+const { effect: countdownEffect } = useLyricsCountdownPreference()
+const { activate: onLyricLineActivate, onKeydown: onLyricLineKeydown } = useLyricLineSeek({
+  lines: () => props.lines,
+  enabled: () => isActive.value && props.interactive,
+  onSeek: followAfterSeek,
+})
+const reducedMotion = useReducedMotion()
+const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
+const { displayMode } = usePlayerDisplayMode()
+const windowVisible = useWindowVisibility()
+const isActive = computed(
+  () => props.active && displayMode.value === 'normal' && windowVisible.value,
+)
+
+const scrollRef = ref<HTMLElement | null>(null)
+const trackRef = ref<HTMLElement | null>(null)
+const containerHeight = ref(0)
+const isUserScrolling = ref(false)
+let scrollTimeout: ReturnType<typeof setTimeout> | null = null
+let resizeObserver: ResizeObserver | null = null
+let animation: Animation | null = null
+let trackOffset = 0
+let lineMetrics: Array<{ offset: number; height: number }> = []
+let preludeMetric: { offset: number; height: number } | null = null
+let metricsLineCount = -1
+let metricsLines: readonly LyricLine[] | null = null
+let metricsPreludeState = false
+let scrollMax = 0
+
+const MIN_DURATION_MS = 420
+const MAX_DURATION_MS = 650
+const DURATION_BASE_MS = 380
+const DURATION_PER_PIXEL = 0.65
+
+const topPadding = computed(() => Math.round(containerHeight.value * 0.3))
+const bottomPadding = computed(() => Math.round(containerHeight.value * 0.7))
+
+function clampScroll(value: number, max: number): number {
+  return Math.max(0, Math.min(value, max))
+}
+
+function getCurrentTrackOffset(): number {
+  const track = trackRef.value
+  if (!track || !animation) return trackOffset
+  const transform = getComputedStyle(track).transform
+  if (transform === 'none') return 0
+  try {
+    return new DOMMatrixReadOnly(transform).m42
+  } catch {
+    return trackOffset
+  }
+}
+
+function setTrackOffset(offset: number): void {
+  trackOffset = offset
+  if (trackRef.value) {
+    trackRef.value.style.transform = `translate3d(0, ${offset}px, 0)`
+  }
+}
+
+function cancelTrackAnimation(commitCurrentPosition: boolean): number {
+  const currentOffset = commitCurrentPosition ? getCurrentTrackOffset() : trackOffset
+  animation?.cancel()
+  animation = null
+  setTrackOffset(currentOffset)
+  return currentOffset
+}
+
+function rebuildMetrics(force = false): void {
+  if (!isActive.value) return
+  const container = scrollRef.value
+  const track = trackRef.value
+  if (!container || !track) {
+    lineMetrics = []
+    preludeMetric = null
+    metricsLineCount = -1
+    metricsLines = null
+    metricsPreludeState = false
+    scrollMax = 0
+    return
+  }
+
+  if (
+    !force &&
+    metricsLineCount === props.lines.length &&
+    metricsLines === props.lines &&
+    metricsPreludeState === props.showPrelude
+  ) {
+    return
+  }
+
+  const elements = track.querySelectorAll<HTMLElement>('[data-lyric-index]')
+  lineMetrics = Array.from(elements, (element) => ({
+    offset: element.offsetTop,
+    height: element.offsetHeight,
+  }))
+  const preludeElement = track.querySelector<HTMLElement>('[data-lyric-prelude]')
+  preludeMetric = preludeElement
+    ? { offset: preludeElement.offsetTop, height: preludeElement.offsetHeight }
+    : null
+  metricsLineCount = props.lines.length
+  metricsLines = props.lines
+  metricsPreludeState = props.showPrelude
+  scrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
+}
+
+function computeTarget(): number | null {
+  if (!scrollRef.value) return null
+
+  if (props.isPrelude) {
+    if (!preludeMetric) return 0
+    const target = preludeMetric.offset - containerHeight.value * 0.3 + preludeMetric.height / 2
+    return clampScroll(target, scrollMax)
+  }
+
+  if (props.activeIndex < 0) return null
+  const metric = lineMetrics[props.activeIndex]
+  if (!metric) return null
+  const target = metric.offset - containerHeight.value * 0.3 + metric.height / 2
+  return clampScroll(target, scrollMax)
+}
+
+function updateTarget(
+  behavior: LyricsFollowBehavior = props.interactive
+    ? resolveLyricsFollowBehavior(reducedMotion.matches.value)
+    : 'auto',
+): void {
+  if (!isActive.value || isUserScrolling.value) return
+  const container = scrollRef.value
+  const track = trackRef.value
+  const target = computeTarget()
+  if (!container || !track || target === null) return
+
+  const targetOffset = -target
+  if (behavior === 'auto') {
+    cancelTrackAnimation(false)
+    container.scrollTop = 0
+    setTrackOffset(targetOffset)
+    return
+  }
+
+  const currentOffset = cancelTrackAnimation(true)
+  const distance = Math.abs(targetOffset - currentOffset)
+  if (!shouldAnimateLyricsFollow({ behavior, distance })) {
+    setTrackOffset(targetOffset)
+    return
+  }
+
+  const duration = Math.min(
+    MAX_DURATION_MS,
+    Math.max(MIN_DURATION_MS, DURATION_BASE_MS + distance * DURATION_PER_PIXEL),
+  )
+  setTrackOffset(targetOffset)
+  const nextAnimation = track.animate(
+    [
+      { transform: `translate3d(0, ${currentOffset}px, 0)` },
+      { transform: `translate3d(0, ${targetOffset}px, 0)` },
+    ],
+    {
+      duration,
+      easing: getLyricsScrollEasing(lyricsScrollPreset.value),
+      fill: 'both',
+    },
+  )
+  animation = nextAnimation
+  void nextAnimation.finished
+    .then(() => {
+      if (animation !== nextAnimation) return
+      animation = null
+      nextAnimation.cancel()
+      setTrackOffset(targetOffset)
+    })
+    .catch(() => undefined)
+}
+
+function pauseAutoFollow(): void {
+  if (!isActive.value || !props.interactive) return
+  const container = scrollRef.value
+  if (!isUserScrolling.value) {
+    const currentOffset = cancelTrackAnimation(true)
+    if (container) {
+      setTrackOffset(0)
+      container.scrollTop = -currentOffset
+    }
+  }
+  isUserScrolling.value = true
+
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  scrollTimeout = setTimeout(() => {
+    resumeAutoFollowFromUserScroll()
+  }, 3000)
+}
+
+/** Commit native scrollTop back to transform tracking and re-enable auto-follow. */
+function resumeAutoFollowFromUserScroll(): void {
+  const container = scrollRef.value
+  const scrollTop = container?.scrollTop ?? 0
+  if (container) container.scrollTop = 0
+  setTrackOffset(-scrollTop)
+  isUserScrolling.value = false
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+  updateTarget()
+}
+
+/**
+ * Click / keyboard on a timed LRC line: seek playback, then immediately follow
+ * the new active line (cancel the 3s user-scroll pause from pointerdown).
+ */
+function followAfterSeek(): void {
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+
+  const container = scrollRef.value
+  if (isUserScrolling.value && container) {
+    const scrollTop = container.scrollTop
+    container.scrollTop = 0
+    setTrackOffset(-scrollTop)
+  }
+  isUserScrolling.value = false
+
+  void nextTick(() => {
+    rebuildMetrics()
+    updateTarget()
+  })
+}
+
+function resetScrollPosition(): void {
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+  isUserScrolling.value = false
+  cancelTrackAnimation(false)
+  setTrackOffset(0)
+  if (scrollRef.value) scrollRef.value.scrollTop = 0
+  lineMetrics = []
+  preludeMetric = null
+  metricsLineCount = -1
+  metricsPreludeState = false
+  scrollMax = 0
+}
+
+function syncContainer(): void {
+  const container = scrollRef.value
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  if (!container || !isActive.value) {
+    containerHeight.value = 0
+    return
+  }
+
+  containerHeight.value = container.clientHeight
+  resizeObserver = new ResizeObserver((entries) => {
+    if (!isActive.value) {
+      metricsLineCount = -1
+      return
+    }
+    containerHeight.value = entries[0].contentRect.height
+    nextTick(() => {
+      rebuildMetrics(true)
+      updateTarget('auto')
+    })
+  })
+  resizeObserver.observe(container)
+}
+
+async function prepareForDisplay(): Promise<void> {
+  if (!isActive.value) return
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  scrollTimeout = null
+  isUserScrolling.value = false
+  syncContainer()
+  // Height changes update the padding; measure line positions after that DOM update.
+  await nextTick()
+  if (!isActive.value) return
+  rebuildMetrics(true)
+  updateTarget('auto')
+}
+
+defineExpose({ prepareForDisplay })
+
+watch(
+  () => [props.activeIndex, props.isPrelude, props.showPrelude, props.lines] as const,
+  (next, previous) => {
+    if (!isActive.value) return
+    const linesChanged = next[3] !== previous[3]
+    if (props.lines.length === 0) {
+      resetScrollPosition()
+      return
+    }
+    nextTick(() => {
+      rebuildMetrics()
+      updateTarget(linesChanged ? 'auto' : undefined)
+    })
+  },
+  { flush: 'post' },
+)
+
+watch(isActive, (active) => {
+  if (!active) {
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+    scrollTimeout = null
+    isUserScrolling.value = false
+    cancelTrackAnimation(true)
+    resizeObserver?.disconnect()
+    resizeObserver = null
+    return
+  }
+  void nextTick(() => {
+    if (!isActive.value) return
+    if (!resizeObserver) syncContainer()
+    rebuildMetrics(true)
+    updateTarget('auto')
+  })
+})
+
+// A preference flip to reduce mid-movement must cancel the in-flight WAAPI
+// animation and land the track on the target instantly (P2).
+watch(reducedMotion.matches, (nowReduced) => {
+  if (nowReduced) {
+    updateTarget('auto')
+  }
+})
+
+onMounted(() => {
+  syncContainer()
+  nextTick(() => {
+    rebuildMetrics(true)
+    updateTarget('auto')
+  })
+
+  void document.fonts.ready.then(() => {
+    nextTick(() => {
+      rebuildMetrics(true)
+      updateTarget('auto')
+    })
+  })
+})
+
+onBeforeUnmount(() => {
+  reducedMotion.dispose()
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  cancelTrackAnimation(false)
+  resizeObserver?.disconnect()
+})
+</script>
+
+<template>
+  <div
+    ref="scrollRef"
+    class="synced-lyrics-scroll h-full overflow-auto scrollbar-none px-4"
+    :class="{
+      'synced-lyrics-scroll--blur': effects.blur,
+      'synced-lyrics-scroll--inactive': !isActive,
+    }"
+    tabindex="0"
+    @wheel="pauseAutoFollow"
+    @pointerdown="pauseAutoFollow"
+    @touchstart="pauseAutoFollow"
+    @keydown="pauseAutoFollow"
+  >
+    <div ref="trackRef" class="synced-lyrics-track">
+      <div :style="{ height: `${topPadding}px` }"></div>
+      <div
+        v-if="showPrelude"
+        class="lyric-line lyric-prelude"
+        :class="
+          isPrelude
+            ? 'lyric-active lyric-line-active-filter'
+            : 'lyric-inactive lyric-line-blur-filter'
+        "
+        :aria-label="t('player.lyricsStartingSoon')"
+        data-lyric-prelude
+      >
+        <LyricsFractureDots v-if="countdownEffect === 'fracture'" :elapsed="preludeElapsed" />
+        <template v-else>
+          <span
+            v-for="dot in 3"
+            :key="dot"
+            class="lyric-dot"
+            :class="{ 'lyric-dot-lit': dot <= preludeLitDotCount }"
+          ></span>
+        </template>
+      </div>
+      <div
+        v-for="(line, index) in lines"
+        :key="line.id"
+        v-memo="[activeIndex === index, line.text]"
+        class="lyric-line lyric-line-seekable"
+        :class="
+          activeIndex === index
+            ? 'lyric-active lyric-line-active-filter'
+            : line.text
+              ? 'lyric-inactive lyric-line-blur-filter'
+              : 'lyric-empty'
+        "
+        role="button"
+        tabindex="0"
+        :data-lyric-index="index"
+        :aria-label="
+          line.text
+            ? t('player.lyricsSeekToLine', { text: line.text })
+            : t('player.lyricsSeekToTime', { seconds: Math.floor(line.timeSeconds) })
+        "
+        @click.stop="onLyricLineActivate(index)"
+        @keydown="onLyricLineKeydown($event, index)"
+      >
+        {{ line.text || ' ' }}
+      </div>
+      <div :style="{ height: `${bottomPadding}px` }"></div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.synced-lyrics-scroll {
+  contain: layout paint style;
+  overscroll-behavior: contain;
+}
+
+.synced-lyrics-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.synced-lyrics-track {
+  min-height: 100%;
+  will-change: transform;
+}
+
+.lyric-line {
+  transition:
+    opacity 300ms ease,
+    filter 300ms ease;
+  overflow-wrap: anywhere;
+}
+
+.synced-lyrics-scroll--inactive .lyric-line,
+.synced-lyrics-scroll--inactive .lyric-dot {
+  transition: none;
+}
+
+.lyric-line-seekable {
+  cursor: pointer;
+  border-radius: 6px;
+  outline: none;
+}
+
+.lyric-line-seekable:hover {
+  opacity: 1;
+  filter: none;
+}
+
+.lyric-line-seekable:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-text) 35%, transparent);
+}
+
+.lyric-line-active-filter {
+  filter: none;
+  opacity: 1;
+  will-change: auto;
+}
+
+.lyric-line-blur-filter {
+  opacity: 0.8;
+}
+
+.synced-lyrics-scroll--blur .lyric-line-blur-filter {
+  filter: blur(3px);
+}
+
+.synced-lyrics-scroll--blur .lyric-line-seekable:hover {
+  filter: none;
+}
+
+.lyric-prelude {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  min-height: 1.2em;
+}
+
+.lyric-prelude.lyric-active {
+  filter: none;
+}
+
+.lyric-dot {
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.2;
+  transform: scale(0.78);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 0.72, 0.18, 1);
+}
+
+.lyric-dot-lit {
+  /* 与高亮歌词行颜色统一（高亮行继承 --auralis-text） */
+  color: var(--auralis-text);
+  box-shadow:
+    0 0 0.18em currentColor,
+    0 0 0.42em currentColor,
+    0 0 0.72em color-mix(in srgb, currentColor 42%, transparent);
+  opacity: 1;
+  transform: scale(1);
+}
+
+[data-theme='light'] .lyric-dot-lit {
+  box-shadow: none;
+}
+</style>

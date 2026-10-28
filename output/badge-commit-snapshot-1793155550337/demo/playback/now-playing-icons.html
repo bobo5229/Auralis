@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>正在播放 · 图标对比</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f6f4;
+        --text: #292929;
+        --line: #deded9;
+        --size: 16px;
+      }
+      :root.dark {
+        color-scheme: dark;
+        --bg: #242628;
+        --text: #e6e4de;
+        --line: #44474a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 40px auto;
+        padding: 0 20px;
+        max-width: 760px;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 600;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 24px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 5px 10px;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        min-height: 76px;
+        border-top: 1px solid var(--line);
+      }
+      .icon {
+        width: var(--size);
+        height: var(--size);
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon svg {
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+        overflow: visible;
+      }
+      .name {
+        font-weight: 600;
+      }
+      .note,
+      footer {
+        font-size: 12px;
+        opacity: 0.65;
+      }
+      a {
+        color: inherit;
+      }
+      .current {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 2px;
+        width: 14px;
+        height: 14px;
+        transform: scale(var(--scale, 1.142857));
+        transform-origin: center;
+      }
+      .current i {
+        display: block;
+        width: 2px;
+        height: 12px;
+        background: currentColor;
+        border-radius: 1px;
+        transform-origin: bottom;
+      }
+      .ellipsis {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        flex-shrink: 0;
+        transform: scale(var(--ellipsis-scale, 0.2));
+      }
+      :root.stopped .icon *,
+      :root.stopped .icon {
+        animation-play-state: paused !important;
+      }
+      footer {
+        margin-top: 24px;
+      }
+      @media (max-width: 480px) {
+        body {
+          margin-top: 24px;
+        }
+        .row {
+          gap: 8px;
+        }
+      }
+    </style>
+    <!--
+n3r4zzurr0/svg-spinners
+The MIT License (MIT)
+
+Copyright (c) Utkarsh Verma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+SamHerbert/SVG-Loaders
+The MIT License (MIT)
+
+Copyright (c) 2014 Sam Herbert
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Loading.io ellipsis loader: CC0. https://github.com/loadingio/css-spinner#license
+-->
+  </head>
+  <body>
+    <h1>正在播放 · 图标对比</h1>
+    <div class="controls">
+      <button id="play" type="button" aria-pressed="true">暂停</button>
+      <label
+        >尺寸
+        <select id="size">
+          <option>12</option>
+          <option selected>16</option>
+          <option>20</option>
+          <option>24</option>
+        </select>
+        px</label
+      >
+      <button id="theme" type="button" aria-pressed="false">深色</button>
+    </div>
+    <div class="row">
+      <div class="icon">
+        <span class="current"><i></i><i></i><i></i></span>
+      </div>
+      <div>
+        <div class="name">当前三柱</div>
+        <div class="note">现有节奏 · 对照</div>
+      </div>
+      <span class="note">Auralis</span>
+    </div>
+    <div class="row">
+      <div class="icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            .spinner_qM83 {
+              animation: spinner_8HQG 1.05s infinite;
+            }
+            .spinner_oXPr {
+              animation-delay: 0.1s;
+            }
+            .spinner_ZTLf {
+              animation-delay: 0.2s;
+            }
+            @keyframes spinner_8HQG {
+              0%,
+              57.14% {
+                animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
+                transform: translate(0);
+              }
+              28.57% {
+                animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33);
+                transform: translateY(-6px);
+              }
+              100% {
+                transform: translate(0);
+              }
+            }
+          </style>
+          <circle class="spinner_qM83" cx="4" cy="12" r="3" />
+          <circle class="spinner_qM83 spinner_oXPr" cx="12" cy="12" r="3" />
+          <circle class="spinner_qM83 spinner_ZTLf" cx="20" cy="12" r="3" />
+        </svg>
+      </div>
+      <div>
+        <div class="name">圆点弹跳</div>
+        <div class="note">三点依次升降</div>
+      </div>
+      <a href="https://github.com/n3r4zzurr0/svg-spinners/blob/main/svg-css/3-dots-bounce.svg"
+        >源码</a
+      >
+    </div>
+    <div class="row">
+      <div class="icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            .spinner_7uc5 {
+              animation: spinner_3l8F 0.9s linear infinite;
+              animation-delay: -0.9s;
+            }
+            .spinner_RibN {
+              animation-delay: -0.7s;
+            }
+            .spinner_ZAxd {
+              animation-delay: -0.5s;
+            }
+            @keyframes spinner_3l8F {
+              0%,
+              66.66% {
+                animation-timing-function: cubic-bezier(0.14, 0.73, 0.34, 1);
+                y: 6px;
+                height: 12px;
+              }
+              33.33% {
+                animation-timing-function: cubic-bezier(0.65, 0.26, 0.82, 0.45);
+                y: 1px;
+                height: 22px;
+              }
+            }
+          </style>
+          <rect class="spinner_7uc5 spinner_ZAxd" x="1" y="6" width="2.8" height="12" />
+          <rect class="spinner_7uc5 spinner_RibN" x="5.8" y="6" width="2.8" height="12" />
+          <rect class="spinner_7uc5" x="10.6" y="6" width="2.8" height="12" />
+          <rect class="spinner_7uc5 spinner_RibN" x="15.4" y="6" width="2.8" height="12" />
+          <rect class="spinner_7uc5 spinner_ZAxd" x="20.2" y="6" width="2.8" height="12" />
+        </svg>
+      </div>
+      <div>
+        <div class="name">居中五柱</div>
+        <div class="note">围绕中线伸缩</div>
+      </div>
+      <a href="https://github.com/n3r4zzurr0/svg-spinners/blob/main/svg-css/bars-scale-middle.svg"
+        >源码</a
+      >
+    </div>
+    <div class="row">
+      <div class="icon">
+        <!-- By Sam Herbert (@sherb), for everyone. More @ http://goo.gl/7AJzbL -->
+        <svg
+          width="55"
+          height="80"
+          viewBox="0 0 55 80"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor"
+        >
+          <g transform="matrix(1 0 0 -1 0 80)">
+            <rect width="10" height="20" rx="3">
+              <animate
+                attributeName="height"
+                begin="0s"
+                dur="4.3s"
+                values="20;45;57;80;64;32;66;45;64;23;66;13;64;56;34;34;2;23;76;79;20"
+                calcMode="linear"
+                repeatCount="indefinite"
+              />
+            </rect>
+            <rect x="15" width="10" height="80" rx="3">
+              <animate
+                attributeName="height"
+                begin="0s"
+                dur="2s"
+                values="80;55;33;5;75;23;73;33;12;14;60;80"
+                calcMode="linear"
+                repeatCount="indefinite"
+              />
+            </rect>
+            <rect x="30" width="10" height="50" rx="3">
+              <animate
+                attributeName="height"
+                begin="0s"
+                dur="1.4s"
+                values="50;34;78;23;56;23;34;76;80;54;21;50"
+                calcMode="linear"
+                repeatCount="indefinite"
+              />
+            </rect>
+            <rect x="45" width="10" height="30" rx="3">
+              <animate
+                attributeName="height"
+                begin="0s"
+                dur="2s"
+                values="30;45;13;80;56;72;45;76;34;23;67;30"
+                calcMode="linear"
+                repeatCount="indefinite"
+              />
+            </rect>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <div class="name">四柱电平</div>
+        <div class="note">不规则高度变化</div>
+      </div>
+      <a href="https://github.com/SamHerbert/SVG-Loaders/blob/master/svg-loaders/audio.svg">源码</a>
+    </div>
+    <div class="row">
+      <div class="icon">
+        <div class="ellipsis">
+          <style type="text/css">
+            .lds-ellipsis,
+            .lds-ellipsis div {
+              box-sizing: border-box;
+            }
+            .lds-ellipsis {
+              display: inline-block;
+              position: relative;
+              width: 80px;
+              height: 80px;
+            }
+            .lds-ellipsis div {
+              position: absolute;
+              top: 33.33333px;
+              width: 13.33333px;
+              height: 13.33333px;
+              border-radius: 50%;
+              background: currentColor;
+              animation-timing-function: cubic-bezier(0, 1, 1, 0);
+            }
+            .lds-ellipsis div:nth-child(1) {
+              left: 8px;
+              animation: lds-ellipsis1 0.6s infinite;
+            }
+            .lds-ellipsis div:nth-child(2) {
+              left: 8px;
+              animation: lds-ellipsis2 0.6s infinite;
+            }
+            .lds-ellipsis div:nth-child(3) {
+              left: 32px;
+              animation: lds-ellipsis2 0.6s infinite;
+            }
+            .lds-ellipsis div:nth-child(4) {
+              left: 56px;
+              animation: lds-ellipsis3 0.6s infinite;
+            }
+            @keyframes lds-ellipsis1 {
+              0% {
+                transform: scale(0);
+              }
+              100% {
+                transform: scale(1);
+              }
+            }
+            @keyframes lds-ellipsis3 {
+              0% {
+                transform: scale(1);
+              }
+              100% {
+                transform: scale(0);
+              }
+            }
+            @keyframes lds-ellipsis2 {
+              0% {
+                transform: translate(0, 0);
+              }
+              100% {
+                transform: translate(24px, 0);
+              }
+            }
+          </style>
+          <div class="lds-ellipsis">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="name">圆点接力</div>
+        <div class="note">横向移动与缩放</div>
+      </div>
+      <a href="https://github.com/loadingio/css-spinner/blob/master/dist/ellipsis.html">源码</a>
+    </div>
+    <!-- Waves adapted from pqoqubbw/icons.
+MIT License
+
+Copyright (c) 2024-2026 pqoqubbw
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+    <div class="row">
+      <div class="icon">
+        <svg
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          style="
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+          "
+        >
+          <path
+            class="wave-draw"
+            pathLength="1"
+            d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2c2.5 0 2.5-2 5-2c1.3 0 1.9.5 2.5 1"
+          />
+          <path
+            class="wave-draw"
+            pathLength="1"
+            d="M2 12c.6.5 1.2 1 2.5 1c2.5 0 2.5-2 5-2c2.6 0 2.4 2 5 2c2.5 0 2.5-2 5-2c1.3 0 1.9.5 2.5 1"
+          />
+          <path
+            class="wave-draw"
+            pathLength="1"
+            d="M2 18c.6.5 1.2 1 2.5 1c2.5 0 2.5-2 5-2c2.6 0 2.4 2 5 2c2.5 0 2.5-2 5-2c1.3 0 1.9.5 2.5 1"
+          /></svg
+        ><style>
+          .wave-draw {
+            stroke-dasharray: 1;
+            animation: wave-draw-loop 1.6s linear infinite;
+          }
+          @keyframes wave-draw-loop {
+            0% {
+              stroke-dashoffset: 1;
+            }
+            25%,
+            80% {
+              stroke-dashoffset: 0;
+            }
+            100% {
+              stroke-dashoffset: -1;
+            }
+          }
+        </style>
+      </div>
+      <div>
+        <div class="name">横向波浪</div>
+        <div class="note">原版描线节奏，适配为循环</div>
+      </div>
+      <a href="https://github.com/pqoqubbw/icons/blob/main/icons/waves.tsx">源码</a>
+    </div>
+    <div class="row">
+      <div class="icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            .spinner_ngNb {
+              animation: spinner_ZRWK 1.2s cubic-bezier(0.52, 0.6, 0.25, 0.99) infinite;
+            }
+            .spinner_6TBP {
+              animation-delay: 0.6s;
+            }
+            @keyframes spinner_ZRWK {
+              0% {
+                transform: translate(12px, 12px) scale(0);
+                opacity: 1;
+              }
+              100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0;
+              }
+            }
+          </style>
+          <path
+            class="spinner_ngNb"
+            d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z"
+            transform="translate(12, 12) scale(0)"
+          />
+          <path
+            class="spinner_ngNb spinner_6TBP"
+            d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,20a9,9,0,1,1,9-9A9,9,0,0,1,12,21Z"
+            transform="translate(12, 12) scale(0)"
+          />
+        </svg>
+      </div>
+      <div>
+        <div class="name">双环扩散</div>
+        <div class="note">两道圆环交替扩大、淡出</div>
+      </div>
+      <a href="https://github.com/n3r4zzurr0/svg-spinners/blob/main/svg-css/pulse-rings-2.svg"
+        >源码</a
+      >
+    </div>
+    <div class="row">
+      <div class="icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            .spinner_zWVm {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_PnZo 1.2s linear infinite;
+            }
+            .spinner_gfyD {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_4j7o 1.2s linear infinite;
+              animation-delay: 0.1s;
+            }
+            .spinner_T5JJ {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_fLK4 1.2s linear infinite;
+              animation-delay: 0.1s;
+            }
+            .spinner_E3Wz {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_tDji 1.2s linear infinite;
+              animation-delay: 0.2s;
+            }
+            .spinner_g2vs {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_CMiT 1.2s linear infinite;
+              animation-delay: 0.2s;
+            }
+            .spinner_ctYB {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_cHKR 1.2s linear infinite;
+              animation-delay: 0.2s;
+            }
+            .spinner_BDNj {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_Re6e 1.2s linear infinite;
+              animation-delay: 0.3s;
+            }
+            .spinner_rCw3 {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_EJmJ 1.2s linear infinite;
+              animation-delay: 0.3s;
+            }
+            .spinner_Rszm {
+              animation:
+                spinner_5QiW 1.2s linear infinite,
+                spinner_YJOP 1.2s linear infinite;
+              animation-delay: 0.4s;
+            }
+            @keyframes spinner_5QiW {
+              0%,
+              50% {
+                width: 7.33px;
+                height: 7.33px;
+              }
+              25% {
+                width: 1.33px;
+                height: 1.33px;
+              }
+            }
+            @keyframes spinner_PnZo {
+              0%,
+              50% {
+                x: 1px;
+                y: 1px;
+              }
+              25% {
+                x: 4px;
+                y: 4px;
+              }
+            }
+            @keyframes spinner_4j7o {
+              0%,
+              50% {
+                x: 8.33px;
+                y: 1px;
+              }
+              25% {
+                x: 11.33px;
+                y: 4px;
+              }
+            }
+            @keyframes spinner_fLK4 {
+              0%,
+              50% {
+                x: 1px;
+                y: 8.33px;
+              }
+              25% {
+                x: 4px;
+                y: 11.33px;
+              }
+            }
+            @keyframes spinner_tDji {
+              0%,
+              50% {
+                x: 15.66px;
+                y: 1px;
+              }
+              25% {
+                x: 18.66px;
+                y: 4px;
+              }
+            }
+            @keyframes spinner_CMiT {
+              0%,
+              50% {
+                x: 8.33px;
+                y: 8.33px;
+              }
+              25% {
+                x: 11.33px;
+                y: 11.33px;
+              }
+            }
+            @keyframes spinner_cHKR {
+              0%,
+              50% {
+                x: 1px;
+                y: 15.66px;
+              }
+              25% {
+                x: 4px;
+                y: 18.66px;
+              }
+            }
+            @keyframes spinner_Re6e {
+              0%,
+              50% {
+                x: 15.66px;
+                y: 8.33px;
+              }
+              25% {
+                x: 18.66px;
+                y: 11.33px;
+              }
+            }
+            @keyframes spinner_EJmJ {
+              0%,
+              50% {
+                x: 8.33px;
+                y: 15.66px;
+              }
+              25% {
+                x: 11.33px;
+                y: 18.66px;
+              }
+            }
+            @keyframes spinner_YJOP {
+              0%,
+              50% {
+                x: 15.66px;
+                y: 15.66px;
+              }
+              25% {
+                x: 18.66px;
+                y: 18.66px;
+              }
+            }
+          </style>
+          <rect class="spinner_zWVm" x="1" y="1" width="7.33" height="7.33" />
+          <rect class="spinner_gfyD" x="8.33" y="1" width="7.33" height="7.33" />
+          <rect class="spinner_T5JJ" x="1" y="8.33" width="7.33" height="7.33" />
+          <rect class="spinner_E3Wz" x="15.66" y="1" width="7.33" height="7.33" />
+          <rect class="spinner_g2vs" x="8.33" y="8.33" width="7.33" height="7.33" />
+          <rect class="spinner_ctYB" x="1" y="15.66" width="7.33" height="7.33" />
+          <rect class="spinner_BDNj" x="15.66" y="8.33" width="7.33" height="7.33" />
+          <rect class="spinner_rCw3" x="8.33" y="15.66" width="7.33" height="7.33" />
+          <rect class="spinner_Rszm" x="15.66" y="15.66" width="7.33" height="7.33" />
+        </svg>
+      </div>
+      <div>
+        <div class="name">方块律动</div>
+        <div class="note">九宫格沿对角线依次缩放</div>
+      </div>
+      <a href="https://github.com/n3r4zzurr0/svg-spinners/blob/main/svg-css/blocks-wave.svg"
+        >源码</a
+      >
+    </div>
+    <footer>
+      暂停会冻结当前画面；减弱动效或页面隐藏时自动停止。均为预设循环，不随音乐变化。第三方许可随源码内嵌。
+    </footer>
+    <script>
+      const root = document.documentElement
+      let playing = true
+      const motion = matchMedia('(prefers-reduced-motion: reduce)')
+      const animations = [...document.querySelectorAll('.current i')].map((bar, index) => {
+        const spec = [
+          { duration: 800, peak: 0.5 },
+          { duration: 1050, peak: 0.3 },
+          { duration: 900, peak: 0.7 },
+        ][index]
+        return bar.animate(
+          [
+            { transform: 'scaleY(.333)', offset: 0 },
+            { transform: 'scaleY(1)', offset: spec.peak },
+            { transform: 'scaleY(.333)', offset: 1 },
+          ],
+          { duration: spec.duration, easing: 'ease-in-out', iterations: Infinity },
+        )
+      })
+      function sync() {
+        const stopped = !playing || motion.matches || document.hidden
+        root.classList.toggle('stopped', stopped)
+        animations.forEach((animation) => (stopped ? animation.pause() : animation.play()))
+        document
+          .querySelectorAll('svg')
+          .forEach((svg) => (stopped ? svg.pauseAnimations() : svg.unpauseAnimations()))
+        document.querySelector('#play').textContent = playing ? '暂停' : '播放'
+        document.querySelector('#play').setAttribute('aria-pressed', String(playing))
+      }
+      document.querySelector('#play').onclick = () => {
+        playing = !playing
+        sync()
+      }
+      document.querySelector('#theme').onclick = (event) => {
+        const dark = root.classList.toggle('dark')
+        event.currentTarget.textContent = dark ? '浅色' : '深色'
+        event.currentTarget.setAttribute('aria-pressed', String(dark))
+      }
+      document.querySelector('#size').onchange = (event) => {
+        const size = Number(event.target.value)
+        root.style.setProperty('--size', size + 'px')
+        root.style.setProperty('--scale', size / 14)
+        root.style.setProperty('--ellipsis-scale', size / 80)
+      }
+      motion.addEventListener('change', sync)
+      document.addEventListener('visibilitychange', sync)
+      sync()
+    </script>
+  </body>
+</html>

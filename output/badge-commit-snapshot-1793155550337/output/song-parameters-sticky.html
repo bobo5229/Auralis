@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>歌曲页参数 · 吸附预览</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#151719;color:#e8e7e3;font:14px/1.5 system-ui,"Microsoft YaHei",sans-serif}main{max-width:760px;margin:auto;padding:52px 24px 100px}h1{font-size:24px;margin:0 0 10px}p{color:#a4a6a9;margin:0 0 28px}.card{padding:24px;background:#1e2124;border:1px solid #363a3e;border-radius:12px;margin:24px 0}.card h2{font-size:18px;margin:0 0 12px}.spacer{min-height:200px}details{border:1px solid #41464b;border-radius:12px;background:#1e2124}summary{padding:18px 20px;cursor:pointer;font-weight:600}summary::marker{color:#b5c6ad}.panel{position:relative;padding:0 20px 20px}.preview{position:sticky;top:0;z-index:2;background:#1e2124;padding:16px 0 20px;border-bottom:1px solid #4c5550}.preview-label{font-size:12px;color:#a8bca1;display:flex;justify-content:space-between;margin-bottom:12px}.sample{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;background:#292e31;border-radius:8px}.art{width:52px;height:52px;border-radius:8px;background:#738578;display:grid;place-items:center;color:#18281d;font-size:28px}.title{font-size:14px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.artist{font-size:12px;color:#abb0b2;margin-top:4px}.duration{color:#aeb5b8;font-variant-numeric:tabular-nums}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 0 8px}.toolbar strong{font-size:16px}button,select,input{font:inherit;color:inherit}button,select{background:#303639;border:1px solid #50585c;border-radius:6px;padding:7px 10px;cursor:pointer}.row{display:grid;grid-template-columns:minmax(100px,1fr) 120px 100px;gap:16px;align-items:center;min-height:108px;border-bottom:1px solid #353b3e}.row label{display:block}.row small{display:block;font-size:12px;color:#969ea2;margin-top:5px}input{width:100%;accent-color:#b5c6ad}.end{padding:26px 0 4px;color:#a8bca1;font-size:12px}.below{min-height:650px}.hint{font-size:12px;color:#969ea2}button:focus-visible,select:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid #b5c6ad;outline-offset:4px}@media(max-width:520px){main{padding:28px 14px}.panel{padding:0 12px 16px}.row{grid-template-columns:1fr 90px 85px;gap:8px}.sample{padding:12px;gap:10px}.preview-label span:last-child{display:none}}
+</style>
+<main>
+<h1>外观设置</h1>
+<p>向下滚动，观察效果预览吸附；继续滚过面板底部，预览会随面板离开。</p>
+<section class="card spacer"><h2>界面</h2><p>此处代表歌曲页参数之前的设置。</p><span class="hint">整页滚动，展开面板没有独立滚动条。</span></section>
+<details open>
+<summary>歌曲页参数</summary>
+<div class="panel">
+<div class="preview">
+<div class="preview-label"><span>效果预览 · 列表视图</span><span>吸附范围仅限当前展开面板</span></div>
+<div class="sample"><div class="art" aria-hidden="true">♫</div><div><div class="title" data-preview="title">夜航 Night Flight</div><div class="artist" data-preview="artist">陈粒 / 林生祥</div><div class="artist" data-preview="album">远航集 Far Voyage</div></div><div class="duration" data-preview="duration">4:12</div></div>
+</div>
+<div class="toolbar"><strong>列表视图参数</strong><button id="reset" type="button">恢复默认</button></div>
+<div id="fields"></div>
+<div class="end">歌曲页参数到这里结束。继续向下滚动，预览将离开顶部。</div>
+</div>
+</details>
+<section class="card below"><h2>其他设置</h2><p>进入后续内容后，歌曲页预览不再吸附。</p></section>
+</main>
+<script>
+const fields=[['title','音轨标题',14,700],['artist','艺术家',12,600],['album','专辑名称',12,600],['duration','歌曲时长',12,400]];
+const container=document.querySelector('#fields');
+for(const [key,label,size,weight] of fields){
+const row=document.createElement('div');row.className='row';
+row.innerHTML=`<label for="${key}-size">${label}<small>字号 <output id="${key}-value">${size}</output> px / 字重</small></label><input id="${key}-size" type="range" min="10" max="24" value="${size}" aria-label="${label}字号"><select id="${key}-weight" aria-label="${label}字重">${[400,500,600,700].map(v=>`<option value="${v}" ${v===weight?'selected':''}>${v}</option>`).join('')}</select>`;
+container.append(row);
+const update=()=>{const value=row.querySelector('input').value;document.querySelector(`[data-preview="${key}"]`).style.cssText=`font-size:${value}px;font-weight:${row.querySelector('select').value}`;row.querySelector('output').value=value};
+row.addEventListener('input',update);row.addEventListener('change',update);update();
+}
+document.querySelector('#reset').onclick=()=>{for(const [key,,size,weight] of fields){const input=document.getElementById(`${key}-size`);input.value=size;document.getElementById(`${key}-weight`).value=weight;input.dispatchEvent(new Event('input',{bubbles:true}));}};
+</script>
+</html>

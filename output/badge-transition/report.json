@@ -1,0 +1,281 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "cold case only becomes visible with images and foam together",
+      "pass": true
+    },
+    {
+      "name": "ready case owns initial focus",
+      "pass": true
+    },
+    {
+      "name": "preview delayed beyond dialog timeout keeps entire case invisible and inert",
+      "pass": true
+    },
+    {
+      "name": "metal delayed beyond dialog timeout keeps entire case invisible and inert",
+      "pass": true
+    },
+    {
+      "name": "foam delayed beyond dialog timeout keeps entire case invisible and inert",
+      "pass": true
+    },
+    {
+      "name": "worker first pressure frame also gates whole-case presentation",
+      "pass": true
+    },
+    {
+      "name": "Escape cancels hidden case and late decodes cannot reopen it",
+      "pass": true
+    },
+    {
+      "name": "failed first preparation reveals a closable error state",
+      "pass": true
+    },
+    {
+      "name": "switch buttons are hidden through initial entry and cannot take focus",
+      "pass": true
+    },
+    {
+      "name": "stable inspection shows larger contrasting switch buttons",
+      "pass": true
+    },
+    {
+      "name": "switching hides buttons and moves focus to the inspection object",
+      "pass": true
+    },
+    {
+      "name": "direct switch reaches next badge without returning or replaying entry",
+      "pass": true
+    },
+    {
+      "name": "switch uses a constant central size and fixed vertical position",
+      "pass": true
+    },
+    {
+      "name": "next switch exits left and enters from right",
+      "pass": true
+    },
+    {
+      "name": "only one canvas context survives model handoff and old textures are released",
+      "pass": true
+    },
+    {
+      "name": "previous switch reverses the slide direction",
+      "pass": true
+    },
+    {
+      "name": "target preparation retains current visible model",
+      "pass": true
+    },
+    {
+      "name": "repeated switch inputs do not create extra target requests",
+      "pass": true
+    },
+    {
+      "name": "cancelled switch cannot restart after delayed images arrive",
+      "pass": true
+    },
+    {
+      "name": "target load failure retains current inspection and restores controls",
+      "pass": true
+    },
+    {
+      "name": "Escape during outgoing animation returns current badge and keeps buttons hidden",
+      "pass": true
+    },
+    {
+      "name": "return during incoming animation restores new badge to its own slot",
+      "pass": true
+    },
+    {
+      "name": "reduced-motion collection has no fade transition",
+      "pass": true
+    },
+    {
+      "name": "hours lit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "hours lit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "hours lit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours lit reduced switch 2 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours lit reduced switch 3 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours lit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "days lit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "days lit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "days lit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days lit reduced switch 2 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days lit reduced switch 3 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days lit reduced switch 4 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days lit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "albums lit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "albums lit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "albums lit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "albums lit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "hours unlit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "hours unlit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "hours unlit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours unlit reduced switch 2 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours unlit reduced switch 3 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "hours unlit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "days unlit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "days unlit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "days unlit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days unlit reduced switch 2 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days unlit reduced switch 3 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days unlit reduced switch 4 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "days unlit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "albums unlit keeps entire set decoded with a visible box",
+      "pass": true
+    },
+    {
+      "name": "albums unlit first badge disables previous only",
+      "pass": true
+    },
+    {
+      "name": "albums unlit reduced switch 1 skips moving phases",
+      "pass": true
+    },
+    {
+      "name": "albums unlit last badge disables next only",
+      "pass": true
+    },
+    {
+      "name": "minimum window keeps both controls and inspection within view",
+      "pass": true
+    },
+    {
+      "name": "inspection stops drawing when idle",
+      "pass": true
+    },
+    {
+      "name": "measured switch draw submission milliseconds",
+      "pass": true,
+      "detail": {
+        "frames": 74,
+        "p95": 0.10000000149011612,
+        "max": 0.10000000149011612,
+        "contexts": 3,
+        "maxLiveTextures": 19
+      }
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-transition\\isolated-profile\\profile-OthLjK",
+  "baseCommit": "66ce572a051ccea6eeff3ab38cc41a9a4c3386f1",
+  "sourceSha256": {
+    "src/renderer/features/archive/components/ArchiveMilestoneGallery.vue": "27297df75c554cd558a53ba4dae674d7993955518b315ae4bf0da09b9e225f35",
+    "src/renderer/features/archive/composables/useBadgeInspection.ts": "d2adf84485aa1f479184412d62b6c761b8118d310f71a9bb091048de9a083f02",
+    "src/renderer/features/archive/runtime/badgeInspectRenderer.ts": "f6bb48c103b0731bdf5409dfb59b58fdfef8f06693dfe9a798359e4e87dc9e0e",
+    "src/renderer/features/archive/runtime/badgePressureSurface.ts": "ef7336a43f272975aa73d21338ff663a3acaeb72551e89f14866d6d560e8240e",
+    "src/renderer/features/archive/styles/badgeGallery.css": "9cf435e9558f68bf0199560e67dcb0bbf1206f30863455f49492e80d9ece2a4b",
+    "src/renderer/locales/en.json": "cfb0ac2614b6edade2bbf33e425bc0f9dc166b89b4b762b57118ff6dc51253b5",
+    "src/renderer/locales/zh-Hans.json": "96a605e76a6505a7ef7864490e5f4829cba88fa742ec428ab2f466c6e6f8069e"
+  },
+  "switchFrameIntervals": {
+    "samples": 74,
+    "p95Ms": 33.20000000000073,
+    "maxMs": 33.30000000000109,
+    "over25Ms": 4,
+    "scope": "requestAnimationFrame intervals in the full instrumented Electron run; not GPU duration or display presentation FPS"
+  },
+  "validationScope": "Actual built Electron main/preload/renderer, isolated empty database. Decode, Worker delivery and TextureLoader src were selectively delayed/failed at external resource boundaries; real state machine, material renderer and interactions retained. No actual library or audio files accessed.",
+  "limitations": [
+    "One earlier instrumented run had a renderer-process crash (exitCode -36861); complete rerun passed without renderer errors.",
+    "First build attempt hit a Node heap allocation failure; production build succeeded with per-process V8 memory flags; final budget check still reports the existing 145.61 MiB font total above 110 MiB.",
+    "Draw-call submission CPU times and rAF intervals do not measure GPU completion or displayed FPS."
+  ]
+}

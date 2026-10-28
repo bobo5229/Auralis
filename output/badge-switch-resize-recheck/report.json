@@ -1,0 +1,241 @@
+{
+  "passed": true,
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-switch-resize-recheck\\profile-fQplyj",
+  "baseCommit": "66ce572a051ccea6eeff3ab38cc41a9a4c3386f1",
+  "sourceSha256": {
+    "src/renderer/features/archive/composables/useBadgeInspection.ts": "c87a61d1efe6d6ed3df5b66719ee3bdb4d01e5992e795212921e362d4a7b605b",
+    "src/renderer/features/archive/composables/useBadgeInspection.test.ts": "a7d7ced5f51013a5a6b31fbe4715863d23aa22ce7fb671b75f285b26d2b640bc"
+  },
+  "checks": [
+    {
+      "name": "Waiting badge recenters and remains fully within 900x620",
+      "pass": true
+    },
+    {
+      "name": "Resize redraws the held badge without advancing the pending switch",
+      "pass": true
+    },
+    {
+      "name": "Waiting does not create a continuous render clock",
+      "pass": true
+    },
+    {
+      "name": "Actual DPR and canvas size changes still retain the centered current badge",
+      "pass": true
+    },
+    {
+      "name": "Canvas size refresh also stops drawing when idle",
+      "pass": true
+    },
+    {
+      "name": "Prepared target switches normally after the resize",
+      "pass": true
+    },
+    {
+      "name": "Cancel exits and late target resources do not restart inspection",
+      "pass": true
+    },
+    {
+      "name": "No renderer errors",
+      "pass": true
+    }
+  ],
+  "samples": {
+    "before": {
+      "phase": "switch-loading",
+      "badge": "hours100",
+      "draws": 335,
+      "rect": {
+        "x": 510,
+        "y": 214.5454559326172,
+        "width": 420,
+        "height": 470.9062194824219,
+        "top": 214.5454559326172,
+        "right": 930,
+        "bottom": 685.4516754150391,
+        "left": 510
+      },
+      "expectedLeft": 510,
+      "expectedTop": 214.54689025878906,
+      "viewport": {
+        "width": 1440,
+        "height": 900,
+        "dpr": 1.5
+      },
+      "canvas": {
+        "width": 630,
+        "height": 706
+      },
+      "transform": "translate(510px, 214.545px) scale(1)",
+      "opacity": "1"
+    },
+    "afterResize": {
+      "phase": "switch-loading",
+      "badge": "hours100",
+      "draws": 340,
+      "rect": {
+        "x": 240,
+        "y": 74.54545593261719,
+        "width": 420,
+        "height": 470.90625,
+        "top": 74.54545593261719,
+        "right": 660,
+        "bottom": 545.4517059326172,
+        "left": 240
+      },
+      "expectedLeft": 240,
+      "expectedTop": 74.546875,
+      "viewport": {
+        "width": 900,
+        "height": 620,
+        "dpr": 1.5
+      },
+      "canvas": {
+        "width": 630,
+        "height": 706
+      },
+      "transform": "translate(240px, 74.5455px) scale(1)",
+      "opacity": "1"
+    },
+    "idleAfterResize": {
+      "phase": "switch-loading",
+      "badge": "hours100",
+      "draws": 340,
+      "rect": {
+        "x": 240,
+        "y": 74.54545593261719,
+        "width": 420,
+        "height": 470.90625,
+        "top": 74.54545593261719,
+        "right": 660,
+        "bottom": 545.4517059326172,
+        "left": 240
+      },
+      "expectedLeft": 240,
+      "expectedTop": 74.546875,
+      "viewport": {
+        "width": 900,
+        "height": 620,
+        "dpr": 1.5
+      },
+      "canvas": {
+        "width": 630,
+        "height": 706
+      },
+      "transform": "translate(240px, 74.5455px) scale(1)",
+      "opacity": "1"
+    },
+    "zoomed": {
+      "phase": "switch-loading",
+      "badge": "hours100",
+      "draws": 345,
+      "rect": {
+        "x": 192.32432556152344,
+        "y": 60.000003814697266,
+        "width": 335.3500061035156,
+        "height": 376.0000305175781,
+        "top": 60.000003814697266,
+        "right": 527.6743316650391,
+        "bottom": 436.0000343322754,
+        "left": 192.32432556152344
+      },
+      "expectedLeft": 192.3249969482422,
+      "expectedTop": 59.99998474121094,
+      "viewport": {
+        "width": 720,
+        "height": 496,
+        "dpr": 1.875
+      },
+      "canvas": {
+        "width": 628,
+        "height": 705
+      },
+      "transform": "translate(192.324px, 60px) scale(1)",
+      "opacity": "1"
+    },
+    "idleAfterZoom": {
+      "phase": "switch-loading",
+      "badge": "hours100",
+      "draws": 345,
+      "rect": {
+        "x": 192.32432556152344,
+        "y": 60.000003814697266,
+        "width": 335.3500061035156,
+        "height": 376.0000305175781,
+        "top": 60.000003814697266,
+        "right": 527.6743316650391,
+        "bottom": 436.0000343322754,
+        "left": 192.32432556152344
+      },
+      "expectedLeft": 192.3249969482422,
+      "expectedTop": 59.99998474121094,
+      "viewport": {
+        "width": 720,
+        "height": 496,
+        "dpr": 1.875
+      },
+      "canvas": {
+        "width": 628,
+        "height": 705
+      },
+      "transform": "translate(192.324px, 60px) scale(1)",
+      "opacity": "1"
+    },
+    "resolved": {
+      "phase": "inspecting",
+      "badge": "hours500",
+      "draws": 475,
+      "rect": {
+        "x": 240,
+        "y": 74.54545593261719,
+        "width": 420,
+        "height": 470.90625,
+        "top": 74.54545593261719,
+        "right": 660,
+        "bottom": 545.4517059326172,
+        "left": 240
+      },
+      "expectedLeft": 240,
+      "expectedTop": 74.546875,
+      "viewport": {
+        "width": 900,
+        "height": 620,
+        "dpr": 1.5
+      },
+      "canvas": {
+        "width": 630,
+        "height": 706
+      },
+      "transform": "translate(240px, 74.5455px) scale(1)",
+      "opacity": "1"
+    },
+    "cancelled": {
+      "phase": "closed",
+      "draws": 610,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "expectedLeft": 450,
+      "expectedTop": 310,
+      "viewport": {
+        "width": 900,
+        "height": 620,
+        "dpr": 1.5
+      },
+      "canvas": {
+        "width": 630,
+        "height": 706
+      },
+      "transform": "translate(545.435px, 212.488px) scale(0.412214)",
+      "opacity": "1"
+    }
+  },
+  "errors": []
+}

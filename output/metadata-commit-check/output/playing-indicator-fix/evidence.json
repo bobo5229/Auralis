@@ -1,0 +1,20 @@
+{
+  "systemReducedMotion": true,
+  "initial": {
+    "icons": 3
+  },
+  "blocks": {
+    "icons": 3,
+    "animations": 27
+  },
+  "animatedWidths": [
+    2.719507932662964,
+    0.9695180654525757,
+    2.525843381881714
+  ],
+  "renderedPixelsChange": true,
+  "pause": true,
+  "restore": true,
+  "lifecycle": true,
+  "errors": []
+}

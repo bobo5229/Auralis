@@ -1,0 +1,38 @@
+{
+  "initial": {
+    "gap": "2px",
+    "titleSize": "18px",
+    "rowHeight": 64,
+    "animations": 3
+  },
+  "paused": {
+    "scales": [
+      "scaleY(0.417)",
+      "scaleY(0.833)",
+      "scaleY(0.583)"
+    ]
+  },
+  "switch": {
+    "missingNumberCentered": true
+  },
+  "input": {
+    "events": [
+      1,
+      3,
+      3
+    ]
+  },
+  "unmount": {
+    "animations": 0,
+    "listeners": 0
+  },
+  "alignment": true,
+  "reducedMotion": true,
+  "layout": [
+    "1100/light",
+    "1100/dark",
+    "760/light",
+    "760/dark"
+  ],
+  "errors": []
+}

@@ -24,6 +24,7 @@
 - [确认删除文件后的曲库清理](library/TECHDOC-deleted-track-cleanup-2026-10-04.md)记录全量扫描后的曲库、歌单与收听历史处理，以及当时的实现和验证证据。
 - [曲库流派上层统计](metadata/REPORT-genre-upper-classification-2026-10-04.md)保存 2026-10-04 的样本统计和映射草案，数值不代表实时曲库。
 - [元数据体系优化技术方案](metadata/TECHDOC-metadata-system-optimization-2026-10-28.md)承接 2026-10-28 审计，规划文件值、历史覆盖、日期、多值写回与封面来源的统一；附 S1–S5 实施与独立验收记录。
+- [元数据编辑面板扩展技术方案](metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md)承接面板功能审计，规划编辑恢复、编号、专辑批量和内嵌封面等 E1–E6 阶段；待实施。
 - [音乐来源路径优先布局](library/TECHDOC-music-source-path-priority-2026-09-28.md)记录来源行布局与当时的源码核对范围。
 - [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录字重配置在设置页、歌曲列表与封面视图中的设计和证据边界。
 - [历史：MiniPlayer 弹层可用性与窗口状态同步修复](playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)记录弹层裁切、状态乱序、开关失配和极小工作区越界的修复方案与定向验收；迷你播放器已于 2026-09-28 移除。

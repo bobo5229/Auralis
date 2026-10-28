@@ -1,0 +1,57 @@
+import type { NativePlaybackCommand, NativePlaybackEvent } from '@shared/ipc/contracts'
+
+export type BoundaryStatus =
+  | 'analyzing'
+  | 'unchanged'
+  | 'applied'
+  | 'too-late'
+  | 'cancelled'
+  | 'failed'
+export type NextTrackRequest = Extract<NativePlaybackCommand, { action: 'next' }>
+
+export interface PlaybackCoordinator {
+  acquireReadLease: (
+    filePath: string,
+    sourceId: string,
+    signal?: AbortSignal,
+  ) => Promise<{ leaseId: string; version: number }>
+  releaseReadLease: (leaseId: string) => void
+  /** Synchronous catalog check immediately before opening a leased decoder path. */
+  isReadLeaseForTrack: (leaseId: string, trackId: number, filePath: string) => boolean
+  markReadLeaseCurrent?: (leaseId: string) => void
+  reserveWriteIntent?: (filePath: string) => string | null
+  promoteWriteIntent?: (leaseId: string) => void
+  reserveFileReplacement?: (filePath: string) => string | null
+  promoteFileReplacement?: (leaseId: string) => void
+  releaseWriteLease?: (leaseId: string) => void
+  refreshPlaybackCapability?: (filePath: string) => void
+  handoffWriteLeaseToRead?: (
+    leaseId: string,
+    sourceId: string,
+  ) => { leaseId: string; version: number }
+}
+
+export interface NativePlaybackOptions {
+  mpvPath: string
+  ffmpegPath: string
+  resolveTrack: (id: number) => Promise<string>
+  /** No catalog resolver means album classification is unknown. */
+  isLiveAlbum?: (trackId: number) => boolean
+  coordinator?: PlaybackCoordinator
+  emit: (event: NativePlaybackEvent) => void
+  warn: (error: unknown) => void
+  onBoundaryStatus?: (event: { trackId: number; status: BoundaryStatus }) => void
+  /** Isolated tests can select a null or PCM audio output. */
+  mpvArgs?: string[]
+  suspendFileReaders?: (filePath: string) => Promise<() => void>
+}
+
+/** A fresh read of the facade's logical song, never a mutable shared snapshot. */
+export interface LogicalPlaybackView {
+  readonly trackId: number | null
+  readonly loaded: boolean
+  readonly path: string
+  readonly paused: boolean
+  readonly currentTime: number
+  readonly duration: number
+}

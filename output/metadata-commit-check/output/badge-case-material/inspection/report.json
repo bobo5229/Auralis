@@ -1,0 +1,181 @@
+{
+  "passed": true,
+  "scope": "Isolated Electron prototype; real Three.js/GLSL assets, no product IPC or user data",
+  "checks": [
+    {
+      "name": "no WebGL renderer until a badge is inspected",
+      "pass": true
+    },
+    {
+      "name": "a native left click starts the inspection transition",
+      "pass": true,
+      "detail": {
+        "phase": "entering",
+        "badgeId": "hours-100",
+        "running": true,
+        "progress": 0.017592592593972414,
+        "renderer": {
+          "badgeId": "hours-100",
+          "ready": true,
+          "frames": 3,
+          "pose": {
+            "x": -0.004419250103422135,
+            "y": 0.005765502057437068
+          },
+          "textures": 6,
+          "meshes": 5
+        }
+      }
+    },
+    {
+      "name": "vertical-axis turn exposes a solid metal back",
+      "pass": true,
+      "detail": {
+        "phase": "entering",
+        "badgeId": "hours-100",
+        "running": true,
+        "progress": 0.49601851851989814,
+        "renderer": {
+          "badgeId": "hours-100",
+          "ready": true,
+          "frames": 31,
+          "pose": {
+            "x": -0.07999374188594006,
+            "y": 3.1040688678141626
+          },
+          "textures": 6,
+          "meshes": 5
+        }
+      }
+    },
+    {
+      "name": "inspection settles facing forward after one revolution",
+      "pass": true
+    },
+    {
+      "name": "one selected badge owns the live material maps",
+      "pass": true
+    },
+    {
+      "name": "original badge is lifted and retains its foam impression",
+      "pass": true
+    },
+    {
+      "name": "modal contains no visible detail text",
+      "pass": true
+    },
+    {
+      "name": "hover changes the rendered pose and reflections",
+      "pass": true,
+      "detail": {
+        "phase": "inspecting",
+        "badgeId": "hours-100",
+        "running": false,
+        "progress": null,
+        "renderer": {
+          "badgeId": "hours-100",
+          "ready": true,
+          "frames": 89,
+          "pose": {
+            "x": 0.041833622746409664,
+            "y": 6.348042450036729
+          },
+          "textures": 6,
+          "meshes": 5
+        }
+      }
+    },
+    {
+      "name": "stationary inspection stops rendering",
+      "pass": true
+    },
+    {
+      "name": "pointer leave returns to a neutral pose",
+      "pass": true
+    },
+    {
+      "name": "Escape returns the badge and keyboard focus to its source",
+      "pass": true
+    },
+    {
+      "name": "early exit during the turn leaves no hidden badge",
+      "pass": true
+    },
+    {
+      "name": "resize keeps the inspected badge inside the viewport",
+      "pass": true
+    },
+    {
+      "name": "icon button puts the badge back",
+      "pass": true
+    },
+    {
+      "name": "blank-space click puts the badge back",
+      "pass": true
+    },
+    {
+      "name": "all eleven badges load their own GLSL front and solid body",
+      "pass": true,
+      "detail": [
+        {
+          "id": "hours-10",
+          "textures": 6
+        },
+        {
+          "id": "hours-100",
+          "textures": 6
+        },
+        {
+          "id": "hours-500",
+          "textures": 6
+        },
+        {
+          "id": "hours-1000",
+          "textures": 6
+        },
+        {
+          "id": "days-7",
+          "textures": 6
+        },
+        {
+          "id": "days-30",
+          "textures": 6
+        },
+        {
+          "id": "days-100",
+          "textures": 6
+        },
+        {
+          "id": "days-365",
+          "textures": 6
+        },
+        {
+          "id": "days-520",
+          "textures": 6
+        },
+        {
+          "id": "albums-1",
+          "textures": 6
+        },
+        {
+          "id": "albums-live",
+          "textures": 6
+        }
+      ]
+    },
+    {
+      "name": "reduced motion reaches the front without a spinning loop",
+      "pass": true
+    },
+    {
+      "name": "narrow inspection is centered and fits the screen",
+      "pass": true
+    },
+    {
+      "name": "no renderer or shader errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}

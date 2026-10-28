@@ -1,0 +1,58 @@
+{
+  "hash": "31be29cd",
+  "configHash": "f28b1a71",
+  "lockfileHash": "1db936e8",
+  "browserHash": "7adb7b66",
+  "optimized": {
+    "opencc-js/core": {
+      "src": "../../../../node_modules/opencc-js/dist/esm-lib/core.js",
+      "file": "opencc-js_core.js",
+      "fileHash": "4f837074",
+      "needsInterop": false
+    },
+    "opencc-js/from/cn": {
+      "src": "../../../../node_modules/opencc-js/dist/esm-lib/from/cn.js",
+      "file": "opencc-js_from_cn.js",
+      "fileHash": "d0d64586",
+      "needsInterop": false
+    },
+    "opencc-js/from/tw": {
+      "src": "../../../../node_modules/opencc-js/dist/esm-lib/from/tw.js",
+      "file": "opencc-js_from_tw.js",
+      "fileHash": "bd2ea830",
+      "needsInterop": false
+    },
+    "opencc-js/to/cn": {
+      "src": "../../../../node_modules/opencc-js/dist/esm-lib/to/cn.js",
+      "file": "opencc-js_to_cn.js",
+      "fileHash": "89bdfc58",
+      "needsInterop": false
+    },
+    "opencc-js/to/tw": {
+      "src": "../../../../node_modules/opencc-js/dist/esm-lib/to/tw.js",
+      "file": "opencc-js_to_tw.js",
+      "fileHash": "40cfc11d",
+      "needsInterop": false
+    },
+    "vue": {
+      "src": "../../../../node_modules/vue/dist/vue.runtime.esm-bundler.js",
+      "file": "vue.js",
+      "fileHash": "17189d83",
+      "needsInterop": false
+    },
+    "vue-i18n": {
+      "src": "../../../../node_modules/vue-i18n/dist/vue-i18n.mjs",
+      "file": "vue-i18n.js",
+      "fileHash": "f773862b",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-H2TUYCZH": {
+      "file": "chunk-H2TUYCZH.js"
+    },
+    "chunk-PZ5AY32C": {
+      "file": "chunk-PZ5AY32C.js"
+    }
+  }
+}

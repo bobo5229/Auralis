@@ -1,0 +1,12 @@
+{
+  "parent": "406b74c989280af88481e3eb38ba3044b4ff41e6",
+  "actualIndex": "D:/VSCode/Auralis/.git/index",
+  "mergedIndex": "D:/VSCode/Auralis/output/badge-combined.index",
+  "initialIndexHash": "26fe607face7e87c4b6bfbc31db8a6aba00bfb85e91ee93627b64f997814cfab",
+  "beforeTree": "d9640a96bb7f822dc3fc30056d41956b53789375",
+  "conflicts": [
+    "src/main/database/schema.native.test.ts",
+    "src/main/database/schemaMigrations.ts",
+    "src/main/ipc/ipcPayloadValidation.test.ts"
+  ]
+}

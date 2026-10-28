@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 80" role="img" aria-labelledby="title">
+  <title id="title">Auralis — faceted</title>
+  <g fill="none" stroke="#171c1a" stroke-width="9" stroke-linecap="butt" stroke-linejoin="miter">
+    <g transform="translate(12 0)"><path d="M4 64 27 8 50 64M14 43H40"/></g>
+    <g transform="translate(70 0)"><path d="M4 25V53L14 64H25L35 53V25M35 53V64"/></g>
+    <g transform="translate(117 0)"><path d="M4 64V25M4 37 14 25H26"/></g>
+    <g transform="translate(152 0)"><path d="M35 25H15L4 36V53L15 64H25L35 53M35 25V64"/></g>
+    <g transform="translate(199 0)"><path d="M5 8V64H15"/></g>
+    <g transform="translate(223 0)"><path d="M7 28V64M7 10V14"/></g>
+    <g transform="translate(245 0)"><path d="M31 25H14L4 34V39L29 50V55L20 64H3"/></g>
+  </g>
+</svg>

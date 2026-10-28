@@ -1,0 +1,1695 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auralis · Y2K 果冻半透软盘 2.5D 实体厚度原型 (无缝密闭立体重构)</title>
+    <style>
+      :root {
+        --bg-deep: #030508;
+        --bg-panel: rgba(10, 16, 24, 0.88);
+        --border-panel: rgba(140, 195, 215, 0.18);
+        --accent-cyan: #9aefe7;
+        --text-main: #f0f4f8;
+        --text-muted: #8598a6;
+        --font-ui:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei',
+          sans-serif;
+        --font-mono: 'SF Mono', 'Consolas', monospace;
+
+        /* Color Theme Variables (Default: Bondi Blue) */
+        --pc-rgb: 42, 127, 140;
+        --pc-dark-rgb: 12, 45, 56;
+        --pc-glow-rgb: 154, 239, 231;
+        --disk-thickness-val: 16; /* in pixels (~3.3mm physical scale) */
+
+        /* 3.5" Standard Contour: 45° top-right chamfer (18px) + guide notches at 60% height */
+        --floppy-contour: polygon(
+          0% 0%,
+          calc(100% - 18px) 0%,
+          100% 18px,
+          100% 57%,
+          calc(100% - 3.5px) 59%,
+          calc(100% - 3.5px) 61%,
+          100% 63%,
+          100% 100%,
+          0% 100%,
+          0% 63%,
+          3.5px 61%,
+          3.5px 59%,
+          0% 57%
+        );
+
+        /* Inverted Contour for Back Face */
+        --floppy-contour-back: polygon(
+          18px 0%,
+          100% 0%,
+          100% 57%,
+          calc(100% - 3.5px) 59%,
+          calc(100% - 3.5px) 61%,
+          100% 63%,
+          100% 100%,
+          0% 100%,
+          0% 63%,
+          3.5px 61%,
+          3.5px 59%,
+          0% 57%,
+          0% 18px
+        );
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg-deep);
+        color: var(--text-main);
+        font-family: var(--font-ui);
+        min-height: 100vh;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        background-image:
+          radial-gradient(ellipse at 50% 12%, rgba(20, 52, 72, 0.5) 0%, transparent 68%),
+          radial-gradient(circle at 85% 80%, rgba(25, 42, 60, 0.35) 0%, transparent 55%),
+          radial-gradient(1px 1px at 25px 35px, #ffffff99, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 160px 190px, #9aefe7aa, rgba(0, 0, 0, 0)),
+          radial-gradient(1.5px 1.5px at 300px 80px, #ffffff88, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 450px 260px, #ffffff66, rgba(0, 0, 0, 0)),
+          radial-gradient(1.5px 1.5px at 620px 120px, #9aefe788, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 830px 340px, #ffffff77, rgba(0, 0, 0, 0)),
+          radial-gradient(1px 1px at 980px 160px, #ffffff88, rgba(0, 0, 0, 0));
+        background-size:
+          100% 100%,
+          100% 100%,
+          350px 350px,
+          450px 450px,
+          300px 300px,
+          500px 500px,
+          400px 400px,
+          600px 600px,
+          550px 550px;
+      }
+
+      /* Top App Header */
+      header.app-header {
+        padding: 16px 36px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border-panel);
+        background: rgba(7, 11, 16, 0.78);
+        backdrop-filter: blur(16px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .brand-section {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+
+      .brand-title {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #fff;
+      }
+
+      .brand-sub {
+        font-size: 13px;
+        color: var(--accent-cyan);
+        letter-spacing: 0.5px;
+      }
+
+      .view-mode-tabs {
+        display: flex;
+        background: rgba(16, 25, 35, 0.8);
+        padding: 4px;
+        border-radius: 8px;
+        border: 1px solid var(--border-panel);
+        gap: 4px;
+      }
+
+      .mode-tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        padding: 7px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .mode-tab-btn:hover {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .mode-tab-btn.active {
+        color: #08151c;
+        background: var(--accent-cyan);
+        font-weight: 600;
+        box-shadow: 0 2px 10px rgba(154, 239, 231, 0.35);
+      }
+
+      /* Main Workspace */
+      main.workspace {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 24px 36px;
+        max-width: 1540px;
+        width: 100%;
+        margin: 0 auto;
+        gap: 24px;
+      }
+
+      /* Control Toolbar */
+      .control-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 22px;
+        background: var(--bg-panel);
+        border-radius: 12px;
+        border: 1px solid var(--border-panel);
+        backdrop-filter: blur(12px);
+      }
+
+      .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .toolbar-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+
+      .color-swatch-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          border-color 0.2s;
+      }
+
+      .color-swatch-btn:hover {
+        transform: scale(1.15);
+      }
+
+      .color-swatch-btn.active {
+        border-color: #fff;
+        transform: scale(1.15);
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      }
+
+      .btn-action {
+        background: rgba(28, 42, 56, 0.7);
+        border: 1px solid rgba(140, 195, 215, 0.25);
+        color: var(--text-main);
+        padding: 7px 14px;
+        font-size: 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .btn-action:hover {
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+        background: rgba(154, 239, 231, 0.12);
+      }
+
+      .btn-action.active {
+        background: rgba(154, 239, 231, 0.2);
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+        font-weight: 600;
+      }
+
+      .slider-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      input[type='range'] {
+        -webkit-appearance: none;
+        width: 90px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 2px;
+        outline: none;
+      }
+
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--accent-cyan);
+        cursor: pointer;
+        box-shadow: 0 0 6px var(--accent-cyan);
+      }
+
+      /* Stage Area */
+      .stage-wrapper {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 560px;
+        position: relative;
+      }
+
+      .scene-viewport {
+        perspective: 1400px;
+        width: 380px;
+        height: 400px;
+        position: relative;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* ==========================================================================
+       THE 2.5D FLOPPY DISK WATERTIGHT SOLID 3D RIG
+       Using True Volumetric Depth Slices + Cohesive Clamped Shutter + Recessed Cavity
+       ========================================================================== */
+      .floppy-solid-box {
+        width: 310px;
+        height: 324px; /* 90:94 Standard Aspect Ratio */
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: grab;
+      }
+
+      .floppy-solid-box:active {
+        cursor: grabbing;
+      }
+
+      .floppy-solid-box.is-flipped {
+        transform: rotateY(180deg) !important;
+      }
+
+      /* Exploded Structure Mode */
+      .floppy-solid-box.is-exploded .face-front-cap {
+        transform: translateZ(52px) !important;
+      }
+      .floppy-solid-box.is-exploded .face-back-cap {
+        transform: rotateY(180deg) translateZ(52px) !important;
+      }
+      .floppy-solid-box.is-exploded .internal-mylar-platter {
+        transform: translateZ(0px) scale(1.05) !important;
+        opacity: 0.95;
+      }
+      .floppy-solid-box.is-exploded .volumetric-extrusion-stack {
+        opacity: 0.25;
+      }
+
+      /* --------------------------------------------------------------------------
+       1. VOLUMETRIC EXTRUSION CORE (真正的闭合密闭实体切片，消灭所有空心漏洞)
+       -------------------------------------------------------------------------- */
+      .volumetric-extrusion-stack {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+
+      .solid-slice {
+        position: absolute;
+        inset: 0;
+        clip-path: var(--floppy-contour);
+        /* Translucent Edge Gradient: Light on top-left, darker on bottom-right */
+        background: linear-gradient(
+          135deg,
+          rgba(var(--pc-rgb), 0.88) 0%,
+          rgba(var(--pc-dark-rgb), 0.94) 55%,
+          rgba(var(--pc-rgb), 0.82) 100%
+        );
+        box-shadow:
+          inset 1px 1px 0 rgba(255, 255, 255, 0.3),
+          inset -1px -1px 0 rgba(0, 0, 0, 0.6);
+        backface-visibility: hidden;
+      }
+
+      /* Central Mold Parting Seam Slice (合模接缝中层) */
+      .solid-slice.is-parting-line {
+        background: linear-gradient(
+          135deg,
+          rgba(0, 0, 0, 0.75) 0%,
+          rgba(var(--pc-dark-rgb), 0.98) 50%,
+          rgba(0, 0, 0, 0.85) 100%
+        );
+        box-shadow:
+          inset 0.5px 0.5px 0 rgba(255, 255, 255, 0.15),
+          0 0 2px rgba(0, 0, 0, 0.9);
+      }
+
+      /* --------------------------------------------------------------------------
+       2. FRONT FACE CAP (位于 Z = +thickness/2)
+       -------------------------------------------------------------------------- */
+      .face-front-cap {
+        position: absolute;
+        inset: 0;
+        clip-path: var(--floppy-contour);
+        border-radius: 4px 0 4px 4px;
+        background:
+          radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.45) 0%, transparent 60%),
+          linear-gradient(
+            135deg,
+            rgba(var(--pc-rgb), 0.76) 0%,
+            rgba(var(--pc-dark-rgb), 0.86) 55%,
+            rgba(var(--pc-rgb), 0.72) 100%
+          );
+        backdrop-filter: blur(8px);
+        box-shadow:
+          inset 1.5px 2px 1.5px rgba(255, 255, 255, 0.7),
+          inset -1.5px -2px 2px rgba(0, 0, 0, 0.6),
+          0 24px 50px rgba(0, 15, 25, 0.8),
+          0 0 25px rgba(var(--pc-glow-rgb), 0.3);
+        transform-style: preserve-3d;
+        backface-visibility: hidden;
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      /* Mold Edge Highlight Bevel */
+      .front-mold-bevel {
+        position: absolute;
+        inset: 3px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-bottom-color: rgba(0, 0, 0, 0.4);
+        border-right-color: rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+        clip-path: polygon(0% 0%, calc(100% - 16px) 0%, 100% 16px, 100% 100%, 0% 100%);
+      }
+
+      /* --------------------------------------------------------------------------
+       3. INTERNAL OPTICAL DEPTH (深黑磁片、驱动转子、金属扭簧)
+       -------------------------------------------------------------------------- */
+      .internal-layer {
+        position: absolute;
+        inset: 0;
+        transform: translateZ(0px);
+        pointer-events: none;
+        transform-style: preserve-3d;
+        z-index: 2;
+      }
+
+      .internal-mylar-platter {
+        position: absolute;
+        width: 258px;
+        height: 258px;
+        left: 26px;
+        top: 33px;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 45% 45%, #181c20 0%, #08090a 60%, #030405 85%),
+          repeating-radial-gradient(
+            circle at 50% 50%,
+            rgba(255, 255, 255, 0.035) 0,
+            rgba(255, 255, 255, 0.035) 1px,
+            transparent 1px,
+            transparent 3.5px
+          );
+        box-shadow:
+          0 0 16px rgba(0, 0, 0, 0.85),
+          inset 0 0 25px rgba(0, 0, 0, 0.95);
+        opacity: 0.92;
+        transition: all 0.4s;
+      }
+
+      .internal-spindle-hub {
+        position: absolute;
+        width: 96px;
+        height: 96px;
+        left: 107px;
+        top: 114px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 45% 45%, #dce4e8 0%, #a2b0b8 50%, #68747a 85%);
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.6),
+          inset 0 0 4px rgba(0, 0, 0, 0.5);
+        opacity: 0.85;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .spindle-hole {
+        width: 20px;
+        height: 20px;
+        background: #030405;
+        border-radius: 50%;
+        box-shadow: inset 1px 1px 2px #000;
+      }
+
+      .internal-spring-wire {
+        position: absolute;
+        top: 32%;
+        left: 36%;
+        width: 32px;
+        height: 2px;
+        background: rgba(220, 240, 255, 0.55);
+        transform: rotate(-35deg);
+        box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);
+      }
+
+      /* --------------------------------------------------------------------------
+       4. METAL SHUTTER U-CLAMP (冲压 U 型金属夹门，跨扣包边咬合)
+       -------------------------------------------------------------------------- */
+      .shutter-assembly {
+        position: absolute;
+        top: 0;
+        left: 22%;
+        width: 56%;
+        height: 31%;
+        transform-style: preserve-3d;
+        transition: transform 0.35s cubic-bezier(0.18, 0.9, 0.3, 1.2);
+        cursor: pointer;
+        z-index: 20;
+      }
+
+      /* Front Metal Leaf (正面金属叶片) */
+      .shutter-front-leaf {
+        position: absolute;
+        inset: 0;
+        border-radius: 0 0 4px 4px;
+        background: linear-gradient(
+          115deg,
+          #8a9ca5 0%,
+          #ffffff 24%,
+          #687c88 46%,
+          #e3edf5 74%,
+          #7a8f9a 100%
+        );
+        box-shadow:
+          0 5px 12px rgba(0, 0, 0, 0.5),
+          inset 0 1.5px 1.5px #fff,
+          inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+        transform: translateZ(calc(var(--disk-thickness-val) * 0.5px + 1.5px));
+        backface-visibility: hidden;
+      }
+
+      /* Top U-Fold Bridge (跨过顶边实体厚度的折弯顶桥) */
+      .shutter-top-bridge {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(var(--disk-thickness-val) * 1px + 3px);
+        transform-origin: 50% 0%;
+        transform: rotateX(90deg) translateY(calc(var(--disk-thickness-val) * -0.5px - 1.5px));
+        background: linear-gradient(90deg, #99aab4, #ffffff 45%, #7d8f99);
+        box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Embossed Arrow & Grip Notches */
+      .shutter-arrow {
+        position: absolute;
+        top: 24%;
+        left: 13%;
+        width: 0;
+        height: 0;
+        border-left: 6px solid #4a5963;
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+        filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+      }
+
+      .shutter-ribs {
+        position: absolute;
+        top: 22%;
+        left: 23%;
+        width: 15px;
+        height: 12px;
+        background: repeating-linear-gradient(
+          0deg,
+          #4d5c66 0,
+          #4d5c66 1px,
+          transparent 1px,
+          transparent 4px
+        );
+        opacity: 0.65;
+        filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+      }
+
+      .shutter-window {
+        position: absolute;
+        top: 14%;
+        bottom: 12%;
+        right: 14%;
+        width: 22%;
+        border-radius: 2.5px;
+        background: #040507;
+        box-shadow:
+          inset 1.5px 1.5px 3px rgba(0, 0, 0, 0.95),
+          0 1px 0 rgba(255, 255, 255, 0.5);
+        overflow: hidden;
+      }
+
+      .shutter-window .mylar-reflection {
+        position: absolute;
+        inset: -40%;
+        background:
+          radial-gradient(circle at 50% 50%, #15181b 0%, #050608 70%),
+          repeating-radial-gradient(
+            circle at 50% 50%,
+            rgba(255, 255, 255, 0.04) 0,
+            rgba(255, 255, 255, 0.04) 1px,
+            transparent 1px,
+            transparent 3px
+          );
+        transform: rotate(35deg);
+      }
+
+      /* --------------------------------------------------------------------------
+       5. RECESSED LABEL CAVITY & POLISHED TYPOGRAPHY (沉降槽与精工排版)
+       -------------------------------------------------------------------------- */
+      .label-recess-cavity {
+        position: absolute;
+        left: 9%;
+        right: 9%;
+        top: 34%;
+        bottom: 7.5%;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.4);
+        /* Deep Mold Cavity Bevel */
+        box-shadow:
+          inset 0 2.5px 4px rgba(0, 0, 0, 0.85),
+          inset 0 -1px 1px rgba(255, 255, 255, 0.25),
+          0 1px 0 rgba(255, 255, 255, 0.12);
+        padding: 3.5px;
+        transform: translateZ(1px);
+      }
+
+      .hologram-paper-label {
+        width: 100%;
+        height: 100%;
+        border-radius: 2.5px;
+        background: linear-gradient(
+          130deg,
+          rgba(255, 255, 255, 0.98) 0%,
+          rgba(242, 250, 255, 0.95) 40%,
+          rgba(255, 245, 249, 0.95) 70%,
+          rgba(244, 255, 252, 0.98) 100%
+        );
+        box-shadow:
+          0 1.5px 4px rgba(0, 0, 0, 0.35),
+          inset 0 0 10px rgba(154, 239, 231, 0.15);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .hologram-paper-label::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          110deg,
+          transparent 15%,
+          rgba(255, 110, 175, 0.18) 32%,
+          rgba(100, 245, 255, 0.24) 48%,
+          rgba(255, 225, 110, 0.18) 64%,
+          transparent 82%
+        );
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .label-header-color-bar {
+        height: 8px;
+        background: linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%);
+        width: 100%;
+        flex-shrink: 0;
+      }
+
+      .label-content-box {
+        flex: 1;
+        padding: 9px 12px 8px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+      }
+
+      .label-artwork-frame {
+        width: 80px;
+        height: 80px;
+        border-radius: 4px;
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        background: #121a20;
+      }
+
+      .label-artwork-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .label-text-column {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: left;
+      }
+
+      .label-album-name {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #0b1318;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.25;
+        letter-spacing: -0.2px;
+      }
+
+      .label-artist-meta {
+        font-size: 12px;
+        color: #445864;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 500;
+        margin-top: 2px;
+      }
+
+      .label-dashed-line {
+        margin: 6px 0 5px;
+        border-top: 1px dashed rgba(0, 0, 0, 0.18);
+        width: 100%;
+      }
+
+      /* Polished Audio Specs Pill-Row (解决了数字折行破碎问题) */
+      .label-spec-pills {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        color: #556772;
+        font-weight: 600;
+        white-space: nowrap;
+        width: 100%;
+      }
+
+      .spec-pill {
+        background: rgba(0, 0, 0, 0.05);
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+
+      /* Sensor Holes */
+      .hole-hd {
+        position: absolute;
+        left: 7%;
+        bottom: 4%;
+        width: 16px;
+        height: 11px;
+        border-radius: 1px;
+        background: #020305;
+        box-shadow:
+          inset 1.5px 1.5px 2px #000,
+          0 0 5px rgba(var(--pc-glow-rgb), 0.35);
+      }
+
+      .hole-write-protect {
+        position: absolute;
+        right: 7%;
+        bottom: 4%;
+        width: 16px;
+        height: 11px;
+        border-radius: 1px;
+        background: #020305;
+        box-shadow:
+          inset 1.5px 1.5px 2px #000,
+          0 0 5px rgba(var(--pc-glow-rgb), 0.35);
+      }
+
+      .slider-tab-plastic {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        bottom: 1px;
+        width: 58%;
+        background: rgba(255, 255, 255, 0.45);
+        border-radius: 0.5px;
+        box-shadow: inset 0.5px 0.5px 1px rgba(255, 255, 255, 0.6);
+      }
+
+      /* --------------------------------------------------------------------------
+       6. BACK FACE CAP (位于 Z = -thickness/2)
+       -------------------------------------------------------------------------- */
+      .face-back-cap {
+        position: absolute;
+        inset: 0;
+        clip-path: var(--floppy-contour-back);
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.28) 0%, transparent 65%),
+          linear-gradient(
+            135deg,
+            rgba(var(--pc-rgb), 0.78) 0%,
+            rgba(var(--pc-dark-rgb), 0.88) 60%,
+            rgba(var(--pc-rgb), 0.72) 100%
+          );
+        backdrop-filter: blur(8px);
+        box-shadow:
+          inset 1.5px 2px 1.5px rgba(255, 255, 255, 0.5),
+          inset -1.5px -2px 2px rgba(0, 0, 0, 0.6);
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .external-hub-rotor {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 104px;
+        height: 104px;
+        margin-left: -52px;
+        margin-top: -52px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 45% 45%,
+          #f2f7fa 0%,
+          #bac8cf 45%,
+          #76858e 85%,
+          #505c62 100%
+        );
+        box-shadow:
+          inset 0 0 3px rgba(0, 0, 0, 0.8),
+          0 2px 6px rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .external-hub-rotor .rotor-center {
+        width: 18px;
+        height: 18px;
+        background: #030406;
+        border-radius: 50%;
+        box-shadow: inset 1px 1px 2px #000;
+      }
+
+      .external-hub-rotor .rotor-slot {
+        position: absolute;
+        top: 24px;
+        right: 22px;
+        width: 12px;
+        height: 7px;
+        background: #030406;
+        border-radius: 1px;
+      }
+
+      /* --------------------------------------------------------------------------
+       7. 2.5D 5×2 DISPLAY RACK STAGE (通高独立陈列架模式，展现 10 槽独立 2.5D 软盘与空槽)
+       -------------------------------------------------------------------------- */
+      .grid-viewport-container {
+        width: 100%;
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 18px 16px 40px;
+        perspective: 1600px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .grid-rack-header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 0 4px;
+      }
+
+      .grid-rack-title {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: var(--accent-cyan);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .grid-rack-stats {
+        font-size: 12px;
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+      }
+
+      .grid-deck-rig {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px 28px;
+        transform-style: preserve-3d;
+      }
+
+      .grid-disk-cell {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 250px;
+      }
+
+      .grid-disk-item {
+        position: relative;
+        width: 100%;
+        max-width: 255px;
+        aspect-ratio: 90 / 94;
+        transform-style: preserve-3d;
+        transform: rotateX(6deg) rotateY(-8deg);
+        transition:
+          transform 0.35s cubic-bezier(0.18, 0.9, 0.3, 1.2),
+          filter 0.25s ease;
+        cursor: pointer;
+      }
+
+      .grid-disk-item::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 8px;
+        background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.75) 0%, transparent 72%);
+        opacity: 0.7;
+        transform: translate3d(-8px, 16px, -18px);
+        pointer-events: none;
+        filter: blur(8px);
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
+      }
+
+      .grid-disk-item:hover {
+        transform: rotateX(2deg) rotateY(-2deg) translateZ(16px) scale(1.045);
+        filter: brightness(1.1);
+      }
+
+      .grid-disk-item:hover::before {
+        opacity: 0.95;
+        transform: translate3d(-12px, 22px, -24px);
+      }
+
+      /* 空槽插座样式 */
+      .grid-bay-empty {
+        position: relative;
+        width: 100%;
+        max-width: 255px;
+        aspect-ratio: 90 / 94;
+        border-radius: 8px;
+        border: 1.5px dashed rgba(154, 239, 231, 0.16);
+        background: radial-gradient(
+          circle at 50% 50%,
+          rgba(15, 25, 36, 0.45) 0%,
+          rgba(7, 12, 18, 0.7) 100%
+        );
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: rgba(133, 152, 166, 0.45);
+        font-size: 11px;
+        font-family: var(--font-mono);
+        letter-spacing: 0.05em;
+        transition:
+          border-color 0.2s,
+          color 0.2s,
+          background 0.2s;
+      }
+
+      .grid-bay-empty:hover {
+        border-color: rgba(154, 239, 231, 0.35);
+        color: rgba(154, 239, 231, 0.8);
+        background: radial-gradient(
+          circle at 50% 50%,
+          rgba(20, 36, 50, 0.55) 0%,
+          rgba(9, 16, 24, 0.8) 100%
+        );
+      }
+
+      .grid-bay-empty-icon {
+        width: 32px;
+        height: 32px;
+        opacity: 0.35;
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+      }
+
+      .grid-bay-empty:hover .grid-bay-empty-icon {
+        opacity: 0.75;
+        transform: translateY(-2px);
+      }
+
+      /* Bottom Technical Audit Specs */
+      .audit-specs-footer {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-panel);
+        border-radius: 14px;
+        padding: 22px 30px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+        backdrop-filter: blur(12px);
+      }
+
+      .audit-col h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent-cyan);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .audit-col p {
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: #92a4b2;
+      }
+
+      .audit-col strong {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top App Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <span class="brand-title">AURALIS</span>
+        <span class="brand-sub">/ Y2K 果冻半透软盘 · 2.5D 密闭实体厚度原型</span>
+      </div>
+
+      <!-- View Mode Switcher -->
+      <div class="view-mode-tabs">
+        <button class="mode-tab-btn active" data-view="inspector" id="btn-view-inspector">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path
+              d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            />
+          </svg>
+          3D 自由检视 (360° Inspector)
+        </button>
+        <button class="mode-tab-btn" data-view="archive" id="btn-view-archive">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M9 3v18" />
+          </svg>
+          2.5D 唱片室就绪态 (Archive Angle)
+        </button>
+        <button class="mode-tab-btn" data-view="grid" id="btn-view-grid">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
+          5×2 通高独立陈列架 (10 槽)
+        </button>
+      </div>
+    </header>
+
+    <!-- Workspace -->
+    <main class="workspace">
+      <!-- Interactive Control Toolbar -->
+      <div class="control-toolbar">
+        <!-- Color Swatches -->
+        <div class="toolbar-group">
+          <span class="toolbar-label">千禧果冻配色：</span>
+          <button
+            class="color-swatch-btn active"
+            data-swatch="bondi"
+            title="邦迪蓝 Bondi Blue"
+            style="background: #2a7f8c"
+          ></button>
+          <button
+            class="color-swatch-btn"
+            data-swatch="grape"
+            title="葡萄紫 Grape Purple"
+            style="background: #7341a5"
+          ></button>
+          <button
+            class="color-swatch-btn"
+            data-swatch="ruby"
+            title="红宝石 Ruby Red"
+            style="background: #b92d4b"
+          ></button>
+          <button
+            class="color-swatch-btn"
+            data-swatch="smoke"
+            title="烟熏透黑 Smoke Dark"
+            style="background: #323d46"
+          ></button>
+          <button
+            class="color-swatch-btn"
+            data-swatch="lime"
+            title="酸橙绿 Lime Green"
+            style="background: #5ea83c"
+          ></button>
+        </div>
+
+        <!-- Thickness Range Slider -->
+        <div class="toolbar-group">
+          <div class="slider-wrap">
+            <span class="toolbar-label">实体厚度：</span>
+            <input type="range" id="thickness-range" min="8" max="26" value="16" />
+            <span
+              id="thickness-val"
+              style="font-family: var(--font-mono); color: var(--accent-cyan)"
+              >3.3mm</span
+            >
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="toolbar-group">
+          <button class="btn-action" id="btn-toggle-shutter">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            滑开金属门
+          </button>
+          <button class="btn-action" id="btn-toggle-flip">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            翻转背面 (盘芯)
+          </button>
+          <button class="btn-action" id="btn-toggle-explode">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M3 12h3m12 0h3M12 3v3m0 12v3" />
+            </svg>
+            结构爆炸分解
+          </button>
+          <button class="btn-action" id="btn-cycle-album">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            换专辑数据
+          </button>
+        </div>
+      </div>
+
+      <!-- Main 3D Single View Stage -->
+      <div class="stage-wrapper" id="stage-single">
+        <div class="scene-viewport" id="scene-viewport">
+          <!-- ==============================================
+             FLOPPY 3D WATERTIGHT SOLID BOX
+             ============================================== -->
+          <div class="floppy-solid-box" id="floppy-box">
+            <!-- 1. SOLID EXTRUSION CORE (16 个密闭实体厚度切片) -->
+            <div class="volumetric-extrusion-stack" id="extrusion-stack">
+              <!-- Dynamically populated via JS to guarantee 100% gapless extrusion -->
+            </div>
+
+            <!-- 2. INTERNAL OPTIC DEPTH (深黑聚酯薄膜磁片 + 主轴) -->
+            <div class="internal-layer">
+              <div class="internal-mylar-platter"></div>
+              <div class="internal-spindle-hub">
+                <div class="spindle-hole"></div>
+              </div>
+              <div class="internal-spring-wire"></div>
+            </div>
+
+            <!-- 3. FRONT FACE CAP (位于 Z = +thickness/2) -->
+            <div class="face-front-cap" id="front-cap">
+              <div class="front-mold-bevel"></div>
+
+              <!-- Recessed Label Cavity (0.4mm 沉降贴标槽) -->
+              <div class="label-recess-cavity">
+                <div class="hologram-paper-label">
+                  <div class="label-header-color-bar" id="label-bar"></div>
+                  <div class="label-content-box">
+                    <div class="label-artwork-frame">
+                      <img id="cover-img" src="" alt="Album Artwork" />
+                    </div>
+                    <div class="label-text-column">
+                      <div class="label-album-name" id="track-title">Popstar</div>
+                      <div class="label-artist-meta" id="track-artist">Nessa Barrett · 2024</div>
+                      <div class="label-dashed-line"></div>
+                      <div class="label-spec-pills">
+                        <span class="spec-pill" id="spec-audio">44.1 kHz · 16-BIT</span>
+                        <span class="spec-pill" id="spec-tracks">9 首 · 31 分钟</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sensor Holes -->
+              <div class="hole-hd"></div>
+              <div class="hole-write-protect">
+                <div class="slider-tab-plastic"></div>
+              </div>
+            </div>
+
+            <!-- 4. CHROME U-CLAMP SHUTTER (从顶边跨扣包边的 U 型滑门) -->
+            <div class="shutter-assembly" id="shutter-assembly" title="点击或拖动滑开金属门">
+              <div class="shutter-top-bridge" id="shutter-top-bridge"></div>
+              <div class="shutter-front-leaf" id="shutter-front-leaf">
+                <div class="shutter-arrow"></div>
+                <div class="shutter-ribs"></div>
+                <div class="shutter-window">
+                  <div class="mylar-reflection"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. BACK FACE CAP (位于 Z = -thickness/2) -->
+            <div class="face-back-cap" id="back-cap">
+              <div class="external-hub-rotor">
+                <div class="rotor-center"></div>
+                <div class="rotor-slot"></div>
+              </div>
+              <div class="hole-hd" style="left: auto; right: 7%"></div>
+              <div class="hole-write-protect" style="right: auto; left: 7%">
+                <div class="slider-tab-plastic"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2.5D 5×2 Display Rack Stage (Hidden by default, activated in grid mode) -->
+      <div class="grid-viewport-container" id="stage-grid" style="display: none">
+        <div class="grid-rack-header">
+          <div class="grid-rack-title">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            今日听过 · 5×2 通高独立软盘陈列架
+          </div>
+          <div class="grid-rack-stats" id="grid-rack-stats">7 / 10 槽已收录 (3 槽空置待听)</div>
+        </div>
+        <div class="grid-deck-rig" id="grid-rig">
+          <!-- 10 slots (disks + empty bays) generated via JS -->
+        </div>
+      </div>
+
+      <!-- Technical Specs & Audit Highlights -->
+      <footer class="audit-specs-footer">
+        <div class="audit-col">
+          <h4>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+              />
+            </svg>
+            密闭实体厚度切片 (Solid Core)
+          </h4>
+          <p>
+            通过<strong>16 层紧密深度切片</strong>构筑完全密闭的实体注塑厚度。45°
+            防呆倒角与卡爪凹槽在每层严格闭合，<strong>彻底根除侧边空心与漏光缝隙</strong>。
+          </p>
+        </div>
+
+        <div class="audit-col">
+          <h4>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="4" />
+              <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+              <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+            </svg>
+            半透果冻内部景深 (Parallax)
+          </h4>
+          <p>
+            透过聚碳酸酯壳体，深入内部 1.6mm
+            处悬浮着<strong>深黑氧化铁磁碟、金属驱动主轴与复位扭簧</strong>。视线移动时产生自然的视差与光线折射，厚度呼之欲出。
+          </p>
+        </div>
+
+        <div class="audit-col">
+          <h4>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            5×2 通高独立陈列架 (10 槽)
+          </h4>
+          <p>
+            淘汰重叠堆叠，采用<strong>2 列 × 5 行通高展台</strong
+            >独立陈列。支持<strong>随专辑自适应渐变彩带</strong>与空槽占位插座，每张盘独立受光悬停，空间感对称充盈。
+          </p>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      // Mock Album Data (7 albums + 3 empty bays to demonstrate 5x2 display rack)
+      const albums = [
+        {
+          title: 'Popstar',
+          artist: 'Nessa Barrett · 2024',
+          specsAudio: '44.1 kHz · 16-BIT',
+          specsTracks: '9 首 · 31 分钟',
+          headerGradient: 'linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%23121922'/><circle cx='80' cy='80' r='58' fill='%231f3240'/><circle cx='80' cy='80' r='22' fill='%230b1218'/><circle cx='80' cy='80' r='7' fill='%239aefe7'/><text x='80' y='142' fill='%23e4eff5' font-size='12' font-family='sans-serif' text-anchor='middle'>POPSTAR</text></svg>",
+        },
+        {
+          title: 'Random Access Memories',
+          artist: 'Daft Punk · 2013',
+          specsAudio: '96.0 kHz · 24-BIT',
+          specsTracks: '13 首 · 74 分钟',
+          headerGradient: 'linear-gradient(90deg, #1f4f96 0%, #4688ea 65%, #9ec9ff 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%23080a0e'/><circle cx='60' cy='75' r='32' fill='%23c8d4dc'/><circle cx='100' cy='75' r='32' fill='%23cca862'/><text x='80' y='138' fill='%23ffffff' font-size='11' font-family='sans-serif' text-anchor='middle'>DAFT PUNK</text></svg>",
+        },
+        {
+          title: 'Kid A',
+          artist: 'Radiohead · 2000',
+          specsAudio: '44.1 kHz · 16-BIT',
+          specsTracks: '10 首 · 49 分钟',
+          headerGradient: 'linear-gradient(90deg, #b8521a 0%, #e87a38 65%, #f7b483 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%2316202a'/><polygon points='80,30 135,115 25,115' fill='%23c93224'/><polygon points='80,50 115,115 45,115' fill='%23ffffff'/><text x='80' y='142' fill='%23ffffff' font-size='11' font-family='sans-serif' text-anchor='middle'>RADIOHEAD</text></svg>",
+        },
+        {
+          title: 'Aja',
+          artist: 'Steely Dan · 1977',
+          specsAudio: '192.0 kHz · 24-BIT',
+          specsTracks: '7 首 · 40 分钟',
+          headerGradient: 'linear-gradient(90deg, #2b6b4d 0%, #449b71 65%, #88d4af 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%23040404'/><circle cx='90' cy='75' r='40' fill='%2399241e'/><rect x='40' y='35' width='25' height='80' fill='%23ffffff'/><text x='80' y='145' fill='%23b8b8b8' font-size='11' font-family='sans-serif' text-anchor='middle'>STEELY DAN</text></svg>",
+        },
+        {
+          title: 'OK Computer',
+          artist: 'Radiohead · 1997',
+          specsAudio: '96.0 kHz · 24-BIT',
+          specsTracks: '12 首 · 53 分钟',
+          headerGradient: 'linear-gradient(90deg, #1b5b7a 0%, #3ca0cf 65%, #a6d8f0 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%230a1b24'/><circle cx='80' cy='80' r='50' fill='none' stroke='%23ffffff' stroke-width='3'/><line x1='30' y1='80' x2='130' y2='80' stroke='%233ca0cf' stroke-width='2'/><text x='80' y='140' fill='%23ffffff' font-size='11' font-family='sans-serif' text-anchor='middle'>OK COMPUTER</text></svg>",
+        },
+        {
+          title: 'Discovery',
+          artist: 'Daft Punk · 2001',
+          specsAudio: '44.1 kHz · 16-BIT',
+          specsTracks: '14 首 · 60 分钟',
+          headerGradient: 'linear-gradient(90deg, #8c2a7a 0%, #d83f87 65%, #ff8cb2 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%23190818'/><polygon points='80,25 140,80 80,135 20,80' fill='%23d83f87'/><circle cx='80' cy='80' r='25' fill='%23ffd700'/><text x='80' y='145' fill='%23ffffff' font-size='11' font-family='sans-serif' text-anchor='middle'>DISCOVERY</text></svg>",
+        },
+        {
+          title: 'Abbey Road',
+          artist: 'The Beatles · 1969',
+          specsAudio: '96.0 kHz · 24-BIT',
+          specsTracks: '17 首 · 47 分钟',
+          headerGradient: 'linear-gradient(90deg, #6e4e1a 0%, #b88628 65%, #edd485 100%)',
+          cover:
+            "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%231a1814'/><rect x='20' y='75' width='120' height='10' fill='%23ffffff'/><circle cx='50' cy='50' r='12' fill='%23edd485'/><text x='80' y='140' fill='%23edd485' font-size='11' font-family='sans-serif' text-anchor='middle'>ABBEY ROAD</text></svg>",
+        },
+      ]
+
+      let currentAlbumIdx = 0
+      function renderAlbum(idx) {
+        const data = albums[idx]
+        document.getElementById('cover-img').src = data.cover
+        document.getElementById('track-title').textContent = data.title
+        document.getElementById('track-artist').textContent = data.artist
+        document.getElementById('spec-audio').textContent = data.specsAudio
+        document.getElementById('spec-tracks').textContent = data.specsTracks
+        document.getElementById('label-bar').style.background = data.headerGradient
+      }
+      renderAlbum(0)
+
+      // Build Watertight Extrusion Slices (构建 100% 封闭紧密的 3D 实体切片)
+      function buildExtrusionSlices(thicknessPx) {
+        const container = document.getElementById('extrusion-stack')
+        container.innerHTML = ''
+        const half = thicknessPx / 2
+        const count = Math.round(thicknessPx)
+
+        for (let i = 0; i <= count; i++) {
+          const z = -half + (i / count) * thicknessPx
+          const slice = document.createElement('div')
+          slice.className = 'solid-slice'
+          if (Math.abs(z) < 1) {
+            slice.classList.add('is-parting-line')
+          }
+          slice.style.transform = `translateZ(${z.toFixed(1)}px)`
+          container.appendChild(slice)
+        }
+
+        // Sync caps position
+        document.getElementById('front-cap').style.transform = `translateZ(${half.toFixed(1)}px)`
+        document.getElementById('back-cap').style.transform =
+          `rotateY(180deg) translateZ(${half.toFixed(1)}px)`
+
+        // Sync shutter U-clamp top bridge depth
+        const topBridge = document.getElementById('shutter-top-bridge')
+        topBridge.style.height = `${(thicknessPx + 3).toFixed(1)}px`
+        topBridge.style.transform = `rotateX(90deg) translateY(${(-half - 1.5).toFixed(1)}px)`
+
+        document.getElementById('shutter-front-leaf').style.transform =
+          `translateZ(${(half + 1.5).toFixed(1)}px)`
+      }
+
+      buildExtrusionSlices(16)
+
+      // Color Swatches Definitions
+      const swatches = {
+        bondi: { rgb: '42, 127, 140', dark: '12, 45, 56', glow: '154, 239, 231' },
+        grape: { rgb: '115, 65, 165', dark: '38, 16, 68', glow: '205, 155, 255' },
+        ruby: { rgb: '185, 45, 75', dark: '68, 12, 25', glow: '255, 140, 165' },
+        smoke: { rgb: '48, 58, 68', dark: '16, 20, 25', glow: '170, 190, 205' },
+        lime: { rgb: '94, 168, 60', dark: '28, 60, 18', glow: '180, 245, 145' },
+      }
+
+      document.querySelectorAll('[data-swatch]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-swatch]').forEach((b) => b.classList.remove('active'))
+          btn.classList.add('active')
+          const c = swatches[btn.dataset.swatch]
+          document.documentElement.style.setProperty('--pc-rgb', c.rgb)
+          document.documentElement.style.setProperty('--pc-dark-rgb', c.dark)
+          document.documentElement.style.setProperty('--pc-glow-rgb', c.glow)
+        })
+      })
+
+      // Thickness Range Slider
+      const thicknessRange = document.getElementById('thickness-range')
+      const thicknessVal = document.getElementById('thickness-val')
+      thicknessRange.addEventListener('input', (e) => {
+        const px = Number(e.target.value)
+        document.documentElement.style.setProperty('--disk-thickness-val', px)
+        const mm = (px * (3.3 / 16)).toFixed(1)
+        thicknessVal.textContent = `${mm}mm`
+        buildExtrusionSlices(px)
+      })
+
+      // Shutter Slide Toggle
+      let isShutterOpen = false
+      const shutterAssembly = document.getElementById('shutter-assembly')
+      function toggleShutter() {
+        isShutterOpen = !isShutterOpen
+        shutterAssembly.style.transform = isShutterOpen ? 'translateX(-52px)' : 'translateX(0)'
+        document.getElementById('btn-toggle-shutter').classList.toggle('active', isShutterOpen)
+      }
+      shutterAssembly.addEventListener('click', toggleShutter)
+      document.getElementById('btn-toggle-shutter').addEventListener('click', toggleShutter)
+
+      // 180° Flip Toggle
+      let isFlipped = false
+      const box = document.getElementById('floppy-box')
+      function toggleFlip() {
+        isFlipped = !isFlipped
+        box.classList.toggle('is-flipped', isFlipped)
+        document.getElementById('btn-toggle-flip').classList.toggle('active', isFlipped)
+      }
+      document.getElementById('btn-toggle-flip').addEventListener('click', toggleFlip)
+
+      // Exploded View Toggle
+      let isExploded = false
+      document.getElementById('btn-toggle-explode').addEventListener('click', () => {
+        isExploded = !isExploded
+        box.classList.toggle('is-exploded', isExploded)
+        document.getElementById('btn-toggle-explode').classList.toggle('active', isExploded)
+      })
+
+      // Cycle Album
+      document.getElementById('btn-cycle-album').addEventListener('click', () => {
+        currentAlbumIdx = (currentAlbumIdx + 1) % albums.length
+        renderAlbum(currentAlbumIdx)
+      })
+
+      // View Mode Switcher
+      let currentViewMode = 'inspector'
+      const stageSingle = document.getElementById('stage-single')
+      const stageGrid = document.getElementById('stage-grid')
+
+      document.querySelectorAll('.mode-tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.mode-tab-btn').forEach((b) => b.classList.remove('active'))
+          btn.classList.add('active')
+          currentViewMode = btn.dataset.view
+
+          if (currentViewMode === 'grid') {
+            stageSingle.style.display = 'none'
+            stageGrid.style.display = 'flex'
+            renderGridRack()
+          } else {
+            stageSingle.style.display = 'flex'
+            stageGrid.style.display = 'none'
+            if (currentViewMode === 'archive') {
+              // Locked in Auralis Archive standard viewing angle
+              box.style.transform = 'rotateX(6deg) rotateY(-14deg) rotateZ(1deg)'
+            } else {
+              box.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg) rotateX(0deg)'
+            }
+          }
+        })
+      })
+
+      // 3D Mouse Parallax Inspector
+      const vp = document.getElementById('scene-viewport')
+      vp.addEventListener('mousemove', (e) => {
+        if (currentViewMode !== 'inspector') return
+        const rect = vp.getBoundingClientRect()
+        const x = e.clientX - rect.left - rect.width / 2
+        const y = e.clientY - rect.top - rect.height / 2
+        const rotY = (x / (rect.width / 2)) * 32
+        const rotX = -(y / (rect.height / 2)) * 32
+
+        if (isFlipped) {
+          box.style.transform = `rotateY(${180 + rotY}deg) rotateX(${rotX}deg)`
+        } else {
+          box.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg)`
+        }
+      })
+
+      vp.addEventListener('mouseleave', () => {
+        if (currentViewMode !== 'inspector') return
+        box.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg) rotateX(0deg)'
+      })
+
+      // Render 2.5D 5×2 Display Rack (10 Slots: Albums + Empty Bays)
+      function renderGridRack() {
+        const rig = document.getElementById('grid-rig')
+        const stats = document.getElementById('grid-rack-stats')
+        rig.innerHTML = ''
+
+        const totalCapacity = 10
+        stats.textContent = `${albums.length} / ${totalCapacity} 槽已收录 (${totalCapacity - albums.length} 槽空置待听)`
+
+        for (let i = 0; i < totalCapacity; i++) {
+          const cell = document.createElement('div')
+          cell.className = 'grid-disk-cell'
+
+          if (i < albums.length) {
+            const d = albums[i]
+            const diskItem = document.createElement('div')
+            diskItem.className = 'grid-disk-item'
+            diskItem.title = `点击可在检视器中聚焦：${d.title}`
+            diskItem.innerHTML = `
+            <div class="floppy-solid-box" style="transform:none;">
+              <!-- Slices for Rack Item (Watertight 8-Slice Lightweight Hull) -->
+              <div class="volumetric-extrusion-stack">
+                <div class="solid-slice" style="transform:translateZ(-8px);"></div>
+                <div class="solid-slice" style="transform:translateZ(-4px);"></div>
+                <div class="solid-slice is-parting-line" style="transform:translateZ(0px);"></div>
+                <div class="solid-slice" style="transform:translateZ(4px);"></div>
+                <div class="solid-slice" style="transform:translateZ(8px);"></div>
+              </div>
+              <div class="face-front-cap" style="transform:translateZ(8px);">
+                <div class="front-mold-bevel"></div>
+                <div class="label-recess-cavity">
+                  <div class="hologram-paper-label">
+                    <div class="label-header-color-bar" style="background:${d.headerGradient};"></div>
+                    <div class="label-content-box">
+                      <div class="label-artwork-frame"><img src="${d.cover}"></div>
+                      <div class="label-text-column">
+                        <div class="label-album-name">${d.title}</div>
+                        <div class="label-artist-meta">${d.artist}</div>
+                        <div class="label-dashed-line"></div>
+                        <div class="label-spec-pills">
+                          <span class="spec-pill">${d.specsAudio}</span>
+                          <span class="spec-pill">${d.specsTracks}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hole-hd"></div>
+                <div class="hole-write-protect"><div class="slider-tab-plastic"></div></div>
+              </div>
+              <div class="shutter-assembly">
+                <div class="shutter-top-bridge" style="height:19px; transform:rotateX(90deg) translateY(-9.5px);"></div>
+                <div class="shutter-front-leaf" style="transform:translateZ(9.5px);">
+                  <div class="shutter-arrow"></div>
+                  <div class="shutter-ribs"></div>
+                  <div class="shutter-window"><div class="mylar-reflection"></div></div>
+                </div>
+              </div>
+              <div class="internal-layer">
+                <div class="internal-mylar-platter"></div>
+                <div class="internal-spindle-hub"><div class="spindle-hole"></div></div>
+              </div>
+            </div>
+          `
+
+            diskItem.addEventListener('click', () => {
+              currentAlbumIdx = i
+              renderAlbum(currentAlbumIdx)
+              document.getElementById('btn-view-inspector').click()
+            })
+
+            cell.appendChild(diskItem)
+          } else {
+            // Empty bay placeholder
+            const emptyBay = document.createElement('div')
+            emptyBay.className = 'grid-bay-empty'
+            emptyBay.innerHTML = `
+            <svg class="grid-bay-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>
+              <line x1="12" y1="8" x2="12" y2="16"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            <span>SLOT #${String(i + 1).padStart(2, '0')} [EMPTY]</span>
+          `
+            cell.appendChild(emptyBay)
+          }
+
+          rig.appendChild(cell)
+        }
+      }
+    </script>
+  </body>
+</html>

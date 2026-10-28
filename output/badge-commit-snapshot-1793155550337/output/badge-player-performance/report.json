@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "real preload and main use isolated database",
+      "pass": true,
+      "detail": {
+        "name": "Auralis",
+        "version": "38.8.6",
+        "databasePath": "D:\\VSCode\\Auralis\\output\\badge-player-performance\\profile-MLQyjT\\data\\auralis.sqlite"
+      }
+    },
+    {
+      "name": "real native playback runs with isolated PCM fixture",
+      "pass": true
+    },
+    {
+      "name": "formal gallery contains static images and shared foam canvas",
+      "pass": true
+    },
+    {
+      "name": "no badge WebGL until inspection",
+      "pass": true
+    },
+    {
+      "name": "warm inspection updates meet 20ms P95 target",
+      "pass": true,
+      "detail": {
+        "count": 519,
+        "p95": 4.300000000279397,
+        "max": 12.899999999906868,
+        "over25": 0
+      }
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-player-performance\\profile-MLQyjT",
+  "profileArchivedTo": "D:\\VSCode\\Auralis\\output\\badge-player-performance\\isolated-profile\\profile-MLQyjT"
+}

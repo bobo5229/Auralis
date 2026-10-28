@@ -1,0 +1,235 @@
+export interface AlbumTransitionRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export interface AlbumTransitionVisual {
+  key: string
+  node: HTMLElement
+  rect: AlbumTransitionRect
+  opacity: number
+  /** The node is already a sanitized copy owned by the transition layer. */
+  snapshotOwned?: boolean
+  clip?: AlbumTransitionRect
+}
+
+export interface AlbumTransitionTarget {
+  key: string
+  node: HTMLElement
+  rect: AlbumTransitionRect
+}
+
+export interface AlbumTransitionItemOptions {
+  key: string
+  side: 'from' | 'to'
+  node: HTMLElement
+  rect: AlbumTransitionRect
+  opacity: number
+  snapshotOwned: boolean
+  clip?: AlbumTransitionRect
+}
+
+export interface AlbumGridTransitionLayerHost {
+  reset(): void
+  setBounds(bounds: AlbumTransitionRect): void
+  createItem(
+    options: AlbumTransitionItemOptions,
+    origin: Pick<AlbumTransitionRect, 'left' | 'top'>,
+  ): HTMLElement
+  appendItem(item: HTMLElement): void
+  setItemPosition(item: HTMLElement, left: number, top: number): void
+  renderViewport(viewport: AlbumTransitionRect, union: AlbumTransitionRect): void
+  renderItem(item: HTMLElement, transform: string, opacity: number): void
+  setGroupViewports?(
+    from: AlbumTransitionRect,
+    to: AlbumTransitionRect,
+    union: AlbumTransitionRect,
+  ): void
+  animateGroups?(duration: number): Promise<void>
+  captureItem(item: HTMLElement): AlbumTransitionVisual | null
+  isConnected(item: HTMLElement): boolean
+}
+
+interface TransitionLayerItem {
+  key: string
+  rect: AlbumTransitionRect
+  opacity: number
+  side: 'from' | 'to'
+  element: HTMLElement
+}
+
+function clampOpacity(opacity: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(opacity) ? opacity : 1))
+}
+
+function unionRect(from: AlbumTransitionRect, to: AlbumTransitionRect): AlbumTransitionRect {
+  const left = Math.min(from.left, to.left)
+  const top = Math.min(from.top, to.top)
+  const right = Math.max(from.left + from.width, to.left + to.width)
+  const bottom = Math.max(from.top + from.height, to.top + to.height)
+  return { left, top, width: right - left, height: bottom - top }
+}
+
+export function createAlbumGridTransitionController(host: AlbumGridTransitionLayerHost) {
+  let items: TransitionLayerItem[] = []
+  let viewportFrom: AlbumTransitionRect = { left: 0, top: 0, width: 0, height: 0 }
+  let viewportTo = viewportFrom
+  let currentViewport = viewportFrom
+  let viewportUnion: AlbumTransitionRect = { left: 0, top: 0, width: 0, height: 0 }
+
+  function clear(): void {
+    items = []
+    viewportFrom = { left: 0, top: 0, width: 0, height: 0 }
+    viewportTo = viewportFrom
+    currentViewport = viewportFrom
+    viewportUnion = viewportFrom
+    host.reset()
+  }
+
+  function prepareSources(
+    viewport: AlbumTransitionRect,
+    sources: readonly AlbumTransitionVisual[],
+  ): void {
+    clear()
+    try {
+      viewportFrom = { ...viewport }
+      viewportTo = viewportFrom
+      currentViewport = viewportFrom
+      viewportUnion = unionRect(viewportFrom, viewportTo)
+      host.setBounds(viewportUnion)
+
+      for (const source of sources) {
+        const opacity = clampOpacity(source.opacity)
+        const element = host.createItem(
+          {
+            key: source.key,
+            side: 'from',
+            node: source.node,
+            rect: source.rect,
+            opacity,
+            snapshotOwned: source.snapshotOwned === true,
+            clip: source.clip,
+          },
+          viewportUnion,
+        )
+        host.appendItem(element)
+        items.push({
+          key: source.key,
+          side: 'from',
+          element,
+          rect: source.rect,
+          opacity,
+        })
+      }
+      renderProgress(0)
+    } catch (error) {
+      clear()
+      throw error
+    }
+  }
+
+  function commitTargets(
+    viewport: AlbumTransitionRect,
+    targets: readonly AlbumTransitionTarget[],
+  ): void {
+    try {
+      const sources = items.filter((item) => item.side === 'from')
+      const nextUnion = unionRect(viewportFrom, viewport)
+
+      host.setBounds(nextUnion)
+      viewportTo = { ...viewport }
+      viewportUnion = nextUnion
+
+      for (const source of sources) {
+        host.setItemPosition(
+          source.element,
+          source.rect.left - viewportUnion.left,
+          source.rect.top - viewportUnion.top,
+        )
+      }
+
+      const addedKeys = new Set<string>()
+      for (const target of targets) {
+        if (addedKeys.has(target.key)) continue
+        addedKeys.add(target.key)
+        const element = host.createItem(
+          {
+            key: target.key,
+            side: 'to',
+            node: target.node,
+            rect: target.rect,
+            opacity: 0,
+            snapshotOwned: false,
+          },
+          viewportUnion,
+        )
+        host.appendItem(element)
+        items.push({
+          key: target.key,
+          side: 'to',
+          element,
+          rect: target.rect,
+          opacity: 0,
+        })
+      }
+      renderProgress(0)
+      host.setGroupViewports?.(viewportFrom, viewportTo, viewportUnion)
+    } catch (error) {
+      clear()
+      throw error
+    }
+  }
+
+  function renderProgress(progress: number): void {
+    const value = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0))
+    currentViewport = viewportUnion
+    host.renderViewport(currentViewport, viewportUnion)
+
+    for (const item of items) {
+      if (item.side === 'from') {
+        host.renderItem(
+          item.element,
+          'translate3d(0, 0, 0)',
+          item.opacity * Math.max(0, 1 - value / 0.45),
+        )
+      } else {
+        host.renderItem(item.element, 'translate3d(0, 0, 0)', Math.max(0, (value - 0.35) / 0.65))
+      }
+    }
+  }
+
+  function captureVisuals(): AlbumTransitionVisual[] {
+    return items.flatMap((item) => {
+      if (!host.isConnected(item.element)) return []
+      const visual = host.captureItem(item.element)
+      if (!visual || visual.rect.width <= 0 || visual.rect.height <= 0) return []
+      if (!Number.isFinite(visual.opacity) || visual.opacity <= 0.001) return []
+      return [{ ...visual, key: item.key, snapshotOwned: true }]
+    })
+  }
+
+  function captureViewport(): AlbumTransitionRect {
+    return { ...currentViewport }
+  }
+
+  function getItemStats(): { registeredItems: number; connectedItems: number } {
+    return {
+      registeredItems: items.length,
+      connectedItems: items.filter((item) => host.isConnected(item.element)).length,
+    }
+  }
+
+  return {
+    prepareSources,
+    commitTargets,
+    renderProgress,
+    animate: (duration: number): Promise<void> =>
+      host.animateGroups?.(duration) ?? Promise.resolve(),
+    captureVisuals,
+    captureViewport,
+    getItemStats,
+    clear,
+  }
+}

@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 D:/VSCode/Auralis
+
+ ✓ src/main/features/audio/nativePlaybackLeaseLifecycle.test.ts (5 tests) 5ms
+ ✓ src/main/features/audio/nativePlaybackService.softTransition.test.ts (22 tests) 2479ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  01:58:47
+   Duration  3.10s (transform 183ms, setup 0ms, collect 505ms, tests 2.48s, environment 0ms, prepare 230ms)
+

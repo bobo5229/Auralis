@@ -1,0 +1,129 @@
+import { defineConfig, presetIcons, presetUno } from 'unocss'
+import {
+  PLAYER_DEFAULT_ACCENT_DARK,
+  PLAYER_DEFAULT_ACCENT_LIGHT,
+} from './src/renderer/features/playback/utils/playerColorDefaults'
+
+export default defineConfig({
+  presets: [presetUno(), presetIcons()],
+  preflights: [
+    {
+      getCSS: () => `:root {
+  --auralis-player-default-accent-dark: rgb(${PLAYER_DEFAULT_ACCENT_DARK.r} ${PLAYER_DEFAULT_ACCENT_DARK.g} ${PLAYER_DEFAULT_ACCENT_DARK.b});
+  --auralis-player-default-accent-light: rgb(${PLAYER_DEFAULT_ACCENT_LIGHT.r} ${PLAYER_DEFAULT_ACCENT_LIGHT.g} ${PLAYER_DEFAULT_ACCENT_LIGHT.b});
+  --auralis-sidebar-rail-width: 72px;
+}`,
+    },
+  ],
+  theme: {
+    colors: {
+      ink: '#1f2528',
+      paper: '#f6f2ea',
+      linen: '#ebe3d3',
+      moss: '#6f7d63',
+      brass: '#a47c48',
+      dusk: '#5d6773',
+    },
+  },
+  shortcuts: {
+    'app-window': 'h-screen overflow-hidden text-[var(--auralis-text)]',
+    'app-shell':
+      'grid h-full min-h-0 grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)_var(--auralis-lyrics-column-width,20%)]',
+    'app-sidebar':
+      'flex h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+    'app-main': 'min-w-0 min-h-0 overflow-hidden bg-transparent',
+    'now-playing-panel':
+      'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
+    // Geometry and stacking are owned exclusively by main.css (.player-bar). Keep only material shell tokens here.
+    'player-bar':
+      'border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
+    'transport-controls': 'flex items-center gap-2 shrink-0',
+    'transport-control':
+      'inline-flex items-center justify-center rounded p-2 transition shadow-none hover:shadow-none',
+    'playback-actions': 'relative flex items-center gap-3 shrink-0',
+    'volume-control-group': 'flex items-center gap-1.5 shrink-0',
+    'track-info-card': 'flex-1 min-w-0',
+    'track-info-row': 'flex items-center gap-3',
+    'track-cover':
+      'w-10 h-10 rounded-lg shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
+    'track-text': 'flex flex-col justify-center min-w-0 h-10',
+    'track-title': 'text-[13px] leading-[18px] font-semibold truncate',
+    'track-subtitle': 'text-xs leading-4 text-[var(--auralis-text-muted)] truncate',
+    'track-progress':
+      'w-full h-[3px] rounded-full bg-[var(--auralis-progress-track)] overflow-hidden mt-1.5 cursor-pointer touch-none',
+    'track-progress-fill': 'h-full bg-[var(--auralis-progress-fill)]',
+    'content-frame': 'mx-auto w-full max-w-7xl px-7 py-7',
+    'quiet-panel':
+      'border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/70 shadow-sm',
+    'sidebar-section-label':
+      'px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
+    'sidebar-link':
+      'mb-1 flex items-center gap-2.5 rounded px-3 py-2 text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+    'sidebar-link-active': '',
+    'player-control':
+      'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition shadow-none hover:text-[var(--auralis-text)] hover:shadow-none',
+    'player-bar-control':
+      'inline-flex items-center justify-center rounded p-2 transition shadow-none hover:shadow-none',
+    'player-control-primary':
+      'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+    'song-row': 'h-[var(--library-flat-row-height)] items-center cursor-pointer',
+    'song-cover':
+      'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
+    'song-title': 'text-sm truncate',
+    'song-artist': 'text-xs text-[var(--auralis-text-muted)] truncate',
+    'song-album': 'text-xs text-[var(--auralis-text-subtle)] truncate text-right',
+    'song-duration': 'text-xs text-[var(--auralis-text-faint)] text-right tabular-nums',
+    'metadata-input':
+      'h-9 w-full min-w-0 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] px-3 text-sm text-[var(--auralis-text)] transition focus:border-[var(--auralis-text-faint)]',
+    'volume-slider':
+      'w-20 h-1 accent-[var(--auralis-progress-fill)] cursor-pointer appearance-none rounded-full bg-[var(--auralis-progress-track)]',
+    'queue-popover':
+      'absolute bottom-[calc(100%+32px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] overflow-hidden rounded-[24px] p-3',
+    'queue-popover-header': 'flex items-baseline justify-between px-1 pb-2',
+    'queue-popover-title': 'text-sm font-semibold text-[var(--auralis-text)]',
+    'queue-popover-count': 'text-xs text-[var(--auralis-text-faint)]',
+    'queue-popover-section-label':
+      'px-1 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
+    'queue-popover-scroll': 'max-h-[336px] overflow-y-auto overscroll-contain',
+    'queue-item': 'flex h-14 w-full items-center gap-3 rounded-xl px-2 text-left transition',
+    'queue-item-active': '',
+    'queue-item-cover':
+      'h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[var(--auralis-border-subtle)]',
+    'queue-item-title': 'truncate text-sm font-semibold text-[var(--auralis-text)]',
+    'queue-item-subtitle': 'truncate text-xs text-[var(--auralis-text-muted)]',
+    'queue-empty': 'flex h-28 items-center justify-center text-sm text-[var(--auralis-text-faint)]',
+    'playback-mode-menu':
+      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
+    'playback-mode-item':
+      'flex h-9 w-full items-center gap-2 px-4 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] focus-visible:bg-[var(--auralis-control-hover-bg)] focus-visible:text-[var(--auralis-text)]',
+    'playback-mode-item-first': 'rounded-t-[24px]',
+    'playback-mode-item-middle': 'rounded-none',
+    'playback-mode-item-last': 'rounded-b-[24px]',
+    'playback-mode-divider': 'h-px w-full bg-[var(--auralis-playbar-border)]',
+    'playback-mode-item-active': '',
+    'playback-mode-check': 'ml-auto h-4 w-4',
+    'album-cover-group':
+      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-4 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
+    'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
+    'album-cover-artwork':
+      'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
+    'album-cover-meta': 'mt-[var(--library-cover-meta-gap)]',
+    'album-cover-meta-title':
+      'truncate text-[16px] leading-[var(--library-cover-meta-line-height)] text-[var(--auralis-text)]',
+    'album-cover-meta-line':
+      'text-xs text-[var(--auralis-text-muted)] leading-[var(--library-cover-meta-line-height)]',
+    /* 布局骨架；整块面板壳与内部分割线见 AlbumCoverGroup / AlbumCoverTrackRow scoped */
+    'album-cover-tracks': 'min-w-0',
+    /* height+min-height 固定行盒，与 getAlbumGroupEstimatedHeight 共用行高指标。 */
+    'cover-track-row':
+      'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_80px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-md cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+    'cover-track-row--playing':
+      'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
+    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
+    'lyric-inactive':
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
+    'lyric-prelude':
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
+    'lyric-empty': 'h-3 py-0',
+  },
+})

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Auralis · 侧立专辑</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page-header">
+        <div>
+          <h1>侧立专辑</h1>
+          <p class="header-description">从一排书脊中，抽出一张唱片。</p>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">
+          切换浅色
+        </button>
+      </header>
+
+      <main>
+        <div class="viewport" id="viewport" aria-label="专辑排行预览">
+          <ol class="album-row" id="album-row" aria-label="示例专辑排行"></ol>
+        </div>
+        <div class="album-info" id="album-info" role="status" aria-live="polite" aria-atomic="true">
+          <h2 id="album-title">悬停或聚焦一张专辑</h2>
+          <p id="album-artist">方向键切换 · Esc 归位</p>
+        </div>
+      </main>
+
+      <footer class="controls">
+        <div class="parameter">
+          <label for="angle">侧立角度</label>
+          <input id="angle" type="range" min="68" max="85" step="1" value="78" />
+          <output for="angle" id="angle-value">78°</output>
+        </div>
+        <div class="parameter">
+          <label for="spacing">排列间距</label>
+          <input id="spacing" type="range" min="40" max="88" step="1" value="64" />
+          <output for="spacing" id="spacing-value">64px</output>
+        </div>
+        <div class="parameter">
+          <label for="depth">抽出距离</label>
+          <input id="depth" type="range" min="100" max="280" step="10" value="200" />
+          <output for="depth" id="depth-value">200px</output>
+        </div>
+        <button class="reset-button" id="reset" type="button">重置</button>
+        <span class="demo-note">示例专辑 · 独立交互原型</span>
+      </footer>
+    </div>
+  </body>
+</html>

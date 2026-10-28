@@ -1,0 +1,1477 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auralis · 侧边栏左下角工具区现代重构提案</title>
+    <style>
+      :root {
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+        /* 浅色主题（Auralis 纸感） */
+        --canvas-bg: #ece7de;
+        --card-bg: #fcfbf8;
+        --sidebar-bg: #f5f0e6;
+        --sidebar-border: rgba(0, 0, 0, 0.08);
+        --text-main: #22211e;
+        --text-muted: #6b6860;
+        --text-faint: #9c9990;
+        --accent: #9c733f;
+        --accent-light: rgba(156, 115, 63, 0.12);
+        --hover-bg: rgba(0, 0, 0, 0.05);
+        --active-bg: rgba(0, 0, 0, 0.09);
+        --glass-bg: rgba(255, 255, 255, 0.65);
+        --glass-border: rgba(255, 255, 255, 0.8);
+        --popover-bg: rgba(255, 255, 255, 0.92);
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+      }
+
+      :root.dark {
+        /* 深色主题 */
+        --canvas-bg: #111214;
+        --card-bg: #1c1d20;
+        --sidebar-bg: #18191b;
+        --sidebar-border: rgba(255, 255, 255, 0.07);
+        --text-main: #eae8e3;
+        --text-muted: #9a9790;
+        --text-faint: #66645e;
+        --accent: #c6995b;
+        --accent-light: rgba(198, 153, 91, 0.18);
+        --hover-bg: rgba(255, 255, 255, 0.06);
+        --active-bg: rgba(255, 255, 255, 0.1);
+        --glass-bg: rgba(36, 38, 42, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --popover-bg: rgba(28, 29, 32, 0.94);
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.4);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--canvas-bg);
+        color: var(--text-main);
+        min-height: 100vh;
+        padding: 32px 24px 64px;
+        transition: background-color 220ms ease, color 220ms ease;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* 控制面板 */
+      .top-banner {
+        max-width: 1400px;
+        margin: 0 auto 32px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+
+      .banner-title h1 {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .banner-title p {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      .banner-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .control-pill {
+        display: inline-flex;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 9999px;
+        padding: 3px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .control-pill button {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 160ms ease;
+      }
+
+      .control-pill button.active {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        color: var(--text-main);
+        padding: 8px 16px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 160ms ease;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .action-btn:hover {
+        background: var(--hover-bg);
+        transform: translateY(-0.5px);
+      }
+
+      .action-btn:active {
+        transform: scale(0.97);
+      }
+
+      /* 方案对比网格 */
+      .proposals-grid {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 28px;
+        align-items: start;
+      }
+
+      .proposal-card {
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .proposal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .proposal-tag {
+        font-size: 11px;
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: var(--accent-light);
+        color: var(--accent);
+      }
+
+      .proposal-name {
+        font-size: 17px;
+        font-weight: 700;
+        margin-top: 4px;
+        letter-spacing: -0.01em;
+      }
+
+      .proposal-desc {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-muted);
+        min-height: 36px;
+      }
+
+      /* 侧边栏模拟容器 */
+      .sidebar-mockup {
+        width: 100%;
+        max-width: 250px;
+        height: 540px;
+        margin: 0 auto;
+        background: var(--sidebar-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+        box-shadow: var(--shadow-md);
+        transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .sidebar-mockup.is-rail {
+        width: 72px;
+      }
+
+      /* 模拟侧边栏头部与导航列表 */
+      .mock-header {
+        padding: 16px 14px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .mock-brand-logo {
+        width: 24px;
+        height: 24px;
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+
+      .mock-brand-text {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        opacity: 1;
+        transition: opacity 160ms;
+      }
+
+      .is-rail .mock-brand-text {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .mock-nav {
+        flex: 1;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+      }
+
+      .mock-section-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+        padding: 8px 8px 4px;
+        white-space: nowrap;
+      }
+
+      .is-rail .mock-section-label {
+        display: none;
+      }
+
+      .mock-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        user-select: none;
+        transition: all 120ms ease;
+        white-space: nowrap;
+      }
+
+      .mock-nav-item:hover {
+        background: var(--hover-bg);
+        color: var(--text-main);
+      }
+
+      .mock-nav-item.active {
+        background: var(--active-bg);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .mock-nav-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .mock-nav-count {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-faint);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .is-rail .mock-nav-item {
+        justify-content: center;
+        padding: 9px 0;
+      }
+
+      .is-rail .mock-nav-count,
+      .is-rail .mock-nav-label {
+        display: none;
+      }
+
+      /* 底部工具区基类 */
+      .sidebar-footer-host {
+        flex-shrink: 0;
+        position: relative;
+        background: transparent;
+      }
+
+      /* ----------------------------------------------------
+         方案 0：现状五图标横排 (Current Baseline)
+         ---------------------------------------------------- */
+      .footer-baseline {
+        padding: 10px;
+        border-top: 1px solid var(--sidebar-border);
+      }
+
+      .baseline-tools-grid {
+        display: flex;
+        align-items: center;
+        justify-content: space-evenly;
+        width: 100%;
+      }
+
+      .is-rail .baseline-tools-grid {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .baseline-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        cursor: pointer;
+        background: transparent;
+        border: none;
+        transition: all 140ms ease;
+      }
+
+      .baseline-btn:hover {
+        color: var(--text-main);
+        background: var(--hover-bg);
+      }
+
+      /* ----------------------------------------------------
+         方案 A：曲库状态与工具岛 (Library Pulse & Hub)
+         ---------------------------------------------------- */
+      .footer-pulse-hub {
+        padding: 10px 10px 12px;
+        border-top: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      /* 微状态芯片卡片 */
+      .pulse-status-card {
+        background: var(--hover-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 9px;
+        padding: 7px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: all 180ms ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .pulse-progress-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        width: 0%;
+        background: var(--accent);
+        opacity: 0;
+        transition: width 240ms ease-out, opacity 200ms ease;
+      }
+      .pulse-progress-bar.active {
+        opacity: 1;
+      }
+
+      .pulse-status-card:hover {
+        background: var(--active-bg);
+        border-color: rgba(0, 0, 0, 0.12);
+      }
+
+      :root.dark .pulse-status-card:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+
+      .pulse-info {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .pulse-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #10b981;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        transition: background 200ms ease;
+      }
+
+      .pulse-dot.scanning {
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-light);
+        animation: pulse-ring 1.2s infinite ease-in-out;
+      }
+
+      @keyframes pulse-ring {
+        0% { transform: scale(0.9); opacity: 0.8; }
+        50% { transform: scale(1.3); opacity: 1; }
+        100% { transform: scale(0.9); opacity: 0.8; }
+      }
+
+      .pulse-text-container {
+        position: relative;
+        height: 16px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .pulse-text {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
+        display: inline-block;
+      }
+
+      .pulse-text.slide-out {
+        transform: translateY(-12px);
+        opacity: 0;
+      }
+
+      .pulse-text.slide-in {
+        transform: translateY(12px);
+        opacity: 0;
+      }
+
+      .pulse-refresh-icon {
+        width: 14px;
+        height: 14px;
+        color: var(--text-faint);
+        flex-shrink: 0;
+        transition: transform 300ms ease;
+      }
+
+      .pulse-refresh-icon.spinning {
+        animation: spin 0.8s linear infinite;
+        color: var(--accent);
+      }
+
+      @keyframes spin {
+        100% { transform: rotate(360deg); }
+      }
+
+      /* 底部主次两段式操作条 */
+      .pulse-actions-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .pulse-settings-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-main);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .pulse-settings-btn:hover {
+        background: var(--hover-bg);
+        border-color: var(--sidebar-border);
+      }
+
+      .pulse-quick-icons {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .pulse-icon-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .pulse-icon-btn:hover {
+        color: var(--text-main);
+        background: var(--hover-bg);
+      }
+
+      /* Rail 模式下的自适应 */
+      .is-rail .pulse-status-card {
+        padding: 8px;
+        justify-content: center;
+      }
+      .is-rail .pulse-text-container,
+      .is-rail .pulse-text,
+      .is-rail .pulse-refresh-icon {
+        display: none;
+      }
+      .is-rail .pulse-actions-row {
+        flex-direction: column;
+        gap: 4px;
+      }
+      .is-rail .pulse-settings-btn span {
+        display: none;
+      }
+      .is-rail .pulse-settings-btn {
+        flex: 0 0 34px;
+        width: 34px;
+        justify-content: center;
+        padding: 0;
+      }
+      .is-rail .pulse-quick-icons {
+        flex-direction: column;
+      }
+
+      /* 方案三创意文案试玩面板 */
+      .flavor-demo-panel {
+        margin-top: 2px;
+        padding: 10px 12px;
+        background: var(--hover-bg);
+        border: 1px dashed var(--sidebar-border);
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .flavor-demo-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .flavor-mini-btn {
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        color: var(--text-main);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 5px 11px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 140ms ease;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .flavor-mini-btn:hover {
+        background: var(--active-bg);
+        transform: translateY(-0.5px);
+      }
+
+      .flavor-mini-btn.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: transparent;
+      }
+
+      .flavor-mini-btn.primary:hover {
+        opacity: 0.92;
+      }
+
+      .flavor-tags-preview {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .flavor-tag-label {
+        font-size: 10px;
+        color: var(--text-faint);
+        font-weight: 600;
+      }
+
+      .flavor-chip {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        color: var(--text-muted);
+      }
+
+      /* ----------------------------------------------------
+         方案 B：极简悬浮磨砂胶囊 (Floating Glass Capsule)
+         ---------------------------------------------------- */
+      .footer-floating-pill {
+        padding: 12px;
+      }
+
+      .floating-capsule {
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+        transition: all 200ms ease;
+      }
+
+      .capsule-main-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .capsule-main-btn:hover {
+        background: var(--hover-bg);
+      }
+
+      .capsule-divider {
+        width: 1px;
+        height: 18px;
+        background: var(--sidebar-border);
+        margin: 0 2px;
+      }
+
+      .capsule-trigger-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 140ms ease;
+        position: relative;
+      }
+
+      .capsule-trigger-btn:hover {
+        color: var(--text-main);
+        background: var(--hover-bg);
+      }
+
+      /* 磨砂玻璃弹出菜单 */
+      .floating-popover {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        right: 12px;
+        width: 180px;
+        background: var(--popover-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 12px;
+        padding: 6px;
+        box-shadow: var(--shadow-md);
+        display: none;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 50;
+        animation: popover-fade-in 140ms ease-out;
+      }
+
+      .floating-popover.open {
+        display: flex;
+      }
+
+      @keyframes popover-fade-in {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .popover-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 10px;
+        border-radius: 7px;
+        font-size: 12px;
+        color: var(--text-main);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        text-align: left;
+        transition: background 120ms ease;
+      }
+
+      .popover-item:hover {
+        background: var(--hover-bg);
+      }
+
+      .popover-item-separator {
+        height: 1px;
+        background: var(--sidebar-border);
+        margin: 4px 0;
+      }
+
+      /* Rail 模式适配 */
+      .is-rail .floating-capsule {
+        flex-direction: column;
+        padding: 4px;
+        gap: 4px;
+      }
+      .is-rail .capsule-main-btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        justify-content: center;
+      }
+      .is-rail .capsule-main-btn span {
+        display: none;
+      }
+      .is-rail .capsule-divider {
+        width: 18px;
+        height: 1px;
+        margin: 2px 0;
+      }
+      .is-rail .floating-popover {
+        right: auto;
+        left: calc(100% + 10px);
+        bottom: 8px;
+      }
+
+      /* ----------------------------------------------------
+         方案 C：标准系统导航行 + 情境工具条 (System Row & Context Tools)
+         ---------------------------------------------------- */
+      .footer-system-row {
+        border-top: 1px solid var(--sidebar-border);
+        padding: 6px 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .context-tools-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 4px 4px;
+      }
+
+      .context-badge {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-faint);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .context-icons-group {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .context-mini-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 120ms ease;
+      }
+
+      .context-mini-btn:hover {
+        color: var(--text-main);
+        background: var(--hover-bg);
+      }
+
+      /* 标准大条目 */
+      .system-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        user-select: none;
+        transition: all 120ms ease;
+      }
+
+      .system-nav-item:hover {
+        background: var(--hover-bg);
+        color: var(--text-main);
+      }
+
+      .system-nav-item .shortcut {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-faint);
+        font-family: var(--font-mono);
+      }
+
+      /* Rail 模式适配 */
+      .is-rail .context-tools-strip {
+        display: none;
+      }
+      .is-rail .system-nav-item {
+        justify-content: center;
+        padding: 10px 0;
+      }
+      .is-rail .system-nav-item .system-label,
+      .is-rail .system-nav-item .shortcut {
+        display: none;
+      }
+
+      /* 方案对比要点说明列表 */
+      .key-points {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .key-points li {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        line-height: 1.45;
+      }
+
+      .key-points li strong {
+        color: var(--text-main);
+        font-weight: 600;
+      }
+
+      .check-bullet {
+        color: var(--accent);
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 顶部操作栏 -->
+    <header class="top-banner">
+      <div class="banner-title">
+        <h1>
+          <svg width="24" height="24" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
+            <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+            <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+          </svg>
+          侧边栏左下角工具区 · 现代重构提案
+        </h1>
+        <p>Auralis 本地音乐播放器 · 交互原型与设计对比（支持实时点击与状态演练）</p>
+      </div>
+
+      <div class="banner-controls">
+        <!-- 侧栏宽度切换 -->
+        <div class="control-pill" id="widthToggle">
+          <button type="button" class="active" data-rail="false">展开 (240px)</button>
+          <button type="button" data-rail="true">折叠为 Rail (72px)</button>
+        </div>
+
+        <!-- 主题切换 -->
+        <div class="control-pill" id="themeToggle">
+          <button type="button" class="active" data-theme="light">浅色纸感</button>
+          <button type="button" data-theme="dark">深色黑曜</button>
+        </div>
+
+        <!-- 模拟曲库扫描触发器 -->
+        <button type="button" class="action-btn" id="simulateScanBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>模拟曲库扫描</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主展示网格 -->
+    <main class="proposals-grid">
+      <!-- ================= 方案 0：现状基线 ================= -->
+      <section class="proposal-card">
+        <div class="proposal-header">
+          <div>
+            <span class="proposal-tag" style="background:rgba(0,0,0,0.06);color:var(--text-muted);">对照组</span>
+            <div class="proposal-name">当前五图标平铺</div>
+          </div>
+        </div>
+        <p class="proposal-desc">
+          单条 1px 细线上方横向平铺 5 个 32px 单图标按钮。展开时略显拥挤局促，各操作权重无分级。
+        </p>
+
+        <!-- 模拟侧边栏 -->
+        <div class="sidebar-mockup" data-mockup>
+          <div class="mock-header">
+            <svg class="mock-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="mock-brand-text">Auralis</span>
+          </div>
+
+          <div class="mock-nav">
+            <div class="mock-section-label">资料库</div>
+            <div class="mock-nav-item active">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="mock-nav-label">所有歌曲</span>
+              <span class="mock-nav-count">4,280</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="mock-nav-label">专辑集</span>
+              <span class="mock-nav-count">284</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+              <span class="mock-nav-label">声迹软盘</span>
+            </div>
+          </div>
+
+          <!-- 现状工具区 -->
+          <footer class="sidebar-footer-host footer-baseline">
+            <div class="baseline-tools-grid">
+              <button class="baseline-btn" title="筛选维度" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+              <button class="baseline-btn" title="刷新曲库" type="button">
+                <svg class="refresh-spinner-demo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </button>
+              <button class="baseline-btn" title="切换深浅主题" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              </button>
+              <button class="baseline-btn" title="页面排版参数" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </button>
+              <button class="baseline-btn" title="设置" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            </div>
+          </footer>
+        </div>
+
+        <ul class="key-points">
+          <li><span class="check-bullet">•</span> <strong>不足：</strong> 无文字标签，点击热区较小，初见难以区分功能。</li>
+          <li><span class="check-bullet">•</span> <strong>不足：</strong> 刷新状态仅靠图标自身旋转，无法感知扫描量与阶段。</li>
+        </ul>
+      </section>
+
+      <!-- ================= 方案 A：曲库状态与工具岛 ================= -->
+      <section class="proposal-card">
+        <div class="proposal-header">
+          <div>
+            <span class="proposal-tag">方案 A · 推荐</span>
+            <div class="proposal-name">曲库状态与工具岛</div>
+          </div>
+        </div>
+        <p class="proposal-desc">
+          类似 Linear / Craft：上层是可感知的曲库微状态胶囊（点击可触发扫描），下层是主次分明的设置入口与快捷工具。
+        </p>
+
+        <!-- 模拟侧边栏 -->
+        <div class="sidebar-mockup" data-mockup>
+          <div class="mock-header">
+            <svg class="mock-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="mock-brand-text">Auralis</span>
+          </div>
+
+          <div class="mock-nav">
+            <div class="mock-section-label">资料库</div>
+            <div class="mock-nav-item active">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="mock-nav-label">所有歌曲</span>
+              <span class="mock-nav-count">4,280</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="mock-nav-label">专辑集</span>
+              <span class="mock-nav-count">284</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+              <span class="mock-nav-label">声迹软盘</span>
+            </div>
+          </div>
+
+          <!-- 方案 A 工具区 -->
+          <footer class="sidebar-footer-host footer-pulse-hub">
+            <!-- 曲库状态卡片（方案三：私人乐迷管家 + 趣味轮播） -->
+            <div class="pulse-status-card" id="pulseCardTrigger" title="点击立即同步本地曲库（体验动态趣味轮播）">
+              <div class="pulse-info">
+                <span class="pulse-dot" id="pulseDot"></span>
+                <div class="pulse-text-container">
+                  <span class="pulse-text" id="pulseText">4,280 首私家偏爱 · 随时开声</span>
+                </div>
+              </div>
+              <svg class="pulse-refresh-icon" id="pulseIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <div class="pulse-progress-bar" id="pulseProgressBar"></div>
+            </div>
+
+            <!-- 主设置 + 辅助工具 -->
+            <div class="pulse-actions-row">
+              <button class="pulse-settings-btn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>设置</span>
+              </button>
+              <div class="pulse-quick-icons">
+                <button class="pulse-icon-btn" title="筛选维度" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                </button>
+                <button class="pulse-icon-btn" title="页面参数" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                </button>
+              </div>
+            </div>
+          </footer>
+        </div>
+
+        <!-- 方案三创意文案与轮播试玩面板 -->
+        <div class="flavor-demo-panel">
+          <div class="flavor-demo-actions">
+            <button class="flavor-mini-btn" id="flavorNextBtn" type="button" title="换一句文案">
+              🎲 换一句轮播词
+            </button>
+            <button class="flavor-mini-btn primary" id="flavorRunScanBtn" type="button" title="完整演练一次扫描流程">
+              ▶ 完整演练 (词库轮播+彩蛋)
+            </button>
+          </div>
+          <div class="flavor-tags-preview">
+            <span class="flavor-tag-label">方案三词库池：</span>
+            <span class="flavor-chip">翻箱倒柜找歌</span>
+            <span class="flavor-chip">背着我存好听的</span>
+            <span class="flavor-chip">擦拭封面</span>
+            <span class="flavor-chip">无损音轨波形</span>
+            <span class="flavor-chip">带新声音回家 ✨</span>
+          </div>
+        </div>
+
+        <ul class="key-points">
+          <li><span class="check-bullet">✓</span> <strong>方案三乐迷管家：</strong> 静止时是私家偏爱守护者，扫描时化身翻箱倒柜找歌的贴心管家。</li>
+          <li><span class="check-bullet">✓</span> <strong>垂直翻滚微动效：</strong> 文字平滑淡出/滑入，配合底部微进度光条，把等待变成趣味体验。</li>
+          <li><span class="check-bullet">✓</span> <strong>完成随机彩蛋：</strong> 每次索引结束随机反馈趣味金句（如“带了 12 首新声音回家”），3秒后优雅回退。</li>
+        </ul>
+      </section>
+
+      <!-- ================= 方案 B：极简悬浮磨砂胶囊 ================= -->
+      <section class="proposal-card">
+        <div class="proposal-header">
+          <div>
+            <span class="proposal-tag">方案 B · 潮流</span>
+            <div class="proposal-name">极简磨砂浮岛胶囊</div>
+          </div>
+        </div>
+        <p class="proposal-desc">
+          类似 Arc / Raycast：去除生硬的分割线，在侧栏底部悬浮磨砂玻璃岛，将辅助操作收纳进精致工具弹层。
+        </p>
+
+        <!-- 模拟侧边栏 -->
+        <div class="sidebar-mockup" data-mockup>
+          <div class="mock-header">
+            <svg class="mock-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="mock-brand-text">Auralis</span>
+          </div>
+
+          <div class="mock-nav">
+            <div class="mock-section-label">资料库</div>
+            <div class="mock-nav-item active">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="mock-nav-label">所有歌曲</span>
+              <span class="mock-nav-count">4,280</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="mock-nav-label">专辑集</span>
+              <span class="mock-nav-count">284</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+              <span class="mock-nav-label">声迹软盘</span>
+            </div>
+          </div>
+
+          <!-- 方案 B 工具区 -->
+          <footer class="sidebar-footer-host footer-floating-pill">
+            <div class="floating-capsule">
+              <button class="capsule-main-btn" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>偏好设置</span>
+              </button>
+              <div class="capsule-divider"></div>
+              <button class="capsule-trigger-btn" id="capsuleTrigger" type="button" title="展开更多曲库工具">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+              </button>
+            </div>
+
+            <!-- 点击展开的快捷面板 -->
+            <div class="floating-popover" id="capsulePopover">
+              <button class="popover-item" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>立即扫描更新</span>
+              </button>
+              <button class="popover-item" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <span>多维智能筛选</span>
+              </button>
+              <button class="popover-item" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+                <span>当前视图排版</span>
+              </button>
+              <div class="popover-item-separator"></div>
+              <button class="popover-item" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>
+                <span>深浅外观切换</span>
+              </button>
+            </div>
+          </footer>
+        </div>
+
+        <ul class="key-points">
+          <li><span class="check-bullet">✓</span> <strong>通透质感：</strong> 悬浮磨砂玻璃胶囊，与 Auralis 播放栏材质形成呼应。</li>
+          <li><span class="check-bullet">✓</span> <strong>纯净界面：</strong> 平时只留一个优雅入口，点击展开类似 macOS 控制中心。</li>
+        </ul>
+      </section>
+
+      <!-- ================= 方案 C：标准系统导航行 + 情境工具条 ================= -->
+      <section class="proposal-card">
+        <div class="proposal-header">
+          <div>
+            <span class="proposal-tag">方案 C · 规整</span>
+            <div class="proposal-name">标准系统行 + 情境感知栏</div>
+          </div>
+        </div>
+        <p class="proposal-desc">
+          类似 Apple Music：将「设置」提升为满宽标准项目，上层提供微型的当前视图感知条与同步指示灯。
+        </p>
+
+        <!-- 模拟侧边栏 -->
+        <div class="sidebar-mockup" data-mockup>
+          <div class="mock-header">
+            <svg class="mock-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="mock-brand-text">Auralis</span>
+          </div>
+
+          <div class="mock-nav">
+            <div class="mock-section-label">资料库</div>
+            <div class="mock-nav-item active">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="mock-nav-label">所有歌曲</span>
+              <span class="mock-nav-count">4,280</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="mock-nav-label">专辑集</span>
+              <span class="mock-nav-count">284</span>
+            </div>
+            <div class="mock-nav-item">
+              <span class="mock-nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+              <span class="mock-nav-label">声迹软盘</span>
+            </div>
+          </div>
+
+          <!-- 方案 C 工具区 -->
+          <footer class="sidebar-footer-host footer-system-row">
+            <div class="context-tools-strip">
+              <span class="context-badge">
+                <span class="pulse-dot" style="width:6px;height:6px;"></span>
+                <span>曲库已就绪</span>
+              </span>
+              <div class="context-icons-group">
+                <button class="context-mini-btn" title="当前列表排版设置" type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+                </button>
+                <button class="context-mini-btn" title="筛选歌单" type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- 标准系统条目 -->
+            <div class="system-nav-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span class="system-label">偏好设置</span>
+              <span class="shortcut">⌘,</span>
+            </div>
+          </footer>
+        </div>
+
+        <ul class="key-points">
+          <li><span class="check-bullet">✓</span> <strong>最熟悉感：</strong> 符合原生桌面规范，与顶部歌曲列表同级，热区清晰。</li>
+          <li><span class="check-bullet">✓</span> <strong>情境联动：</strong> 排版图标只在当前页面支持调整时亮起。</li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      // 1. 主题切换
+      const themeButtons = document.querySelectorAll('#themeToggle button');
+      themeButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          themeButtons.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const isDark = btn.dataset.theme === 'dark';
+          document.documentElement.classList.toggle('dark', isDark);
+        });
+      });
+
+      // 2. 侧栏展开 / Rail 收起切换
+      const widthButtons = document.querySelectorAll('#widthToggle button');
+      const sidebars = document.querySelectorAll('[data-mockup]');
+      widthButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          widthButtons.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const isRail = btn.dataset.rail === 'true';
+          sidebars.forEach((sb) => sb.classList.toggle('is-rail', isRail));
+        });
+      });
+
+      // 3. 方案三：私人乐迷管家词库池与动态趣味轮播
+      const FLAVOR_TEXTS = {
+        idle: [
+          '4,280 首私家偏爱 · 随时开声',
+          '今日音质状态极佳 · 4,280 首待命',
+          '黑胶与母带已就位 · 4,280 首藏品',
+          '已整理妥当 · 你的私人音乐庇护所'
+        ],
+        scanning: [
+          '正在翻箱倒柜找歌...',
+          '看看你最近又背着我存了什么好听的...',
+          '正在给新专辑悄悄擦拭封面...',
+          '辨识无损音轨波形... 好品味！',
+          '穿梭在深深浅浅的音乐文件夹里...',
+          '把新音符小心翼翼放上架...',
+          '马上就好，好音乐值得等这几秒...'
+        ],
+        finished: [
+          '全找齐了！带了 12 首新声音回家 ✨',
+          '全员就位，今晚听哪首？🎧',
+          '新曲目入库！你的私人乐库又扩建了 🚀',
+          '零掉队，4,292 首旋律随时听你差遣 ☕'
+        ]
+      };
+
+      const scanBtn = document.getElementById('simulateScanBtn');
+      const pulseDot = document.getElementById('pulseDot');
+      const pulseText = document.getElementById('pulseText');
+      const pulseIcon = document.getElementById('pulseIcon');
+      const pulseCard = document.getElementById('pulseCardTrigger');
+      const pulseProgressBar = document.getElementById('pulseProgressBar');
+      const flavorNextBtn = document.getElementById('flavorNextBtn');
+      const flavorRunScanBtn = document.getElementById('flavorRunScanBtn');
+
+      let isScanning = false;
+      let scanTimers = [];
+      let flavorIndex = 0;
+      let idleIndex = 0;
+
+      // 垂直滑入滑出动效切换文本
+      function setPulseTextWithSlide(newText) {
+        if (!pulseText) return;
+        pulseText.classList.remove('slide-in');
+        pulseText.classList.add('slide-out');
+
+        setTimeout(() => {
+          pulseText.style.transition = 'none';
+          pulseText.textContent = newText;
+          pulseText.classList.remove('slide-out');
+          pulseText.classList.add('slide-in');
+
+          void pulseText.offsetWidth; // 触发 reflow 重绘
+
+          pulseText.style.transition = '';
+          pulseText.classList.remove('slide-in');
+        }, 190);
+      }
+
+      function clearScanTimers() {
+        scanTimers.forEach((t) => clearTimeout(t));
+        scanTimers = [];
+      }
+
+      function triggerScan() {
+        if (isScanning) return;
+        isScanning = true;
+        clearScanTimers();
+
+        // 启动视觉状态
+        pulseDot?.classList.add('scanning');
+        pulseIcon?.classList.add('spinning');
+        if (pulseProgressBar) {
+          pulseProgressBar.classList.add('active');
+          pulseProgressBar.style.width = '15%';
+        }
+
+        // 随机抽取洗牌
+        const shuffled = [...FLAVOR_TEXTS.scanning].sort(() => 0.5 - Math.random());
+
+        // 阶段 1：起步
+        setPulseTextWithSlide(shuffled[0]);
+
+        // 阶段 2：进行中轮播 (1.3s)
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (pulseProgressBar) pulseProgressBar.style.width = '45%';
+          setPulseTextWithSlide(shuffled[1]);
+        }, 1300));
+
+        // 阶段 3：深层索引轮播 (2.6s)
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (pulseProgressBar) pulseProgressBar.style.width = '75%';
+          setPulseTextWithSlide(shuffled[2]);
+        }, 2600));
+
+        // 阶段 4：最后整理轮播 (3.9s)
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (pulseProgressBar) pulseProgressBar.style.width = '94%';
+          setPulseTextWithSlide(shuffled[3]);
+        }, 3900));
+
+        // 阶段 5：扫描完成，呈现彩蛋 (4.8s)
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (pulseProgressBar) pulseProgressBar.style.width = '100%';
+          pulseDot?.classList.remove('scanning');
+          pulseIcon?.classList.remove('spinning');
+
+          const randomEgg = FLAVOR_TEXTS.finished[Math.floor(Math.random() * FLAVOR_TEXTS.finished.length)];
+          setPulseTextWithSlide(randomEgg);
+
+          // 进度条微闪后淡出
+          setTimeout(() => {
+            pulseProgressBar?.classList.remove('active');
+            setTimeout(() => {
+              if (pulseProgressBar) pulseProgressBar.style.width = '0%';
+            }, 250);
+          }, 450);
+        }, 4800));
+
+        // 阶段 6：优雅回归常驻态 (8.2s)
+        scanTimers.push(setTimeout(() => {
+          setPulseTextWithSlide(FLAVOR_TEXTS.idle[0]);
+          isScanning = false;
+        }, 8200));
+      }
+
+      // 换一句轮播词（支持随时体验垂直滑动动效）
+      function nextFlavor() {
+        if (isScanning) {
+          flavorIndex = (flavorIndex + 1) % FLAVOR_TEXTS.scanning.length;
+          setPulseTextWithSlide(FLAVOR_TEXTS.scanning[flavorIndex]);
+        } else {
+          idleIndex = (idleIndex + 1) % FLAVOR_TEXTS.idle.length;
+          setPulseTextWithSlide(FLAVOR_TEXTS.idle[idleIndex]);
+        }
+      }
+
+      scanBtn?.addEventListener('click', triggerScan);
+      pulseCard?.addEventListener('click', triggerScan);
+      flavorRunScanBtn?.addEventListener('click', triggerScan);
+      flavorNextBtn?.addEventListener('click', nextFlavor);
+
+      // 4. 方案 B 的浮动胶囊抽屉切换
+      const capsuleTrigger = document.getElementById('capsuleTrigger');
+      const capsulePopover = document.getElementById('capsulePopover');
+
+      capsuleTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        capsulePopover.classList.toggle('open');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!capsulePopover.contains(e.target) && e.target !== capsuleTrigger) {
+          capsulePopover.classList.remove('open');
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,359 @@
+import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack, ShuffleCycle } from '../types'
+import { resolveAlbumArtist } from '@shared/utils/albumIdentity'
+
+export type PlaybackAdvanceTrigger = 'manual-next' | 'natural-ended' | 'gapless-prefetch'
+
+export interface PlaybackTransitionPlan {
+  queue: PlaybackTrack[]
+  track: PlaybackTrack
+  recordHistory: boolean
+  consumeQueued: boolean
+  nextAlbumShuffleContext?: AlbumShuffleContext
+  nextShuffleCycle?: ShuffleCycle
+}
+
+export type PlaybackAdvanceDecision =
+  | { kind: 'play'; plan: PlaybackTransitionPlan }
+  | { kind: 'stop'; resetTime: boolean }
+  | { kind: 'noop' }
+
+export interface PlaybackTransitionState {
+  currentTrackId: number | null
+  currentTrack: PlaybackTrack | null
+  queue: PlaybackTrack[]
+  currentIndex: number
+  playbackMode: PlaybackMode
+  queuedNextTrackId: number | null
+  albumShuffleContext: AlbumShuffleContext
+  shuffleTrackPool: PlaybackTrack[] | null
+  // undefined: existing random behaviour; null: start a scoped, nonrepeating round.
+  shuffleCycle?: ShuffleCycle | null
+}
+
+export interface PlaybackTransitionSource {
+  getRandomTrack: (excludeTrackId?: number) => Promise<PlaybackTrack | null | undefined>
+  getAlbumTracks: (albumKey: {
+    albumArtist: string
+    album: string
+  }) => Promise<AlbumShuffleContext | null | undefined>
+  getRandomAlbumTracks: (excludeAlbumKey?: {
+    albumArtist: string
+    album: string
+  }) => Promise<AlbumShuffleContext | null | undefined>
+}
+
+export function getAlbumIdentity(track: PlaybackTrack): string | null {
+  const album = track.album?.trim()
+  if (!album) return null
+  const albumArtist = resolveAlbumArtist(track).trim()
+  return `${albumArtist.toLocaleLowerCase()}\u0000${album.toLocaleLowerCase()}`
+}
+
+export function getAlbumKey(
+  track: PlaybackTrack | null,
+): { albumArtist: string; album: string } | undefined {
+  if (!track?.album) return undefined
+  return {
+    albumArtist: resolveAlbumArtist(track),
+    album: track.album,
+  }
+}
+
+export function buildAlbumShuffleContexts(
+  tracks: PlaybackTrack[] | null,
+): NonNullable<AlbumShuffleContext>[] {
+  if (!tracks?.length) return []
+  const contexts = new Map<string, NonNullable<AlbumShuffleContext>>()
+
+  for (const track of tracks) {
+    const identity = getAlbumIdentity(track)
+    if (!identity) continue
+    const context = contexts.get(identity)
+    if (context) {
+      context.tracks.push(track)
+    } else {
+      contexts.set(identity, {
+        albumArtist: resolveAlbumArtist(track),
+        album: track.album!.trim(),
+        tracks: [track],
+      })
+    }
+  }
+
+  return [...contexts.values()]
+}
+
+export function findCurrentAlbumShuffleContext(
+  tracks: PlaybackTrack[] | null,
+  currentTrackId: number | null,
+): NonNullable<AlbumShuffleContext> | null {
+  if (!currentTrackId) return null
+  return (
+    buildAlbumShuffleContexts(tracks).find((context) =>
+      context.tracks.some((track) => track.id === currentTrackId),
+    ) ?? null
+  )
+}
+
+export function selectRandomAlbumShuffleContext(
+  tracks: PlaybackTrack[] | null,
+  currentTrack: PlaybackTrack | null,
+  random: () => number = Math.random,
+): NonNullable<AlbumShuffleContext> | null {
+  const currentIdentity = currentTrack ? getAlbumIdentity(currentTrack) : null
+  const candidates = buildAlbumShuffleContexts(tracks).filter(
+    (context) => getAlbumIdentity(context.tracks[0]) !== currentIdentity,
+  )
+  if (candidates.length === 0) return null
+  return candidates[Math.floor(random() * candidates.length)] ?? null
+}
+
+function resolveRepeatOneAdvance(
+  state: PlaybackTransitionState,
+  trigger: PlaybackAdvanceTrigger,
+): PlaybackAdvanceDecision {
+  if (trigger === 'manual-next') {
+    const next = state.queue[state.currentIndex + 1]
+    return next
+      ? {
+          kind: 'play',
+          plan: { queue: state.queue, track: next, recordHistory: true, consumeQueued: false },
+        }
+      : { kind: 'noop' }
+  }
+
+  if (state.currentTrack) {
+    return {
+      kind: 'play',
+      plan: {
+        queue: state.queue,
+        track: state.currentTrack,
+        recordHistory: false,
+        consumeQueued: false,
+      },
+    }
+  }
+  return { kind: 'noop' }
+}
+
+function resolveSequentialAdvance(
+  state: PlaybackTransitionState,
+  trigger: PlaybackAdvanceTrigger,
+): PlaybackAdvanceDecision {
+  const next = state.queue[state.currentIndex + 1]
+  if (next) {
+    return {
+      kind: 'play',
+      plan: { queue: state.queue, track: next, recordHistory: true, consumeQueued: false },
+    }
+  }
+
+  if (state.playbackMode === 'repeat-all' && state.queue.length > 0) {
+    return {
+      kind: 'play',
+      plan: {
+        queue: state.queue,
+        track: state.queue[0],
+        recordHistory: true,
+        consumeQueued: false,
+      },
+    }
+  }
+
+  if (state.playbackMode === 'sequential' && trigger === 'natural-ended') {
+    return { kind: 'stop', resetTime: true }
+  }
+
+  return { kind: 'noop' }
+}
+
+function resolveScopedShuffleCycle(
+  state: PlaybackTransitionState,
+  fromTrackId: number,
+  random: () => number,
+): PlaybackAdvanceDecision {
+  const pool = state.shuffleTrackPool!
+  const poolIds = new Set(pool.map((track) => track.id))
+  let remaining = state.shuffleCycle?.remaining.filter((id) => poolIds.has(id)) ?? []
+  let seed = state.shuffleCycle?.seed ?? 0
+  if (!remaining.length) {
+    const firstRound = state.shuffleCycle === null
+    remaining = pool
+      .filter((track) => !firstRound || track.id !== fromTrackId)
+      .map((track) => track.id)
+    if (!remaining.length) remaining = [fromTrackId]
+    const nextSeed = Math.floor(random() * 0x100000000) >>> 0
+    seed = nextSeed === seed ? (nextSeed + 1) >>> 0 : nextSeed
+    let value = seed
+    const draw = (): number => {
+      value = (Math.imul(value, 1664525) + 1013904223) >>> 0
+      return value / 0x100000000
+    }
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(draw() * (i + 1))
+      ;[remaining[i], remaining[j]] = [remaining[j], remaining[i]]
+    }
+    if (remaining.length > 1 && remaining[0] === fromTrackId) {
+      ;[remaining[0], remaining[1]] = [remaining[1], remaining[0]]
+    }
+  }
+  const track = pool.find((item) => item.id === remaining[0])!
+  return {
+    kind: 'play',
+    plan: {
+      queue: pool,
+      track,
+      recordHistory: true,
+      consumeQueued: false,
+      nextShuffleCycle: { seed, remaining: remaining.slice(1) },
+    },
+  }
+}
+
+function resolveScopedRandomAdvance(
+  pool: PlaybackTrack[],
+  fromTrackId: number,
+  random: () => number,
+): PlaybackAdvanceDecision {
+  const candidates = pool.filter((track) => track.id !== fromTrackId)
+  const track = candidates[Math.floor(random() * candidates.length)]
+  return track
+    ? {
+        kind: 'play',
+        plan: {
+          queue: pool,
+          track,
+          recordHistory: true,
+          consumeQueued: false,
+        },
+      }
+    : { kind: 'noop' }
+}
+
+function resolveAlbumQueueAdvance(
+  context: AlbumShuffleContext,
+  fromTrackId: number,
+): PlaybackAdvanceDecision | null {
+  if (!context) return null
+  const albumIndex = context.tracks.findIndex((track) => track.id === fromTrackId)
+  const track = context.tracks[albumIndex + 1]
+  if (track) {
+    return {
+      kind: 'play',
+      plan: {
+        queue: context.tracks,
+        track,
+        recordHistory: true,
+        consumeQueued: false,
+        nextAlbumShuffleContext: context,
+      },
+    }
+  }
+  return null
+}
+
+export async function resolvePlaybackAdvance(
+  state: PlaybackTransitionState,
+  source: PlaybackTransitionSource,
+  trigger: PlaybackAdvanceTrigger,
+  random: () => number = Math.random,
+): Promise<PlaybackAdvanceDecision> {
+  const fromTrackId = state.currentTrackId
+  if (!fromTrackId) return { kind: 'noop' }
+
+  // 1. Queued next track priority
+  const allowQueued = trigger === 'manual-next' || state.playbackMode !== 'repeat-one'
+  if (allowQueued && state.queuedNextTrackId !== null) {
+    const next = state.queue[state.currentIndex + 1]
+    if (next?.id === state.queuedNextTrackId) {
+      return {
+        kind: 'play',
+        plan: { queue: state.queue, track: next, recordHistory: true, consumeQueued: true },
+      }
+    }
+  }
+
+  // An exhausted scope stays scoped. Explicitly queued tracks above still take priority.
+  if (
+    state.shuffleTrackPool?.length === 0 &&
+    (state.playbackMode === 'shuffle' || state.playbackMode === 'album-shuffle')
+  ) {
+    return { kind: 'noop' }
+  }
+
+  // 2. Repeat-one
+  if (state.playbackMode === 'repeat-one') {
+    return resolveRepeatOneAdvance(state, trigger)
+  }
+
+  // 3. Sequential / Repeat-all
+  if (state.playbackMode === 'sequential' || state.playbackMode === 'repeat-all') {
+    return resolveSequentialAdvance(state, trigger)
+  }
+
+  // 4. Shuffle
+  if (state.playbackMode === 'shuffle') {
+    if (state.shuffleCycle !== undefined && state.shuffleTrackPool?.length) {
+      return resolveScopedShuffleCycle(state, fromTrackId, random)
+    }
+    if (state.shuffleTrackPool?.length) {
+      return resolveScopedRandomAdvance(state.shuffleTrackPool, fromTrackId, random)
+    }
+    const track = await source.getRandomTrack(fromTrackId)
+    return track
+      ? {
+          kind: 'play',
+          plan: { queue: [track], track, recordHistory: true, consumeQueued: false },
+        }
+      : { kind: 'noop' }
+  }
+
+  // 5. Album shuffle
+  if (state.playbackMode === 'album-shuffle') {
+    let context = state.albumShuffleContext
+    if (!context) {
+      if (state.shuffleTrackPool?.length) {
+        context = findCurrentAlbumShuffleContext(state.shuffleTrackPool, fromTrackId)
+      } else {
+        const currentAlbumKey = getAlbumKey(state.currentTrack)
+        if (currentAlbumKey) {
+          const candidate = await source.getAlbumTracks(currentAlbumKey)
+          if (candidate?.tracks.some((track) => track.id === fromTrackId)) {
+            context = candidate
+          }
+        }
+      }
+    }
+
+    const inAlbum = resolveAlbumQueueAdvance(context, fromTrackId)
+    if (inAlbum) return inAlbum
+
+    const nextContext = state.shuffleTrackPool?.length
+      ? selectRandomAlbumShuffleContext(state.shuffleTrackPool, state.currentTrack, random)
+      : await source.getRandomAlbumTracks(getAlbumKey(state.currentTrack))
+    const track = nextContext?.tracks[0]
+    return track
+      ? {
+          kind: 'play',
+          plan: {
+            queue: nextContext!.tracks,
+            track,
+            recordHistory: true,
+            consumeQueued: false,
+            nextAlbumShuffleContext: nextContext,
+          },
+        }
+      : { kind: 'noop' }
+  }
+
+  return { kind: 'noop' }
+}
+
+export async function resolvePlaybackTransition(
+  state: PlaybackTransitionState,
+  source: PlaybackTransitionSource,
+  random: () => number = Math.random,
+): Promise<PlaybackTransitionPlan | null> {
+  const decision = await resolvePlaybackAdvance(state, source, 'gapless-prefetch', random)
+  return decision.kind === 'play' ? decision.plan : null
+}

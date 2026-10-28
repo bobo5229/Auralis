@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 286 80" role="img" aria-labelledby="title">
+  <title id="title">Auralis — resonant</title>
+  <g fill="none" stroke="#171c1a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(12 0)"><path d="M4 64 23 13Q27 4 31 13L50 64M13 43C21 34 28 51 35 42S43 38 45 42"/></g>
+    <g transform="translate(70 0)"><path d="M4 25V48Q4 64 18 64T34 48V25M34 48V64"/></g>
+    <g transform="translate(117 0)"><path d="M4 64V25M4 39Q10 22 25 26"/></g>
+    <g transform="translate(152 0)"><path d="M34 29Q26 20 15 25T4 45Q4 65 19 64T34 49M34 25V64"/></g>
+    <g transform="translate(199 0)"><path d="M5 8V55Q5 64 14 64"/></g>
+    <g transform="translate(222 0)"><path d="M7 28V64M7 12V13"/></g>
+    <g transform="translate(244 0)"><path d="M29 29Q13 18 5 30T16 44Q35 47 29 59T4 60"/></g>
+  </g>
+</svg>

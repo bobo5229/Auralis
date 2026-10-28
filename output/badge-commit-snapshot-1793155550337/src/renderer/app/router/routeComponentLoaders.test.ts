@@ -1,0 +1,134 @@
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createRouteLoaderRegistry,
+  PRIMARY_WARMABLE_ROUTES,
+  type RouteComponentLoader,
+} from './routeComponentLoaders'
+
+describe('routeComponentLoaders', () => {
+  it('loads the annual summary on demand without adding primary warmup work', async () => {
+    const archiveAnnualSummary = vi.fn().mockResolvedValue({
+      default: { name: 'ArchiveAnnualSummaryPage' },
+    })
+    const registry = createRouteLoaderRegistry({ archiveAnnualSummary })
+    expect(archiveAnnualSummary).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('archive-annual-summary')).toBe(false)
+    await Promise.all([
+      registry.routeLoaders.archiveAnnualSummary(),
+      registry.routeLoaders.archiveAnnualSummary(),
+    ])
+    expect(archiveAnnualSummary).toHaveBeenCalledOnce()
+  })
+
+  it('loads the library page lazily and shares concurrent requests', async () => {
+    const library = vi.fn().mockResolvedValue({ default: { name: 'LibraryPage' } })
+    const registry = createRouteLoaderRegistry({ library })
+    expect(library).not.toHaveBeenCalled()
+    await Promise.all([registry.routeLoaders.library(), registry.routeLoaders.library()])
+    expect(library).toHaveBeenCalledTimes(1)
+  })
+  it('loads the CD page lazily without adding it to primary warmup', async () => {
+    const cdAlbums = vi.fn().mockResolvedValue({ default: { name: 'CdAlbumsPage' } })
+    const registry = createRouteLoaderRegistry({ cdAlbums })
+    expect(cdAlbums).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('cd-albums')).toBe(false)
+    expect(registry.isWarmableRoute('cd-album-index')).toBe(false)
+    await Promise.all([registry.routeLoaders.cdAlbums(), registry.routeLoaders.cdAlbums()])
+    expect(cdAlbums).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads the Archive page lazily and shares warmup requests', async () => {
+    const archive = vi.fn().mockResolvedValue({ default: { name: 'ArchivePage' } })
+    const registry = createRouteLoaderRegistry({ archive })
+    expect(archive).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('archive')).toBe(true)
+    await Promise.all([registry.routeLoaders.archive(), registry.routeLoaders.archive()])
+    expect(archive).toHaveBeenCalledTimes(1)
+  })
+
+  it('defines primary warmable routes strictly matching library, albums and archive', () => {
+    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive'])
+  })
+
+  it('correctly checks isWarmableRoute only for valid warmable routes', () => {
+    const registry = createRouteLoaderRegistry({
+      library: vi.fn(),
+      albums: vi.fn(),
+      albumDetail: vi.fn(),
+      archive: vi.fn(),
+    })
+
+    expect(registry.isWarmableRoute('library')).toBe(true)
+    expect(registry.isWarmableRoute('albums')).toBe(true)
+    expect(registry.isWarmableRoute('archive')).toBe(true)
+    expect(registry.isWarmableRoute('settings')).toBe(false)
+    expect(registry.isWarmableRoute('download')).toBe(false)
+
+    expect(registry.isWarmableRoute('album-detail')).toBe(false)
+    expect(registry.isWarmableRoute('playlist')).toBe(false)
+    expect(registry.isWarmableRoute(null)).toBe(false)
+    expect(registry.isWarmableRoute(undefined)).toBe(false)
+    expect(registry.isWarmableRoute('')).toBe(false)
+  })
+
+  it('deduplicates concurrent in-flight loading promises for the same route', async () => {
+    let resolveAlbums!: (val: { default: object }) => void
+    const albumsMock = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAlbums = resolve
+        }),
+    )
+
+    const registry = createRouteLoaderRegistry({
+      library: vi.fn(),
+      albums: albumsMock as RouteComponentLoader,
+      albumDetail: vi.fn(),
+      archive: vi.fn(),
+    })
+
+    const p1 = registry.loadRoute('albums')
+    const p2 = registry.loadRoute('albums')
+    const p3 = registry.routeLoaders.albums()
+
+    expect(p1).toBe(p2)
+    expect(p2).toBe(p3)
+    expect(albumsMock).toHaveBeenCalledTimes(1)
+    expect(registry.isInFlight('albums')).toBe(true)
+
+    const fakeComp = { default: { name: 'AlbumsPage' } }
+    resolveAlbums(fakeComp)
+
+    const [res1, res2, res3] = await Promise.all([p1, p2, p3])
+    expect(res1).toBe(fakeComp)
+    expect(res2).toBe(fakeComp)
+    expect(res3).toBe(fakeComp)
+    expect(registry.isInFlight('albums')).toBe(false)
+  })
+
+  it('cleans up in-flight promise on error, allowing subsequent retry', async () => {
+    let callCount = 0
+    const failingLoader = vi.fn().mockImplementation(async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('Network / bundle load failure')
+      }
+      return { default: { name: 'ArchivePage' } }
+    })
+
+    const registry = createRouteLoaderRegistry({
+      library: vi.fn(),
+      albums: vi.fn(),
+      albumDetail: vi.fn(),
+      archive: failingLoader as RouteComponentLoader,
+    })
+
+    await expect(registry.loadRoute('archive')).rejects.toThrow('Network / bundle load failure')
+    expect(registry.isInFlight('archive')).toBe(false)
+
+    // Second call should retry and succeed
+    const res = await registry.loadRoute('archive')
+    expect(res).toEqual({ default: { name: 'ArchivePage' } })
+    expect(failingLoader).toHaveBeenCalledTimes(2)
+  })
+})

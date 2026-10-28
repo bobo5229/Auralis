@@ -1,0 +1,102 @@
+import { resolve } from 'node:path'
+import { defineConfig } from 'electron-vite'
+import vue from '@vitejs/plugin-vue'
+import UnoCSS from 'unocss/vite'
+import { transform } from 'esbuild'
+
+export default defineConfig({
+  main: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'features/libraryScan/libraryScanWorker': resolve(
+            'src/main/features/libraryScan/libraryScanWorker.ts',
+          ),
+          'features/metadata/metadataRefreshWorker': resolve(
+            'src/main/features/metadata/metadataRefreshWorker.ts',
+          ),
+          'features/startupAlbum/startupAlbumWorker': resolve(
+            'src/main/features/startupAlbum/startupAlbumWorker.ts',
+          ),
+          'logging/rollingLogTransport': resolve('src/main/logging/rollingLogTransport.ts'),
+        },
+        external: ['better-sqlite3', 'bindings', 'sharp', 'pino', 'node-taglib-sharp'],
+      },
+    },
+    resolve: {
+      alias: {
+        '@main': resolve('src/main'),
+        '@shared': resolve('src/shared'),
+      },
+    },
+  },
+  preload: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts'),
+        },
+        output: {
+          // Sandboxed Electron preloads run in a restricted CommonJS environment.
+          // Keep every entry self-contained because that environment cannot load
+          // arbitrary relative chunks.
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          inlineDynamicImports: false,
+        },
+      },
+    },
+    resolve: {
+      alias: {
+        '@shared': resolve('src/shared'),
+      },
+    },
+  },
+  renderer: {
+    root: resolve('src/renderer'),
+    // Keep this mode's optimized dependencies separate from the other dev server.
+    cacheDir: resolve('node_modules/.vite/electron-renderer'),
+    optimizeDeps: {
+      // Pre-bundle worker and page dependencies before their first runtime import.
+      include: ['image-q', 'pinyin-pro', 'vue-color'],
+    },
+    resolve: {
+      alias: {
+        '@renderer': resolve('src/renderer'),
+        '@shared': resolve('src/shared'),
+      },
+    },
+    build: {
+      minify: 'esbuild',
+      // Keep CSS output unchanged when enabling production JS minification.
+      cssMinify: false,
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+        },
+      },
+    },
+    plugins: [
+      vue(),
+      UnoCSS(),
+      {
+        name: 'compact-startup-card',
+        async renderChunk(code, chunk) {
+          if (
+            !Object.keys(chunk.modules).some((id) =>
+              /\/(?:node_modules\/three|features\/startupAlbum)\//.test(id.replaceAll('\\', '/')),
+            )
+          )
+            return null
+          return transform(code, {
+            minify: true,
+            format: 'esm',
+            target: 'es2022',
+            legalComments: 'inline',
+          })
+        },
+      },
+    ],
+  },
+})

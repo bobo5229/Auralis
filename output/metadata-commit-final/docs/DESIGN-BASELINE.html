@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auralis UI 设计基准（Design Baseline）</title>
+<style>
+  :root {
+    --doc-ink: #24262a;
+    --doc-ink-muted: #5d636b;
+    --doc-line: #d9dce1;
+    --doc-panel: #f6f7f8;
+    --doc-accent: #0f7a3d;
+    --doc-warn: #9a5b00;
+    --doc-code-bg: #eef0f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--doc-ink);
+    background: #ffffff;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  main { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 {
+    font-size: 20px;
+    margin: 48px 0 12px;
+    padding-top: 24px;
+    border-top: 2px solid var(--doc-line);
+  }
+  h2 .anchor { color: var(--doc-accent); margin-right: 8px; font-family: Consolas, monospace; font-size: 15px; }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
+  p, li { color: var(--doc-ink); }
+  .subtitle { color: var(--doc-ink-muted); margin: 0 0 24px; }
+  .meta {
+    background: var(--doc-panel);
+    border: 1px solid var(--doc-line);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+  }
+  .meta dt { font-weight: 600; margin-top: 6px; }
+  .meta dt:first-child { margin-top: 0; }
+  .meta dd { margin: 0 0 0 0; color: var(--doc-ink-muted); }
+  .rule {
+    background: #f0f7f2;
+    border: 1px solid #cfe5d6;
+    border-left: 4px solid var(--doc-accent);
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin: 16px 0;
+  }
+  .warn {
+    background: #fdf6ec;
+    border: 1px solid #ecd9b8;
+    border-left: 4px solid var(--doc-warn);
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin: 16px 0;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: 13.5px; }
+  th, td { border: 1px solid var(--doc-line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--doc-panel); font-weight: 600; white-space: nowrap; }
+  td code, li code, p code {
+    background: var(--doc-code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: Consolas, "JetBrains Mono", monospace;
+    font-size: 12.5px;
+  }
+  .tok { white-space: nowrap; }
+  .val { font-family: Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+  .sw {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.25);
+    margin-right: 6px;
+    vertical-align: -2px;
+  }
+  .src { color: var(--doc-ink-muted); font-size: 12px; white-space: nowrap; }
+  .src a { color: inherit; }
+  .derive { color: var(--doc-ink-muted); font-style: italic; }
+  ol.principles > li { margin: 10px 0; }
+  footer { margin-top: 56px; padding-top: 16px; border-top: 2px solid var(--doc-line); color: var(--doc-ink-muted); font-size: 12.5px; }
+  a { color: var(--doc-accent); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Auralis UI 设计基准</h1>
+<p class="subtitle">面向 Agent 与协作者的视觉语言登记册：主题、色彩、字体、排版、几何、材质与设计判断基准。</p>
+
+<dl class="meta">
+  <dt>快照时点</dt>
+  <dd>2026-10-27，HEAD <code>697afe94</code>（refactor(styles): 唱片室衬线字体更名为 Auralis Serif SC），登记时工作区干净。</dd>
+  <dt>事实来源声明</dt>
+  <dd><strong>本基准是提炼快照，不是第二事实来源。</strong>源码是唯一事实来源；每张表都标注了来源文件，引用数值前先读对应源文件核对当前值。本文件只回答"体系长什么样、规则是什么"，不回答"现在精确值是多少"。</dd>
+  <dt>覆盖范围</dt>
+  <dd>主题级 token、语义排版体系、曲库布局指标、外壳与播放条几何、材质参数与设计判断基准。不覆盖组件局部变量、UnoCSS 工具类与各页面私有几何——它们按下方"变更守则"追溯到所属规格文件。</dd>
+  <dt>维护方式</dt>
+  <dd>视觉体系发生方向性变化（新增主题、更换字体体系、调整 token 语义）时同步更新本文件；微调数值不需要每次更新，以源码为准即可。</dd>
+</dl>
+
+<h2 id="usage"><span class="anchor">§1</span>如何使用本基准</h2>
+<ol>
+  <li><strong>建立设计观</strong>：先读 §2 设计原则，理解各表面表达强度的差异，再查具体数值。</li>
+  <li><strong>定位事实来源</strong>：需要精确值时，按表内来源路径读取源文件；本文件的数值用于理解体系，不用于直接抄写。</li>
+  <li><strong>引用规则而非数值</strong>：在代码、文档或方案中引用时，引用 token 名与来源文件，不把数值复制成新的硬编码。</li>
+  <li><strong>发现漂移时</strong>：源码与本基准不一致时以源码为准，并按维护方式判断是否需要更新本文件。</li>
+</ol>
+<div class="rule">核心约束：项目的规格与实现是单一事实来源，禁止另建平行 token 或把固定数值复制到新 CSS。改动共享 token 前必须核对实际使用方。</div>
+
+<h2 id="principles"><span class="anchor">§2</span>设计原则（判断基准）</h2>
+<p>以下原则提炼自 <code>.agents/skills/auralis-ui/SKILL.md</code> 与 <a href="rules/renderer.md">docs/rules/renderer.md</a>，是 UI 决策的最高层依据。</p>
+<ol class="principles">
+  <li><strong>按表面区分表达强度</strong>。曲库、设置、菜单等操作界面以扫描效率、信息层级、稳定状态与熟悉的桌面交互为先；唱片室与全屏聆听可以用字体、材质、空间与动效表达音乐收藏的氛围。不把操作界面的克制变成全产品装饰禁令，也不把沉浸效果推广到每个菜单和表单。</li>
+  <li><strong>密度服务于收藏规模</strong>。Auralis 面向个人大型音乐收藏；密度不足靠结构解决，不靠扩大留白掩盖结构问题。</li>
+  <li><strong>层级靠对齐、间距、字重与语义色</strong>。让主要内容和当前操作先被看见，避免每个区域争夺注意力。</li>
+  <li><strong>相同职责使用一致的控件语言</strong>。先复用已有组件，再决定局部变体；修改共享默认值前检查实际使用方。</li>
+  <li><strong>装饰须有理由</strong>。圆角、阴影、边框、模糊与展示字体要有分组、深度、材质或内容表达上的理由，按效果判断而非一刀切。</li>
+  <li><strong>排版按语义角色</strong>。字号与行高成对使用；结合真实中文、英文、数字与音乐元数据判断阅读密度；展示字体用于适合的内容角色，控件与数据保持清晰稳定。</li>
+  <li><strong>状态不能只靠颜色区分</strong>。检查文字与图标在实际背景上的可读性、主次区分与焦点反馈；图标、标签与提示共同保证动作可理解。</li>
+  <li><strong>动态取色联动语义前景色</strong>。封面取色应通过共享语义颜色变量联动所在画布内的主次文字、歌词、轨道、分隔线与交互反馈。</li>
+  <li><strong>动效解释状态、保持空间连续或增强聆听氛围</strong>。持续旋转、材质和音频驱动效果需考虑暂停、切曲、退出及减弱动效设置；动效涉及相邻区域时核对变换后的实际占用范围与降级行为。</li>
+  <li><strong>性能先测量</strong>。区分冷启动、首次进入与再次进入，定位资源、计算、布局、绘制或状态更新瓶颈；微基准与截图不能代表页面流畅度。</li>
+  <li><strong>临时状态与持久状态分离</strong>。菜单高亮等临时状态随所属界面关闭而结束；播放状态等持久状态有唯一来源（usePlayback），不建立竞争状态来源。</li>
+</ol>
+
+<h2 id="theme"><span class="anchor">§3</span>主题体系</h2>
+<p>来源：<a href="../src/renderer/app/styles/main.css">src/renderer/app/styles/main.css</a><span class="src">（暗色 153–257，浅色 263–365，作用域保护 367–426）</span></p>
+<ul>
+  <li><strong>暗色为默认主题</strong>：<code>:root, [data-theme='dark']</code> 定义暗色调色板；<code>[data-theme='light']</code> 定义浅色调色板（冷瓷灰 Cool Porcelain Grey）。两主题各自声明 <code>color-scheme</code>。</li>
+  <li><strong>强调色独立定制</strong>：暗色与浅色强调色是两个独立偏好，由 <code>public/splash/theme-boot.js</code> 在首帧前从 localStorage（<code>auralis-dark-accent</code> / <code>auralis-light-accent</code>）解析并写入 <code>--auralis-dark-accent</code>、<code>--auralis-light-accent</code>、<code>--auralis-light-accent-soft</code> 等变量，避免首帧闪烁。默认值：暗色 <code>#1dd55f</code>，浅色 <code>#585b5f</code>。样式表中的 <code>--auralis-dark-on-accent</code>（默认 <code>#121212</code>）与 <code>--auralis-light-on-accent</code>（默认 <code>#ffffff</code>）承载强调色之上的文字色。</li>
+  <li><strong>作用域保护</strong>：主窗口外壳与全局浮层（<code>.app-window</code>、<code>.library-overlay</code>、<code>.albums-overlay</code>、<code>.sidebar-overlay</code>）在未显式选择浅色主题时整体重新声明暗色 token，防止局部主题覆盖漂移污染外壳。</li>
+</ul>
+
+<h2 id="color"><span class="anchor">§4</span>色彩 Token（暗色 / 浅色对照）</h2>
+<p>来源：<a href="../src/renderer/app/styles/main.css">src/renderer/app/styles/main.css</a>。值列为登记时点的快照；色板按各自主题底色渲染。"派生"表示该值引用其他 token，含义随被引用者变化。</p>
+
+<h3>4.1 基底与表面</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-bg</code></td><td class="val"><span class="sw" style="background:#121212"></span>#121212</td><td class="val"><span class="sw" style="background:#f0f1f2"></span>#f0f1f2</td><td>应用底色</td></tr>
+  <tr><td class="tok"><code>--auralis-main-bg</code></td><td class="val"><span class="sw" style="background:#121212"></span>#121212</td><td class="val"><span class="sw" style="background:#ffffff"></span>#ffffff</td><td>主内容区背景</td></tr>
+  <tr><td class="tok"><code>--auralis-sidebar-bg</code></td><td class="val"><span class="sw" style="background:#1a1a1a"></span>#1a1a1a</td><td class="val"><span class="sw" style="background:#f9f9fb"></span>#f9f9fb</td><td>侧边栏背景</td></tr>
+  <tr><td class="tok"><code>--auralis-now-playing-bg</code></td><td class="val"><span class="sw" style="background:#1a1a1a"></span>#1a1a1a</td><td class="val"><span class="sw" style="background:#f9f9fb"></span>#f9f9fb</td><td>正在播放面板背景</td></tr>
+  <tr><td class="tok"><code>--auralis-dialog-bg</code></td><td class="val"><span class="sw" style="background:#202020"></span>#202020</td><td class="val"><span class="sw" style="background:#f8f9fa"></span>#f8f9fa</td><td>对话框背景</td></tr>
+  <tr><td class="tok"><code>--auralis-surface-raised</code></td><td class="val"><span class="sw" style="background:#202020"></span>#202020</td><td class="val"><span class="sw" style="background:#e7e9eb"></span>#e7e9eb</td><td>抬升表面（控件默认底）</td></tr>
+  <tr><td class="tok"><code>--auralis-surface-floating</code></td><td class="val"><span class="sw" style="background:#262626"></span>#262626</td><td class="val"><span class="sw" style="background:#f8f9fa"></span>#f8f9fa</td><td>浮动表面（搜索、菜单、全屏控件）</td></tr>
+  <tr><td class="tok"><code>--auralis-app-bg</code></td><td class="val"><span class="sw" style="background:#121212"></span>#121212</td><td class="val"><span class="sw" style="background:#f0f1f2"></span>#f0f1f2</td><td>应用环境背景</td></tr>
+  <tr><td class="tok"><code>--auralis-album-detail-more-bg</code></td><td class="val"><span class="sw" style="background:#0c0c0c"></span>#0c0c0c</td><td class="derive">= surface-floating</td><td>专辑详情"更多作品"区</td></tr>
+</table>
+
+<h3>4.2 文字</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-text</code></td><td class="val"><span class="sw" style="background:#f3eee6"></span>#f3eee6</td><td class="val"><span class="sw" style="background:#292b2d"></span>#292b2d</td><td>主文字（暖白 / 近黑）</td></tr>
+  <tr><td class="tok"><code>--auralis-text-muted</code></td><td class="val"><span class="sw" style="background:#afb4bc"></span>#afb4bc</td><td class="val"><span class="sw" style="background:#60656a"></span>#60656a</td><td>次级文字</td></tr>
+  <tr><td class="tok"><code>--auralis-text-subtle</code></td><td class="val"><span class="sw" style="background:#9299a3"></span>#9299a3</td><td class="val"><span class="sw" style="background:#64696e"></span>#64696e</td><td>弱化文字</td></tr>
+  <tr><td class="tok"><code>--auralis-text-faint</code></td><td class="val"><span class="sw" style="background:#9299a3"></span>#9299a3</td><td class="val"><span class="sw" style="background:#686e74"></span>#686e74</td><td>极弱文字（暗色与 subtle 同值）</td></tr>
+  <tr><td class="tok"><code>--auralis-text-disabled</code></td><td class="val"><span class="sw" style="background:rgba(175,180,188,0.35)"></span>rgba(175,180,188,0.35)</td><td class="val"><span class="sw" style="background:#a8adb2"></span>#a8adb2</td><td>禁用文字</td></tr>
+  <tr><td class="tok"><code>--auralis-sidebar-brand-text</code></td><td class="derive">color-mix #ffffff 88%</td><td class="derive">= text</td><td>侧边栏品牌文字</td></tr>
+</table>
+
+<h3>4.3 边框与分隔</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-border-subtle</code></td><td class="val">rgba(225,221,214,0.08)</td><td class="val">rgba(41,43,45,0.06)</td><td>弱边框</td></tr>
+  <tr><td class="tok"><code>--auralis-border-strong</code></td><td class="val">rgba(225,221,214,0.14)</td><td class="val">rgba(41,43,45,0.12)</td><td>强边框 / 窗口 chrome 边框</td></tr>
+  <tr><td class="tok"><code>--auralis-song-row-border</code></td><td class="val">rgba(225,221,214,0.08)</td><td class="val">rgba(41,43,45,0.05)</td><td>歌曲行分隔</td></tr>
+  <tr><td class="tok"><code>--auralis-search-border</code></td><td class="val">rgba(225,221,214,0.1)</td><td class="val">rgba(41,43,45,0.12)</td><td>搜索框边框</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-border</code></td><td class="val">rgba(255,255,255,0.16)</td><td class="val">rgba(41,43,45,0.12)</td><td>播放条岛边框</td></tr>
+  <tr><td class="tok"><code>--auralis-cover-divider</code></td><td class="val">rgba(225,221,214,0.1)</td><td class="val">rgba(41,43,45,0.06)</td><td>封面视图分割线</td></tr>
+  <tr><td class="tok"><code>--auralis-cover-track-divider</code></td><td class="derive">color-mix #7b828b 50% + bg</td><td class="derive">color-mix #3f4345 50% + bg</td><td>封面视图曲目分割线（与底色混合）</td></tr>
+</table>
+
+<h3>4.4 控制与交互状态</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-theme-accent</code></td><td class="val"><span class="sw" style="background:#1dd55f"></span>默认 #1dd55f（可定制）</td><td class="val"><span class="sw" style="background:#585b5f"></span>默认 #585b5f（可定制）</td><td>主题强调色</td></tr>
+  <tr><td class="tok"><code>--auralis-theme-accent-soft</code></td><td class="derive">未定义（暗色用 color-mix 表达）</td><td class="val"><span class="sw" style="background:#dfe2e5"></span>默认 #dfe2e5（可定制）</td><td>强调色柔和底（仅浅色）</td></tr>
+  <tr><td class="tok"><code>--auralis-control-bg</code></td><td class="derive">= surface-raised</td><td class="derive">transparent</td><td>控件默认底</td></tr>
+  <tr><td class="tok"><code>--auralis-control-hover-bg</code></td><td class="val">rgba(255,255,255,0.06)</td><td class="val">rgba(41,43,45,0.05)</td><td>控件悬停底</td></tr>
+  <tr><td class="tok"><code>--auralis-control-active-bg</code></td><td class="derive">color-mix accent 12%</td><td class="derive">= accent-soft</td><td>控件激活底</td></tr>
+  <tr><td class="tok"><code>--auralis-control-primary-bg</code></td><td class="derive">= accent</td><td class="derive">= accent</td><td>主按钮底</td></tr>
+  <tr><td class="tok"><code>--auralis-control-primary-text</code></td><td class="derive">on-accent（默认 #121212）</td><td class="derive">on-accent（默认 #ffffff）</td><td>主按钮文字</td></tr>
+  <tr><td class="tok"><code>--auralis-focus-ring</code></td><td class="derive">= accent</td><td class="derive">= accent</td><td>焦点环</td></tr>
+  <tr><td class="tok"><code>--auralis-danger</code></td><td class="val"><span class="sw" style="background:#c95555"></span>#c95555</td><td class="val"><span class="sw" style="background:#b83636"></span>#b83636</td><td>危险操作</td></tr>
+  <tr><td class="tok"><code>--auralis-selection-bg</code></td><td class="derive">color-mix accent 28%</td><td class="derive">color-mix accent 20%</td><td>文字选区底</td></tr>
+  <tr><td class="tok"><code>--auralis-scrollbar-thumb</code>（/hover）</td><td class="derive">color-mix text 22% / 36%</td><td class="val">rgba(41,43,45,0.2) / 0.35</td><td>滚动条</td></tr>
+</table>
+
+<h3>4.5 进度与曲目列表</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-progress-track</code></td><td class="val">rgba(225,221,214,0.08)</td><td class="val">rgba(41,43,45,0.08)</td><td>进度条轨道</td></tr>
+  <tr><td class="tok"><code>--auralis-progress-fill</code> / <code>--auralis-volume-fill</code></td><td class="derive">= accent</td><td class="derive">= accent</td><td>进度 / 音量填充</td></tr>
+  <tr><td class="tok"><code>--auralis-song-row-bg</code> / <code>alt-bg</code></td><td class="val">transparent / rgba(225,221,214,0.035)</td><td class="val">transparent / rgba(41,43,45,0.025)</td><td>歌曲行底 / 斑马纹</td></tr>
+  <tr><td class="tok"><code>--auralis-track-selected-bg</code> / text</td><td class="derive">= accent / on-accent</td><td class="derive">= accent / on-accent</td><td>选中曲目行</td></tr>
+  <tr><td class="tok"><code>--auralis-track-context-bg</code> / text</td><td class="derive">color-mix accent 78% + #000 / on-accent</td><td class="derive">= accent-soft / text</td><td>右键菜单激活曲目行</td></tr>
+  <tr><td class="tok"><code>--auralis-song-row-now-playing-bg</code> / title</td><td class="derive">color-mix accent 12% / = accent</td><td class="derive">= accent-soft / = accent</td><td>正在播放曲目行</td></tr>
+  <tr><td class="tok"><code>--auralis-lyrics-active</code> / inactive</td><td class="val"><span class="sw" style="background:#d8d8d8"></span>#d8d8d8 / <span class="sw" style="background:#515152"></span>#515152</td><td class="val"><span class="sw" style="background:#2b2e32"></span>#2b2e32 / <span class="sw" style="background:#979da4"></span>#979da4</td><td>歌词当前行 / 其他行</td></tr>
+</table>
+
+<h3>4.6 搜索与浮层</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-search-bg</code></td><td class="val"><span class="sw" style="background:#262626"></span>#262626</td><td class="val"><span class="sw" style="background:#f8f9fa"></span>#f8f9fa</td><td>搜索框底</td></tr>
+  <tr><td class="tok"><code>--auralis-search-shadow</code></td><td class="val">0 1px 4px rgba(0,0,0,0.1)</td><td class="val">0 2px 8px rgba(41,43,45,0.06)</td><td>搜索框阴影</td></tr>
+  <tr><td class="tok"><code>--auralis-context-menu-bg</code></td><td class="val"><span class="sw" style="background:#262626"></span>#262626</td><td class="val"><span class="sw" style="background:#f8f9fa"></span>#f8f9fa</td><td>上下文菜单底</td></tr>
+</table>
+
+<h3>4.7 播放条岛（Playbar）</h3>
+<table>
+  <tr><th>Token</th><th>暗色值</th><th>浅色值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-playbar-bg</code></td><td class="val"><span class="sw" style="background:#1a1a1a"></span>#1a1a1a</td><td class="derive">= now-playing-bg</td><td>播放条底</td></tr>
+  <tr><td class="tok"><code>--auralis-frosted-surface-bg</code></td><td class="val"><span class="sw" style="background:#1a1a1a"></span>#1a1a1a</td><td class="val">rgba(248,249,250,0.94)</td><td>毛玻璃表面底色</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-control-fg</code></td><td class="val"><span class="sw" style="background:#dddcd9"></span>#dddcd9</td><td class="derive">= strong-fg</td><td>播放条控件文字</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-control-strong-fg</code></td><td class="val"><span class="sw" style="background:#f4f3f0"></span>#f4f3f0</td><td class="val"><span class="sw" style="background:#292b2d"></span>#292b2d</td><td>强调控件文字</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-control-hover-fg</code></td><td class="derive">= strong-fg</td><td class="val"><span class="sw" style="background:#707070"></span>#707070</td><td>控件悬停文字</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-control-disabled-fg</code></td><td class="val">rgba(183,174,162,0.35)</td><td class="val">#a8adb2</td><td>禁用控件文字</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-highlight-soft</code></td><td class="val">rgba(255,255,255,0.06)</td><td class="derive">transparent</td><td>柔和高亮底</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-album-alpha</code> / <code>saturate</code></td><td class="val">0 / 1</td><td class="val">0 / 1.08</td><td>播放条封面取样参数</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-shadow</code></td><td class="val">0 8px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)</td><td class="val">0 8px 24px rgba(41,43,45,0.06), 0 2px 6px rgba(41,43,45,0.03)</td><td>播放条阴影</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-reduced-transparency-bg</code></td><td class="val">#1a1a1a</td><td class="derive">= playbar-bg</td><td>减弱透明度回退底</td></tr>
+</table>
+
+<h3>4.8 沉浸全屏、滑块与封面取色</h3>
+<table>
+  <tr><th>Token</th><th>值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-fullscreen-slider-fill</code></td><td class="val"><span class="sw" style="background:#e1e1e1"></span>#e1e1e1</td><td>全屏滑块填充（沉浸暗面上用中性色）</td></tr>
+  <tr><td class="tok"><code>--auralis-fullscreen-pause-fill</code></td><td class="val"><span class="sw" style="background:#f6f2ea"></span>#f6f2ea</td><td>全屏暂停态填充（暖白）</td></tr>
+  <tr><td class="tok"><code>--auralis-fullscreen-controls-bg</code> / text / muted / border</td><td class="derive">在主题根解析：floating / text / text-muted / border-subtle</td><td>全屏控件面板色（在沉浸面覆盖文字色之前解析）</td></tr>
+  <tr><td class="tok"><code>--auralis-player-slider-thumb</code></td><td class="val"><span class="sw" style="background:#ffffff"></span>#ffffff</td><td>主界面滑块拇指</td></tr>
+  <tr><td class="tok"><code>--auralis-player-volume-thumb-shadow</code>（/active）</td><td class="val">0 0 5px rgba(255,255,255,0.45), 0 1px 3px rgba(0,0,0,0.25)（active: 0 0 0 1px rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.35)）</td><td>音量拇指阴影</td></tr>
+  <tr><td class="tok"><code>--auralis-archive-summary-text</code></td><td class="val"><span class="sw" style="background:#f5f2ec"></span>#f5f2ec</td><td>年度归档摘要文字（双主题固定暖白）</td></tr>
+  <tr><td class="tok"><code>--auralis-artwork-background-fallback</code></td><td class="val"><span class="sw" style="background:#0e0d0b"></span>#0e0d0b / 浅色 <span class="sw" style="background:#e7e9eb"></span>#e7e9eb</td><td>封面背景取色回退</td></tr>
+  <tr><td class="tok"><code>--auralis-artwork-accent-fallback</code> → <code>--auralis-player-static-accent</code></td><td class="val"><span class="sw" style="background:#8fa7bb"></span>暗 rgb(143,167,187) / 浅 <span class="sw" style="background:#585b5f"></span>rgb(88,91,95)</td><td>封面强调色默认回退：UnoCSS 预检（<a href="../uno.config.ts">uno.config.ts</a>:11–15）从 <code>playerColorDefaults.ts</code> 的 <code>PLAYER_DEFAULT_ACCENT_DARK/LIGHT</code> 注入 <code>--auralis-player-default-accent-*</code>，与取色算法同源；运行时宿主提供 <code>--auralis-active-album-accent</code>（PlayerBar.vue），未提供时焦点描边回退到静态值——<code>var(--auralis-active-album-accent, var(--auralis-player-static-accent))</code>（main.css 与 TrackProgressInfo.vue）。<strong>排查消费方时必须覆盖 uno.config.ts 预检与运行时绑定，不能只搜 var() 出现位置。</strong></td></tr>
+  <tr><td class="tok"><code>--auralis-artwork-placeholder-bg</code></td><td class="val">rgba(225,221,214,0.12) / 浅色 rgba(41,43,45,0.08)</td><td>封面占位底</td></tr>
+</table>
+
+<h2 id="fonts"><span class="anchor">§5</span>字体体系</h2>
+<p>来源：<a href="../src/renderer/app/styles/typography.css">src/renderer/app/styles/typography.css</a>（角色与栈）、<a href="../src/renderer/app/styles/main.css">main.css</a><span class="src">（@font-face 1–103）</span>、<a href="../src/renderer/app/styles/harmony-fonts.css">harmony-fonts.css</a>、<a href="../src/renderer/features/albums/styles/cdTypography.css">cdTypography.css</a>、<a href="../src/renderer/features/appearance/composables/useEnglishFont.ts">useEnglishFont.ts</a></p>
+
+<h3>5.1 字体家族登记</h3>
+<table>
+  <tr><th>家族</th><th>资源与权重</th><th>来源</th><th>角色</th></tr>
+  <tr><td><code>Plus Jakarta Sans</code>（默认）/ <code>Inter</code> / <code>Public Sans</code> / <code>Geist</code></td><td>本地字体，英文与数字</td><td>main.css:4–48；资产 <code>assets/fonts/</code></td><td>拉丁文字，用户可在设置中选择（见 5.3）</td></tr>
+  <tr><td><code>HarmonyOS Sans SC</code></td><td>TrueType，100–900 六档（Thin/Light/Regular/Medium/Bold/Black），unicode-range 限 CJK 区段</td><td>harmony-fonts.css</td><td>中文字体，权重按信息层级选择</td></tr>
+  <tr><td><code>Georgia</code></td><td>系统字体</td><td>typography.css:49</td><td>碟片标题（<code>--auralis-font-disc-heading</code>，仅此用途）</td></tr>
+  <tr><td><code>Auralis CD Display</code> / <code>Auralis CD Text</code> / <code>Auralis CD Numerals</code></td><td>EB Garamond / Source Serif 4 woff2（latin + latin-ext），400–600，含斜体；Numerals 仅数字区段</td><td>cdTypography.css:1–110；资产 <code>assets/fonts/cd-room/</code>（SIL OFL）</td><td>唱片室展示 / 正文 / 数字</td></tr>
+  <tr><td><code>Auralis Serif SC</code></td><td>本地衬线（原 GenRyuMin2TC，<code>697afe94</code> 更名）</td><td>main.css:49–103</td><td>唱片室中文衬线，后备 SimSun / Yu Mincho</td></tr>
+</table>
+
+<h3>5.2 字体角色（CSS 变量）</h3>
+<table>
+  <tr><th>角色</th><th>值</th><th>用途</th></tr>
+  <tr><td class="tok"><code>--auralis-font-latin</code></td><td class="val">'Plus Jakarta Sans'（默认，可被运行时覆盖）</td><td>英文与数字的根变量，设置页与引导脚本写入此变量</td></tr>
+  <tr><td class="tok"><code>--auralis-font-ui</code></td><td class="val">latin → 'HarmonyOS Sans SC' → 'Arial Unicode MS' → 'Nirmala UI' → 'Microsoft Himalaya' → 'Leelawadee UI' → 'Segoe UI Symbol' → ui-sans-serif → system-ui → 系统栈</td><td>通用界面（:root 继承）</td></tr>
+  <tr><td class="tok"><code>--auralis-font-color-value</code></td><td class="val">latin → ui-sans-serif 栈</td><td>HEX / RGB 颜色数值显示</td></tr>
+  <tr><td class="tok"><code>--auralis-font-disc-heading</code></td><td class="val">Georgia → 'HarmonyOS Sans SC' → sans-serif</td><td>碟片标题（歌曲封面视图、专辑详情、设置预览共用）</td></tr>
+  <tr><td class="tok"><code>--cd-font-cjk</code> / display / text / number / lyrics</td><td class="val">'Auralis Serif SC' 栈 / 'Auralis CD Numerals, CD Display' / 'Auralis CD Text' / 同 text / 同 display</td><td>唱片室字体角色（cdTypography.css:116–122）</td></tr>
+</table>
+
+<h3>5.3 英文字体选择机制</h3>
+<ul>
+  <li>可选值 <code>plusJakartaSans</code>（默认）| <code>inter</code> | <code>publicSans</code> | <code>geist</code>，家族名登记于 <code>ENGLISH_FONT_FAMILIES</code>（useEnglishFont.ts:11–16）。</li>
+  <li>选择写入 localStorage <code>auralis-english-font</code>，运行时把 <code>'家族名'</code> 写入根节点 <code>--auralis-font-latin</code>。</li>
+  <li>首帧前由 <code>public/splash/theme-boot.js</code> 应用同一变量，避免闪换。新增字体须同时登记字体文件与家族名。</li>
+</ul>
+
+<h2 id="type"><span class="anchor">§6</span>通用排版规格</h2>
+<p>来源：<a href="../src/renderer/app/styles/typography.css">src/renderer/app/styles/typography.css</a>；使用约束见 <a href="rules/renderer.md">docs/rules/renderer.md</a>「通用文字规格」。</p>
+<h3>6.1 语义字号（字号与默认行高成对使用）</h3>
+<table>
+  <tr><th>角色</th><th>字号 / 行高</th><th>Token</th><th>用途</th></tr>
+  <tr><td><code>caption</code></td><td class="val">12px / 18px</td><td class="tok"><code>--auralis-type-caption-*</code></td><td>辅助提示、说明、计数</td></tr>
+  <tr><td><code>control</code></td><td class="val">14px / 20px</td><td class="tok"><code>--auralis-type-control-*</code></td><td>菜单、标签、输入框、按钮</td></tr>
+  <tr><td><code>body</code></td><td class="val">16px / 24px</td><td class="tok"><code>--auralis-type-body-*</code></td><td>正文、主要内容</td></tr>
+  <tr><td><code>section</code></td><td class="val">18px / 26px</td><td class="tok"><code>--auralis-type-section-*</code></td><td>弹窗标题、区块标题</td></tr>
+  <tr><td><code>page</code></td><td class="val">24px / 32px</td><td class="tok"><code>--auralis-type-page-*</code></td><td>页面标题</td></tr>
+  <tr><td><code>overline</code></td><td class="val">10px / 16px</td><td class="tok"><code>--auralis-type-overline-*</code></td><td>眉标</td></tr>
+  <tr><td><code>hero-title</code></td><td class="val">clamp(24px, 2.8vw, 38px) / 1.22 / 800 / -0.02em</td><td class="tok"><code>--auralis-type-hero-title-*</code></td><td>展示标题（沿用专辑详情标题规格）</td></tr>
+</table>
+<p>Vue 模板可直接使用 <code>.auralis-type-caption / control / body / section / page / overline</code> 类；组件 CSS 引用 <code>--auralis-type-*-size</code> 与 <code>--auralis-type-*-line-height</code>。图标不作为文字字号角色。</p>
+
+<h3>6.2 专辑卡片文字角色</h3>
+<table>
+  <tr><th>角色</th><th>字号 / 行高 / 字重</th><th>说明</th></tr>
+  <tr><td><code>album-list-title</code></td><td class="val">= control 14px / 1.25 / 700</td><td>紧凑 1.25 行盒保持元数据几何固定</td></tr>
+  <tr><td><code>album-list-artist</code></td><td class="val">= caption 12px / 1.25 / 400</td><td></td></tr>
+  <tr><td><code>album-list-year</code></td><td class="val">11px / 1.25 / 400</td><td></td></tr>
+</table>
+
+<h3>6.3 专用排版</h3>
+<p>曲目行、歌词、CD 浏览、声迹等保留各自规格；新增例外须在对应组件或规格文件中说明用途。涉及固定行高或虚拟滚动时同步核对实际几何与估算指标（见 §8.3）。</p>
+
+<h2 id="cdtype"><span class="anchor">§7</span>唱片室排版（独立体系）</h2>
+<p>来源：<a href="../src/renderer/features/albums/styles/cdTypography.css">src/renderer/features/albums/styles/cdTypography.css</a><span class="src">（112–190）</span>；体系说明见 <a href="topics/albums/TECHDOC-cd-room-semantic-typography-2026-10-04.md">唱片室语义字号体系</a>。</p>
+<ul>
+  <li><strong>独立于全局 UI 的编辑排版尺度</strong>：角色集中定义在 <code>.cd-page, .cd-view-switch</code> 作用域内（<code>--cd-type-*</code>），不与全局 <code>--auralis-type-*</code> 混用。</li>
+  <li><strong>字重固定 400</strong>（<code>--cd-type-weight</code>），层级靠字体家族与字号表达；开启 <code>font-optical-sizing</code>。</li>
+  <li><strong>数字用衬线</strong>：即使展示文字内，数字也走 Source Serif（<code>--cd-font-number</code>）；独立数据使用等宽数字。</li>
+  <li><strong>歌词走 SVG 字形度量</strong>：弧面歌词字号（24px / 平铺 20px）由字形度量、透视与可用弧长决定，不使用 CSS 行盒。</li>
+</ul>
+<table>
+  <tr><th>角色</th><th>值</th><th>角色</th><th>值</th></tr>
+  <tr><td><code>body</code></td><td class="val">14px / 1.5</td><td><code>title</code>（/ compact）</td><td class="val">36px / 1.25（28px）</td></tr>
+  <tr><td><code>caption</code></td><td class="val">12px / 1.7</td><td><code>section</code></td><td class="val">20px / 1.25</td></tr>
+  <tr><td><code>control</code></td><td class="val">12px / 20px</td><td><code>track</code></td><td class="val">18px / 1.5</td></tr>
+  <tr><td><code>note</code></td><td class="val">13px / 1.5</td><td><code>playing</code></td><td class="val">18px / 1.3</td></tr>
+  <tr><td><code>mode</code></td><td class="val">11px / 16px</td><td><code>playback</code></td><td class="val">16px / 1.3</td></tr>
+  <tr><td><code>track-artist</code></td><td class="val">11px / 1.5</td><td><code>lyrics</code>（/ flat）</td><td class="val">24px（20px），SVG 度量</td></tr>
+</table>
+<p>其余角色（nav / label / value / fine / count / disc / time / focus-* / status / error / debug）以引用或小字号变体定义于同文件，登记时不再复制。</p>
+
+<h2 id="layout"><span class="anchor">§8</span>布局几何</h2>
+<h3>8.1 外壳与播放条</h3>
+<p>来源：<a href="../src/renderer/app/styles/main.css">main.css</a><span class="src">（108–126）</span>，主题无关。</p>
+<table>
+  <tr><th>Token</th><th>值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-playbar-height</code> / full</td><td class="val">64px / 80px</td><td>播放条高度（普通 / 全屏联动）</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-max-width</code></td><td class="val">760px</td><td>播放条最大宽度</td></tr>
+  <tr><td class="tok"><code>--auralis-player-bottom-gap</code></td><td class="val">40px</td><td>播放条与内容底部间距</td></tr>
+  <tr><td class="tok"><code>--auralis-playbar-safe-area</code></td><td class="derive">calc(playbar-height + bottom-gap)</td><td>内容安全区（派生，不单独改）</td></tr>
+  <tr><td class="tok"><code>--auralis-shell-edge-gap</code> / vertical</td><td class="val">12px / 24px</td><td>外壳边缘 / 纵向间距</td></tr>
+</table>
+
+<h3>8.2 材质与深度</h3>
+<table>
+  <tr><th>参数</th><th>值</th><th>语义</th></tr>
+  <tr><td class="tok"><code>--auralis-frosted-surface-filter</code></td><td class="val">blur(24px) saturate(1.08)</td><td>毛玻璃滤镜（全局统一）</td></tr>
+  <tr><td class="tok"><code>--auralis-frosted-surface-tint-opacity</code></td><td class="val">40%</td><td>毛玻璃着色不透明度</td></tr>
+  <tr><td class="tok"><code>--auralis-surface-shadow</code></td><td class="val">暗 0 10px 24px rgba(0,0,0,0.34)；浅 0 10px 28px rgba(41,43,45,0.08) + 0 2px 6px rgba(41,43,45,0.04)</td><td>表面阴影</td></tr>
+</table>
+<div class="warn">毛玻璃采样对象须先明确：CSS <code>backdrop-filter</code> 只采样应用内部位于元素后方的内容；透出桌面需要系统窗口材质与透明层级配合，按当前 Electron 版本确认能力与回退。详见 <a href="rules/renderer.md">docs/rules/renderer.md</a>「材质与采样对象」。</div>
+
+<h3>8.3 曲库布局指标（虚拟列表单一事实源）</h3>
+<p>来源：<a href="../src/renderer/features/library/constants/libraryLayoutMetrics.ts">src/renderer/features/library/constants/libraryLayoutMetrics.ts</a>。纯数据模块，经 <code>LIBRARY_LAYOUT_CSS_VARS</code> 挂到 <code>--library-*</code> 变量。</p>
+<div class="rule">CSS 实际几何必须与 virtualizer 使用的估算高度一致；修改尺寸只能改本文件，禁止在 CSS 重复写死。</div>
+<table>
+  <tr><th>指标</th><th>px</th><th>语义</th></tr>
+  <tr><td><code>flatHeaderHeight</code></td><td class="val">32</td><td>列表视图粘性表头</td></tr>
+  <tr><td><code>flatRowHeight</code></td><td class="val">48</td><td>列表视图行高</td></tr>
+  <tr><td><code>flatArtworkSize</code></td><td class="val">44</td><td>列表视图封面</td></tr>
+  <tr><td><code>flatBottomInset</code></td><td class="val">28</td><td>列表底部留白</td></tr>
+  <tr><td><code>coverArtworkSize</code></td><td class="val">280</td><td>封面视图专辑封面</td></tr>
+  <tr><td><code>coverTrackRowHeight</code></td><td class="val">48</td><td>封面视图曲目行高</td></tr>
+  <tr><td><code>coverDiscHeadingHeight</code></td><td class="val">40</td><td>后续碟片标题（24px 行高 + 上下 8px）</td></tr>
+  <tr><td><code>coverMetaGap</code> / <code>coverMetaLineHeight</code></td><td class="val">12 / 20</td><td>封面元数据间距 / 行高</td></tr>
+  <tr><td><code>coverContentTopInset</code> / <code>coverStickyTopInset</code></td><td class="val">16 / 16</td><td>虚拟内容起始 / 吸顶顶部间距（吸顶值不参与高度估算）</td></tr>
+  <tr><td><code>coverPanelPaddingInlineSide</code></td><td class="val">10</td><td>曲目区单侧横向 padding（纵向为 0）</td></tr>
+  <tr><td><code>coverPanelBorderWidth</code></td><td class="val">0</td><td>曲目区无边框（CSS、虚拟高度与滚动定位共用）</td></tr>
+  <tr><td><code>coverGroupPaddingBlockSide</code></td><td class="val">28</td><td>专辑组单侧纵向 padding</td></tr>
+  <tr><td><code>coverGroupBorderWidth</code></td><td class="val">1</td><td>专辑组底边框</td></tr>
+</table>
+
+<h2 id="agent-rules"><span class="anchor">§9</span>Agent 变更守则</h2>
+<ol>
+  <li><strong>先查使用方</strong>：修改表面颜色或共享 token 前，核对 token 定义、主题覆盖与实际消费者（组件样式、UnoCSS 配置与变量别名），明确改共享 token 还是组件局部表面。</li>
+  <li><strong>语义变量优先</strong>：沿用现有语义变量；不新建平行 token、不复制数值。新例外在对应组件或规格文件中说明用途。</li>
+  <li><strong>排版走语义角色</strong>：普通界面用 <code>--auralis-type-*</code> / <code>.auralis-type-*</code>；唱片室用 <code>--cd-type-*</code>；字号与行高成对调整。</li>
+  <li><strong>曲库几何只改 <code>libraryLayoutMetrics.ts</code></strong>：CSS、虚拟高度与滚动定位共享同一数值。</li>
+  <li><strong>状态与焦点</strong>：状态表达不只靠颜色；核对键盘操作、可见焦点、打开/关闭后的焦点交接与退出路径（点击外部、Esc、执行操作、切换视图）。</li>
+  <li><strong>内容边界</strong>：核对长曲名、多行歌词、中英混排、缺失封面/元数据的展示、截断与获取完整内容路径。</li>
+  <li><strong>动效与回退</strong>：动效涉及相邻区域时核对实际占用与降级；持续动效提供暂停与减弱动效路径（现有回退 token 示例：<code>--auralis-playbar-reduced-transparency-bg</code>）。</li>
+  <li><strong>细线与缩放</strong>：结合实际渲染、坐标与 <code>devicePixelRatio</code> 判断非整数缩放问题，不凭代码推断。</li>
+  <li><strong>验证按风险选择</strong>：样式布局以实际画面检查；交互走真实组件事件路径；不凭截图宣称交互或性能通过。</li>
+</ol>
+
+<h2 id="snapshot"><span class="anchor">§10</span>快照与已知疑点</h2>
+<ul>
+  <li>快照：<strong>2026-10-27</strong>，HEAD <code>697afe94</code>，工作区干净。</li>
+  <li>主题级 token 之外，各组件可能持有局部变量（如歌词面板、播放条内部），其事实来源是所属组件样式，不在本基准逐一登记。</li>
+</ul>
+
+<footer>
+  Auralis UI 设计基准 · 登记于 2026-10-27 · 源码是唯一事实来源，本文件是提炼快照。<br>
+  相关入口：<a href="../.agents/skills/auralis-ui/SKILL.md">auralis-ui 技能</a> · <a href="rules/renderer.md">Renderer 视觉与交互</a> · <a href="ARCHITECTURE.md">架构说明</a> · <a href="topics/albums/TECHDOC-cd-room-semantic-typography-2026-10-04.md">唱片室语义字号体系</a> · <a href="topics/shell/TECHDOC-semantic-font-system-2026-09-29.md">语义字体体系</a>
+</footer>
+
+</main>
+</body>
+</html>

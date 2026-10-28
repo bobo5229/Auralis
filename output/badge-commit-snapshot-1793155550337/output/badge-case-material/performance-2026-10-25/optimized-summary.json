@@ -1,0 +1,217 @@
+{
+  "scope": "Same-machine isolated Electron offscreen, about1440x900, DPR1.5, RTX5060Laptop. Repeated entry; no screenshots or concurrent validation during final measurement. Update cadence, not display presentation FPS.",
+  "before": {
+    "updates": {
+      "count": 130,
+      "mean": 16.670000000011463,
+      "p95": 33.19999999552965,
+      "max": 33.899999998509884,
+      "over25": 65
+    },
+    "mainFoamCallbacks": {
+      "count": 132,
+      "mean": 7.736363636386214,
+      "p95": 16,
+      "max": 16.700000002980232,
+      "over25": 0
+    },
+    "workerCompute": [
+      null,
+      null
+    ],
+    "first": 207.5,
+    "switch": 118.89999999850988,
+    "backend": "main-thread"
+  },
+  "after": {
+    "updates": {
+      "count": 130,
+      "mean": 16.67769230770377,
+      "p95": 18.100000001490116,
+      "max": 19.30000000447035,
+      "over25": 0
+    },
+    "mainFoamCallbacks": {
+      "count": 132,
+      "mean": 0.034848484633998436,
+      "p95": 0.10000000149011612,
+      "max": 0.20000000298023224,
+      "over25": 0
+    },
+    "workerCompute": [
+      {
+        "frames": 33,
+        "computeMs": 218,
+        "mainPaintMs": 23.100000001490116
+      },
+      {
+        "frames": 33,
+        "computeMs": 214.1000000089407,
+        "mainPaintMs": 24.299999989569187
+      }
+    ],
+    "first": 187.5,
+    "switch": 88.59999999403954,
+    "backend": "worker"
+  },
+  "pixelChecks": {
+    "passed": true,
+    "backend": "worker",
+    "dpr": 1.5,
+    "scope": "Exact RGBA comparison of original and optimized real Canvas2D renderers under the same deterministic pressure clock",
+    "checks": [
+      {
+        "name": "initial full pressure",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 587547,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "single badge first rebound frame",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "single badge intermediate rebound",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "retained imprint at rest",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "neighbour changes beside an existing imprint",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "rapid reversed motion and overlapping bounds",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 305829,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "all impressions retained",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 587547,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "resize during motion",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 541863,
+        "surfacePixels": 630810
+      },
+      {
+        "name": "resized retained surface at rest",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 630810
+      }
+    ]
+  },
+  "fallbackChecks": {
+    "passed": true,
+    "backend": "main-thread",
+    "dpr": 1.5,
+    "scope": "Exact RGBA comparison of original and optimized real Canvas2D renderers under the same deterministic pressure clock",
+    "checks": [
+      {
+        "name": "initial full pressure",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 587547,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "single badge first rebound frame",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "single badge intermediate rebound",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "retained imprint at rest",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "neighbour changes beside an existing imprint",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "rapid reversed motion and overlapping bounds",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 305829,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "all impressions retained",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 736434
+      },
+      {
+        "name": "resize during motion",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 541863,
+        "surfacePixels": 630810
+      },
+      {
+        "name": "resized retained surface at rest",
+        "changedChannels": 0,
+        "maxDifference": 0,
+        "physicsEqual": true,
+        "drawPixels": 164970,
+        "surfacePixels": 630810
+      }
+    ]
+  }
+}

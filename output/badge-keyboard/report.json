@@ -1,0 +1,67 @@
+{
+  "passed": true,
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-keyboard\\profile-QVKHh6",
+  "checks": [
+    {
+      "name": "entry ignores PageDown and retains current badge",
+      "pass": true
+    },
+    {
+      "name": "localized native tooltips and shortcut metadata identify both keys",
+      "pass": true
+    },
+    {
+      "name": "arrow tilt and Home preserve inspection selection",
+      "pass": true
+    },
+    {
+      "name": "PageDown switches once and ignores concurrent switching input",
+      "pass": true
+    },
+    {
+      "name": "shortcut works while close button owns focus",
+      "pass": true
+    },
+    {
+      "name": "shortcut works while navigation button owns focus",
+      "pass": true
+    },
+    {
+      "name": "first badge cannot wrap backward",
+      "pass": true
+    },
+    {
+      "name": "held key repeat cannot restart navigation",
+      "pass": true
+    },
+    {
+      "name": "modified PageDown is not handled as a badge command",
+      "pass": true
+    },
+    {
+      "name": "last badge cannot wrap forward",
+      "pass": true
+    },
+    {
+      "name": "keyboard navigation does not scroll the box or document",
+      "pass": true
+    },
+    {
+      "name": "exit restores focus to the currently inspected slot",
+      "pass": true
+    },
+    {
+      "name": "Escape during shortcut switch does not restart inspection",
+      "pass": true
+    },
+    {
+      "name": "shortcuts work in other categories and reduced motion",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

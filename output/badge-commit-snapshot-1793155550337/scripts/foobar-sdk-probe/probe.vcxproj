@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{E55BECE2-02A1-4D3F-BDA8-1FB87B683819}</ProjectGuid><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<PropertyGroup><OutDir>$(ProbeRoot)\build\</OutDir><IntDir>$(ProbeRoot)\obj\</IntDir><TargetName>foo_auralis_probe</TargetName></PropertyGroup>
+<ItemDefinitionGroup><ClCompile><LanguageStandard>stdcpp20</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><ExceptionHandling>Sync</ExceptionHandling><PreprocessorDefinitions>NDEBUG;UNICODE;_UNICODE</PreprocessorDefinitions><AdditionalIncludeDirectories>$(ProbeRoot)\sdk\foobar2000;$(ProbeRoot)\sdk</AdditionalIncludeDirectories><ConformanceMode>true</ConformanceMode></ClCompile><Link><AdditionalDependencies>$(ProbeRoot)\sdk\foobar2000\shared\shared-x64.lib;%(AdditionalDependencies)</AdditionalDependencies><SubSystem>Windows</SubSystem></Link></ItemDefinitionGroup>
+<ItemGroup><ClCompile Include="$(MSBuildThisFileDirectory)probe.cpp"/></ItemGroup>
+<ItemGroup>
+<ProjectReference Include="$(ProbeRoot)\sdk\pfc\pfc.vcxproj"><Project>{EBFFFB4E-261D-44D3-B89C-957B31A0BF9C}</Project></ProjectReference>
+<ProjectReference Include="$(ProbeRoot)\sdk\foobar2000\SDK\foobar2000_SDK.vcxproj"><Project>{E8091321-D79D-4575-86EF-064EA1A4A20D}</Project></ProjectReference>
+<ProjectReference Include="$(ProbeRoot)\sdk\foobar2000\foobar2000_component_client\foobar2000_component_client.vcxproj"><Project>{71AD2674-065B-48F5-B8B0-E1F9D3892081}</Project></ProjectReference>
+</ItemGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+<Target Name="CheckProbeRoot" BeforeTargets="PrepareForBuild"><Error Condition="'$(ProbeRoot)'==''" Text="Pass /p:ProbeRoot=an-isolated-directory containing sdk and host."/></Target>
+</Project>
+

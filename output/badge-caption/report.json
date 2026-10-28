@@ -1,0 +1,131 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "caption remains hidden during entry",
+      "pass": true
+    },
+    {
+      "name": "stable inspection names badge and its condition",
+      "pass": true
+    },
+    {
+      "name": "desktop caption sits below badge and stays in viewport",
+      "pass": true
+    },
+    {
+      "name": "background slot labels are hidden during inspection",
+      "pass": true
+    },
+    {
+      "name": "caption has no border or card background",
+      "pass": true
+    },
+    {
+      "name": "stage description includes achievement condition",
+      "pass": true
+    },
+    {
+      "name": "clicking caption does not return badge",
+      "pass": true
+    },
+    {
+      "name": "preparing retains current caption",
+      "pass": true
+    },
+    {
+      "name": "old caption fades during outgoing slide",
+      "pass": true
+    },
+    {
+      "name": "new caption stays hidden during incoming slide",
+      "pass": true
+    },
+    {
+      "name": "new condition fades in only after badge settles",
+      "pass": true
+    },
+    {
+      "name": "failed switch retains current caption",
+      "pass": true
+    },
+    {
+      "name": "late preparation cannot restore closed caption",
+      "pass": true
+    },
+    {
+      "name": "900x620 fits badge and full caption",
+      "pass": true
+    },
+    {
+      "name": "compact controls remain below caption without overlap",
+      "pass": true
+    },
+    {
+      "name": "English name and condition update in place",
+      "pass": true
+    },
+    {
+      "name": "larger wrapped text triggers layout measurement and still fits",
+      "pass": true
+    },
+    {
+      "name": "reduced motion disables caption transitions",
+      "pass": true
+    },
+    {
+      "name": "hours10 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "hours100 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "hours500 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "hours1000 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "days7 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "days30 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "days100 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "days365 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "days520 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "albums1 has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "albumsLive has localized caption and condition",
+      "pass": true
+    },
+    {
+      "name": "reduced switch replaces caption atomically",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-caption\\isolated-profile\\profile-Jw0w9s"
+}

@@ -1,0 +1,115 @@
+[
+  {
+    "name": "light-settings",
+    "result": {
+      "modeCount": 0,
+      "segmentedCount": 0,
+      "pause": "false",
+      "lyrics": true,
+      "focusedClose": true,
+      "withinWindow": true,
+      "baseColor": "rgb(21, 24, 29)",
+      "textColor": "rgba(246, 242, 234, 0.94)",
+      "noSolidClass": true
+    }
+  },
+  {
+    "name": "dark-settings",
+    "result": {
+      "modeCount": 0,
+      "segmentedCount": 0,
+      "pause": "false",
+      "lyrics": true,
+      "focusedClose": true,
+      "withinWindow": true,
+      "baseColor": "rgb(21, 24, 29)",
+      "textColor": "rgba(246, 242, 234, 0.94)",
+      "noSolidClass": true
+    }
+  },
+  {
+    "name": "pause-background",
+    "result": {
+      "paused": true
+    }
+  },
+  {
+    "name": "pause-propagation",
+    "result": {
+      "paused": true,
+      "visible": "visible",
+      "enabled": true,
+      "active": true,
+      "componentVisible": true,
+      "contextLost": false,
+      "warnings": [
+        "[Vue warn] Write operation failed: computed value is readonly"
+      ]
+    }
+  },
+  {
+    "name": "escape-focus",
+    "result": {
+      "panel": false,
+      "fullscreen": true,
+      "focus": "background-controls-toggle"
+    }
+  },
+  {
+    "name": "fullscreen-reentry",
+    "result": {
+      "paused": true,
+      "canvasCount": 1,
+      "visible": "visible"
+    }
+  },
+  {
+    "name": "lose-context",
+    "result": {
+      "supported": true
+    }
+  },
+  {
+    "name": "context-restored",
+    "result": {
+      "freshCanvas": true,
+      "canvasCount": 1,
+      "visible": "visible"
+    }
+  },
+  {
+    "name": "small-settings",
+    "result": {
+      "within": true,
+      "pause": true
+    }
+  },
+  {
+    "name": "light-fallback",
+    "result": {
+      "background": "rgb(21, 24, 29)",
+      "visible": "hidden",
+      "enabled": false,
+      "title": "夜色与回声Auralis - Synthetic cover"
+    }
+  },
+  {
+    "name": "dark-fallback",
+    "result": {
+      "background": "rgb(21, 24, 29)",
+      "visible": "hidden",
+      "enabled": false,
+      "title": "夜色与回声Auralis - Synthetic cover"
+    }
+  },
+  {
+    "name": "initialization-failure",
+    "result": {
+      "attemptsAtFailure": 1,
+      "attemptsAfterReentry": 1,
+      "visible": "hidden",
+      "enabled": false,
+      "baseColor": "rgb(21, 24, 29)"
+    }
+  }
+]

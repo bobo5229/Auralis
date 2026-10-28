@@ -1,0 +1,23 @@
+const { app, BrowserWindow } = require('electron');
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const { pathToFileURL } = require('node:url');
+app.setPath('userData', path.join(__dirname, 'profile'));
+app.whenReady().then(async () => {
+  const win = new BrowserWindow({ width: 800, height: 940, show: false, webPreferences: { offscreen: true, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  const errors = [];
+  win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
+  await win.loadURL(pathToFileURL(path.resolve('demo/playback/now-playing-icons.html')).href);
+  const js = code => win.webContents.executeJavaScript(code);
+  await js(`Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'))`);
+  await new Promise(resolve => setTimeout(resolve, 350));
+  await js(`(()=>{if(document.querySelectorAll('.row').length!==8||document.querySelectorAll('svg').length!==6)throw Error('Missing icons');if(!document.getAnimations().some(a=>a.playState==='running'))throw Error('No animation');document.querySelector('#play').click();if(document.getAnimations().some(a=>a.playState==='running')||[...document.querySelectorAll('svg')].some(s=>!s.animationsPaused()))throw Error('Pause failed');document.querySelector('#size').value='12';document.querySelector('#size').dispatchEvent(new Event('change'));if([...document.querySelectorAll('.icon')].some(e=>e.getBoundingClientRect().width!==12))throw Error('Size failed');document.querySelector('#theme').click();if(!document.documentElement.classList.contains('dark'))throw Error('Theme failed');document.querySelector('#play').click();if(!document.getAnimations().some(a=>a.playState==='running'))throw Error('Resume failed');})()`);
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await fs.writeFile(path.join(__dirname, 'dark-12.png'), (await win.webContents.capturePage()).toPNG());
+  await js(`document.querySelector('#size').value='16';document.querySelector('#size').dispatchEvent(new Event('change'));document.querySelector('#theme').click()`);
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await fs.writeFile(path.join(__dirname, 'light-16.png'), (await win.webContents.capturePage()).toPNG());
+  if (errors.length) throw Error(errors.join('\n'));
+  console.log('PASS: eight icons, animation, pause/resume, size, theme; no console errors');
+  app.quit();
+}).catch(error => { console.error(error); app.exit(1); });

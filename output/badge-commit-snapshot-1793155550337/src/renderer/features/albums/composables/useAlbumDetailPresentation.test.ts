@@ -1,0 +1,103 @@
+import { ref } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { useAlbumDetailPresentation } from './useAlbumDetailPresentation'
+
+vi.mock('vue-i18n', async () => {
+  const { ref } = await import('vue')
+  return {
+    useI18n: () => ({
+      locale: ref('en-US'),
+      t: (key: string, params: Record<string, unknown> = {}) => JSON.stringify({ key, ...params }),
+    }),
+  }
+})
+
+function track(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
+  return {
+    id,
+    title: `Track ${id}`,
+    artist: 'Artist',
+    album: 'Album',
+    albumArtist: 'Artist',
+    trackNo: id,
+    discNo: 1,
+    releaseDate: null,
+    copyright: null,
+    composer: null,
+    bitrateBps: null,
+    durationSeconds: 180,
+    artworkCacheKey: null,
+    genre: null,
+    availability: 'available',
+    playCount: 0,
+    lastPlayedAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...patch,
+  }
+}
+
+describe('useAlbumDetailPresentation', () => {
+  it('deduplicates genres per track and orders by frequency with stable ties', () => {
+    const tracks = ref([
+      track(1, { genre: 'Rock; Rock; Jazz' }),
+      track(2, { genre: 'Jazz; Pop' }),
+      track(3, { genre: 'POP' }),
+    ])
+    const state = useAlbumDetailPresentation(tracks, ref(null))
+    expect(state.albumGenrePills.value).toEqual(['Jazz', 'Pop', 'Rock'])
+    expect(state.albumHeroGenreLabel.value).toBe('Jazz & Pop')
+    tracks.value = [track(1, { genre: 'R&B/Soul' })]
+    expect(state.albumHeroGenreLabel.value).toBe('R&B/Soul')
+    tracks.value = []
+    expect(state.albumGenrePills.value).toEqual([])
+    expect(state.albumHeroGenreLabel.value).toBe('')
+  })
+
+  it('hides disc headings for one disc and groups multiple discs without reordering tracks', () => {
+    const tracks = ref([track(1, { discNo: null }), track(2)])
+    const state = useAlbumDetailPresentation(tracks, ref(null))
+    expect(state.albumDiscGroups.value.map((group) => group.discNo)).toEqual([null])
+    tracks.value.push(track(3, { discNo: 2 }))
+    expect(
+      state.albumDiscGroups.value.map((group) => ({
+        disc: group.discNo,
+        ids: group.tracks.map((item) => item.id),
+      })),
+    ).toEqual([
+      { disc: 1, ids: [1, 2] },
+      { disc: 2, ids: [3] },
+    ])
+    tracks.value = []
+    expect(state.albumDiscGroups.value).toEqual([])
+  })
+
+  it('formats release dates as year-month-day and keeps only copyright in the legal line', () => {
+    const tracks = ref([track(1, { copyright: ' Example ' })])
+    const preview = ref<string | null>('2025-08-01')
+    const state = useAlbumDetailPresentation(tracks, preview)
+    expect(state.albumReleaseDate.value).toBe('2025-08-01')
+    expect(state.heroLegalLine.value).toBe('Example')
+    tracks.value = [track(1, { releaseDate: '2026-09-22' })]
+    expect(state.albumReleaseDate.value).toBe('2026-09-22')
+    expect(state.heroLegalLine.value).toBeNull()
+    tracks.value = []
+    preview.value = null
+    expect(state.heroLegalLine.value).toBeNull()
+    expect(JSON.parse(state.albumReleaseDate.value).key).toBe('albums.detail.unknownDate')
+  })
+
+  it('preserves partial dates and rejects dates that do not exist', () => {
+    const preview = ref<string | null>('2006')
+    const state = useAlbumDetailPresentation(ref([]), preview)
+    expect(state.albumReleaseDate.value).toBe('2006')
+    preview.value = '2006-08'
+    expect(state.albumReleaseDate.value).toBe('2006-08')
+    preview.value = '2024-02-29'
+    expect(state.albumReleaseDate.value).toBe('2024-02-29')
+    for (const date of ['2025-02-29', '2026-13-01', '2026-04-31', 'invalid']) {
+      preview.value = date
+      expect(JSON.parse(state.albumReleaseDate.value).key).toBe('albums.detail.unknownDate')
+    }
+  })
+})

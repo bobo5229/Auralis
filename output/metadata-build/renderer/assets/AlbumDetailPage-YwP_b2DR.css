@@ -1,0 +1,932 @@
+/* 由各曲目行决定分隔线的边界与显示状态，共用绘制方式和主题颜色。 */
+.auralis-track-row-divider[data-v-fd926911]::before,
+.auralis-track-row-divider[data-v-fd926911]::after {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  /* 使用边框的设备像素取整，避免非整数缩放下实心矩形出现粗细差异。 */
+  height: 0;
+  border-top: 1px solid var(--auralis-cover-track-divider);
+  pointer-events: none;
+}
+.album-tracklist-panel[data-v-fd926911] {
+  min-width: 0;
+}
+.album-detail-track-list[data-v-fd926911] {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
+  box-shadow: none;
+}
+.album-detail-disc-header[data-v-fd926911] {
+  padding: 12px 14px 6px;
+  color: var(--auralis-text-muted);
+  font-family: var(--auralis-font-disc-heading);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.album-detail-disc-header[data-v-fd926911]:first-child {
+  padding-top: 4px;
+}
+.album-detail-track[data-v-fd926911] {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  align-items: center;
+  padding: 6px 16px 6px 8px;
+  color: var(--auralis-text);
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.album-detail-track[data-v-fd926911]:not(:first-child)::before {
+  content: '';
+  top: 0;
+}
+.album-detail-disc-header + .album-detail-track[data-v-fd926911]::before {
+  display: none;
+}
+
+/* 仅一轨时补底部分隔，避免细行漂在空白里 */
+.album-detail-track[data-v-fd926911]:only-of-type::after {
+  content: '';
+  bottom: 0;
+}
+.album-detail-track--selected[data-v-fd926911],
+.album-detail-track--playing[data-v-fd926911],
+.album-detail-track--search-highlight[data-v-fd926911] {
+  background-color: var(--auralis-control-hover-bg);
+  transform: translateX(3px);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15);
+}
+.album-detail-track[data-v-fd926911]:hover {
+  background-color: var(--auralis-control-hover-bg);
+  transform: none;
+  box-shadow: none;
+}
+.album-detail-track--search-highlight[data-v-fd926911] {
+  animation: album-track-search-highlight-fd926911 1.8s ease-out;
+}
+@keyframes album-track-search-highlight-fd926911 {
+0%,
+  35% {
+    background-color: var(--auralis-song-row-now-playing-bg);
+}
+100% {
+    background-color: var(--auralis-control-hover-bg);
+}
+}
+.album-detail-track.album-detail-track--selected[data-v-fd926911],
+.album-detail-track.album-detail-track--playing[data-v-fd926911] {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  box-shadow: none;
+  transform: none;
+}
+.album-detail-track[data-v-fd926911]:is(.album-detail-track--selected, .album-detail-track--playing)
+  :is(.album-detail-track-number, .album-detail-track-duration, .album-detail-track-artist) {
+  color: var(--auralis-control-primary-text);
+}
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
+  .album-detail-track-play-icon[data-v-fd926911] {
+  color: var(--auralis-control-primary-text);
+}
+.album-detail-track[data-v-fd926911]:hover::before,
+.album-detail-track.album-detail-track--selected[data-v-fd926911]::before,
+.album-detail-track.album-detail-track--playing[data-v-fd926911]::before,
+.album-detail-track.album-detail-track--search-highlight[data-v-fd926911]::before {
+  display: none;
+}
+.album-detail-track:hover + .album-detail-track[data-v-fd926911]::before,
+.album-detail-track--selected + .album-detail-track[data-v-fd926911]::before,
+.album-detail-track--playing + .album-detail-track[data-v-fd926911]::before,
+.album-detail-track--search-highlight + .album-detail-track[data-v-fd926911]::before {
+  display: none;
+}
+.album-detail-track[data-v-fd926911]:hover::after,
+.album-detail-track.album-detail-track--selected[data-v-fd926911]::after,
+.album-detail-track.album-detail-track--playing[data-v-fd926911]::after,
+.album-detail-track.album-detail-track--search-highlight[data-v-fd926911]::after {
+  display: none;
+}
+.album-detail-track-number[data-v-fd926911] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 28px;
+  color: var(--auralis-text-faint);
+  font-size: var(--album-detail-type-track-number-size);
+  line-height: var(--album-detail-type-track-number-line-height);
+  font-weight: var(--album-detail-type-track-number-weight);
+  font-variant-numeric: tabular-nums;
+}
+.album-detail-track-index[data-v-fd926911] {
+  transition: opacity 0.15s ease;
+}
+.album-detail-track-play-icon[data-v-fd926911] {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  color: var(--auralis-text);
+  transition: opacity 0.15s ease;
+}
+.album-detail-track-eq[data-v-fd926911] {
+  position: absolute;
+  color: inherit;
+}
+
+/* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-index[data-v-fd926911] {
+  opacity: 0;
+}
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-play-icon[data-v-fd926911] {
+  opacity: 1;
+}
+.album-detail-track--playing .album-detail-track-index[data-v-fd926911],
+.album-detail-track--playing .album-detail-track-play-icon[data-v-fd926911] {
+  opacity: 0;
+}
+.album-detail-track-duration[data-v-fd926911] {
+  color: var(--auralis-text-faint);
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.album-detail-track-title[data-v-fd926911],
+.album-detail-track-artist[data-v-fd926911] {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album-detail-track-title[data-v-fd926911] {
+  font-size: var(--album-detail-type-track-title-size);
+  line-height: var(--album-detail-type-track-title-line-height);
+  font-weight: var(--album-detail-type-track-title-weight);
+}
+.album-detail-track-artist[data-v-fd926911] {
+  margin-top: 3px;
+  color: var(--auralis-text-muted);
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
+}
+:where([data-reduced-motion='true']) .album-detail-track[data-v-fd926911]:hover,
+:where([data-reduced-motion='true']) .album-detail-track--selected[data-v-fd926911],
+:where([data-reduced-motion='true']) .album-detail-track--playing[data-v-fd926911] {
+  transform: none;
+}
+:where([data-reduced-motion='true']) .album-detail-track--search-highlight[data-v-fd926911] {
+  animation: none;
+}
+.album-more-gallery[data-v-c4d2127f] {
+  --gallery-card-min-width: 180px;
+  --gallery-card-gap: 18px;
+  margin-top: 36px;
+  margin-inline: 0;
+  min-width: 0;
+  padding: 24px var(--album-detail-inline-padding, 32px);
+  border-top: none;
+  background: var(--auralis-album-detail-more-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.album-more-gallery-title[data-v-c4d2127f] {
+  margin: 0 0 16px;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.album-more-gallery-scroller[data-v-c4d2127f] {
+  --gallery-inline-padding: 16px;
+  display: grid;
+  grid-auto-flow: column;
+  /* 尚未取得有效宽度时保留正常封面尺寸，避免按一列撑满区域。 */
+  grid-auto-columns: var(--gallery-card-min-width);
+  gap: var(--gallery-card-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px var(--gallery-inline-padding) 16px;
+  margin-top: -4px;
+  margin-inline: calc(-1 * var(--gallery-inline-padding));
+  /* 焦点滚动时，为封面保留左右内边距；滚轮浏览保持连续位移。 */
+  scroll-padding-inline: var(--gallery-inline-padding);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  transition:
+    -webkit-mask-image 0.25s ease,
+    mask-image 0.25s ease;
+}
+.album-more-gallery-scroller.is-layout-ready[data-v-c4d2127f] {
+  /* 完整列等分可用宽度，封面保持正方形；更多作品仍可横向滚动。 */
+  grid-auto-columns: calc(
+    (100% - (var(--gallery-column-count) - 1) * var(--gallery-card-gap)) /
+      var(--gallery-column-count)
+  );
+}
+.album-more-gallery-scroller.is-at-start[data-v-c4d2127f] {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+}
+.album-more-gallery-scroller.is-at-end[data-v-c4d2127f] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+}
+.album-more-gallery-scroller.is-unscrollable[data-v-c4d2127f],
+.album-more-gallery-scroller.is-at-start.is-at-end[data-v-c4d2127f] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.album-more-gallery-scroller[data-v-c4d2127f]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.album-more-gallery-scroller.is-single-row[data-v-c4d2127f] {
+  overflow-x: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.album-more-gallery-card[data-v-c4d2127f] {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+}
+.album-more-gallery-card[data-v-c4d2127f]:disabled {
+  cursor: default;
+}
+.album-more-gallery-card[data-v-c4d2127f]:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+.album-more-gallery-visual[data-v-c4d2127f] {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.album-more-gallery-cover[data-v-c4d2127f] {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--auralis-artwork-placeholder-bg);
+  box-shadow: none;
+  transition: box-shadow 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.album-more-gallery-image[data-v-c4d2127f] {
+  filter: brightness(1);
+  transition: filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.album-more-gallery-placeholder[data-v-c4d2127f] {
+  filter: brightness(1);
+  transition: filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.album-more-gallery-placeholder-icon[data-v-c4d2127f] {
+  flex-shrink: 0;
+}
+.album-more-gallery-hint[data-v-c4d2127f] {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--auralis-surface-floating) 88%, transparent);
+  color: var(--auralis-text);
+  border: 1px solid var(--auralis-border-subtle);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    border-color 200ms cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 2;
+}
+.album-more-gallery-hint-icon[data-v-c4d2127f] {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+@media (hover: hover) {
+.album-more-gallery-card:not(:disabled):hover .album-more-gallery-cover[data-v-c4d2127f] {
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.3),
+      0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
+}
+.album-more-gallery-card:not(:disabled):hover .album-more-gallery-image[data-v-c4d2127f] {
+    filter: brightness(0.94);
+}
+.album-more-gallery-card:not(:disabled):hover .album-more-gallery-placeholder[data-v-c4d2127f] {
+    filter: brightness(0.94);
+}
+.album-more-gallery-card:not(:disabled):hover .album-more-gallery-hint[data-v-c4d2127f] {
+    opacity: 1;
+    pointer-events: auto;
+}
+.album-more-gallery-card:not(:disabled) .album-more-gallery-hint[data-v-c4d2127f]:hover {
+    background: color-mix(in srgb, var(--auralis-text) 12%, var(--auralis-surface-floating));
+    border-color: color-mix(in srgb, var(--auralis-text) 30%, transparent);
+}
+}
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-cover[data-v-c4d2127f] {
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.3),
+    0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
+}
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-image[data-v-c4d2127f] {
+  filter: brightness(0.94);
+}
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-placeholder[data-v-c4d2127f] {
+  filter: brightness(0.94);
+}
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-hint[data-v-c4d2127f] {
+  opacity: 1;
+}
+.album-more-gallery-meta[data-v-c4d2127f] {
+  margin-top: 10px;
+  min-width: 0;
+}
+.album-more-gallery-album-title[data-v-c4d2127f] {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-control-size);
+  font-weight: 650;
+  line-height: var(--auralis-type-control-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album-more-gallery-year[data-v-c4d2127f] {
+  margin-top: 4px;
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+:where([data-reduced-motion='true']) .album-more-gallery-scroller[data-v-c4d2127f],
+:where([data-reduced-motion='true']) .album-more-gallery-cover[data-v-c4d2127f],
+:where([data-reduced-motion='true']) .album-more-gallery-image[data-v-c4d2127f],
+:where([data-reduced-motion='true']) .album-more-gallery-placeholder[data-v-c4d2127f],
+:where([data-reduced-motion='true']) .album-more-gallery-hint[data-v-c4d2127f] {
+  transition: none;
+}
+/* 专辑详情页专用排版，变量由页面根节点传递给曲目组件。
+ * 元数据、播放控件、脚注与关联专辑直接复用 --auralis-type-*。
+ * 展示标题保持自适应尺寸；艺术家保留独立层级。
+ * 曲目使用专用规格以维护行内几何；列表非虚拟化，行高可随副标题增高。
+ * 展示标题与播放器共用界面字体栈，字体角色独立维护。 */
+.album-detail-container[data-v-a77a4083] {
+  /* 返回导航使用独立的紧凑规格，字号与行高成对维护。 */
+  --album-detail-type-back-size: 12px;
+  --album-detail-type-back-line-height: 18px;
+
+  --album-detail-font-title: var(--auralis-font-ui);
+  --album-detail-type-title-size: var(--auralis-type-hero-title-size);
+  --album-detail-type-title-line-height: var(--auralis-type-hero-title-line-height);
+  --album-detail-type-title-weight: var(--auralis-type-hero-title-weight);
+
+  --album-detail-type-artist-size: 17px;
+  --album-detail-type-artist-line-height: 24px;
+  --album-detail-type-artist-weight: 650;
+
+  --album-detail-type-track-title-size: var(--auralis-type-control-size);
+  --album-detail-type-track-title-line-height: var(--auralis-type-control-line-height);
+  --album-detail-type-track-title-weight: 700;
+  --album-detail-type-track-meta-size: var(--auralis-type-caption-size);
+  --album-detail-type-track-meta-line-height: var(--auralis-type-caption-line-height);
+  --album-detail-type-track-meta-weight: 400;
+  --album-detail-type-track-number-size: 13px;
+  --album-detail-type-track-number-line-height: 20px;
+  --album-detail-type-track-number-weight: 650;
+}
+
+.album-detail-container[data-v-a77a4083] {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+.album-detail-container.album-detail-exit-fade-leave-active[data-v-a77a4083] {
+  position: absolute;
+}
+.album-detail-scroll-wrapper[data-v-a77a4083] {
+  --album-detail-inline-padding: 32px;
+  min-height: 0;
+  padding: var(--auralis-shell-edge-gap) 0 calc(var(--auralis-playbar-safe-area) + 40px);
+}
+.album-detail-back[data-v-a77a4083] {
+  position: relative;
+  z-index: 70;
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  margin-inline-start: var(--album-detail-inline-padding);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--auralis-text-muted);
+  font-size: var(--album-detail-type-back-size);
+  font-weight: 500;
+  line-height: var(--album-detail-type-back-line-height);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.album-detail-back .i-lucide-arrow-left[data-v-a77a4083] {
+  width: 12px;
+  height: 12px;
+}
+.album-detail-back[data-v-a77a4083]:hover {
+  color: var(--auralis-text);
+}
+.album-detail-back[data-v-a77a4083]:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 3px;
+}
+.album-detail-wrapper[data-v-a77a4083] {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+.album-hero-billboard[data-v-a77a4083],
+.album-body-grid[data-v-a77a4083] {
+  margin-inline: var(--album-detail-inline-padding);
+}
+.album-hero-billboard[data-v-a77a4083] {
+  --album-hero-cover-size: 240px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: auto;
+  padding: 24px 0 12px;
+  isolation: isolate;
+}
+.album-hero-main-stage[data-v-a77a4083] {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-height: var(--album-hero-cover-size);
+  grid-template-columns: var(--album-hero-cover-size) minmax(0, 1fr);
+  column-gap: 36px;
+  align-items: center;
+}
+.album-hero-cover-container[data-v-a77a4083] {
+  position: relative;
+  z-index: 1;
+  width: var(--album-hero-cover-size);
+  height: var(--album-hero-cover-size);
+}
+.album-hero-cover[data-v-a77a4083] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--auralis-artwork-placeholder-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.album-hero-content-stage[data-v-a77a4083] {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  height: var(--album-hero-cover-size);
+  display: grid;
+  /* 对称上下轨道让信息区独立居中，操作区贴齐封面底边。 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  color: var(--auralis-text);
+}
+.album-detail-skeleton-block[data-v-a77a4083],
+.album-detail-skeleton-line[data-v-a77a4083],
+.album-detail-skeleton-track[data-v-a77a4083] {
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+}
+.album-detail-skeleton-line[data-v-a77a4083] {
+  border-radius: 8px;
+}
+.album-detail-skeleton-line--title[data-v-a77a4083] {
+  width: min(420px, 72%);
+  height: 28px;
+}
+.album-detail-skeleton-line--meta[data-v-a77a4083] {
+  width: min(240px, 48%);
+  height: 16px;
+  margin-top: 10px;
+}
+.album-detail-skeleton-track[data-v-a77a4083] {
+  height: 50px;
+  border-radius: 12px;
+}
+.album-hero-zone-primary[data-v-a77a4083] {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+.album-hero-meta-block[data-v-a77a4083] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.album-hero-title[data-v-a77a4083] {
+  /* 两行截断的间隔放在外部，避免底部内边距露出第三行。 */
+  margin: 0 0 6px;
+  box-sizing: border-box;
+  max-width: 100%;
+  color: var(--auralis-text);
+  font-family: var(--album-detail-font-title);
+  font-size: var(--album-detail-type-title-size);
+  font-weight: var(--album-detail-type-title-weight);
+  line-height: var(--album-detail-type-title-line-height);
+  letter-spacing: var(--auralis-type-hero-title-letter-spacing);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  user-select: none;
+}
+.album-hero-artist-row[data-v-a77a4083] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--auralis-text);
+}
+.album-hero-artist-row[data-v-a77a4083],
+.album-hero-artist-text[data-v-a77a4083] {
+  font-size: var(--album-detail-type-artist-size);
+  font-weight: var(--album-detail-type-artist-weight);
+  line-height: var(--album-detail-type-artist-line-height);
+}
+.album-hero-artist-text[data-v-a77a4083] {
+  color: var(--auralis-text);
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album-hero-artist-dot[data-v-a77a4083] {
+  color: var(--auralis-text-muted);
+  user-select: none;
+}
+.album-hero-date-text[data-v-a77a4083],
+.album-hero-genre-text[data-v-a77a4083] {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 500;
+  color: var(--auralis-text-muted);
+}
+.album-hero-genre-group[data-v-a77a4083] {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.album-hero-genre-text[data-v-a77a4083] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.album-hero-actions[data-v-a77a4083] {
+  grid-row: 3;
+  align-self: end;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.album-hero-play-btn[data-v-a77a4083],
+.album-hero-shuffle-btn[data-v-a77a4083] {
+  display: inline-flex;
+  width: fit-content;
+  min-width: 96px;
+  height: 40px;
+  padding: 0 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 播放主按钮：多重斜光拉丝电镀金属质感（以全局强调色为基底动态计算衍生，绝不硬编码） */
+.album-hero-play-btn[data-v-a77a4083] {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffffff 38%, var(--auralis-theme-accent)) 0%,
+    var(--auralis-theme-accent) 24%,
+    color-mix(in srgb, #ffffff 42%, var(--auralis-theme-accent)) 46%,
+    color-mix(in srgb, #000000 24%, var(--auralis-theme-accent)) 72%,
+    var(--auralis-theme-accent) 100%
+  );
+  border: 1px solid color-mix(in srgb, #ffffff 45%, var(--auralis-theme-accent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 8px rgba(0, 0, 0, 0.22),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 2px 10px color-mix(in srgb, var(--auralis-theme-accent) 30%, transparent);
+  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
+}
+.album-hero-engraved-label[data-v-a77a4083] {
+  text-shadow:
+    0 -0.5px 0 rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+/* 阴影放在图标外层，避免 Lucide 的 mask 裁掉刻痕边缘。 */
+.album-hero-engraved-icon[data-v-a77a4083] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
+}
+.album-hero-play-btn[data-v-a77a4083]:hover {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffffff 46%, var(--auralis-theme-accent)) 0%,
+    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 24%,
+    color-mix(in srgb, #ffffff 50%, var(--auralis-theme-accent)) 46%,
+    color-mix(in srgb, #000000 16%, var(--auralis-theme-accent)) 72%,
+    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 100%
+  );
+  border-color: color-mix(in srgb, #ffffff 60%, var(--auralis-theme-accent));
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 10px rgba(0, 0, 0, 0.15),
+    0 6px 22px rgba(0, 0, 0, 0.45),
+    0 3px 14px color-mix(in srgb, var(--auralis-theme-accent) 35%, transparent);
+  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
+  transform: none;
+}
+.album-hero-play-btn[data-v-a77a4083]:active {
+  transform: translateY(0.5px);
+  box-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 抛光镀铬：窄反射带与明暗边缘，中央亮面保证凹刻图标清晰。 */
+.album-hero-shuffle-btn[data-v-a77a4083] {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  flex-shrink: 0;
+  background: linear-gradient(
+    160deg,
+    #ffffff 0%,
+    #c8d0d9 16%,
+    #515b65 23%,
+    #9aa4ad 28%,
+    #f9fbfd 34%,
+    #ffffff 46%,
+    #dce2e8 61%,
+    #a0aab4 72%,
+    #49535d 79%,
+    #c5cdd5 85%,
+    #f8fafc 94%,
+    #89939d 100%
+  );
+  border: 1px solid #87919b;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.28);
+  color: #121417;
+}
+.album-hero-shuffle-btn[data-v-a77a4083]:hover {
+  background: linear-gradient(
+    160deg,
+    #ffffff 0%,
+    #d4dce4 16%,
+    #64707c 23%,
+    #afb9c2 28%,
+    #ffffff 34%,
+    #ffffff 46%,
+    #e8edf2 61%,
+    #b3bdc7 72%,
+    #5b6773 79%,
+    #d5dde5 85%,
+    #ffffff 94%,
+    #9aa5b0 100%
+  );
+  border-color: #a1adb8;
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.65),
+    inset -1px 0 0 rgba(0, 0, 0, 0.15),
+    0 3px 9px rgba(0, 0, 0, 0.32),
+    0 1px 2px rgba(0, 0, 0, 0.28);
+  color: #121417;
+  transform: none;
+}
+.album-hero-shuffle-btn[data-v-a77a4083]:active {
+  transform: translateY(0.5px);
+  box-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 阳极氧化只在选中时盖过上面的拉丝。两枚都是平色，上沿一条高光；播放跟强调色，随机是中性灰。 */
+.album-hero-actions[data-control-style='anodized'][data-v-a77a4083] {
+  --album-hero-anodized-neutral: color-mix(
+    in srgb,
+    var(--auralis-text) 18%,
+    var(--auralis-surface-raised)
+  );
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn[data-v-a77a4083],
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn[data-v-a77a4083] {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 24%, transparent);
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-label[data-v-a77a4083] {
+  text-shadow: none;
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-icon[data-v-a77a4083] {
+  filter: none;
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn[data-v-a77a4083] {
+  background: var(--auralis-theme-accent);
+  border: 1px solid color-mix(in srgb, #ffffff 34%, var(--auralis-theme-accent));
+  color: var(--auralis-control-primary-text);
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn[data-v-a77a4083]:hover {
+  background: color-mix(in srgb, #ffffff 12%, var(--auralis-theme-accent));
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn[data-v-a77a4083] {
+  background: var(--album-hero-anodized-neutral);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  color: var(--auralis-text);
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn[data-v-a77a4083]:hover {
+  background: color-mix(in srgb, #ffffff 14%, var(--album-hero-anodized-neutral));
+}
+.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn[data-v-a77a4083]:active,
+.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn[data-v-a77a4083]:active {
+  transform: translateY(0.5px);
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.35);
+}
+.album-hero-footer-stage[data-v-a77a4083] {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-top: 2px;
+}
+.album-hero-legal-text[data-v-a77a4083] {
+  margin: 0;
+  width: 100%;
+  color: var(--auralis-text-subtle);
+  font-size: var(--auralis-type-caption-size);
+  font-weight: 400;
+  line-height: var(--auralis-type-caption-line-height);
+  letter-spacing: 0.01em;
+  white-space: normal;
+  word-break: break-word;
+  user-select: none;
+}
+.album-body-grid[data-v-a77a4083] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+  min-width: 0;
+  position: relative;
+}
+@media (max-width: 959px) {
+.album-hero-billboard[data-v-a77a4083] {
+    --album-hero-cover-size: 200px;
+    padding: 20px 0 12px;
+    gap: 18px;
+}
+.album-hero-main-stage[data-v-a77a4083] {
+    column-gap: 24px;
+}
+
+  /* 200px 封面下，元数据保持单行，给两行标题与底部按钮留出间隔。 */
+.album-hero-artist-row[data-v-a77a4083] {
+    flex-wrap: nowrap;
+}
+.album-hero-date-text[data-v-a77a4083] {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.album-body-grid[data-v-a77a4083] {
+    grid-template-columns: minmax(0, 1fr);
+}
+}
+@media (max-width: 680px) {
+.album-hero-zone-primary[data-v-a77a4083] {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+}
+}
+@media (max-width: 640px) {
+.album-hero-main-stage[data-v-a77a4083] {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+}
+.album-hero-cover-container[data-v-a77a4083] {
+    justify-self: start;
+}
+
+  /* 单列布局中，信息与操作恢复正常文档流。 */
+.album-hero-content-stage[data-v-a77a4083] {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.album-hero-artist-row[data-v-a77a4083] {
+    flex-wrap: wrap;
+}
+.album-hero-actions[data-v-a77a4083] {
+    align-self: auto;
+    margin-top: 8px;
+}
+}
+:where([data-reduced-motion='true']) .album-hero-play-btn[data-v-a77a4083]:hover,
+:where([data-reduced-motion='true']) .album-hero-shuffle-btn[data-v-a77a4083]:hover,
+:where([data-reduced-motion='true']) .album-detail-back[data-v-a77a4083]:hover {
+  transform: none;
+}

@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LRC 歌词编辑 · Auralis Demo</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/typography.css" />
+    <link rel="stylesheet" href="../../src/renderer/shared/dialog/dialogSurface.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --auralis-main-bg: #121212;
+        --auralis-text: #f3eee6;
+        --auralis-text-muted: #afb4bc;
+        --auralis-border-subtle: rgba(225, 221, 214, 0.08);
+        --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
+        --auralis-control-active-bg: rgba(255, 255, 255, 0.1);
+        --auralis-control-primary-bg: #ddd6c9;
+        --auralis-control-primary-text: #121212;
+        --auralis-focus-ring: #ddd6c9;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #080808; color: var(--auralis-text); font-family: var(--auralis-font-ui); font-size: 14px; line-height: 20px; }
+      [hidden] { display: none !important; }
+      button, select, input { font: inherit; }
+      button { cursor: pointer; }
+      button:disabled { cursor: default; opacity: 0.4; }
+      button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--auralis-focus-ring); outline-offset: 3px; }
+      .auralis-dialog-backdrop { background: transparent; backdrop-filter: none; }
+      .auralis-dialog-panel { height: min(720px, calc(100dvh - 80px)); }
+      .auralis-dialog-body { display: flex; flex-direction: column; overflow: hidden; padding: 20px 24px 12px; gap: 16px; }
+      .subtitle { margin: 4px 0 0; color: var(--auralis-text-muted); font-size: 12px; line-height: 18px; }
+      .toolbar, .toolbar-group, .transport, .editor-meta, .footer-row, .save-target { display: flex; align-items: center; gap: 8px; }
+      .toolbar { flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+      .tool { border: 1px solid var(--auralis-border-subtle); border-radius: 6px; background: transparent; color: var(--auralis-text); padding: 7px 12px; white-space: nowrap; }
+      .tool:hover:not(:disabled) { background: var(--auralis-control-hover-bg); }
+      .transport { padding: 12px 14px; background: rgba(255,255,255,0.025); border: 1px solid var(--auralis-border-subtle); border-radius: 6px; gap: 12px; }
+      .transport button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; }
+      svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      .transport input { flex: 1; min-width: 40px; accent-color: var(--auralis-control-primary-bg); }
+      .time { font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 65px; }
+      .muted { color: var(--auralis-text-muted); }
+      .small { font-size: 12px; line-height: 18px; }
+      .editor-wrap { min-height: 120px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+      .editor-meta { justify-content: space-between; }
+      .editor-meta label { font-weight: 600; }
+      #editor { flex: 1; min-height: 0; width: 100%; resize: none; border: 1px solid var(--auralis-border-subtle); border-radius: 6px; padding: 16px 18px; background: #0e0e0e; color: var(--auralis-text); font-family: Consolas, "Microsoft YaHei", monospace; font-size: 14px; line-height: 28px; tab-size: 2; outline: none; overflow: auto; white-space: pre; }
+      #editor:focus { border-color: rgba(221,214,201,0.5); }
+      .editor-info { min-height: 18px; }
+      #line-info { white-space: nowrap; }
+      .footer-row { justify-content: space-between; gap: 16px; }
+      select { background: #202020; color: var(--auralis-text); border: 1px solid var(--auralis-border-subtle); border-radius: 6px; padding: 7px 30px 7px 10px; max-width: 100%; }
+      dialog { padding: 24px; width: min(400px, calc(100vw - 40px)); background: var(--auralis-main-bg); color: var(--auralis-text); border: 1px solid var(--auralis-border-subtle); border-radius: 8px; box-shadow: 0 24px 70px #0008; }
+      dialog::backdrop { background: #0009; }
+      dialog h3 { margin: 0 0 24px; font-size: 18px; line-height: 26px; }
+      .confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+      #reopen { position: fixed; inset: 0; margin: auto; width: max-content; height: max-content; }
+      @media (max-width: 620px) {
+        .auralis-dialog-backdrop { padding: 16px; }
+        .auralis-dialog-panel { width: 100%; height: calc(100dvh - 32px); max-height: none; }
+        .auralis-dialog-body { padding: 16px 16px 8px; gap: 12px; }
+        .toolbar { align-items: flex-start; }
+        .toolbar-group { flex-wrap: wrap; }
+        .transport { gap: 8px; padding: 8px; }
+        .auralis-dialog-footer { padding: 14px 16px; }
+        .footer-row { flex-wrap: wrap; }
+        .save-target { flex-wrap: wrap; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="auralis-dialog-backdrop" id="shell">
+      <section class="auralis-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="title">
+        <header class="auralis-dialog-header">
+          <div>
+            <h2 id="title">编辑歌词</h2>
+            <p class="subtitle">沿途的灯.flac · LRC</p>
+          </div>
+          <button class="auralis-dialog-close" id="close" aria-label="关闭歌词编辑">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+        <div class="auralis-dialog-body">
+          <div class="toolbar" role="group" aria-label="歌词编辑工具">
+            <div class="toolbar-group">
+              <button class="auralis-dialog-action" id="stamp">更新时间戳</button>
+              <button class="tool" id="earlier">−0.1 秒</button>
+              <button class="tool" id="later">+0.1 秒</button>
+            </div>
+            <div class="toolbar-group">
+              <button class="tool" id="undo">撤销</button>
+              <button class="tool" id="redo">重做</button>
+            </div>
+          </div>
+          <div class="transport" role="group" aria-label="模拟播放进度，无音频">
+            <button class="tool" id="play" aria-label="开始模拟播放" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="m9 5 11 7-11 7Z" /></svg>
+            </button>
+            <output class="time" id="time">00:12.30</output>
+            <input type="range" id="seek" min="0" max="96" value="12.3" step="0.01" aria-label="模拟播放位置（秒）" />
+            <span class="muted small">01:36</span>
+          </div>
+          <div class="editor-wrap">
+            <div class="editor-meta">
+              <label for="editor">LRC 文本</label>
+              <span class="small muted" id="dirty">未修改</span>
+            </div>
+            <textarea id="editor" wrap="off" spellcheck="false" aria-describedby="line-info"></textarea>
+            <div class="editor-info small muted">
+              <span id="line-info"></span>
+            </div>
+          </div>
+        </div>
+        <footer class="auralis-dialog-footer">
+          <div class="footer-row">
+            <div class="save-target">
+              <label for="target">保存到</label>
+              <select id="target">
+                <option value="tag">歌曲标签</option>
+                <option value="file">同目录 LRC 文件</option>
+              </select>
+            </div>
+            <button class="auralis-dialog-action auralis-dialog-action--primary" id="save">保存</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <h3 id="confirm-title">保存歌词修改？</h3>
+      <div class="confirm-actions">
+        <button class="tool" id="continue" autofocus>继续编辑</button>
+        <button class="tool" id="discard">放弃修改</button>
+        <button class="auralis-dialog-action auralis-dialog-action--primary" id="save-close">保存并关闭</button>
+      </div>
+    </dialog>
+    <button id="reopen" class="auralis-dialog-action" hidden>重新打开歌词编辑</button>
+    <script>
+      // Isolated layout prototype: original sample text, synthetic clock, in-memory saves only.
+      const $ = (id) => document.getElementById(id);
+      const editor = $('editor');
+      const sample = `[ti:沿途的灯]
+[ar:模拟歌手]
+[00:04.20]车窗映着沿途的灯
+[00:10.40]晚风翻过手中的信
+我们把故事留在这一程
+[00:22.80]等下一站再慢慢说清
+
+[00:31.20]远处的山落进夜色
+[00:37.60]你说前方还有星河
+[00:44.10]让脚步随着心跳走
+[00:50.80]把未说的话唱成歌
+
+[01:02.30]这一刻不必问终点
+[01:09.50]有灯火就有新的明天
+[01:17.20]当清晨越过地平线
+[01:24.60]我们会再见`;
+      editor.value = sample;
+      let baseline = sample;
+      let history = [];
+      let historyIndex = -1;
+      let composing = false;
+      let seconds = 12.3;
+      let playing = false;
+      let lastTick = performance.now();
+      const timeTag = /^\[(\d{2,}):([0-5]\d)(?:\.(\d{1,3}))?\]/;
+      const anyTimeTag = /\[\d+:\d+(?:\.\d+)?\]/g;
+      function timestamp(value) {
+        const total = Math.max(0, Math.round(value * 100));
+        return `${String(Math.floor(total / 6000)).padStart(2, '0')}:${String(Math.floor(total / 100) % 60).padStart(2, '0')}.${String(total % 100).padStart(2, '0')}`;
+      }
+      function snapshot() { return { text: editor.value, start: editor.selectionStart, end: editor.selectionEnd }; }
+      function record() {
+        if (history[historyIndex]?.text === editor.value) return;
+        history.splice(historyIndex + 1);
+        history.push(snapshot());
+        if (history.length > 150) history.shift();
+        historyIndex = history.length - 1;
+      }
+      function currentLine() {
+        const start = editor.selectionStart === 0 ? 0 : editor.value.lastIndexOf('\n', editor.selectionStart - 1) + 1;
+        const next = editor.value.indexOf('\n', editor.selectionStart);
+        const end = next < 0 ? editor.value.length : next;
+        const text = editor.value.slice(start, end);
+        const number = editor.value.slice(0, start).split('\n').length;
+        const match = text.match(timeTag);
+        const tags = text.match(anyTimeTag) || [];
+        const multiple = tags.length > 1;
+        const blocked = !text.trim() || /^\s*\[[a-z]+\s*:/i.test(text) || multiple || (!match && /^\s*\[/.test(text));
+        return { start, end, text, number, match, multiple, blocked };
+      }
+      function refresh() {
+        const line = currentLine();
+        const dirty = editor.value !== baseline;
+        $('dirty').textContent = dirty ? '有未保存修改' : '未修改';
+        $('line-info').textContent = `第 ${line.number} 行 · ${editor.value.split('\n').length} 行`;
+        $('stamp').disabled = line.blocked || composing;
+        $('stamp').textContent = line.match ? '更新时间戳' : '插入时间戳';
+        $('earlier').disabled = $('later').disabled = line.blocked || !line.match || composing;
+        $('undo').disabled = historyIndex <= 0 || composing;
+        $('redo').disabled = historyIndex >= history.length - 1 || composing;
+        $('save').disabled = !dirty || composing;
+      }
+      function replaceLine(newText) {
+        // Capture the cursor before the edit so undo returns to the operated line.
+        history[historyIndex] = snapshot();
+        const line = currentLine();
+        editor.setRangeText(newText, line.start, line.end, 'end');
+        record();
+        editor.focus();
+        refresh();
+      }
+      function stamp() {
+        const line = currentLine();
+        if (line.blocked || composing) return;
+        replaceLine(`[${timestamp(seconds)}]${line.match ? line.text.slice(line.match[0].length) : line.text}`);
+      }
+      function nudge(delta) {
+        const line = currentLine();
+        if (line.blocked || !line.match || composing) return;
+        const value = Number(line.match[1]) * 60 + Number(line.match[2]) + Number(`0.${line.match[3] || '0'}`);
+        replaceLine(`[${timestamp(value + delta)}]${line.text.slice(line.match[0].length)}`);
+      }
+      function restoreHistory(direction) {
+        if (composing) return;
+        const next = historyIndex + direction;
+        if (next < 0 || next >= history.length) return;
+        historyIndex = next;
+        const state = history[historyIndex];
+        editor.value = state.text;
+        editor.focus();
+        editor.setSelectionRange(state.start, state.end);
+        refresh();
+      }
+      function save() {
+        if (composing) return false;
+        baseline = editor.value;
+        refresh();
+        return true;
+      }
+      function setPlaying(value) {
+        playing = value;
+        lastTick = performance.now();
+        $('play').setAttribute('aria-pressed', String(value));
+        $('play').setAttribute('aria-label', value ? '暂停模拟播放' : '开始模拟播放');
+        $('play-icon').setAttribute('d', value ? 'M9 5v14M16 5v14' : 'm9 5 11 7-11 7Z');
+      }
+      function closePanel() {
+        setPlaying(false);
+        $('shell').hidden = true;
+        $('reopen').hidden = false;
+        $('reopen').focus();
+      }
+      function requestClose() {
+        if (composing || $('confirm').open) return;
+        if (editor.value !== baseline) $('confirm').showModal();
+        else closePanel();
+      }
+      editor.addEventListener('compositionstart', () => { composing = true; refresh(); });
+      editor.addEventListener('compositionend', () => { composing = false; record(); refresh(); });
+      editor.addEventListener('input', () => { if (!composing) record(); refresh(); });
+      editor.addEventListener('beforeinput', (event) => {
+        if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+          event.preventDefault();
+          restoreHistory(event.inputType === 'historyUndo' ? -1 : 1);
+        }
+      });
+      document.addEventListener('selectionchange', () => { if (document.activeElement === editor) refresh(); });
+      for (const id of ['stamp', 'earlier', 'later', 'undo', 'redo']) {
+        $(id).addEventListener('mousedown', (event) => event.preventDefault());
+      }
+      $('stamp').onclick = stamp;
+      $('earlier').onclick = () => nudge(-0.1);
+      $('later').onclick = () => nudge(0.1);
+      $('undo').onclick = () => restoreHistory(-1);
+      $('redo').onclick = () => restoreHistory(1);
+      $('save').onclick = save;
+      $('play').onclick = () => { if (seconds >= 96) seconds = 0; setPlaying(!playing); };
+      $('seek').oninput = () => { seconds = Number($('seek').value); $('time').textContent = timestamp(seconds); };
+      $('close').onclick = requestClose;
+      $('continue').onclick = () => $('confirm').close();
+      $('discard').onclick = () => {
+        editor.value = baseline;
+        history = []; historyIndex = -1; record(); refresh();
+        $('confirm').close(); closePanel();
+      };
+      $('save-close').onclick = () => { if (save()) { $('confirm').close(); closePanel(); } };
+      $('reopen').onclick = () => { $('shell').hidden = false; $('reopen').hidden = true; editor.focus(); refresh(); };
+      document.addEventListener('keydown', (event) => {
+        if (event.isComposing || composing || $('shell').hidden || $('confirm').open) return;
+        const modifier = event.ctrlKey || event.metaKey;
+        if (modifier && event.shiftKey && event.key === 'Enter') { event.preventDefault(); stamp(); }
+        else if (modifier && event.key.toLowerCase() === 's') { event.preventDefault(); save(); }
+        else if (document.activeElement === editor && modifier && ['z', 'y'].includes(event.key.toLowerCase())) {
+          event.preventDefault(); restoreHistory(event.shiftKey || event.key.toLowerCase() === 'y' ? 1 : -1);
+        } else if (event.key === 'Escape') { event.preventDefault(); requestClose(); }
+      });
+      window.addEventListener('beforeunload', (event) => { if (editor.value !== baseline) { event.preventDefault(); event.returnValue = ''; } });
+      setInterval(() => {
+        const now = performance.now();
+        if (playing) {
+          seconds = Math.min(96, seconds + (now - lastTick) / 1000);
+          $('seek').value = seconds;
+          $('time').textContent = timestamp(seconds);
+          if (seconds >= 96) setPlaying(false);
+        }
+        lastTick = now;
+      }, 50);
+      const initialCursor = sample.indexOf('[00:10.40]');
+      editor.setSelectionRange(initialCursor, initialCursor);
+      record(); refresh();
+    </script>
+  </body>
+</html>

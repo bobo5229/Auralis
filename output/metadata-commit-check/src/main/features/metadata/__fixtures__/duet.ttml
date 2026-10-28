@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml"
+    xmlns:ttm="http://www.w3.org/ns/ttml#metadata"
+    xmlns:itunes="http://itunes.apple.com/lyric-ttml-extensions"
+    xml:lang="zh-Hans">
+  <head>
+    <metadata>
+      <ttm:agent type="person" xml:id="v1"><ttm:name>演唱者一</ttm:name></ttm:agent>
+      <ttm:agent type="person" xml:id="v2"><ttm:name>演唱者二</ttm:name></ttm:agent>
+      <ttm:agent type="group" xml:id="v1000"/>
+    </metadata>
+  </head>
+  <body dur="00:30.000">
+    <div itunes:song-part="Verse">
+      <p begin="00:01.000" end="00:04.000" ttm:agent="v1"><span begin="00:01.000" end="00:02.000">你</span><span begin="00:02.000" end="00:04.000">好</span></p>
+      <p begin="00:03.000" end="00:06.000" ttm:agent="v2">Hello &amp; goodbye</p>
+      <p begin="00:07.000" end="00:10.000" ttm:agent="v1000">共同演唱<span ttm:role="x-translation">Together</span></p>
+    </div>
+  </body>
+</tt>

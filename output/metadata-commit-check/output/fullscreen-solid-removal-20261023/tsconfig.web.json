@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.web.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false
+  },
+  "include": [
+    "../../src/env.d.ts",
+    "../../src/renderer/app/layout/FullscreenPlayerOverlay.vue",
+    "../../src/renderer/features/playback/components/FluidArtworkBackground.vue",
+    "../../src/renderer/features/playback/components/FullscreenArtworkBackground.vue",
+    "../../src/renderer/features/playback/components/FullscreenBackgroundControls.vue",
+    "../../src/renderer/features/playback/components/FullscreenBackgroundControls.test.ts",
+    "../../src/renderer/features/playback/composables/useFullscreenArtworkBackground.ts",
+    "../../src/renderer/features/playback/composables/useFullscreenArtworkBackground.test.ts",
+    "../../src/renderer/features/playback/composables/useFullscreenBackground.ts",
+    "../../src/renderer/features/playback/composables/useFullscreenBackground.test.ts"
+  ]
+}

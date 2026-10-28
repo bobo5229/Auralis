@@ -1,0 +1,220 @@
+import type {
+  IpcEventPayload,
+  IpcInvokeChannel,
+  IpcRequest,
+  IpcResponse,
+  IpcSendPayload,
+} from './contracts'
+
+type Req<C extends IpcInvokeChannel> = Exclude<IpcRequest<C>, void>
+type Result<C extends IpcInvokeChannel> = Promise<IpcResponse<C>>
+
+export interface AuralisApi {
+  database: {
+    exportBackup: () => Result<'database:export-backup'>
+    restoreBackup: () => Result<'database:restore-backup'>
+  }
+  app: {
+    getInfo: () => Result<'app:get-info'>
+    setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
+    claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>
+    claimStartupAlbum: (
+      request?: Exclude<IpcRequest<'app:claim-startup-album'>, void>,
+    ) => Result<'app:claim-startup-album'>
+    drawStartupAlbum: (request: Req<'app:draw-startup-album'>) => Result<'app:draw-startup-album'>
+    exportDiagnostics: () => Result<'app:export-diagnostics'>
+    rendererReady: () => void
+    splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
+  }
+  library: {
+    getStats: () => Result<'library:get-stats'>
+    selectRoot: () => Result<'library:select-root'>
+    getRoots: () => Result<'library:get-roots'>
+    startScan: (rootId: Req<'library:start-scan'>['rootId']) => Result<'library:start-scan'>
+    cancelScan: (jobId: Req<'library:cancel-scan'>['jobId']) => Result<'library:cancel-scan'>
+    getScanStatus: (
+      jobId?: Req<'library:get-scan-status'>['jobId'],
+    ) => Result<'library:get-scan-status'>
+    getTracks: () => Result<'library:get-tracks'>
+    getTrackPage: (request: Req<'library:get-track-page'>) => Result<'library:get-track-page'>
+    getAlbumDetail: (request: Req<'library:get-album-detail'>) => Result<'library:get-album-detail'>
+    revealInExplorer: (
+      request: Req<'library:reveal-in-explorer'>,
+    ) => Result<'library:reveal-in-explorer'>
+    onScanProgress: (
+      callback: (progress: IpcEventPayload<'library:scan-progress'>) => void,
+    ) => () => void
+    onChanged: (callback: (event: IpcEventPayload<'library:changed'>) => void) => () => void
+  }
+  smartPlaylists: {
+    list: () => Result<'smart-playlists:list'>
+    listTrackCounts: () => Result<'smart-playlists:list-track-counts'>
+    getDetail: (id: Req<'smart-playlists:get-detail'>['id']) => Result<'smart-playlists:get-detail'>
+    create: (
+      name: Req<'smart-playlists:create'>['name'],
+      rule: Req<'smart-playlists:create'>['rule'],
+    ) => Result<'smart-playlists:create'>
+    createFromQuery: (
+      query: Req<'smart-playlists:create-from-query'>['query'],
+    ) => Result<'smart-playlists:create-from-query'>
+    createRecentAdded: (
+      days?: Req<'smart-playlists:create-recent-added'>['days'],
+    ) => Result<'smart-playlists:create-recent-added'>
+    updateRecentAddedDays: (
+      id: Req<'smart-playlists:update-recent-added-days'>['id'],
+      days: Req<'smart-playlists:update-recent-added-days'>['days'],
+    ) => Result<'smart-playlists:update-recent-added-days'>
+    rename: (
+      id: Req<'smart-playlists:rename'>['id'],
+      name: Req<'smart-playlists:rename'>['name'],
+    ) => Result<'smart-playlists:rename'>
+    updateViewMode: (
+      id: Req<'smart-playlists:update-view-mode'>['id'],
+      viewMode: Req<'smart-playlists:update-view-mode'>['viewMode'],
+    ) => Result<'smart-playlists:update-view-mode'>
+    delete: (id: Req<'smart-playlists:delete'>['id']) => Result<'smart-playlists:delete'>
+    reorder: (ids: Req<'smart-playlists:reorder'>['ids']) => Result<'smart-playlists:reorder'>
+  }
+  playlists: {
+    onChanged: (callback: (event: IpcEventPayload<'playlists:changed'>) => void) => () => void
+    list: () => Result<'playlists:list'>
+    listTrackCounts: () => Result<'playlists:list-track-counts'>
+    listSidebarItems: () => Result<'playlists:list-sidebar-items'>
+    getDetail: (id: Req<'playlists:get-detail'>['id']) => Result<'playlists:get-detail'>
+    create: () => Result<'playlists:create'>
+    rename: (
+      id: Req<'playlists:rename'>['id'],
+      name: Req<'playlists:rename'>['name'],
+    ) => Result<'playlists:rename'>
+    updateViewMode: (
+      id: Req<'playlists:update-view-mode'>['id'],
+      viewMode: Req<'playlists:update-view-mode'>['viewMode'],
+    ) => Result<'playlists:update-view-mode'>
+    delete: (id: Req<'playlists:delete'>['id']) => Result<'playlists:delete'>
+    addTracks: (
+      id: Req<'playlists:add-tracks'>['id'],
+      trackIds: Req<'playlists:add-tracks'>['trackIds'],
+    ) => Result<'playlists:add-tracks'>
+    reorderSidebarItems: (
+      items: Req<'playlists:reorder-sidebar-items'>['items'],
+    ) => Result<'playlists:reorder-sidebar-items'>
+  }
+  lyrics: {
+    getByTrackId: (
+      trackId: Req<'lyrics:get-by-track-id'>['trackId'],
+    ) => Result<'lyrics:get-by-track-id'>
+    openLrcEditor: (trackId: number) => Result<'lyrics:open-lrc-editor'>
+    saveLrcEditor: (request: Req<'lyrics:save-lrc-editor'>) => Result<'lyrics:save-lrc-editor'>
+    closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
+  }
+  playback: {
+    recordListeningProgress: (
+      payload: Req<'playback:record-listening-progress'>,
+    ) => Result<'playback:record-listening-progress'>
+    subscribeSpectrum: (
+      request: Req<'playback:spectrum-subscribe'>,
+    ) => Result<'playback:spectrum-subscribe'>
+    onSpectrumFrame: (
+      callback: (event: IpcEventPayload<'playback:spectrum-frame'>) => void,
+    ) => () => void
+    nativeAvailability: () => Result<'playback:native-availability'>
+    nativeCommand: (request: Req<'playback:native-command'>) => Result<'playback:native-command'>
+    onNativeEvent: (
+      callback: (event: IpcEventPayload<'playback:native-event'>) => void,
+    ) => () => void
+    getAudioUrl: (
+      trackId: Req<'playback:get-audio-url'>['trackId'],
+    ) => Result<'playback:get-audio-url'>
+    getRandomTrack: (
+      excludeTrackId?: Req<'playback:get-random-track'>['excludeTrackId'],
+    ) => Result<'playback:get-random-track'>
+    getRandomAlbumTracks: (
+      excludeAlbumKey?: Req<'playback:get-random-album-tracks'>['excludeAlbumKey'],
+    ) => Result<'playback:get-random-album-tracks'>
+    getAlbumTracks: (
+      albumKey: Req<'playback:get-album-tracks'>['albumKey'],
+    ) => Result<'playback:get-album-tracks'>
+    recordEffectivePlay: (
+      payload: Req<'playback:record-effective-play'>,
+    ) => Result<'playback:record-effective-play'>
+    acquireReadLease: (
+      trackId: Req<'playback:acquire-read-lease'>['trackId'],
+    ) => Result<'playback:acquire-read-lease'>
+    releaseReadLease: (
+      leaseId: Req<'playback:release-read-lease'>['leaseId'],
+    ) => Result<'playback:release-read-lease'>
+  }
+  systemMedia: {
+    updateThumbarState: (state: IpcSendPayload<'system-media:update-thumbar-state'>) => void
+    onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
+  }
+  archive: {
+    getBadgeAchievements: () => Result<'archive:get-badge-achievements'>
+    getAnnualSummary: (
+      year: Req<'archive:get-annual-summary'>['year'],
+    ) => Result<'archive:get-annual-summary'>
+    getAnnualPlayCounts: (
+      year: Req<'archive:get-annual-play-counts'>['year'],
+    ) => Result<'archive:get-annual-play-counts'>
+    resetPlayStats: () => Result<'archive:reset-play-stats'>
+    getDayTopTracks: (
+      date: Req<'archive:get-day-top-tracks'>['date'],
+    ) => Result<'archive:get-day-top-tracks'>
+    getDayTopAlbums: (
+      date: Req<'archive:get-day-top-albums'>['date'],
+    ) => Result<'archive:get-day-top-albums'>
+  }
+  metadata: {
+    refreshTrack: (
+      trackId: Req<'metadata:refresh-track'>['trackId'],
+    ) => Result<'metadata:refresh-track'>
+    refreshTracks: (
+      trackIds: Req<'metadata:refresh-tracks'>['trackIds'],
+    ) => Result<'metadata:refresh-tracks'>
+    refreshLyricsMissing: (
+      limit?: Req<'metadata:refresh-lyrics-missing'>['limit'],
+    ) => Result<'metadata:refresh-lyrics-missing'>
+    getRefreshStatus: (
+      jobId: Req<'metadata:get-refresh-status'>['jobId'],
+    ) => Result<'metadata:get-refresh-status'>
+    listRefreshFailures: (
+      limit?: Req<'metadata:list-refresh-failures'>['limit'],
+    ) => Result<'metadata:list-refresh-failures'>
+    clearRefreshFailures: () => Result<'metadata:clear-refresh-failures'>
+    getTrackMetadata: (
+      trackId: Req<'metadata:get-track-metadata'>['trackId'],
+    ) => Result<'metadata:get-track-metadata'>
+    getTrackEditSnapshot: (
+      trackId: Req<'metadata:get-track-edit-snapshot'>['trackId'],
+    ) => Result<'metadata:get-track-edit-snapshot'>
+    getTrackEditState: (
+      trackId: Req<'metadata:get-track-edit-state'>['trackId'],
+    ) => Result<'metadata:get-track-edit-state'>
+    updateTrackMetadata: (
+      metadata: Req<'metadata:update-track-metadata'>,
+    ) => Result<'metadata:update-track-metadata'>
+    onRefreshProgress: (
+      callback: (progress: IpcEventPayload<'metadata:refresh-progress'>) => void,
+    ) => () => void
+    onTrackEditStateChanged: (
+      callback: (event: IpcEventPayload<'metadata:track-edit-state-changed'>) => void,
+    ) => () => void
+  }
+  window: {
+    getCloseBehavior: () => Result<'window:get-close-behavior'>
+    setCloseBehavior: (
+      behavior: Req<'window:set-close-behavior'>['behavior'],
+    ) => Result<'window:set-close-behavior'>
+    control: (action: Req<'window:control'>['action']) => Result<'window:control'>
+    getMaximized: () => Result<'window:get-maximized'>
+    getVisibility: () => Result<'window:get-visibility'>
+    onVisibilityChanged: (
+      callback: (state: IpcEventPayload<'window:visibility-changed'>) => void,
+    ) => () => void
+    onMaximizedChanged: (
+      callback: (state: IpcEventPayload<'window:maximized-changed'>) => void,
+    ) => () => void
+  }
+}
+
+export type RendererApi = AuralisApi

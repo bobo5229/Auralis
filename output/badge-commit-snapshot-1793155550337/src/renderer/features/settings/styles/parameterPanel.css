@@ -1,0 +1,182 @@
+.song-font-weight-reset-notice {
+  color: var(--auralis-danger);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.song-font-weight-reset-notice-enter-active {
+  transition:
+    opacity 220ms ease-out,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.song-font-weight-reset-notice-leave-active {
+  transition: opacity 140ms ease-in;
+}
+
+.song-font-weight-reset-notice-enter-from {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.song-font-weight-reset-notice-leave-to {
+  opacity: 0;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-active,
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-leave-active {
+  transition: opacity 120ms ease;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-from {
+  transform: none;
+}
+
+.song-font-weight-status {
+  margin: 0;
+  padding: 4px 16px 0;
+  color: var(--auralis-text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.song-font-weight-status.is-warning {
+  color: var(--auralis-text);
+}
+
+/* Keep parameter section and column labels on the existing compact 11px scale. */
+.song-parameters-heading,
+.song-font-column-labels {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.song-parameters-heading {
+  margin: 8px 0 0;
+  padding: 12px 16px 4px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  color: var(--auralis-text-muted);
+  font-weight: 500;
+}
+
+.page-parameter-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.page-parameter-sidebar {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 16px;
+}
+
+.page-parameter-module,
+.song-font-column {
+  min-width: 0;
+}
+
+.song-font-weight-content {
+  container: page-parameters / inline-size;
+  min-width: 0;
+}
+
+.song-font-options {
+  container: parameter-fonts / inline-size;
+}
+
+.song-font-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.song-font-column + .song-font-column .song-font-column-labels {
+  display: none;
+}
+
+.song-font-column + .song-font-column {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+@container page-parameters (min-width: 656px) {
+  .page-parameter-sections:not(.page-parameter-sections--typography-only) {
+    grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr);
+  }
+}
+
+@container parameter-fonts (min-width: 656px) {
+  .song-font-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .song-font-column + .song-font-column {
+    border-top: 0;
+  }
+
+  .song-font-column + .song-font-column .song-font-column-labels {
+    display: grid;
+  }
+}
+
+.song-cover-radius-reveal {
+  overflow: hidden;
+  max-height: 80px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.song-cover-radius-reveal-enter-active,
+.song-cover-radius-reveal-leave-active {
+  transition:
+    max-height 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+}
+
+.song-cover-radius-reveal-enter-from,
+.song-cover-radius-reveal-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-enter-active,
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-leave-active {
+  transition: opacity 120ms ease;
+}
+
+.song-font-weight-rows {
+  margin-top: 0;
+}
+
+.song-font-controls,
+.song-font-column-labels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 148px));
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-row.song-font-weight-row > .song-font-controls {
+  margin-left: auto;
+  gap: 12px;
+}
+.song-font-column-labels {
+  justify-content: end;
+  padding: 0 16px 4px;
+  color: var(--auralis-text-muted);
+}
+
+.song-font-weight-row {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  cursor: default;
+}
+
+.song-font-weight-status.song-font-weight-reset-notice {
+  color: var(--auralis-danger);
+}

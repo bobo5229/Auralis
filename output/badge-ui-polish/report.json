@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "profile": "D:\\VSCode\\Auralis\\output\\badge-ui-polish\\profile-ws7MfD",
+  "checks": [
+    {
+      "name": "box controls initially visible",
+      "pass": true
+    },
+    {
+      "name": "unearned badge has zoom-in cursor",
+      "pass": true
+    },
+    {
+      "name": "unearned hover lifts without changing achievement material",
+      "pass": true
+    },
+    {
+      "name": "keyboard focus receives the same unearned pickup feedback",
+      "pass": true
+    },
+    {
+      "name": "background controls hidden during entry",
+      "pass": true
+    },
+    {
+      "name": "background is inert while controls fade",
+      "pass": true
+    },
+    {
+      "name": "front navigation waits for entry to finish",
+      "pass": true
+    },
+    {
+      "name": "front navigation retains 52px size and bright background",
+      "pass": true
+    },
+    {
+      "name": "front controls available while background hidden",
+      "pass": true
+    },
+    {
+      "name": "background remains hidden throughout direct switch",
+      "pass": true
+    },
+    {
+      "name": "background stays hidden until return completes",
+      "pass": true
+    },
+    {
+      "name": "controls and interactivity restore after return",
+      "pass": true
+    },
+    {
+      "name": "pressed state cleared after return",
+      "pass": true
+    },
+    {
+      "name": "small light view hides rear controls",
+      "pass": true
+    },
+    {
+      "name": "small window caption remains inside viewport",
+      "pass": true
+    },
+    {
+      "name": "small view restores available scrolling arrow",
+      "pass": true
+    },
+    {
+      "name": "reduced motion retains static feedback without hover displacement",
+      "pass": true
+    },
+    {
+      "name": "reduced motion hides controls without transition",
+      "pass": true
+    },
+    {
+      "name": "reduced motion restores background immediately",
+      "pass": true
+    },
+    {
+      "name": "no renderer errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

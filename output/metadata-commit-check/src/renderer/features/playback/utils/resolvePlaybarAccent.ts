@@ -1,0 +1,48 @@
+import type { RgbColor } from '../types'
+import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/colorMath'
+import { PLAYER_DEFAULT_ACCENT_DARK, PLAYER_DEFAULT_ACCENT_LIGHT } from './playerColorDefaults'
+
+// Conservative upper bound for the dark surface, including tint and control highlights.
+// Keep in sync with the scoped PlayerBar material rules in main.css.
+export const PLAYBAR_DARK_SURFACE_BOUND: RgbColor = { r: 96, g: 96, b: 96 }
+export const PLAYBAR_LIGHT_SURFACE_BOUND: RgbColor = { r: 247, g: 247, b: 244 }
+export const PLAYBAR_SURFACE_BOUND = PLAYBAR_DARK_SURFACE_BOUND
+
+/** Functional graphics need 3:1 contrast; text uses stable neutral tokens instead. */
+export function resolvePlaybarAccent(color?: RgbColor | null, isDark = true): RgbColor {
+  const fallback = isDark ? PLAYER_DEFAULT_ACCENT_DARK : PLAYER_DEFAULT_ACCENT_LIGHT
+  if (!color || !Object.values(color).every(Number.isFinite)) return { ...fallback }
+  const source = {
+    r: Math.round(Math.max(0, Math.min(255, color.r))),
+    g: Math.round(Math.max(0, Math.min(255, color.g))),
+    b: Math.round(Math.max(0, Math.min(255, color.b))),
+  }
+
+  if (isDark) {
+    const minimumLuminance = (getRelativeLuminance(PLAYBAR_DARK_SURFACE_BOUND) + 0.05) * 3 - 0.05
+    // Mix towards white, keeping the source hue while lifting dark/saturated artwork colors.
+    for (let step = 0; step <= 100; step++) {
+      const amount = step / 100
+      const candidate = {
+        r: Math.round(source.r + (255 - source.r) * amount),
+        g: Math.round(source.g + (255 - source.g) * amount),
+        b: Math.round(source.b + (255 - source.b) * amount),
+      }
+      if (getRelativeLuminance(candidate) >= minimumLuminance) return candidate
+    }
+  } else {
+    // Darken/mix towards deep shade to maintain at least 3:1 contrast against light surface.
+    for (let step = 0; step <= 100; step++) {
+      const amount = step / 100
+      const candidate = {
+        r: Math.round(source.r * (1 - amount)),
+        g: Math.round(source.g * (1 - amount)),
+        b: Math.round(source.b * (1 - amount)),
+      }
+      const contrast = getContrastRatio(PLAYBAR_LIGHT_SURFACE_BOUND, candidate)
+      if (contrast >= 3) return candidate
+    }
+  }
+
+  return { ...fallback }
+}

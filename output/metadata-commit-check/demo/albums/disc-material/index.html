@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'"
+    />
+    <title>Auralis · 唱片材质对照</title>
+  </head>
+  <body class="cd-page" data-theme="light" data-sample="artwork">
+    <main>
+      <header>
+        <div class="eyebrow">AURALIS <span>材质实验 / 01</span></div>
+        <div class="heading-row">
+          <div>
+            <h1>唱片室 · 盘面材质</h1>
+            <p class="intro">同一张唱片，两种光的表达。移入任意盘面，让两侧一起倾斜。</p>
+          </div>
+          <button id="theme" type="button" aria-pressed="false">深色背景</button>
+        </div>
+      </header>
+
+      <section class="comparison" aria-label="盘面材质左右对照">
+        <article class="specimen" data-renderer="css">
+          <div class="specimen-title">
+            <span class="index">A</span>
+            <h2>当前效果</h2>
+            <span class="tech">CSS</span>
+          </div>
+          <div class="cd-stage" aria-label="当前盘面，指针移动可同步倾斜">
+            <div class="disc-size">
+              <div class="cast-shadow"></div>
+              <div class="cd-position" data-selected="true">
+                <div class="cd-hover">
+                  <div class="cd-disc">
+                    <div class="cd-art"><img alt="示例专辑封面" /></div>
+                    <div class="cd-hub"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="caption">
+            <strong>固定渐变反光</strong><span>沿用当前唱片室的反光与沟槽样式。</span>
+          </p>
+        </article>
+        <article class="specimen" data-renderer="glsl">
+          <div class="specimen-title">
+            <span class="index">B</span>
+            <h2>材质原型</h2>
+            <span class="tech">GLSL</span>
+          </div>
+          <div class="cd-stage" aria-label="GLSL 盘面，指针移动可同步倾斜">
+            <div class="disc-size">
+              <div class="cast-shadow"></div>
+              <div class="cd-position" data-selected="true">
+                <div class="cd-hover">
+                  <div class="cd-disc">
+                    <div class="cd-art"><img alt="同一张示例专辑封面" /></div>
+                    <canvas class="material" aria-hidden="true"></canvas>
+                    <div class="cd-hub"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="caption">
+            <strong>随倾斜变化的反光</strong><span>细密沟槽、方向性高光与柔和的表面光泽。</span>
+          </p>
+        </article>
+      </section>
+
+      <section class="controls" aria-label="对照控制">
+        <div class="control-row">
+          <div class="segmented" aria-label="盘面类型">
+            <button type="button" data-surface="vinyl" aria-pressed="true">黑胶纹理</button
+            ><button type="button" data-surface="cd" aria-pressed="false">光滑盘面</button>
+          </div>
+          <div class="segmented" aria-label="样片内容">
+            <button type="button" data-sample="artwork" aria-pressed="true">专辑封面</button
+            ><button type="button" data-sample="plain" aria-pressed="false">素色样片</button>
+          </div>
+          <div class="motion-controls">
+            <button id="spin" type="button" aria-pressed="true">暂停旋转</button
+            ><button id="auto-tilt" type="button" aria-pressed="true">停止自动倾斜</button
+            ><button id="front" type="button">回到正面</button>
+          </div>
+        </div>
+        <div class="adjustments">
+          <span class="control-label">右侧材质</span>
+          <label for="gloss"
+            >光泽 <input id="gloss" type="range" min="0" max="1.5" step="0.05" value="0.8" /><output
+              id="gloss-value"
+              for="gloss"
+              >0.80</output
+            ></label
+          >
+          <label for="grooves"
+            >沟槽
+            <input id="grooves" type="range" min="0" max="1.5" step="0.05" value="0.8" /><output
+              id="grooves-value"
+              for="grooves"
+              >0.80</output
+            ></label
+          >
+          <label class="reduce-label"><input id="reduce" type="checkbox" /> 减弱动效</label>
+        </div>
+      </section>
+      <footer>
+        <p>封面、盘心、边缘与倾斜同步；只比较反光和沟槽。旋转为视觉预览。</p>
+        <p id="status" role="status">正在准备盘面…</p>
+      </footer>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,226 @@
+# Dependencies
+node_modules/
+jspm_packages/
+bower_components
+web_modules/
+
+# Build output
+dist
+out
+release/
+release-gapless-v2/
+build/
+
+# Resource sources are tracked; audio executables are staged locally.
+resources/audio/*.exe
+
+# Electron native modules cache
+.npm-cache/
+.electron-gyp/
+.electron-home/
+
+# App data (local database, cache)
+/data/
+/AppData/
+
+# Logs and diagnostics
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Test and coverage output
+coverage
+*.lcov
+.nyc_output
+.eslintcache
+.stylelintcache
+
+# Tool caches and intermediate files
+/output/**/browser-profile/
+/output/**/isolated-profile/
+/output/**/profile/
+/output/**/*-profile/
+/output/**/*-profile-*/
+/output/**/dist-*/
+/output/**/renderer-build/
+# Diagnostics captured from the real local music collection stay local.
+/output/metadata-real-path-probe-20261011/
+.grunt
+.lock-wscript
+lib-cov
+.npm
+.cache
+.parcel-cache
+.next
+.nuxt
+.output
+.vuepress/dist
+.temp
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.docusaurus
+.serverless/
+.fusebox/
+.dynamodb/
+.firebase/
+.tern-port
+.node_repl_history
+.vscode-test
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Package-manager files and caches
+*.tgz
+.yarn-integrity
+.pnpm-store
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+*.local
+
+# Isolated git worktrees and local agent tooling
+.worktrees/
+.claude/
+.agents/
+.agentboard/
+.mimocode/
+.zcode/
+.reasonix/
+reasonix.toml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Downloaded source archives
+genryu-font-master.zip
+
+# Documentation: preserve local-only research; expose navigation and existing deliverables
+docs/*
+!docs/README.md
+!docs/CATALOG.md
+!docs/DESIGN-BASELINE.html
+!docs/rules/
+!docs/rules/**
+!docs/lessons/
+!docs/lessons/**
+!docs/ARCHITECTURE.md
+!docs/projects/
+docs/projects/*
+!docs/projects/README.md
+!docs/projects/library-manuscript-skin-mvp/
+!docs/projects/library-manuscript-skin-mvp/**
+!docs/projects/library-page-orchestration/
+!docs/projects/library-page-orchestration/**
+!docs/history/
+docs/history/*
+!docs/history/README.md
+!docs/topics/
+docs/topics/*
+!docs/topics/archive/
+docs/topics/archive/*
+!docs/topics/archive/REFERENCE-retrofuturism-design.md
+!docs/topics/archive/WORKFLOW-enamel-badge-glsl.md
+!docs/topics/albums/
+docs/topics/albums/*
+!docs/topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md
+!docs/topics/albums/TECHDOC-cd-room-semantic-typography-2026-10-04.md
+!docs/topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md
+!docs/topics/albums/PRD-cd-album-cover-index-2026-09-25.md
+!docs/topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md
+!docs/topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md
+!docs/topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md
+!docs/topics/README.md
+!docs/topics/library/
+docs/topics/library/*
+!docs/topics/library/TECHDOC-deleted-track-cleanup-2026-10-04.md
+!docs/topics/library/TECHDOC-track-path-relocation-2026-10-04.md
+!docs/topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md
+!docs/topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md
+!docs/topics/library/TECHDOC-music-source-path-priority-2026-09-28.md
+!docs/topics/metadata/
+docs/topics/metadata/*
+!docs/topics/metadata/REPORT-genre-upper-classification-2026-10-04.md
+!docs/topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md
+!docs/topics/metadata/TECHDOC-metadata-system-optimization-2026-10-28.md
+!docs/topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md
+!docs/topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md
+!docs/topics/shell/
+docs/topics/shell/*
+!docs/topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md
+!docs/topics/shell/light-theme-color-presets.md
+!docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
+!docs/topics/shell/TECHDOC-semantic-font-system-2026-09-29.md
+!docs/topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md
+!docs/topics/shell/IMPLEMENTATION-light-dark-theme-accent-2026-10-04.md
+!docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
+!docs/topics/playback/
+docs/topics/playback/*
+!docs/topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md
+!docs/topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md
+!docs/topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md
+!docs/topics/playback/PRD-playerbar-matte-depth-2026-08-29.md
+!docs/topics/playback/TECHDOC-playerbar-matte-depth-2026-08-29.md
+!docs/topics/playback/TECHDOC-playerbar-modern-play-button-2026-08-28.md
+!docs/topics/playback/TECHDOC-playerbar-radius-2026-08-29.md
+!docs/topics/playback/TECHDOC-playerbar-liquid-glass-visual-fidelity-2026-09-05.md
+!docs/topics/playback/TECHDOC-use-playback-architecture-split-2026-08-30.md
+!docs/topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md
+!docs/topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md
+!docs/topics/playback/TECHDOC-player-bar-overlay-controller-2026-08-30.md
+!docs/reviews/
+docs/reviews/*
+!docs/reviews/README.md
+!docs/reviews/2026-10-04-open-source-reuse-audit.md
+!docs/reviews/2026-10-23-complexity-refactor-backlog.md
+!docs/reviews/2026-10-06-confirmed-redundancy-cleanup.md
+!docs/reviews/2026-10-06-redundancy-second-pass.md
+!docs/reviews/2026-07-17-architecture-review-fixes.md
+!docs/reviews/2026-09-28-electron-startup-acl-crash.md
+!docs/handoffs/
+docs/handoffs/*
+!docs/handoffs/README.md
+!docs/handoffs/HANDOFF-remaining-work-2026-08-28.md
+
+# Performance traces
+artifacts/
+
+# Issues
+issues/
+
+# Local audit / review handbooks (most findings under docs/reviews remain local)
+*作战手册.md
+
+# Keep future Codex attachments local; existing tracked files remain tracked.
+/.codex-remote-attachments/
+
+# Release media session
+release-media-session/
+
+# Local-only UI prototypes / design exploration
+demo/local/
+demo/turntable/
+
+# TypeScript and project-specific caches
+*.tsbuildinfo

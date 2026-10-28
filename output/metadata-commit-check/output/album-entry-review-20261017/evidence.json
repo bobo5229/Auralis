@@ -1,0 +1,111 @@
+{
+  "checks": [
+    {
+      "name": "two sibling links in expanded",
+      "pass": true
+    },
+    {
+      "name": "CD shortcut route",
+      "pass": true
+    },
+    {
+      "name": "album label route",
+      "pass": true
+    },
+    {
+      "name": "rail hides CD shortcut",
+      "pass": true
+    },
+    {
+      "name": "ContextMenu opens and focuses item",
+      "pass": true
+    },
+    {
+      "name": "Escape closes and restores focus",
+      "pass": true
+    },
+    {
+      "name": "Shift F10 opens",
+      "pass": true
+    },
+    {
+      "name": "outside closes and restores focus",
+      "pass": true
+    },
+    {
+      "name": "right click opens",
+      "pass": true
+    },
+    {
+      "name": "menu action routes and closes",
+      "pass": true
+    },
+    {
+      "name": "route closes menu",
+      "pass": true
+    },
+    {
+      "name": "mode closes menu",
+      "pass": true
+    },
+    {
+      "name": "blocked closes menu",
+      "pass": true
+    },
+    {
+      "name": "blocked prevents menu",
+      "pass": true
+    },
+    {
+      "name": "blur closes menu",
+      "pass": true
+    },
+    {
+      "name": "resize closes menu",
+      "pass": true
+    },
+    {
+      "name": "shortcut fits album row",
+      "pass": true,
+      "detail": {
+        "album": {
+          "x": 10,
+          "y": 71.1875,
+          "width": 239.33334350585938,
+          "height": 38.38541793823242,
+          "top": 71.1875,
+          "right": 249.33334350585938,
+          "bottom": 109.57291793823242,
+          "left": 10
+        },
+        "shortcut": {
+          "x": 213.33334350585938,
+          "y": 76.375,
+          "width": 28,
+          "height": 28,
+          "top": 76.375,
+          "right": 241.33334350585938,
+          "bottom": 104.375,
+          "left": 213.33334350585938
+        }
+      }
+    }
+  ],
+  "events": [
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false
+  ],
+  "devicePixelRatio": 1.5
+}

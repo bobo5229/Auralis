@@ -1,0 +1,16 @@
+
+.playing-indicator[data-v-f088d23d] {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  fill: currentColor;
+  pointer-events: none;
+}
+.playing-indicator rect[data-v-f088d23d] {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.playing-indicator[data-preset='blocks-wave'] rect[data-v-f088d23d] {
+  transform-origin: center;
+}

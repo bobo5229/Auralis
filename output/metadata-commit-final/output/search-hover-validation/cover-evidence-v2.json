@@ -1,0 +1,10 @@
+[
+  {
+    "width": 940,
+    "checks": "native pointer: cover search show/hide, no content shift"
+  },
+  {
+    "width": 1440,
+    "checks": "native pointer: cover search show/hide, no content shift"
+  }
+]

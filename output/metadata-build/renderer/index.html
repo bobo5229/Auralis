@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: auralis-artwork:; media-src 'self' auralis-audio:; connect-src 'self' auralis-audio: auralis-artwork:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auralis</title>
+    <link rel="stylesheet" href="./splash/splash.css" />
+    <script src="./splash/theme-boot.js"></script>
+    <script type="module" crossorigin src="./assets/index-Dt5IIbwy.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B21aSa0c.css">
+  </head>
+  <body>
+    <!-- 开屏退场前主界面保持 inert；控制器退场后解除并交还焦点。 -->
+    <div id="app" inert tabindex="-1"></div>
+    <!-- 开屏独立于 Vue：声波展开、两侧汇合，最终回到共鸣 A 的标准构形。 -->
+    <div id="splash" role="img" aria-label="Auralis">
+      <div id="splash-figure" aria-hidden="true">
+        <svg
+          id="splash-mark"
+          viewBox="0 0 64 64"
+          xmlns="http://www.w3.org/2000/svg"
+          focusable="false"
+        >
+          <path
+            id="splash-contour-path"
+            class="splash-brand-stroke"
+            d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52"
+          />
+          <path
+            id="splash-resonance-path"
+            class="splash-brand-stroke"
+            d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38"
+          />
+          <path
+            id="splash-left-leg"
+            class="splash-brand-stroke splash-forming-leg"
+            d="M10 52 27.3 13C28.2 10.95 30.1 9.925 32 9.925"
+          />
+          <path
+            id="splash-right-leg"
+            class="splash-brand-stroke splash-forming-leg"
+            d="M54 52 36.7 13C35.8 10.95 33.9 9.925 32 9.925"
+          />
+        </svg>
+        <span id="splash-brand"
+          ><span class="splash-brand-char">A</span><span class="splash-brand-char">u</span
+          ><span class="splash-brand-char">r</span><span class="splash-brand-char">a</span
+          ><span class="splash-brand-char">l</span><span class="splash-brand-char">i</span
+          ><span class="splash-brand-char">s</span></span
+        >
+      </div>
+    </div>
+  </body>
+</html>

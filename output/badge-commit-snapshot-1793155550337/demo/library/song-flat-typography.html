@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 歌曲平铺字号对比</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/typography.css" />
+    <link rel="stylesheet" href="../../src/renderer/app/styles/harmony-fonts.css" />
+    <style>
+      @font-face {
+        font-family: 'Plus Jakarta Sans';
+        src: url('../../src/renderer/assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+          format('woff2');
+        font-weight: 200 800;
+        font-display: swap;
+      }
+      :root {
+        color-scheme: dark;
+        --bg: #121212;
+        --text: #f3eee6;
+        --muted: #afb4bc;
+        --subtle: #9299a3;
+        --border: rgba(225, 221, 214, 0.08);
+        --alt: rgba(225, 221, 214, 0.035);
+        --hover: rgba(255, 255, 255, 0.06);
+        --accent: #bdc5cf;
+        --active: #272b30;
+        --panel-width: 1000px;
+      }
+      [data-theme='light'] {
+        color-scheme: light;
+        --bg: #f0f1f2;
+        --text: #292b2d;
+        --muted: #60656a;
+        --subtle: #64696e;
+        --border: rgba(41, 43, 45, 0.08);
+        --alt: rgba(41, 43, 45, 0.025);
+        --hover: rgba(41, 43, 45, 0.05);
+        --accent: #585b5f;
+        --active: #dfe2e5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--auralis-font-ui);
+      }
+      ::selection {
+        background: var(--active);
+        color: var(--text);
+      }
+      main {
+        padding: 32px;
+        max-width: 1800px;
+        margin: auto;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 22px;
+        color: var(--muted);
+      }
+      .controls {
+        display: flex;
+        gap: 16px 24px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 24px 0;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        line-height: 20px;
+      }
+      select,
+      button {
+        font: inherit;
+        font-size: 14px;
+        min-height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 10px;
+        color: var(--text);
+        background: var(--bg);
+        cursor: pointer;
+      }
+      button:hover,
+      select:hover {
+        background: var(--hover);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      input {
+        accent-color: var(--accent);
+      }
+      output {
+        width: 62px;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+      }
+      .comparison {
+        overflow: auto;
+        padding: 0 0 16px;
+        scrollbar-color: var(--muted) var(--bg);
+      }
+      .panels {
+        display: grid;
+        grid-template-columns: var(--panel-width);
+        gap: 28px;
+        width: max-content;
+      }
+      [data-view='side'] .panels {
+        grid-template-columns: repeat(2, var(--panel-width));
+      }
+      [data-view='current'] .proposed,
+      [data-view='proposed'] .current {
+        display: none;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        line-height: 26px;
+        font-weight: 600;
+      }
+      .spec {
+        font-size: 12px;
+        line-height: 18px;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+      .list {
+        border-top: 1px solid var(--border);
+      }
+      /* Reproduce SongRow/Uno geometry; only the proposed type changes. */
+      .row {
+        height: 44px;
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) 300px minmax(0, 1fr) 56px;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
+      }
+      .row:nth-child(even) {
+        background: var(--alt);
+      }
+      .row:hover {
+        background: var(--hover);
+      }
+      .row.playing,
+      .row.selected {
+        background: var(--active);
+      }
+      .row.playing .title {
+        color: var(--accent);
+      }
+      .cover {
+        width: 44px;
+        height: 44px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        background: var(--border);
+        color: var(--subtle);
+      }
+      .cover svg {
+        width: 14px;
+        height: 14px;
+      }
+      .cell {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .title {
+        padding-left: 6px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 700;
+      }
+      .artist {
+        padding-left: 8px;
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .album {
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
+        color: var(--subtle);
+        text-align: right;
+      }
+      .duration,
+      .count {
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 400;
+        color: var(--subtle);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .count {
+        display: none;
+      }
+      [data-count='true'] .row {
+        grid-template-columns: 44px minmax(0, 1.5fr) minmax(0, 0.85fr) minmax(0, 1fr) 80px 56px;
+      }
+      [data-count='true'] .count {
+        display: block;
+      }
+      .proposed .title {
+        font-size: var(--auralis-type-body-size);
+        line-height: var(--auralis-type-body-line-height);
+      }
+      .proposed .artist,
+      .proposed .album {
+        font-size: var(--auralis-type-control-size);
+        line-height: var(--auralis-type-control-line-height);
+      }
+      .proposed .duration {
+        font-size: var(--auralis-type-caption-size);
+        line-height: var(--auralis-type-caption-line-height);
+      }
+      [data-weight='true'] .proposed .title {
+        font-weight: 600;
+      }
+      [data-weight='true'] .proposed .artist,
+      [data-weight='true'] .proposed .album {
+        font-weight: 400;
+      }
+      footer {
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 12px;
+      }
+      @media (max-width: 640px) {
+        main {
+          padding: 20px 16px;
+        }
+        .controls {
+          gap: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body data-view="stack" data-count="false" data-weight="true">
+    <main>
+      <h1>歌曲平铺视图 · 字号对比</h1>
+      <p>
+        同一份示例数据，同样的列宽与 44px 行高。点击曲目可对照选中状态；长文本悬停可查看完整内容。
+      </p>
+      <div class="controls">
+        <label
+          >查看方式
+          <select id="view">
+            <option value="stack">上下对照</option>
+            <option value="side">左右对照</option>
+            <option value="current">当前方案</option>
+            <option value="proposed">建议方案</option>
+          </select></label
+        >
+        <label
+          >主题
+          <select id="theme">
+            <option value="dark">深色</option>
+            <option value="light">浅色</option>
+          </select></label
+        >
+        <label
+          >列表宽度
+          <input id="width" type="range" min="720" max="1280" step="20" value="1000" /><output
+            id="widthValue"
+            for="width"
+            >1000px</output
+          ></label
+        >
+        <label><input id="weight" type="checkbox" checked />应用建议字重</label>
+        <label><input id="count" type="checkbox" />最多播放：显示次数</label>
+      </div>
+      <div class="comparison" tabindex="0" aria-label="字号对比区域，可横向滚动">
+        <div class="panels">
+          <section class="current" aria-labelledby="currentHeading">
+            <h2 id="currentHeading">当前方案</h2>
+            <p class="spec">
+              标题 14/20 · 艺术家 12/16 · 专辑 12/16 · 时长 14/20 · 次数 14/20；字重 700 / 600 / 600
+              / 400
+            </p>
+            <div class="list" id="currentList"></div>
+          </section>
+          <section class="proposed" aria-labelledby="proposedHeading">
+            <h2 id="proposedHeading">建议方案</h2>
+            <p class="spec" id="proposedSpec"></p>
+            <div class="list" id="proposedList"></div>
+          </section>
+        </div>
+      </div>
+      <footer>
+        <p>
+          规格标注为「字号 / 行高」，单位
+          px。封面使用统一占位图标，曲目与播放次数为演示数据。建议方案保留最多播放视图的 14px 次数。
+        </p>
+      </footer>
+    </main>
+    <script>
+      const tracks = [
+        ['晴天', '周杰伦', '叶惠美', '4:29', 1286],
+        ['Mystery of Love', 'Sufjan Stevens', 'Call Me by Your Name', '4:08', 962],
+        ['悬溺', '葛东琪', '第二街区', '3:17', 875],
+        ['Everything in Its Right Place', 'Radiohead', 'Kid A', '4:11', 762],
+        ['像风一样', '薛之谦', '渡', '4:15', 641],
+        [
+          'The Only Living Boy in New York',
+          'Simon & Garfunkel',
+          'Bridge Over Troubled Water',
+          '3:58',
+          524,
+        ],
+        [
+          '起风了（现场录音特别版）',
+          '示例艺术家 / 合作演唱者',
+          '漫长的告别：演出实录与未发行作品精选',
+          '5:23',
+          438,
+        ],
+        ['夜曲', '周杰伦', '十一月的萧邦', '3:46', 326],
+        [
+          'Bach: Goldberg Variations, BWV 988 — Aria',
+          'Glenn Gould',
+          'The Goldberg Variations (1981 Recording)',
+          '3:05',
+          218,
+        ],
+        ['未命名曲目', '未知艺术家', '', '0:00', 0],
+        ['海阔天空', 'Beyond', '乐与怒', '5:24', 156],
+        [
+          'A Moon Shaped Pool — A Very Long Demo Title',
+          '示例乐队 / Guest Artist',
+          '示例专辑：重制版与额外曲目',
+          '12:06',
+          93,
+        ],
+      ]
+      const icon =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
+      for (const listId of ['currentList', 'proposedList']) {
+        const list = document.getElementById(listId)
+        tracks.forEach((track, index) => {
+          const row = document.createElement('div')
+          row.className = 'row' + (index === 1 ? ' playing' : '')
+          row.dataset.index = index
+          row.setAttribute('role', 'button')
+          row.setAttribute('tabindex', '0')
+          row.setAttribute('aria-pressed', 'false')
+          if (index === 1) row.setAttribute('aria-current', 'true')
+          const cover = document.createElement('div')
+          cover.className = 'cover'
+          cover.innerHTML = icon
+          row.append(cover)
+          for (const [name, value] of [
+            ['title', track[0]],
+            ['artist', track[1]],
+            ['album', track[2]],
+            ['count', track[4].toLocaleString('zh-CN') + ' 次'],
+            ['duration', track[3]],
+          ]) {
+            const cell = document.createElement('div')
+            cell.className = 'cell ' + name
+            cell.textContent = value
+            cell.title = value
+            row.append(cell)
+          }
+          const select = () => {
+            for (const item of document.querySelectorAll('.row')) {
+              const selected = item.dataset.index === String(index)
+              item.classList.toggle('selected', selected)
+              item.setAttribute('aria-pressed', String(selected))
+            }
+          }
+          row.addEventListener('click', select)
+          row.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              select()
+            }
+          })
+          list.append(row)
+        })
+      }
+      document.getElementById('view').addEventListener('change', (event) => {
+        document.body.dataset.view = event.target.value
+      })
+      document.getElementById('theme').addEventListener('change', (event) => {
+        document.documentElement.dataset.theme = event.target.value
+      })
+      document.getElementById('width').addEventListener('input', (event) => {
+        const width = event.target.value + 'px'
+        document.documentElement.style.setProperty('--panel-width', width)
+        document.getElementById('widthValue').textContent = width
+      })
+      document.getElementById('count').addEventListener('change', (event) => {
+        document.body.dataset.count = String(event.target.checked)
+      })
+      function setWeight() {
+        const enabled = document.getElementById('weight').checked
+        document.body.dataset.weight = String(enabled)
+        document.getElementById('proposedSpec').textContent =
+          '标题 16/24 · 艺术家 14/20 · 专辑 14/20 · 时长 12/18 · 次数 14/20；字重 ' +
+          (enabled ? '600 / 400 / 400 / 400' : '700 / 600 / 600 / 400（与当前相同）')
+      }
+      document.getElementById('weight').addEventListener('change', setWeight)
+      setWeight()
+    </script>
+  </body>
+</html>

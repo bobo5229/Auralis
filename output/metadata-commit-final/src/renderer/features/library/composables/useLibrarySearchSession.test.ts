@@ -1,0 +1,892 @@
+import { nextTick } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { resolveHiddenLibrarySearchBarRect } from '../utils/librarySearchHover'
+import { useLibrarySearchSession } from './useLibrarySearchSession'
+
+function createTrack(id: number, title: string): TrackListItem {
+  return {
+    id,
+    title,
+    artist: null,
+    album: null,
+    albumArtist: null,
+    trackNo: null,
+    discNo: null,
+    releaseDate: null,
+    copyright: null,
+    composer: null,
+    bitrateBps: null,
+    durationSeconds: null,
+    artworkCacheKey: null,
+    genre: null,
+    availability: 'available',
+    playCount: 0,
+    lastPlayedAt: null,
+    createdAt: '2026-08-28T00:00:00.000Z',
+  }
+}
+
+function createKeydown(key: string): KeyboardEvent {
+  return {
+    key,
+    preventDefault: vi.fn(),
+  } as unknown as KeyboardEvent
+}
+
+function createSession(overrides?: {
+  disposed?: boolean
+  isLibrarySurface?: () => boolean
+  scrollToTrackIndex?: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
+}) {
+  let disposed = overrides?.disposed ?? false
+  const scrollToTrackIndex = overrides?.scrollToTrackIndex ?? vi.fn(async () => undefined)
+  const session = useLibrarySearchSession({
+    isDisposed: () => disposed,
+    isLibrarySurface: overrides?.isLibrarySurface ?? (() => true),
+    isInteractiveTarget: () => false,
+    scrollToTrackIndex,
+  })
+  session.searchZoneRef.value = {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800 }),
+  } as unknown as HTMLElement
+
+  return {
+    session,
+    scrollToTrackIndex,
+    dispose: () => {
+      disposed = true
+      session.invalidate()
+    },
+  }
+}
+
+const tracks = [createTrack(1, 'Alpha'), createTrack(2, 'Beta'), createTrack(3, 'Alpine')]
+
+describe('library page Escape', () => {
+  class TestElement {
+    isContentEditable = false
+    constructor(public tagName = 'div') {}
+    matches(selector: string): boolean {
+      return selector.split(', ').includes(this.tagName)
+    }
+  }
+  const querySelector = vi.fn(() => null as unknown)
+  beforeEach(() => {
+    querySelector.mockReset().mockReturnValue(null)
+    vi.stubGlobal('Node', TestElement)
+    vi.stubGlobal('HTMLElement', TestElement)
+    vi.stubGlobal('document', { querySelector })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('clears on first Escape and closes on second after clicking outside, without stealing focus or completing an old search', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    const focus = vi.fn()
+    const blur = vi.fn()
+    session.searchInputRef.value = { focus, blur } as unknown as HTMLElement
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+    session.onSearchInputFocus()
+    const pendingSearch = session.jumpToNextSearchMatch()
+    session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    const event = createKeydown('Escape')
+    session.onWindowKeyDown(event)
+    await pendingSearch
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(session.searchQuery.value).toBe('')
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    expect(session.isSearchFocused.value).toBe(false)
+    const secondEscape = createKeydown('Escape')
+    session.onWindowKeyDown(secondEscape)
+    expect(secondEscape.preventDefault).toHaveBeenCalledOnce()
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+    expect(focus).not.toHaveBeenCalled()
+    expect(blur).not.toHaveBeenCalled()
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])(
+    'does not close on a held Escape after clearing (focused=%s)',
+    (focused) => {
+      const { session } = createSession()
+      session.searchQuery.value = 'al'
+      if (focused) session.onSearchInputFocus()
+      const handleKeydown = focused ? session.onSearchKeydown : session.onWindowKeyDown
+      handleKeydown(createKeydown('Escape'))
+      const repeatedEscape = createKeydown('Escape')
+      Object.assign(repeatedEscape, { repeat: true })
+      handleKeydown(repeatedEscape)
+      expect(session.searchQuery.value).toBe('')
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+      handleKeydown(createKeydown('Escape'))
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    },
+  )
+
+  it('still yields to overlays and editors while waiting for the second Escape', () => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    session.onWindowKeyDown(createKeydown('Escape'))
+    querySelector.mockReturnValue({})
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    querySelector.mockReturnValue(null)
+    const editorEscape = createKeydown('Escape')
+    Object.assign(editorEscape, { target: new TestElement('input') })
+    session.onWindowKeyDown(editorEscape)
+    expect(editorEscape.preventDefault).not.toHaveBeenCalled()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it.each(['clear', 'outside-click'])('releases the retained empty search bar on %s', (action) => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    if (action === 'clear') session.clearSearch()
+    else session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it.each([
+    { defaultPrevented: true },
+    { isComposing: true },
+    { keyCode: 229 },
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { target: new TestElement('input') },
+    { target: new TestElement('textarea') },
+    { target: new TestElement('select') },
+    { target: Object.assign(new TestElement(), { isContentEditable: true }) },
+  ])('preserves unfocused search when another interaction owns Escape: %j', (flags) => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    const event = createKeydown('Escape')
+    Object.assign(event, flags)
+    session.onWindowKeyDown(event)
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(session.searchQuery.value).toBe('al')
+  })
+
+  it('yields to overlays and does nothing after disposal or leaving the library surface', () => {
+    const { session, dispose } = createSession()
+    session.searchQuery.value = 'al'
+    querySelector.mockReturnValue({})
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.searchQuery.value).toBe('al')
+    querySelector.mockReturnValue(null)
+    dispose()
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.searchQuery.value).toBe('al')
+    const other = createSession({ isLibrarySurface: () => false }).session
+    other.searchQuery.value = 'al'
+    other.onWindowKeyDown(createKeydown('Escape'))
+    expect(other.searchQuery.value).toBe('al')
+  })
+
+  it.each([false, true])(
+    'suppresses hover reopening until leaving after Escape (focused=%s)',
+    (focused) => {
+      const { session } = createSession()
+      const container = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800 }) }
+      const move = (clientX: number, clientY: number) =>
+        session.onLibraryListMouseMove({
+          currentTarget: container,
+          clientX,
+          clientY,
+        } as unknown as MouseEvent)
+      move(400, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+      if (focused) session.onSearchInputFocus()
+      const event = createKeydown('Escape')
+      if (focused) session.onSearchKeydown(event)
+      else session.onWindowKeyDown(event)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+      move(401, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+      move(50, 100)
+      move(400, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+    },
+  )
+})
+
+describe('useLibrarySearchSession', () => {
+  it('uses the actual search zone, excluding the flat header, the gap below it and song rows', () => {
+    const { session } = createSession()
+    const zone = { left: 100, top: 140, width: 500 }
+    session.searchZoneRef.value = {
+      getBoundingClientRect: () => zone,
+    } as unknown as HTMLElement
+    const move = (clientX: number, clientY: number) =>
+      session.onLibraryListMouseMove({
+        currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 100, width: 800 }) },
+        clientX,
+        clientY,
+      } as unknown as MouseEvent)
+
+    // 页面顶部的旧热区，以及搜索行下方的表头、空隙、曲目均不触发。
+    for (const y of [108, 120, 190, 216, 228, 248]) {
+      move(350, y)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    }
+    move(550, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+    move(350, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    session.searchRootRef.value = {
+      getBoundingClientRect: () => resolveHiddenLibrarySearchBarRect(zone),
+    } as unknown as HTMLElement
+    move(350, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    move(350, 228)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+
+    session.searchQuery.value = 'al'
+    move(350, 248)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    session.clearSearch()
+    session.onSearchInputFocus()
+    move(350, 248)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+  })
+
+  it('does not reveal search while the search zone is unmounted', () => {
+    const { session } = createSession()
+    session.searchZoneRef.value = null
+    session.onLibraryListMouseMove({ clientX: 400, clientY: 15 } as MouseEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it.each([
+    { isComposing: true },
+    { keyCode: 229 },
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { defaultPrevented: true },
+  ])('does not take focus for an IME, modified or handled slash: %j', async (flags) => {
+    const { session } = createSession()
+    const focus = vi.fn()
+    session.searchInputRef.value = { focus } as unknown as HTMLElement
+    const event = { key: '/', preventDefault: vi.fn(), ...flags } as unknown as KeyboardEvent
+    session.onWindowKeyDown(event)
+    await nextTick()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(focus).not.toHaveBeenCalled()
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('still opens and focuses search with an unmodified slash', async () => {
+    const { session } = createSession()
+    const focus = vi.fn()
+    session.searchInputRef.value = { focus } as unknown as HTMLElement
+    const event = createKeydown('/')
+    session.onWindowKeyDown(event)
+    await nextTick()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(focus).toHaveBeenCalledOnce()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+  })
+
+  it.each([
+    ['Enter', true, 13],
+    ['Escape', true, 27],
+    ['Enter', false, 229],
+    ['Escape', false, 229],
+  ])('leaves %s to the IME (composing=%s, keyCode=%s)', async (key, isComposing, keyCode) => {
+    const scrollToTrackIndex = vi.fn(async () => undefined)
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+    session.onSearchInputFocus()
+    await session.jumpToNextSearchMatch()
+    const outcome = { ...session.searchOutcome.value }
+    scrollToTrackIndex.mockClear()
+    const event = { key, isComposing, keyCode, preventDefault: vi.fn() } as unknown as KeyboardEvent
+
+    session.onSearchKeydown(event)
+    await nextTick()
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+    expect(session.searchQuery.value).toBe('al')
+    expect(session.searchOutcome.value).toEqual(outcome)
+    expect(session.isSearchFocused.value).toBe(true)
+  })
+
+  it.each(['', 'query'])('releases focus on leaving the search bar with query %j', (query) => {
+    const { session } = createSession()
+    session.searchQuery.value = query
+    session.onSearchInputFocus()
+
+    session.onSearchBarFocusOut({ relatedTarget: null } as FocusEvent)
+
+    expect(session.isSearchFocused.value).toBe(false)
+    expect(session.shouldRenderSearchBar.value).toBe(query !== '')
+  })
+
+  it('keeps focus when moving within the bar, then releases it on moving outside', () => {
+    const { session } = createSession()
+    class FakeNode {}
+    vi.stubGlobal('Node', FakeNode)
+    try {
+      const inside = new FakeNode()
+      const outside = new FakeNode()
+      session.searchRootRef.value = {
+        contains: (target: unknown) => target === inside,
+      } as unknown as HTMLElement
+      session.onSearchInputFocus()
+
+      session.onSearchBarFocusOut({ relatedTarget: inside } as unknown as FocusEvent)
+      expect(session.isSearchFocused.value).toBe(true)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+
+      session.onSearchBarFocusOut({ relatedTarget: outside } as unknown as FocusEvent)
+      expect(session.isSearchFocused.value).toBe(false)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('keeps an idle outcome and does not scroll for an empty query', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = '   '
+
+    await session.jumpToNextSearchMatch()
+
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+  })
+
+  it('scrolls to the next prefix match after the index is ready', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    await session.jumpToNextSearchMatch()
+
+    expect(scrollToTrackIndex).toHaveBeenCalledWith(0, expect.any(Function))
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 2,
+      wrapped: false,
+    })
+
+    await session.jumpToNextSearchMatch()
+    expect(scrollToTrackIndex).toHaveBeenCalledWith(2, expect.any(Function))
+  })
+
+  it('does not scroll when the index generation expires during the jump', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    const jump = session.jumpToNextSearchMatch()
+    session.invalidate()
+    await jump
+
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+  })
+
+  it('clears the query and outcome on Escape', () => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    session.searchOutcome.value = { kind: 'not-found' }
+
+    session.onSearchKeydown(createKeydown('Escape'))
+
+    expect(session.searchQuery.value).toBe('')
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(session.hasSearchQuery.value).toBe(false)
+  })
+
+  it('reveals the search bar only inside its centered box, then hides after leaving with no focus or query', () => {
+    const { session } = createSession()
+    const containerRect = {
+      top: 100,
+      bottom: 600,
+      left: 0,
+      right: 800,
+      width: 800,
+      height: 500,
+      x: 0,
+      y: 100,
+      toJSON: () => ({}),
+    }
+    const container = {
+      getBoundingClientRect: () => containerRect,
+    } as unknown as HTMLElement
+    session.searchZoneRef.value = container
+    const hidden = resolveHiddenLibrarySearchBarRect(containerRect)
+
+    function move(clientX: number, clientY: number): void {
+      session.onLibraryListMouseMove({
+        currentTarget: container,
+        clientX,
+        clientY,
+      } as unknown as MouseEvent)
+    }
+
+    move(50, 120)
+    expect(session.isSearchZoneHovered.value).toBe(false)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+
+    move(750, 120)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+
+    move((hidden.left + hidden.right) / 2, hidden.top + 4)
+    expect(session.isSearchZoneHovered.value).toBe(true)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    const barEl = {
+      getBoundingClientRect: () => hidden,
+    } as unknown as HTMLElement
+    session.searchRootRef.value = barEl
+
+    move(50, 120)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+
+    move(400, hidden.top + 4)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    move(400, 200)
+    expect(session.isSearchZoneHovered.value).toBe(false)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('matches the mounted search bar width on a narrow panel', () => {
+    const { session } = createSession()
+    const containerRect = {
+      top: 20,
+      bottom: 400,
+      left: 40,
+      right: 340,
+      width: 300,
+      height: 380,
+      x: 40,
+      y: 20,
+      toJSON: () => ({}),
+    }
+    const container = {
+      getBoundingClientRect: () => containerRect,
+    } as unknown as HTMLElement
+    session.searchZoneRef.value = container
+    const barRect = resolveHiddenLibrarySearchBarRect(containerRect)
+    session.searchRootRef.value = {
+      getBoundingClientRect: () => barRect,
+    } as unknown as HTMLElement
+
+    function move(clientX: number, clientY: number): void {
+      session.onLibraryListMouseMove({
+        currentTarget: container,
+        clientX,
+        clientY,
+      } as unknown as MouseEvent)
+    }
+
+    expect(barRect.right - barRect.left).toBe(252)
+    move(barRect.left, barRect.top + 8)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    move(barRect.left - 1, barRect.top + 8)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+    move(barRect.right + 1, barRect.top + 8)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('keeps search bar permanently visible when focused or having query even when mouse moves away', () => {
+    const { session } = createSession()
+    session.onSearchInputFocus()
+    expect(session.isSearchFocused.value).toBe(true)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    session.onLibraryListMouseLeave()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    // Clicking inside search bar keeps focus
+    const barEl = {
+      contains: vi.fn((target: unknown) => target === barEl),
+    } as unknown as HTMLElement
+    session.searchRootRef.value = barEl
+
+    // Clicking outside dismisses focus when query is empty
+    class FakeNode {}
+    const originalNode = globalThis.Node
+    globalThis.Node = FakeNode as unknown as typeof Node
+    try {
+      const outsideEl = new FakeNode()
+      session.onDocumentPointerDown({ target: outsideEl } as unknown as PointerEvent)
+      expect(session.isSearchFocused.value).toBe(false)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    } finally {
+      globalThis.Node = originalNode
+    }
+  })
+
+  it('preserves search bar visibility when query is non-empty even after clicking outside', () => {
+    const { session } = createSession()
+    session.searchQuery.value = 'query text'
+    expect(session.hasSearchQuery.value).toBe(true)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    class FakeNode {}
+    const originalNode = globalThis.Node
+    globalThis.Node = FakeNode as unknown as typeof Node
+    try {
+      const outsideEl = new FakeNode()
+      session.onDocumentPointerDown({ target: outsideEl } as unknown as PointerEvent)
+      // Focus lost, but query remains -> keeps visible
+      expect(session.isSearchFocused.value).toBe(false)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+    } finally {
+      globalThis.Node = originalNode
+    }
+  })
+
+  it('handles Escape key: clears query first, then dismisses focus on second Escape', () => {
+    const { session } = createSession()
+    session.searchQuery.value = 'hello'
+    session.onSearchInputFocus()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    // 1st Escape -> Clears query
+    session.onSearchKeydown(createKeydown('Escape'))
+    expect(session.searchQuery.value).toBe('')
+    expect(session.isSearchFocused.value).toBe(true)
+
+    // 2nd Escape -> Dismisses focus
+    session.onSearchKeydown(createKeydown('Escape'))
+    expect(session.isSearchFocused.value).toBe(false)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('resets outcome and cursor when query changes to another non-empty string after match', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    // First Enter -> matches Alpha (index 0)
+    await session.jumpToNextSearchMatch()
+    expect(scrollToTrackIndex).toHaveBeenCalledWith(0, expect.any(Function))
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 2,
+      wrapped: false,
+    })
+
+    // Modify to another non-empty query -> immediate reset to idle
+    session.searchQuery.value = 'bet'
+    await nextTick()
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+
+    // Second Enter -> matches Beta (index 1) using new query
+    await session.jumpToNextSearchMatch()
+    expect(scrollToTrackIndex).toHaveBeenCalledWith(1, expect.any(Function))
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 1,
+      wrapped: false,
+    })
+
+    // Consecutive Enter -> cycles properly
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 1,
+      wrapped: true,
+    })
+  })
+
+  it('resets outcome when query changes to another non-empty string after not-found', async () => {
+    const { session } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'gamma'
+
+    // Enter -> not found
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({ kind: 'not-found' })
+
+    // Modify to another non-empty query -> outcome immediately reset to idle
+    session.searchQuery.value = 'alp'
+    await nextTick()
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+
+    // Enter -> matches Alpha (first of Alpha & Alpine)
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 2,
+      wrapped: false,
+    })
+  })
+
+  it('resets outcome and cursor when query is cleared', async () => {
+    const { session } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toMatchObject({ kind: 'matched' })
+
+    // Clear input -> resets to idle
+    session.searchQuery.value = ''
+    await nextTick()
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+
+    // Enter on empty query stays idle
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+  })
+
+  it('clears stale outcome on data snapshot update, re-evaluating on next Enter and cycling', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    // First Enter -> matches Alpha (index 0)
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 2,
+      wrapped: false,
+    })
+
+    // Snapshot commit triggers resetMatchCursor() which clears outcome
+    session.resetMatchCursor()
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+
+    // New tracks where Alpha is removed, only Alpine remains
+    const updatedTracks = [createTrack(2, 'Beta'), createTrack(3, 'Alpine')]
+    session.scheduleLibrarySearchIndex(updatedTracks)
+
+    // Next Enter uses new snapshot from start
+    await session.jumpToNextSearchMatch()
+    expect(scrollToTrackIndex).toHaveBeenLastCalledWith(1, expect.any(Function)) // Alpine is at index 1 of updatedTracks
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 1,
+      wrapped: false,
+    })
+
+    // Consecutive Enter cycles properly
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 1,
+      wrapped: true,
+    })
+  })
+
+  it('invalidates pending scroll request when query changes during scroll wait', async () => {
+    let releaseScroll!: () => void
+    let notifyScrollCalled!: () => void
+    const scrollCalled = new Promise<void>((resolve) => {
+      notifyScrollCalled = resolve
+    })
+    let capturedIsCurrent: (() => boolean) | undefined
+    const scrollToTrackIndex = vi.fn((_index: number, isRequestCurrent?: () => boolean) => {
+      capturedIsCurrent = isRequestCurrent
+      notifyScrollCalled()
+      return new Promise<void>((resolve) => {
+        releaseScroll = resolve
+      })
+    })
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    const searchPromise = session.jumpToNextSearchMatch()
+    await scrollCalled
+    expect(capturedIsCurrent).toBeDefined()
+    expect(capturedIsCurrent!()).toBe(true)
+
+    // User modifies query while scroll is waiting
+    session.searchQuery.value = 'alp'
+    await nextTick()
+
+    // Old request is now invalidated
+    expect(capturedIsCurrent!()).toBe(false)
+    releaseScroll()
+    await searchPromise
+  })
+
+  it('invalidates previous scroll request when another search is initiated while waiting', async () => {
+    const capturedCheckers: Array<(() => boolean) | undefined> = []
+    const resolvers: Array<() => void> = []
+    let notifyFirstScroll!: () => void
+    const firstScrollCalled = new Promise<void>((resolve) => {
+      notifyFirstScroll = resolve
+    })
+    let notifySecondScroll!: () => void
+    const secondScrollCalled = new Promise<void>((resolve) => {
+      notifySecondScroll = resolve
+    })
+
+    let callCount = 0
+    const scrollToTrackIndex = vi.fn((_index: number, isRequestCurrent?: () => boolean) => {
+      callCount += 1
+      capturedCheckers.push(isRequestCurrent)
+      if (callCount === 1) notifyFirstScroll()
+      else if (callCount === 2) notifySecondScroll()
+      return new Promise<void>((resolve) => {
+        resolvers.push(resolve)
+      })
+    })
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    // First search
+    const firstSearch = session.jumpToNextSearchMatch()
+    await firstScrollCalled
+    expect(capturedCheckers.length).toBe(1)
+    expect(capturedCheckers[0]!()).toBe(true)
+
+    // User presses Enter again before first scroll finishes
+    const secondSearch = session.jumpToNextSearchMatch()
+    await secondScrollCalled
+    expect(capturedCheckers.length).toBe(2)
+
+    // First request is invalidated, second request is current
+    expect(capturedCheckers[0]!()).toBe(false)
+    expect(capturedCheckers[1]!()).toBe(true)
+
+    resolvers.forEach((r) => r())
+    await Promise.all([firstSearch, secondSearch])
+  })
+
+  it('invalidates pending scroll request when snapshot is committed during scroll wait', async () => {
+    let releaseScroll!: () => void
+    let notifyScrollCalled!: () => void
+    const scrollCalled = new Promise<void>((resolve) => {
+      notifyScrollCalled = resolve
+    })
+    let capturedIsCurrent: (() => boolean) | undefined
+    const scrollToTrackIndex = vi.fn((_index: number, isRequestCurrent?: () => boolean) => {
+      capturedIsCurrent = isRequestCurrent
+      notifyScrollCalled()
+      return new Promise<void>((resolve) => {
+        releaseScroll = resolve
+      })
+    })
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    const searchPromise = session.jumpToNextSearchMatch()
+    await scrollCalled
+    expect(capturedIsCurrent!()).toBe(true)
+
+    // Snapshot committed -> resetMatchCursor
+    session.resetMatchCursor()
+
+    expect(capturedIsCurrent!()).toBe(false)
+    releaseScroll()
+    await searchPromise
+  })
+
+  it('invalidates pending scroll request when search is cleared during scroll wait', async () => {
+    let releaseScroll!: () => void
+    let notifyScrollCalled!: () => void
+    const scrollCalled = new Promise<void>((resolve) => {
+      notifyScrollCalled = resolve
+    })
+    let capturedIsCurrent: (() => boolean) | undefined
+    const scrollToTrackIndex = vi.fn((_index: number, isRequestCurrent?: () => boolean) => {
+      capturedIsCurrent = isRequestCurrent
+      notifyScrollCalled()
+      return new Promise<void>((resolve) => {
+        releaseScroll = resolve
+      })
+    })
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    const searchPromise = session.jumpToNextSearchMatch()
+    await scrollCalled
+    expect(capturedIsCurrent!()).toBe(true)
+
+    session.clearSearch()
+
+    expect(capturedIsCurrent!()).toBe(false)
+    releaseScroll()
+    await searchPromise
+  })
+
+  it('does not scroll for old requests and correctly scrolls for the latest search request', async () => {
+    let scrollTop = 0
+    const scrollToTrackIndex = vi.fn(async (index: number, isRequestCurrent?: () => boolean) => {
+      await nextTick()
+      if (isRequestCurrent && !isRequestCurrent()) return
+      scrollTop = (index + 1) * 100
+    })
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks) // 0: Alpha, 1: Beta, 2: Alpine
+    session.searchQuery.value = 'al'
+
+    // Trigger 1st match (Alpha at index 0)
+    const firstSearch = session.jumpToNextSearchMatch()
+    // Immediately change query to 'bet' and trigger 2nd match
+    session.searchQuery.value = 'bet'
+    await nextTick()
+    const secondSearch = session.jumpToNextSearchMatch()
+
+    await Promise.all([firstSearch, secondSearch])
+
+    // scrollTop should be set for Beta (index 1 -> 200), not Alpha (index 0 -> 100)
+    expect(scrollTop).toBe(200)
+  })
+
+  it('discards stale search request when query is changed and restored back while awaiting search index', async () => {
+    const scrollToTrackIndex = vi.fn(async () => undefined)
+    const { session } = createSession({ scrollToTrackIndex })
+
+    // Schedule index build (deferred by setTimeout/yieldToMain in createLibrarySearchIndexIncrementally)
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+
+    // First search initiated while index is still pending
+    const firstSearch = session.jumpToNextSearchMatch()
+
+    // Query changed to another text and restored back to 'al' while awaiting index
+    session.searchQuery.value = 'beta'
+    await nextTick()
+    session.searchQuery.value = 'al'
+    await nextTick()
+
+    // Wait for firstSearch to finish
+    await firstSearch
+
+    // The first search must be discarded: outcome must not be updated to matched, scroll not invoked
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+
+    // Now index is ready, user presses Enter again for current query
+    await session.jumpToNextSearchMatch()
+    expect(session.searchOutcome.value).toEqual({
+      kind: 'matched',
+      index: 1,
+      total: 2,
+      wrapped: false,
+    })
+    expect(scrollToTrackIndex).toHaveBeenCalledTimes(1)
+  })
+})

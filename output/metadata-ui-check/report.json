@@ -1,0 +1,62 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "locale": "zh-Hans",
+      "width": 640,
+      "height": 485.3333435058594,
+      "viewport": [
+        786,
+        587
+      ],
+      "tableOverflow": false,
+      "buttons": [
+        {
+          "text": "",
+          "disabled": false
+        },
+        {
+          "text": "采用文件标签",
+          "disabled": false
+        },
+        {
+          "text": "将保留值写入文件",
+          "disabled": false
+        },
+        {
+          "text": "取消",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "width": 640,
+      "height": 503.3333435058594,
+      "viewport": [
+        786,
+        587
+      ],
+      "tableOverflow": false,
+      "buttons": [
+        {
+          "text": "",
+          "disabled": false
+        },
+        {
+          "text": "Use file tags",
+          "disabled": false
+        },
+        {
+          "text": "Write saved values to file",
+          "disabled": false
+        },
+        {
+          "text": "Cancel",
+          "disabled": false
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

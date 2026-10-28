@@ -1,0 +1,55 @@
+const { app, BrowserWindow } = require('electron')
+const fs = require('node:fs/promises')
+const path = require('node:path')
+const { pathToFileURL } = require('node:url')
+
+app.setPath('userData', path.join(__dirname, 'isolated-profile'))
+app.commandLine.appendSwitch('force-device-scale-factor', '1')
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+app.whenReady().then(async () => {
+  const win = new BrowserWindow({ width: 960, height: 780, useContentSize: true, show: false,
+    webPreferences: { offscreen: true, sandbox: true, contextIsolation: true } })
+  const errors = []
+  win.webContents.on('console-message', (_event, level, message) => { if (level === 3) errors.push(message) })
+  await win.loadURL(pathToFileURL(path.join(__dirname, 'index.html')).href)
+  await delay(350)
+  const run = script => win.webContents.executeJavaScript(script)
+  const geometry = await run(`Array.from(document.querySelectorAll('.preview')).map(preview => {
+    const sidebar=preview.querySelector('.sidebar').getBoundingClientRect(),tray=preview.querySelector('.tray').getBoundingClientRect();
+    return {theme:preview.dataset.theme,sidebar:sidebar.width,tray:tray.width,buttons:Array.from(preview.querySelectorAll('.tool')).map(button=>{const r=button.getBoundingClientRect();return {width:r.width,height:r.height,inside:r.left>=tray.left&&r.right<=tray.right}})};
+  })`)
+  if (geometry.length !== 2 || geometry.some(item => item.sidebar !== 260 || item.tray !== 236 || item.buttons.length !== 5 || item.buttons.some(button => button.width !== 36 || button.height !== 36 || !button.inside))) throw Error('Incorrect tray geometry')
+  await fs.writeFile(path.join(__dirname, 'preview.png'), (await win.webContents.capturePage()).toPNG())
+  const hover = await run(`(()=>{const r=document.querySelector('[data-action="filters"]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`)
+  win.webContents.sendInputEvent({type:'mouseMove',...hover})
+  await delay(350)
+  const hoverOpacity = await run(`getComputedStyle(document.querySelector('[data-action="filters"]'),'::after').opacity`)
+  if (hoverOpacity !== '1') throw Error('Hover tooltip did not appear')
+  const parameter = await run(`(()=>{const r=document.querySelector('[data-action="parameters"]').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`)
+  win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...parameter})
+  win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...parameter})
+  await delay(180)
+  if (!await run(`!document.querySelector('.popover').hidden && document.querySelector('[data-action="parameters"]').getAttribute('aria-pressed')==='true'`)) throw Error('Parameter panel did not open')
+  await fs.writeFile(path.join(__dirname, 'active.png'), (await win.webContents.capturePage()).toPNG())
+  win.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'})
+  win.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'})
+  await delay(60)
+  if (!await run(`document.querySelector('.popover').hidden && document.activeElement.dataset.action==='parameters'`)) throw Error('Escape/focus restoration failed')
+  await run(`document.querySelector('[data-action="theme"]').click();document.querySelector('[data-action="refresh"]').click()`)
+  if (!await run(`document.querySelector('.preview').dataset.theme==='light' && document.querySelector('[data-action="refresh"]').getAttribute('aria-busy')==='true'`)) throw Error('Theme/refresh interaction failed')
+  await delay(1150)
+  if (!await run(`document.querySelector('[data-action="refresh"]').getAttribute('aria-busy')==='false'`)) throw Error('Refresh did not finish')
+  await run(`document.querySelector('[data-action="theme"]').click();document.querySelectorAll('.collapse').forEach(button=>button.click())`)
+  const rail = await run(`Array.from(document.querySelectorAll('.preview')).map(preview => {
+    const sidebar=preview.querySelector('.sidebar').getBoundingClientRect(),tray=preview.querySelector('.tray').getBoundingClientRect();
+    return {width:sidebar.width,tray:tray.width,inside:Array.from(preview.querySelectorAll('.tool')).every(button=>{const r=button.getBoundingClientRect();return r.left>=tray.left&&r.right<=tray.right&&r.top>=tray.top&&r.bottom<=tray.bottom})};
+  })`)
+  if (rail.some(item=>item.width!==60||item.tray!==44||!item.inside)) throw Error('Collapsed tray clipping')
+  await delay(180)
+  await fs.writeFile(path.join(__dirname, 'collapsed.png'), (await win.webContents.capturePage()).toPNG())
+  if (errors.length) throw Error(errors.join('\n'))
+  await fs.writeFile(path.join(__dirname,'evidence.json'),JSON.stringify({geometry,rail,hoverOpacity,checks:['native pointer hover','native parameter click','native Escape and focus restoration','theme toggle','refresh feedback','collapsed layout']},null,2))
+  console.log('Demo verified: themes, 260px sidebar, 36px tools, hover, panel, Escape, refresh, collapsed layout.')
+  win.destroy()
+  app.exit(0)
+}).catch(error=>{console.error(error);app.exit(1)})

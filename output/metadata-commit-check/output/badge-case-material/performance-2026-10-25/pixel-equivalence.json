@@ -1,0 +1,80 @@
+{
+  "passed": true,
+  "backend": "worker",
+  "dpr": 1.5,
+  "scope": "Exact RGBA comparison of original and optimized real Canvas2D renderers under the same deterministic pressure clock",
+  "checks": [
+    {
+      "name": "initial full pressure",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 587547,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "single badge first rebound frame",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 164970,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "single badge intermediate rebound",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 164970,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "retained imprint at rest",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 164970,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "neighbour changes beside an existing imprint",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 164970,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "rapid reversed motion and overlapping bounds",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 305829,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "all impressions retained",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 587547,
+      "surfacePixels": 736434
+    },
+    {
+      "name": "resize during motion",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 541863,
+      "surfacePixels": 630810
+    },
+    {
+      "name": "resized retained surface at rest",
+      "changedChannels": 0,
+      "maxDifference": 0,
+      "physicsEqual": true,
+      "drawPixels": 164970,
+      "surfacePixels": 630810
+    }
+  ]
+}

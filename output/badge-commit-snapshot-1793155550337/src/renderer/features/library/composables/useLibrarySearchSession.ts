@@ -1,0 +1,341 @@
+import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import type { LibrarySearchOutcome } from '../types/libraryInteraction'
+import {
+  createLibrarySearchIndexIncrementally,
+  LibrarySearchIndexBuildStaleError,
+} from '../utils/librarySearchIndex'
+import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
+import { isLibrarySearchBarHovered } from '../utils/librarySearchHover'
+import { canDismissPageSearch } from '../utils/librarySearchKeyboard'
+import { normalizeSearchText } from '../utils/normalizeSearchText'
+
+export function useLibrarySearchSession(options: {
+  isDisposed: () => boolean
+  isLibrarySurface: () => boolean
+  hasPageParameters?: () => boolean
+  isInteractiveTarget: (target: EventTarget | null) => boolean
+  scrollToTrackIndex: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
+}): {
+  searchQuery: Ref<string>
+  isSearchFocused: Ref<boolean>
+  isSearchZoneHovered: Ref<boolean>
+  searchInputRef: Ref<HTMLElement | null>
+  searchRootRef: Ref<HTMLElement | null>
+  searchZoneRef: Ref<HTMLElement | null>
+  searchOutcome: Ref<LibrarySearchOutcome>
+  hasSearchQuery: ComputedRef<boolean>
+  shouldRenderSearchBar: ComputedRef<boolean>
+  scheduleLibrarySearchIndex: (tracks: readonly TrackListItem[]) => void
+  jumpToNextSearchMatch: () => Promise<void>
+  clearSearch: () => void
+  resetMatchCursor: () => void
+  onLibraryListMouseMove: (event: MouseEvent) => void
+  onLibraryListMouseLeave: () => void
+  onSearchBarPointerDown: () => void
+  onSearchInputFocus: () => void
+  onSearchBarFocusOut: (event: FocusEvent) => void
+  onSearchKeydown: (event: KeyboardEvent) => void
+  onDocumentPointerDown: (event: PointerEvent) => void
+  onWindowKeyDown: (event: KeyboardEvent) => void
+  invalidate: () => void
+} {
+  const searchQuery = ref('')
+  const isSearchFocused = ref(false)
+  const isSearchZoneHovered = ref(false)
+  const isSearchAwaitingDismiss = ref(false)
+  const searchInputRef = ref<HTMLElement | null>(null)
+  const searchRootRef = ref<HTMLElement | null>(null)
+  const searchZoneRef = ref<HTMLElement | null>(null)
+  const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
+  let isSearchHoverDismissed = false
+  let lastSearchQuery = ''
+  let lastMatchedTrackIndex = -1
+  let searchScrollRequestId = 0
+  let librarySearchIndexGeneration = 0
+  let librarySearchIndexPromise: Promise<readonly LibrarySearchRecord[] | null> = Promise.resolve(
+    [],
+  )
+
+  function cancelPendingSearchScroll(): void {
+    searchScrollRequestId += 1
+  }
+
+  watch(
+    searchQuery,
+    () => {
+      cancelPendingSearchScroll()
+      isSearchAwaitingDismiss.value = false
+      searchOutcome.value = { kind: 'idle' }
+      lastSearchQuery = ''
+      lastMatchedTrackIndex = -1
+    },
+    { flush: 'sync' },
+  )
+
+  const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
+  const shouldRenderSearchBar = computed(
+    () =>
+      isSearchFocused.value ||
+      hasSearchQuery.value ||
+      isSearchZoneHovered.value ||
+      isSearchAwaitingDismiss.value,
+  )
+
+  function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
+    const generation = ++librarySearchIndexGeneration
+    const startedAt = performance.now()
+    let chunkCount = 0
+    let maxChunkMs = 0
+    librarySearchIndexPromise = createLibrarySearchIndexIncrementally(sourceTracks, {
+      isCurrent: () => !options.isDisposed() && generation === librarySearchIndexGeneration,
+      onChunk: (durationMs) => {
+        chunkCount += 1
+        maxChunkMs = Math.max(maxChunkMs, durationMs)
+      },
+    }).catch((error: unknown) => {
+      if (error instanceof LibrarySearchIndexBuildStaleError) return null
+      rendererDiagnostics.error({
+        scope: 'library.search',
+        message: 'Failed to build library search index',
+        cause: error,
+      })
+      return null
+    })
+    if (import.meta.env.DEV) {
+      void librarySearchIndexPromise.then((index) => {
+        if (index === null || generation !== librarySearchIndexGeneration) return
+        rendererDiagnostics.info({
+          scope: 'library.search',
+          message: 'Library search index ready',
+          context: {
+            totalTracks: index.length,
+            buildWallMs: performance.now() - startedAt,
+            chunkCount,
+            maxChunkMs,
+          },
+        })
+      })
+    }
+  }
+
+  async function jumpToNextSearchMatch(): Promise<void> {
+    const requestId = ++searchScrollRequestId
+    const query = searchQuery.value.trim()
+    if (!query) {
+      searchOutcome.value = { kind: 'idle' }
+      return
+    }
+    const normalizedQuery = normalizeSearchText(query)
+    const searchGeneration = librarySearchIndexGeneration
+    const searchIndex = await librarySearchIndexPromise
+    if (
+      searchIndex === null ||
+      searchGeneration !== librarySearchIndexGeneration ||
+      requestId !== searchScrollRequestId ||
+      query !== searchQuery.value.trim() ||
+      options.isDisposed()
+    ) {
+      return
+    }
+
+    const isNewQuery = query !== lastSearchQuery
+    const startIndex = isNewQuery ? 0 : lastMatchedTrackIndex + 1
+    const scanResult = scanLibrarySearchIndex(searchIndex, normalizedQuery, startIndex)
+
+    if (scanResult.targetIndex === null || scanResult.matchPosition === null) {
+      searchOutcome.value = { kind: 'not-found' }
+      return
+    }
+
+    if (isNewQuery) {
+      lastSearchQuery = query
+      lastMatchedTrackIndex = -1
+    }
+
+    lastMatchedTrackIndex = scanResult.targetIndex
+
+    searchOutcome.value = {
+      kind: 'matched',
+      index: scanResult.matchPosition,
+      total: scanResult.totalMatches,
+      wrapped: scanResult.wrapped,
+    }
+
+    await options.scrollToTrackIndex(scanResult.targetIndex, () => {
+      return !options.isDisposed() && requestId === searchScrollRequestId
+    })
+  }
+
+  function onLibraryListMouseMove(event: MouseEvent): void {
+    const zone = searchZoneRef.value
+    if (!zone) {
+      onLibraryListMouseLeave()
+      return
+    }
+
+    const bar = searchRootRef.value
+    const hovered = isLibrarySearchBarHovered(
+      event.clientX,
+      event.clientY,
+      zone.getBoundingClientRect(),
+      bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
+      options.hasPageParameters?.(),
+    )
+    if (!hovered) isSearchHoverDismissed = false
+    isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
+  }
+
+  function onLibraryListMouseLeave(): void {
+    isSearchHoverDismissed = false
+    isSearchZoneHovered.value = false
+  }
+
+  function onSearchBarPointerDown(): void {
+    isSearchFocused.value = true
+    searchInputRef.value?.focus()
+  }
+
+  function onSearchInputFocus(): void {
+    isSearchHoverDismissed = false
+    isSearchAwaitingDismiss.value = false
+    isSearchFocused.value = true
+  }
+
+  function onSearchBarFocusOut(event: FocusEvent): void {
+    const target = event.relatedTarget
+    const bar = (event.currentTarget as HTMLElement | null) ?? searchRootRef.value
+    if (target && target instanceof Node && bar?.contains(target)) return
+    isSearchFocused.value = false
+  }
+
+  function clearSearch(): void {
+    cancelPendingSearchScroll()
+    isSearchAwaitingDismiss.value = false
+    searchQuery.value = ''
+    searchOutcome.value = { kind: 'idle' }
+  }
+
+  function resetMatchCursor(): void {
+    cancelPendingSearchScroll()
+    lastSearchQuery = ''
+    lastMatchedTrackIndex = -1
+    searchOutcome.value = { kind: 'idle' }
+  }
+
+  function dismissSearch(): void {
+    clearSearch()
+    isSearchHoverDismissed ||= isSearchZoneHovered.value
+    isSearchZoneHovered.value = false
+    isSearchFocused.value = false
+  }
+
+  function onSearchKeydown(event: KeyboardEvent): void {
+    // Enter / Escape 先交给输入法确认或取消候选字；229 兼容组合态键盘事件。
+    if (event.isComposing || event.keyCode === 229) return
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void jumpToNextSearchMatch()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      if (event.repeat) return
+      if (searchQuery.value !== '') {
+        clearSearch()
+      } else {
+        dismissSearch()
+        searchInputRef.value?.blur()
+      }
+    }
+  }
+
+  function onDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target
+    if (!(target instanceof Node)) return
+
+    const bar = searchRootRef.value
+    if (bar && (bar === target || bar.contains(target))) {
+      return
+    }
+
+    isSearchAwaitingDismiss.value = false
+    isSearchFocused.value = false
+    if (!hasSearchQuery.value) {
+      isSearchZoneHovered.value = false
+    }
+  }
+
+  function onWindowKeyDown(event: KeyboardEvent): void {
+    if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.keyCode === 229 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    )
+      return
+    if (
+      !options.isDisposed() &&
+      options.isLibrarySurface() &&
+      !isSearchFocused.value &&
+      (searchQuery.value !== '' || shouldRenderSearchBar.value) &&
+      event.key === 'Escape' &&
+      canDismissPageSearch(event)
+    ) {
+      event.preventDefault()
+      if (event.repeat) return
+      if (searchQuery.value !== '') {
+        clearSearch()
+        // 失焦时清空后仍保留搜索栏，等待下一次 Esc 关闭。
+        isSearchAwaitingDismiss.value = true
+      } else {
+        dismissSearch()
+      }
+      return
+    }
+    if (
+      options.isLibrarySurface() &&
+      event.key === '/' &&
+      !options.isInteractiveTarget(event.target)
+    ) {
+      event.preventDefault()
+      isSearchHoverDismissed = false
+      isSearchFocused.value = true
+      void nextTick(() => {
+        searchInputRef.value?.focus()
+      })
+    }
+  }
+
+  function invalidate(): void {
+    cancelPendingSearchScroll()
+    librarySearchIndexGeneration += 1
+  }
+
+  return {
+    searchQuery,
+    isSearchFocused,
+    isSearchZoneHovered,
+    searchInputRef,
+    searchRootRef,
+    searchZoneRef,
+    searchOutcome,
+    hasSearchQuery,
+    shouldRenderSearchBar,
+    scheduleLibrarySearchIndex,
+    jumpToNextSearchMatch,
+    clearSearch,
+    resetMatchCursor,
+    onLibraryListMouseMove,
+    onLibraryListMouseLeave,
+    onSearchBarPointerDown,
+    onSearchInputFocus,
+    onSearchBarFocusOut,
+    onSearchKeydown,
+    onDocumentPointerDown,
+    onWindowKeyDown,
+    invalidate,
+  }
+}

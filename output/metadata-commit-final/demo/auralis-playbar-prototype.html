@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111216">
+<title>Auralis · 底部播放栏交互原型</title>
+<style>
+  :root{color-scheme:dark;--bg:#101115;--surface:#18191f;--line:#ffffff0c;--text:#eeeef3;--muted:#9697a5;--accent:#b5a5f3;--accent-soft:#b5a5f317;--progress:37.84%}
+  *{box-sizing:border-box}html,body{height:100%;margin:0}body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}button,input{font:inherit}button{color:inherit;cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:5px}button{border:0}button:disabled{cursor:default}button,button svg{transition:background .16s,color .16s,transform .16s}svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}button svg{pointer-events:none}button:hover{color:#fff}button:active:not(:disabled){transform:scale(.96)}.icon-sprite{position:absolute;width:0;height:0;overflow:hidden}.app{height:100dvh;min-height:400px;display:flex;flex-direction:column;overflow:hidden}.workspace{display:flex;flex:1;min-height:0}.sidebar{width:214px;flex:0 0 214px;background:#121317;border-right:1px solid var(--line);padding:29px 20px 24px;display:flex;flex-direction:column;overflow:auto}.brand{display:flex;gap:9px;align-items:center;font-size:23px;letter-spacing:-1px;font-weight:650;padding-left:10px;margin-bottom:38px}.brand svg{color:var(--accent);width:27px;height:27px;stroke-width:2.4}.nav-title{font-size:10px;letter-spacing:2.2px;color:#6d6e7c;margin:26px 12px 10px}.nav-item{display:flex;align-items:center;gap:13px;border-radius:8px;padding:11px 12px;color:var(--muted);font-size:13px}.nav-item.active{background:var(--accent-soft);color:#c2b5f5}.nav-item svg{width:18px;height:18px}.playlist-dot{width:6px;height:6px;border-radius:50%;background:#737483;margin:0 6px}.sidebar-foot{margin-top:auto;padding:30px 12px 0;color:#6f707d;font-size:11px}.sidebar-foot span{display:inline-block;width:5px;height:5px;background:#a6b3a2;border-radius:50%;margin-right:6px}.main{min-width:0;flex:1;padding:30px 42px 26px;overflow:auto;background:radial-gradient(ellipse at 40% 0,#24212f65,transparent 60%)}.topline{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:35px}.eyebrow{text-transform:uppercase;font-size:10px;letter-spacing:2.2px;color:#9b92b0}.topnote{font-size:11px;color:#7e7f8c;border:1px solid #ffffff12;padding:5px 10px;border-radius:20px}.page-title{font-size:31px;line-height:1.3;letter-spacing:-.8px;font-weight:550;margin:0 0 8px}.intro{color:var(--muted);margin:0;font-size:13px}.hero{display:flex;gap:28px;align-items:center;margin-top:29px;padding:25px 28px;background:linear-gradient(110deg,#29263399,#1e1e2699);border:1px solid #ffffff0b;border-radius:13px}.art{position:relative;isolation:isolate;overflow:hidden;flex-shrink:0;background:linear-gradient(160deg,#4e5473 0%,#9e87a1 41%,#d1aaa1 58%,#4c596e 60%,#202d41 100%)}.art:before{content:"";position:absolute;width:130%;height:70%;left:-15%;bottom:-27%;background:linear-gradient(165deg,#39465e,#182336);border-radius:48% 54% 0 0;transform:rotate(-13deg)}.art:after{content:"";position:absolute;width:15%;height:15%;border-radius:50%;background:#f4d3b2;top:24%;left:59%;box-shadow:0 0 25px #edd0b255}.art[data-art="1"]{background:linear-gradient(145deg,#213d42,#8aa394 55%,#2b4641 56%,#152e33)}.art[data-art="1"]:after{background:#d8dfc8}.art[data-art="2"]{background:linear-gradient(155deg,#30283f,#8d7596 55%,#49384e 56%,#201c35)}.art[data-art="3"]{background:linear-gradient(155deg,#273b55,#678ba3 54%,#34485f 55%,#182134)}.hero-art{height:168px;width:168px;border-radius:6px;box-shadow:0 12px 26px #0004}.art-word{position:absolute;z-index:2;bottom:13px;left:14px;font-size:8px;font-weight:600;letter-spacing:4px;color:#fff9}.hero-copy{min-width:0}.hero-copy .eyebrow{font-size:9px;color:#bab0ce;letter-spacing:2px}.hero h2{font-size:28px;letter-spacing:-.5px;font-weight:550;margin:9px 0 10px}.hero p{font-size:12px;color:#a5a2ae;margin:0 0 19px}.hero-play{background:#b5a5ed;color:#171322;display:inline-flex;gap:9px;align-items:center;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600}.hero-play:hover{background:#c6b7fa;color:#171322}.hero-play svg{width:15px;height:15px;fill:currentColor;stroke-width:0}.section-header{display:flex;align-items:center;justify-content:space-between;margin:29px 0 13px;gap:12px}.section-header h2{font-size:15px;font-weight:550;margin:0}.section-header span{color:#71727f;font-size:10px}.track-head,.track{display:grid;grid-template-columns:32px minmax(170px,1.5fr) minmax(110px,1fr) 48px;gap:12px;align-items:center;text-align:left}.track-head{padding:0 13px 10px;color:#646572;font-size:10px;border-bottom:1px solid var(--line)}.track{background:transparent;width:100%;padding:12px 13px;border-radius:7px;margin-top:4px;min-height:61px}.track:hover{background:#ffffff04}.track.selected{background:#b5a5f30a}.track-number{color:#686977;font-size:11px}.track.selected .track-number,.track.selected .track-name{color:#c1b1f3}.track-info{min-width:0;display:flex;gap:12px;align-items:center}.track-art{height:35px;width:35px;border-radius:4px}.track-labels{min-width:0}.track-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.track-artist{color:#7d7e8b;font-size:10px;margin-top:2px}.track-album{font-size:11px;color:#828391;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track-duration{text-align:right;font-variant-numeric:tabular-nums;font-size:11px;color:#777885}.body-note{color:#5f606d;font-size:10px;margin:26px 13px 0;letter-spacing:.2px}.panel{width:286px;flex:0 0 286px;overflow:auto;padding:29px 24px;background:#15161b;border-left:1px solid var(--line)}.panel[hidden]{display:none}.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:23px}.panel-head h2{margin:0;font-size:15px;font-weight:550}.icon-button{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--muted);width:34px;height:34px;padding:0;border-radius:7px}.icon-button:hover{background:#ffffff08;color:#eee}.icon-button.active{color:var(--accent);background:var(--accent-soft)}.panel-kicker{font-size:10px;letter-spacing:1px;color:#747582}.lyric-line{font-size:18px;line-height:1.8;font-weight:500;color:#60616f;margin:23px 0}.lyric-line.current{color:#d4c6ff}.panel-caption{font-size:11px;color:#858593;margin-top:25px}.queue-item{width:100%;text-align:left;display:flex;gap:12px;align-items:center;padding:12px 9px;border-radius:7px;background:transparent}.queue-item:hover{background:#ffffff06}.queue-item.active{background:var(--accent-soft)}.queue-item .track-name{font-size:12px}.queue-item .track-art{width:39px;height:39px}.queue-item.active .track-name{color:var(--accent)}.queue-caption{color:#737482;font-size:11px;margin-bottom:10px}.player{flex-shrink:0;border-top:1px solid #ffffff10;background:#191a20;position:relative;z-index:4;box-shadow:0 -12px 35px #0000000a}.player-row{height:98px;padding:13px 28px 9px;display:grid;grid-template-columns:minmax(0,1fr) 270px minmax(0,1fr);gap:22px;align-items:center}.now-playing{display:flex;min-width:0;gap:13px;align-items:center}.now-art{width:56px;height:56px;border-radius:5px;box-shadow:0 4px 12px #0003}.now-copy{min-width:0}.now-title{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#f0eef7}.now-artist{font-size:10px;color:#90909f;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.demo-label{font-size:8px;color:#6f707d;letter-spacing:1px;margin-top:4px;display:none}.transport{display:flex;flex-direction:column;align-items:center;gap:6px}.transport-buttons{display:flex;gap:17px;align-items:center}.transport-buttons .icon-button{width:28px;height:28px}.transport-buttons .icon-button svg{width:18px;height:18px}.play-button{width:39px;height:39px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e6e0f5;color:#272332;box-shadow:0 3px 10px #0002}.play-button:hover{background:#f4edff;color:#17131e;transform:scale(1.05)}.play-button svg{width:18px;height:18px;fill:currentColor;stroke-width:0}.time{display:flex;align-items:center;gap:7px;color:#777986;font-size:9px;font-variant-numeric:tabular-nums;letter-spacing:.4px;line-height:1}.time .elapsed{color:#b9b5c7}.time-divider{color:#555661}.player-tools{display:flex;justify-content:flex-end;align-items:center;gap:16px}.tool{position:relative}.player-tools .icon-button{gap:7px;width:auto;min-width:34px;padding:8px}.player-tools .icon-button span{font-size:10px;white-space:nowrap}.player-tools .icon-button svg{width:17px;height:17px}.tool-separator{height:16px;width:1px;background:#ffffff13}.volume-popup{position:absolute;bottom:49px;right:-48px;width:180px;padding:15px 16px;background:#25252f;border:1px solid #ffffff13;box-shadow:0 7px 32px #0005;border-radius:9px}.volume-popup[hidden]{display:none}.volume-head{display:flex;justify-content:space-between;align-items:center;color:#a7a4b4;font-size:11px;margin-bottom:8px}.volume-head button{background:transparent;padding:0;color:inherit;font-size:11px}.volume-head button:hover{color:#fff}.volume-popup input{width:100%;accent-color:var(--accent);cursor:pointer}.seek-wrap{height:10px;position:relative;background:transparent}.seek-track{height:3px;position:absolute;bottom:0;left:0;right:0;background:#35343f;pointer-events:none}.seek-fill{height:100%;width:var(--progress);background:#a897de}.seek-range{-webkit-appearance:none;appearance:none;position:absolute;margin:0;bottom:0;left:0;width:100%;height:20px;background:transparent;cursor:ew-resize;outline:none!important;touch-action:none}.seek-range::-webkit-slider-runnable-track{height:3px;background:transparent}.seek-range::-moz-range-track{height:3px;background:transparent}.seek-range::-webkit-slider-thumb{-webkit-appearance:none;width:6px;height:19px;border:0;border-radius:2px;background:#e3d9ff;margin-top:-15px;box-shadow:0 1px 8px #15121e60;cursor:ew-resize}.seek-range::-moz-range-thumb{width:6px;height:19px;border:0;border-radius:2px;background:#e3d9ff;transform:translateY(-6px);cursor:ew-resize}.seek-range:hover::-webkit-slider-thumb{background:#fff;width:8px}.seek-range:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px #b5a5f34d}.seek-range:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px #b5a5f34d}.seek-tooltip{position:absolute;bottom:27px;left:var(--progress);transform:translateX(-50%);font-size:10px;font-variant-numeric:tabular-nums;padding:4px 8px;border-radius:4px;background:#393342;color:#eee6ff;pointer-events:none;opacity:0}.seek-wrap:hover .seek-tooltip,.seek-wrap:focus-within .seek-tooltip{opacity:1}.status{position:absolute;left:50%;bottom:119px;transform:translateX(-50%);padding:7px 12px;border-radius:7px;background:#302b3a;border:1px solid #ffffff13;color:#ddd4ee;font-size:11px;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap}.status.visible{opacity:1}.repeat-one{position:absolute;font-size:8px;right:0;top:-1px;line-height:1;padding:2px;background:#191a20;color:var(--accent)}.repeat-button{position:relative}.repeat-one[hidden]{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media(min-width:1500px){.main{padding-left:56px;padding-right:56px}.hero{max-width:1000px}.track-list{max-width:1000px}}
+  @media(max-width:1120px){.sidebar{width:178px;flex-basis:178px;padding:29px 13px 20px}.main{padding:28px}.player-row{grid-template-columns:minmax(0,1fr) 240px minmax(0,1fr);gap:12px;padding-left:20px;padding-right:20px}.player-tools{gap:5px}.player-tools .icon-button span{display:none}.panel{width:248px;flex-basis:248px;padding:25px 18px}.workspace:has(.panel:not([hidden])) .hero{padding:20px;gap:18px}.workspace:has(.panel:not([hidden])) .hero-art{width:120px;height:120px}.workspace:has(.panel:not([hidden])) .track-album,.workspace:has(.panel:not([hidden])) .album-header{display:none}.workspace:has(.panel:not([hidden])) .track,.workspace:has(.panel:not([hidden])) .track-head{grid-template-columns:25px minmax(120px,1fr) 40px}}
+  @media(max-width:850px){.sidebar{width:68px;flex-basis:68px;padding:29px 10px 15px}.brand{padding:0;justify-content:center;margin-bottom:30px}.brand span,.nav-item span,.nav-title,.sidebar-foot,.playlist-nav{display:none}.nav-item{justify-content:center;padding:13px 0}.hero-art{width:140px;height:140px}.hero h2{font-size:23px}.hero{gap:22px;padding:22px}.player-row{grid-template-columns:minmax(0,1fr) 220px 115px;gap:8px;padding:12px 15px 8px}.transport-buttons{gap:13px}.now-art{width:48px;height:48px}.now-playing{gap:10px}.now-title{font-size:11px}.now-artist{font-size:9px}.tool-separator{display:none}.player-tools{gap:1px}.player-tools .icon-button{padding:7px;min-width:31px}.volume-popup{right:-25px}.panel{width:220px;flex-basis:220px}.workspace:has(.panel:not([hidden])) .hero-art{display:none}}
+  @media(max-width:620px){.app{min-height:480px}.sidebar{display:none}.main{padding:23px 20px}.topline{margin-bottom:24px}.page-title{font-size:27px}.hero{gap:19px;padding:18px;margin-top:23px}.hero-art{width:104px;height:117px}.hero h2{font-size:21px;margin:7px 0}.hero p{font-size:11px;margin-bottom:13px}.hero-play{padding:7px 11px;font-size:11px}.hero-copy .eyebrow{font-size:8px}.track-head,.track{grid-template-columns:22px minmax(140px,1fr) 42px;gap:8px}.track-album,.album-header{display:none}.section-header{margin-top:24px}.track{padding:10px 8px}.player-row{height:135px;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:58px 53px;padding:9px 18px 6px;gap:3px 8px}.now-art{width:44px;height:44px}.now-title{font-size:12px}.now-artist{font-size:10px;margin-top:4px}.transport{grid-column:1/-1;grid-row:2;gap:6px;align-self:start}.transport-buttons{gap:23px}.play-button{width:34px;height:34px}.player-tools{grid-column:2;grid-row:1;gap:3px}.volume-popup{bottom:45px;right:-35px}.status{bottom:155px}.panel{width:100%;flex:1;padding:23px}.workspace:has(.panel:not([hidden])) .main{display:none}.lyric-line{margin:16px 0}.topnote{font-size:9px;padding:4px 8px}.body-note{margin-top:18px}.seek-wrap{height:10px}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important}}
+</style>
+</head>
+<body>
+<svg class="icon-sprite" aria-hidden="true"><defs>
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M3 14V10m4 8V6m5 15V3m5 15V6m4 8v-4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></symbol>
+  <symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M7 12a5 5 0 0 1 5-5m5 5a5 5 0 0 1-5 5"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4v16M9 4v16m5-15 5 14"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 5.7a5.1 5.1 0 0 0-7.2 0L12 7l-1.3-1.3a5.1 5.1 0 0 0-7.2 7.2L12 21l8.5-8.1a5.1 5.1 0 0 0 0-7.2Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5a1 1 0 0 1 1.5-.9l12 7.5a1 1 0 0 1 0 1.8l-12 7.5a1 1 0 0 1-1.5-.9Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M5 5v14"/><path d="m19 5-11 7 11 7Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M19 5v14"/><path d="m5 5 11 7-11 7Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M3 6h2c6 0 7 12 13 12h3m-4-4 4 4-4 4M3 18h2c2 0 3.5-1.4 5-3.5M14 8.8c1.2-1.7 2.5-2.8 4-2.8h3m-4-4 4 4-4 4"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M18 3l3 3-3 3M3 11V9a3 3 0 0 1 3-3h15M6 21l-3-3 3-3m15-2v2a3 3 0 0 1-3 3H3"/></symbol>
+  <symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M5 4h14v16H5Z"/><path d="M8 8h8M8 12h8m-8 4h5"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5Z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5Zm5 5 5 6m0-6-5 6"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><path d="M3 5h18M3 10h18M3 15h9m-9 5h9"/><path d="m17 14 5 4-5 4Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+</defs></svg>
+<div class="app">
+  <div class="workspace">
+    <aside class="sidebar" aria-label="应用导航示意">
+      <div class="brand"><svg><use href="#i-logo"/></svg><span>Auralis</span></div>
+      <div class="nav-item active" aria-current="page"><svg><use href="#i-home"/></svg><span>为你精选</span></div>
+      <div class="nav-item"><svg><use href="#i-disc"/></svg><span>发现音乐</span></div>
+      <div class="nav-item"><svg><use href="#i-library"/></svg><span>音乐资料库</span></div>
+      <div class="nav-title">你的收藏</div>
+      <div class="nav-item"><svg><use href="#i-heart"/></svg><span>喜欢的音乐</span></div>
+      <div class="playlist-nav">
+        <div class="nav-item"><i class="playlist-dot"></i><span>夜色慢慢</span></div>
+        <div class="nav-item"><i class="playlist-dot" style="background:#8d91a8"></i><span>专注的片刻</span></div>
+        <div class="nav-item"><i class="playlist-dot" style="background:#a1948a"></i><span>沿途风景</span></div>
+      </div>
+      <div class="sidebar-foot"><span></span>本地交互演示</div>
+    </aside>
+    <main class="main">
+      <div class="topline"><span class="eyebrow">Your daily soundtrack</span><span class="topnote">交互原型 · 无音频</span></div>
+      <h1 class="page-title">让此刻，慢下来。</h1>
+      <p class="intro">把日常调低一点，把音乐调高一点。</p>
+      <section class="hero" aria-label="示例歌单">
+        <div class="art hero-art" aria-hidden="true"><span class="art-word">AFTERGLOW</span></div>
+        <div class="hero-copy"><div class="eyebrow">AURALIS SELECTION / 01</div><h2>日落之后</h2><p>4 首示例曲目 · 留一点时间给自己</p><button class="hero-play" id="playCollection"><svg><use href="#i-play"/></svg>播放歌单</button></div>
+      </section>
+      <section class="track-list" aria-label="示例曲目列表">
+        <div class="section-header"><h2>接下来，听这些</h2><span>DEMO COLLECTION</span></div>
+        <div class="track-head" aria-hidden="true"><span>#</span><span>歌曲 / 艺术家</span><span class="album-header">专辑</span><span style="text-align:right">时长</span></div>
+        <div id="trackList"></div>
+      </section>
+      <p class="body-note">所有歌曲、艺术家与歌词均为演示内容。点击曲目或底部控件，体验播放栏交互。</p>
+    </main>
+    <aside class="panel" id="detailPanel" aria-label="播放详情" hidden>
+      <div class="panel-head"><h2 id="panelTitle">歌词</h2><button class="icon-button" id="closePanel" aria-label="关闭详情面板" title="关闭"><svg><use href="#i-close"/></svg></button></div>
+      <div id="panelContent"></div>
+    </aside>
+  </div>
+  <footer class="player" aria-label="音乐播放栏">
+    <div class="player-row">
+      <div class="now-playing">
+        <div class="art now-art" id="nowArt" aria-hidden="true"></div>
+        <div class="now-copy"><div class="now-title" id="nowTitle">Afterglow - Lune Harbor</div><div class="now-artist" id="nowArtist">专辑艺术家 · Lune Harbor</div></div>
+      </div>
+      <div class="transport" aria-label="播放控制">
+        <div class="transport-buttons">
+          <button class="icon-button" id="shuffle" aria-label="随机播放" aria-pressed="false" title="随机播放：关闭"><svg><use href="#i-shuffle"/></svg></button>
+          <button class="icon-button" id="previous" aria-label="上一首" title="上一首"><svg><use href="#i-prev"/></svg></button>
+          <button class="play-button" id="play" aria-label="播放" title="播放（空格）"><svg><use id="playIcon" href="#i-play"/></svg></button>
+          <button class="icon-button" id="next" aria-label="下一首" title="下一首"><svg><use href="#i-next"/></svg></button>
+          <button class="icon-button repeat-button" id="repeat" aria-label="循环模式：顺序播放" title="循环模式：顺序播放"><svg><use href="#i-repeat"/></svg><span class="repeat-one" id="repeatOne" hidden>1</span></button>
+        </div>
+        <div class="time" aria-hidden="true"><span class="elapsed" id="elapsed">1:24</span><span class="time-divider">/</span><span id="duration">3:42</span></div>
+      </div>
+      <div class="player-tools" aria-label="播放工具">
+        <button class="icon-button" id="lyrics" aria-label="显示歌词" aria-controls="detailPanel" aria-expanded="false" title="歌词"><svg><use href="#i-lyrics"/></svg><span>歌词</span></button>
+        <div class="tool">
+          <button class="icon-button" id="volumeButton" aria-label="调整音量，当前 70%" aria-controls="volumePopup" aria-expanded="false" title="音量"><svg><use id="volumeIcon" href="#i-volume"/></svg></button>
+          <div class="volume-popup" id="volumePopup" hidden><div class="volume-head"><button id="mute" title="切换静音">静音</button><output id="volumeValue" for="volume">70%</output></div><input id="volume" type="range" min="0" max="100" value="70" aria-label="音量"></div>
+        </div>
+        <div class="tool-separator" aria-hidden="true"></div>
+        <button class="icon-button" id="queue" aria-label="显示播放队列" aria-controls="detailPanel" aria-expanded="false" title="播放队列"><svg><use href="#i-queue"/></svg><span>队列</span></button>
+      </div>
+    </div>
+    <div class="seek-wrap">
+      <div class="seek-track" aria-hidden="true"><div class="seek-fill"></div></div>
+      <div class="seek-tooltip" id="seekTooltip" aria-hidden="true">1:24</div>
+      <input class="seek-range" id="seek" type="range" min="0" max="222" step="1" value="84" aria-label="播放进度" aria-valuetext="1 分 24 秒，共 3 分 42 秒" title="拖动竖条或使用方向键调整进度">
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </footer>
+</div>
+<script>
+  'use strict';
+  const tracks = [
+    {title:'Afterglow',artist:'Lune Harbor',albumArtist:'Lune Harbor',album:'Soft Horizons',duration:222,art:0,lyrics:['城市慢慢收起喧嚣','晚风把余晖轻轻摇晃','就让这一刻停在身旁','我们在日落之后歌唱']},
+    {title:'Still Water',artist:'Mira Vale',albumArtist:'Mira Vale',album:'Quiet Places',duration:256,art:1,lyrics:['水面收藏着天空','风路过时没有声响','把心事留给远方','听见安静正在生长']},
+    {title:'Violet Hours',artist:'North Window',albumArtist:'North Window',album:'Between the Lines',duration:198,art:2,lyrics:['紫色的夜缓缓降落','窗边留着一盏微光','时间绕过长长街道','让我们再走一段']},
+    {title:'Blue in Motion',artist:'Ellis Coast',albumArtist:'Ellis Coast Ensemble',album:'Slow Current',duration:241,art:3,lyrics:['蓝色流过城市边缘','脚步跟随微小浪花','没有终点也不着急','沿着音乐慢慢回家']}
+  ];
+  const $ = id => document.getElementById(id);
+  const state = {index:0,seconds:84,playing:false,shuffle:false,repeat:0,volume:70,lastVolume:70,panel:null,seeking:false,history:[]};
+  const format = value => `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2,'0')}`;
+  const icon = name => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  let statusTimeout;
+  function announce(message){$('status').textContent=message;$('status').classList.add('visible');clearTimeout(statusTimeout);statusTimeout=setTimeout(()=>$('status').classList.remove('visible'),1700);}
+  function renderTracks(){
+    $('trackList').innerHTML=tracks.map((t,i)=>`<button class="track${i===state.index?' selected':''}" data-track="${i}" aria-label="播放 ${t.title}，${t.artist}" ${i===state.index?'aria-current="true"':''}><span class="track-number">${i===state.index?'♫':String(i+1).padStart(2,'0')}</span><span class="track-info"><span class="art track-art" data-art="${t.art}" aria-hidden="true"></span><span class="track-labels"><span class="track-name" style="display:block">${t.title}</span><span class="track-artist" style="display:block">${t.artist}</span></span></span><span class="track-album">${t.album}</span><span class="track-duration">${format(t.duration)}</span></button>`).join('');
+  }
+  function updateProgress(){
+    const t=tracks[state.index];
+    $('seek').max=t.duration;$('seek').value=state.seconds;
+    $('seek').setAttribute('aria-valuetext',`${format(state.seconds)}，总时长 ${format(t.duration)}`);
+    document.documentElement.style.setProperty('--progress',`${state.seconds/t.duration*100}%`);
+    $('elapsed').textContent=format(state.seconds);$('duration').textContent=format(t.duration);$('seekTooltip').textContent=format(state.seconds);
+    $('seekTooltip').style.left=`clamp(22px, ${state.seconds/t.duration*100}%, calc(100% - 22px))`;
+    if(state.panel==='lyrics')updateLyricHighlight();
+  }
+  function setPlaying(playing){state.playing=playing;$('playIcon').setAttribute('href',playing?'#i-pause':'#i-play');$('play').setAttribute('aria-label',playing?'暂停':'播放');$('play').title=playing?'暂停（空格）':'播放（空格）';}
+  function selectTrack(index,play=state.playing,remember=true){
+    if(remember&&index!==state.index)state.history.push(state.index);
+    state.index=index;state.seconds=0;
+    const t=tracks[index];$('nowTitle').textContent=`${t.title} - ${t.artist}`;$('nowTitle').title=`${t.title} - ${t.artist}`;$('nowArtist').textContent=`专辑艺术家 · ${t.albumArtist}`;$('nowArtist').title=t.albumArtist;$('nowArt').dataset.art=t.art;
+    setPlaying(play);updateProgress();renderTracks();renderPanel();
+  }
+  function nextTrack(automatic=false){
+    if(automatic&&state.repeat===2){state.seconds=0;updateProgress();return;}
+    if(automatic&&state.index===tracks.length-1&&state.repeat===0&&!state.shuffle){state.seconds=tracks[state.index].duration;setPlaying(false);updateProgress();announce('歌单已播放完毕');return;}
+    let index=(state.index+1)%tracks.length;
+    if(state.shuffle){const choices=tracks.map((_,i)=>i).filter(i=>i!==state.index);index=choices[Math.floor(Math.random()*choices.length)];}
+    selectTrack(index);
+  }
+  function togglePlayback(){if(!state.playing&&state.seconds>=tracks[state.index].duration)state.seconds=0;setPlaying(!state.playing);updateProgress();}
+  function renderPanel(){
+    $('detailPanel').hidden=!state.panel;
+    for(const name of ['lyrics','queue']){const active=state.panel===name;$(name).classList.toggle('active',active);$(name).setAttribute('aria-expanded',String(active));$(name).setAttribute('aria-label',`${active?'隐藏':'显示'}${name==='lyrics'?'歌词':'播放队列'}`);}
+    if(!state.panel)return;
+    const t=tracks[state.index];
+    $('panelTitle').textContent=state.panel==='lyrics'?'歌词':'播放队列';
+    if(state.panel==='lyrics'){
+      $('panelContent').innerHTML=`<div class="panel-kicker">${t.title} / ${t.artist}</div>${t.lyrics.map((line,i)=>`<p class="lyric-line" data-line="${i}">${line}</p>`).join('')}<p class="panel-caption">演示歌词 · 随模拟进度切换</p>`;updateLyricHighlight();
+    }else{
+      $('panelContent').innerHTML=`<p class="queue-caption">${tracks.length} 首演示曲目 · 点击切换</p>${tracks.map((item,i)=>`<button class="queue-item${state.index===i?' active':''}" data-track="${i}" aria-label="播放 ${item.title}" ${state.index===i?'aria-current="true"':''}><span class="art track-art" data-art="${item.art}" aria-hidden="true"></span><span class="track-labels"><span class="track-name" style="display:block">${item.title}</span><span class="track-artist" style="display:block">${item.artist}</span></span></button>`).join('')}`;
+    }
+  }
+  function updateLyricHighlight(){const line=Math.min(3,Math.floor(state.seconds/tracks[state.index].duration*4));document.querySelectorAll('.lyric-line').forEach((el,i)=>el.classList.toggle('current',i===line));}
+  function togglePanel(name){state.panel=state.panel===name?null:name;renderPanel();}
+  function closePanel(){const origin=state.panel;state.panel=null;renderPanel();if(origin)$(origin).focus();}
+  function updateVolume(value){state.volume=Number(value);if(state.volume>0)state.lastVolume=state.volume;$('volume').value=state.volume;$('volumeValue').textContent=`${state.volume}%`;$('volumeButton').setAttribute('aria-label',`调整音量，当前 ${state.volume}%`);$('volumeIcon').setAttribute('href',state.volume?'#i-volume':'#i-mute');$('mute').textContent=state.volume?'静音':'取消静音';}
+  function closeVolume(){const open=!$('volumePopup').hidden;$('volumePopup').hidden=true;$('volumeButton').setAttribute('aria-expanded','false');return open;}
+  $('play').addEventListener('click',togglePlayback);
+  $('previous').addEventListener('click',()=>{const i=state.shuffle&&state.history.length?state.history.pop():(state.index+tracks.length-1)%tracks.length;selectTrack(i,state.playing,false);});
+  $('next').addEventListener('click',()=>nextTrack());
+  $('playCollection').addEventListener('click',()=>{selectTrack(0,true);announce('演示播放已开始 · 无音频');});
+  $('shuffle').addEventListener('click',()=>{state.shuffle=!state.shuffle;$('shuffle').classList.toggle('active',state.shuffle);$('shuffle').setAttribute('aria-pressed',String(state.shuffle));$('shuffle').title=`随机播放：${state.shuffle?'开启':'关闭'}`;announce($('shuffle').title);});
+  $('repeat').addEventListener('click',()=>{state.repeat=(state.repeat+1)%3;const label=['顺序播放','列表循环','单曲循环'][state.repeat];$('repeat').classList.toggle('active',state.repeat>0);$('repeatOne').hidden=state.repeat!==2;$('repeat').setAttribute('aria-label',`循环模式：${label}`);$('repeat').title=`循环模式：${label}`;announce(label);});
+  $('seek').addEventListener('input',event=>{state.seconds=Number(event.target.value);updateProgress();});
+  $('seek').addEventListener('pointerdown',()=>state.seeking=true);
+  window.addEventListener('pointerup',()=>state.seeking=false);
+  window.addEventListener('pointercancel',()=>state.seeking=false);
+  $('seek').addEventListener('blur',()=>state.seeking=false);
+  $('volumeButton').addEventListener('click',()=>{const open=$('volumePopup').hidden;$('volumePopup').hidden=!open;$('volumeButton').setAttribute('aria-expanded',String(open));if(open)$('volume').focus();});
+  $('volume').addEventListener('input',event=>updateVolume(event.target.value));
+  $('mute').addEventListener('click',()=>updateVolume(state.volume?0:state.lastVolume||70));
+  $('lyrics').addEventListener('click',()=>togglePanel('lyrics'));
+  $('queue').addEventListener('click',()=>togglePanel('queue'));
+  $('closePanel').addEventListener('click',closePanel);
+  document.addEventListener('click',event=>{const row=event.target.closest('[data-track]');if(row)selectTrack(Number(row.dataset.track),true);if(!event.target.closest('.tool'))closeVolume();});
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){if(closeVolume())$('volumeButton').focus();else if(state.panel)closePanel();}
+    if(event.code==='Space'&&!event.repeat&&!/INPUT|BUTTON|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&!document.activeElement.isContentEditable){event.preventDefault();togglePlayback();}
+  });
+  setInterval(()=>{if(state.playing&&!state.seeking){state.seconds=Math.min(state.seconds+1,tracks[state.index].duration);if(state.seconds>=tracks[state.index].duration)nextTrack(true);else updateProgress();}},1000);
+  renderTracks();updateProgress();
+</script>
+</body>
+</html>

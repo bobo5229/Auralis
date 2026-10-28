@@ -1,0 +1,135 @@
+import { createApp, nextTick } from 'vue'
+import { initialUiLocale } from './i18n/preference'
+import { nativeUiMessages } from '@shared/uiLocale'
+import '@unocss/reset/tailwind.css'
+import 'virtual:uno.css'
+import './app/styles/main.css'
+import { useTheme } from './features/appearance/composables/useTheme'
+import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
+import { useLightAccent } from './features/appearance/composables/useLightAccent'
+import { initEnglishFont } from './features/appearance/composables/useEnglishFont'
+import { initChineseFont } from './features/appearance/composables/useChineseFont'
+import { tooltipPlugin } from './shared/tooltip/tooltip'
+import { initMotionPreference } from './shared/animation/motionPreference'
+import { initLyricsScrollPreset } from './features/lyrics/lyricsScrollPreset'
+import { initLyricsCountdownPreference } from './features/lyrics/lyricsCountdownPreference'
+import { initLyricsPanelMode } from './features/appearance/composables/useLyricsPanelMode'
+import { initAlbumListParameters } from './features/appearance/composables/useAlbumListParameters'
+import { auralis } from './shared/ipc/client'
+import {
+  APP_FAILED_EVENT,
+  markSplashFinished,
+  APP_HOST_ELEMENT_ID,
+  APP_READY_EVENT,
+  SPLASH_ELEMENT_ID,
+} from '@renderer/shared/startup/startupSignals'
+
+const { initTheme } = useTheme()
+const disposeAlbumListParameters = initAlbumListParameters()
+if (import.meta.hot) import.meta.hot.dispose(disposeAlbumListParameters)
+initTheme()
+const { initDarkAccent } = useDarkAccent()
+initDarkAccent()
+const { initLightAccent } = useLightAccent()
+initLightAccent()
+initEnglishFont()
+initChineseFont()
+const disposeMotionPreference = initMotionPreference()
+if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
+const disposeLyricsScrollPreset = initLyricsScrollPreset()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsScrollPreset)
+const disposeLyricsCountdownPreference = initLyricsCountdownPreference()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsCountdownPreference)
+const disposeLyricsPanelMode = initLyricsPanelMode()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsPanelMode)
+
+function waitForNextFrame(): Promise<void> {
+  if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
+
+/**
+ * 开屏控制器未接管（资源缺失或初始化失败）时的救援路径：
+ * 直接移除开屏节点并解除主界面 inert，保证应用可用。
+ */
+function releaseOrphanedSplash(): void {
+  if (window.__auralisSplashActive) return
+  document.getElementById(SPLASH_ELEMENT_ID)?.remove()
+  document.getElementById(APP_HOST_ELEMENT_ID)?.removeAttribute('inert')
+  markSplashFinished()
+}
+
+function showStartupFailure(error: unknown): void {
+  window.__auralisAppFailed = true
+  console.error('Auralis startup failed', error)
+  window.dispatchEvent(new Event(APP_FAILED_EVENT))
+
+  const appHost = document.getElementById(APP_HOST_ELEMENT_ID)
+  appHost?.setAttribute('inert', '')
+
+  const splash = document.getElementById(SPLASH_ELEMENT_ID) ?? document.createElement('div')
+  splash.id = SPLASH_ELEMENT_ID
+  splash.classList.remove('is-exiting')
+  splash.setAttribute('role', 'alert')
+  splash.setAttribute('tabindex', '-1')
+
+  const message = document.createElement('div')
+  message.className = 'splash-startup-error'
+  const title = document.createElement('strong')
+  const messages = nativeUiMessages[initialUiLocale()]
+  document.documentElement.lang = initialUiLocale()
+  title.textContent = messages.startupTitle
+  const description = document.createElement('span')
+  description.textContent = messages.startupRetry
+  message.append(title, description)
+  splash.replaceChildren(message)
+  document.body.append(splash)
+  splash.focus({ preventScroll: true })
+
+  try {
+    const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+    auralis.app.splashReady({ theme })
+    auralis.app.rendererReady()
+  } catch {
+    // Preload 故障时，主进程现有的窗口显示超时仍会展示错误画面。
+  }
+}
+
+async function bootstrap(): Promise<void> {
+  const [{ default: App }, { router }] = await Promise.all([
+    import('./App.vue'),
+    import('./app/router'),
+  ])
+
+  const { i18n, initUiLocale } = await import('./i18n')
+  initUiLocale((locale) => auralis.app.setLocale(locale))
+
+  const app = createApp(App)
+  app.use(tooltipPlugin)
+  app.use(i18n)
+  app.use(router)
+  await router.isReady()
+  await router.replace({ name: 'library' })
+  app.mount('#app')
+  await nextTick()
+  // 主界面就绪信号在路由就绪、Vue 挂载并渲染一帧后发出；
+  // 兜底限时防止隐藏窗口中帧回调延迟拖延就绪通知。
+  await Promise.race([waitForNextFrame(), new Promise((resolve) => setTimeout(resolve, 100))])
+  releaseOrphanedSplash()
+  window.__auralisAppReady = true
+  window.dispatchEvent(new Event(APP_READY_EVENT))
+  auralis.app.rendererReady()
+
+  const { schedulePrimaryRouteWarmup } = await import('./app/router/routeWarmup')
+  schedulePrimaryRouteWarmup()
+}
+
+void bootstrap().catch((error: unknown) => {
+  if (window.__auralisAppReady) {
+    console.error('Auralis post-startup warmup failed', error)
+    return
+  }
+  showStartupFailure(error)
+})

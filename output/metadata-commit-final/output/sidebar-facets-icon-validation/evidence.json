@@ -1,0 +1,28 @@
+[
+  {
+    "theme": "dark",
+    "width": 20,
+    "height": 20,
+    "stroke": "rgb(146, 153, 163)",
+    "lineWidth": "1.6px",
+    "box": {
+      "x": 3,
+      "y": 3,
+      "width": 18,
+      "height": 18
+    }
+  },
+  {
+    "theme": "light",
+    "width": 20,
+    "height": 20,
+    "stroke": "rgb(104, 110, 116)",
+    "lineWidth": "1.6px",
+    "box": {
+      "x": 3,
+      "y": 3,
+      "width": 18,
+      "height": 18
+    }
+  }
+]

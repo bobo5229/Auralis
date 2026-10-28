@@ -1,0 +1,46 @@
+[
+  {
+    "width": 600,
+    "theme": "dark",
+    "headerRect": {
+      "top": 0,
+      "bottom": 32,
+      "left": 0,
+      "right": 586.6666870117188
+    },
+    "checks": "header / gap / mounted bar / slash focus / Escape / sticky header"
+  },
+  {
+    "width": 600,
+    "theme": "light",
+    "headerRect": {
+      "top": 0,
+      "bottom": 32,
+      "left": 0,
+      "right": 584.6666870117188
+    },
+    "checks": "header / gap / mounted bar / slash focus / Escape / sticky header"
+  },
+  {
+    "width": 940,
+    "theme": "dark",
+    "headerRect": {
+      "top": 0,
+      "bottom": 32,
+      "left": 0,
+      "right": 924.6666870117188
+    },
+    "checks": "header / gap / mounted bar / slash focus / Escape / sticky header"
+  },
+  {
+    "width": 940,
+    "theme": "light",
+    "headerRect": {
+      "top": 0,
+      "bottom": 32,
+      "left": 0,
+      "right": 924.6666870117188
+    },
+    "checks": "header / gap / mounted bar / slash focus / Escape / sticky header"
+  }
+]

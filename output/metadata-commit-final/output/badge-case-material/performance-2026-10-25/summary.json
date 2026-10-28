@@ -1,0 +1,256 @@
+{
+  "scope": "Isolated Electron offscreen renderer. No screenshots, PNG encoding, or throttling during measured runs. Source files unchanged; diagnostic variants exist only in page memory.",
+  "environment": {
+    "electron": "38.8.6",
+    "chromium": "140.0.7339.249",
+    "cpu": "AMD Ryzen 9 8945HX",
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "viewport": [
+      1441,
+      901
+    ],
+    "dpr": 1.5
+  },
+  "comparison": [
+    {
+      "variant": "baseline",
+      "canvas": [
+        630,
+        706
+      ],
+      "frameUpdateIntervals": {
+        "n": 131,
+        "mean": 16.800763358767252,
+        "p50": 25.80000000447035,
+        "p95": 35.69999999552965,
+        "max": 39.20000000298023,
+        "over25": 66
+      },
+      "foamDraws": {
+        "n": 66,
+        "mean": 18.64999999963876,
+        "p50": 18.100000001490116,
+        "p95": 22.899999998509884,
+        "max": 24.69999999552965,
+        "over25": 0
+      },
+      "badgeJsCallbacks": {
+        "n": 133,
+        "mean": 0.14736842095179664,
+        "p50": 0.10000000149011612,
+        "p95": 0.20000000298023224,
+        "max": 0.3999999985098839,
+        "over25": 0
+      }
+    },
+    {
+      "variant": "no-foam",
+      "canvas": [
+        630,
+        706
+      ],
+      "frameUpdateIntervals": {
+        "n": 131,
+        "mean": 16.64274809156893,
+        "p50": 16.799999997019768,
+        "p95": 17.900000005960464,
+        "max": 18.5,
+        "over25": 0
+      },
+      "foamDraws": {
+        "n": 0,
+        "mean": null,
+        "over25": 0
+      },
+      "badgeJsCallbacks": {
+        "n": 133,
+        "mean": 0.13609022568715246,
+        "p50": 0.10000000149011612,
+        "p95": 0.20000000298023224,
+        "max": 0.4000000059604645,
+        "over25": 0
+      }
+    },
+    {
+      "variant": "no-shadow",
+      "canvas": [
+        630,
+        706
+      ],
+      "frameUpdateIntervals": {
+        "n": 129,
+        "mean": 16.76201550391062,
+        "p50": 24.799999997019768,
+        "p95": 35.899999998509884,
+        "max": 38.600000001490116,
+        "over25": 63
+      },
+      "foamDraws": {
+        "n": 66,
+        "mean": 18.52575757523829,
+        "p50": 18.100000001490116,
+        "p95": 23.100000001490116,
+        "max": 24.400000005960464,
+        "over25": 0
+      },
+      "badgeJsCallbacks": {
+        "n": 131,
+        "mean": 0.13969465629517577,
+        "p50": 0.10000000149011612,
+        "p95": 0.29999999701976776,
+        "max": 0.30000000447034836,
+        "over25": 0
+      }
+    },
+    {
+      "variant": "dpr1",
+      "canvas": [
+        420,
+        470
+      ],
+      "frameUpdateIntervals": {
+        "n": 130,
+        "mean": 16.73846153846154,
+        "p50": 1.5999999940395355,
+        "p95": 35.70000000298023,
+        "max": 38.20000000298023,
+        "over25": 61
+      },
+      "foamDraws": {
+        "n": 66,
+        "mean": 19.115151514948316,
+        "p50": 18.5,
+        "p95": 23.399999998509884,
+        "max": 25.5,
+        "over25": 3
+      },
+      "badgeJsCallbacks": {
+        "n": 132,
+        "mean": 0.1325757573499824,
+        "p50": 0.10000000149011612,
+        "p95": 0.20000000298023224,
+        "max": 0.30000000447034836,
+        "over25": 0
+      }
+    },
+    {
+      "variant": "no-foam+no-shadow",
+      "canvas": [
+        630,
+        706
+      ],
+      "frameUpdateIntervals": {
+        "n": 132,
+        "mean": 16.58030303031432,
+        "p50": 16.700000002980232,
+        "p95": 18,
+        "max": 18.399999998509884,
+        "over25": 0
+      },
+      "foamDraws": {
+        "n": 0,
+        "mean": null,
+        "over25": 0
+      },
+      "badgeJsCallbacks": {
+        "n": 134,
+        "mean": 0.13955223910621742,
+        "p50": 0.10000000149011612,
+        "p95": 0.20000000298023224,
+        "max": 0.29999999701976776,
+        "over25": 0
+      }
+    }
+  ],
+  "startup": [
+    {
+      "kind": "first",
+      "untilEntering": 308.79999999701977,
+      "textureUpload": {
+        "count": 6,
+        "total": 62.70000000298023,
+        "max": 18
+      },
+      "animation": {
+        "count": 63,
+        "total": 1082.2000000029802,
+        "mean": 17.17777777782508,
+        "p50": 20.100000001490116,
+        "p95": 33.900000005960464,
+        "max": 51.399999998509884
+      }
+    },
+    {
+      "kind": "switch-badge",
+      "untilEntering": 117.09999999403954,
+      "textureUpload": {
+        "count": 5,
+        "total": 45.600000001490116,
+        "max": 10.600000001490116
+      },
+      "animation": {
+        "count": 65,
+        "total": 1072.7000000029802,
+        "mean": 16.503076923122773,
+        "p50": 19.400000005960464,
+        "p95": 35.80000000447035,
+        "max": 39.20000000298023
+      }
+    }
+  ],
+  "foamSurface": [
+    1506,
+    489
+  ],
+  "sourceHashes": {
+    "badgeInspector.js": "0e2552777958d76dc582206708e1d3abc5c64428a4ceadfaf6f6b22354b68a18",
+    "inspectRenderer.js": "8e13aa2d39370cbe25ce31cac683e76bb85dbd14ea74d5f52ed3e1ddb191880a",
+    "pressureSurface.js": "486c33ba9841389befd188704a5ced30e8ce4c6b26998bf879be5b15589e8caf",
+    "styles.css": "eab95879fe5e1291789455256a4dea8f7f33d15d8933f3306260ce3b8164204d"
+  },
+  "cpuProfile": {
+    "durationMs": 1258.192,
+    "hottestSelfTime": [
+      [
+        "draw http://127.0.0.1:14097/pressureSurface.js",
+        704.1699999999997
+      ],
+      [
+        "(idle) ",
+        400.019
+      ],
+      [
+        "(program) ",
+        109.97300000000001
+      ],
+      [
+        "putImageData ",
+        21.853
+      ],
+      [
+        "tick http://127.0.0.1:14097/pressureSurface.js",
+        3.105
+      ],
+      [
+        "compose http://127.0.0.1:14097/inspector.bundle.js",
+        1.628
+      ],
+      [
+        "requestAnimationFrame ",
+        1.609
+      ],
+      [
+        "showModal ",
+        1.571
+      ],
+      [
+        "uniformMatrix4fv ",
+        1.562
+      ],
+      [
+        "getUnlitUniformColorSpace http://127.0.0.1:14097/inspector.bundle.js",
+        1.558
+      ]
+    ]
+  }
+}

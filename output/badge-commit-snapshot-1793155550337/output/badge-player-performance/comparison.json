@@ -1,0 +1,66 @@
+{
+  "scope": "Both use native Electron windows on the same RTX 5060 Laptop at DPR 1.5, with 630x706 inspection canvases and identical GL-submission instrumentation. Warm repetitions sampled separately; no capture or other validation during measurement. Native callback cadence is approximately 240 Hz, not a presentation-FPS measurement. The player additionally runs its archive backdrop and real native playback of an isolated PCM fixture. Window/foam sizes differ slightly; see individual reports. Historical 60Hz offscreen data is a different setup and is not a direct comparison.",
+  "prototype": {
+    "count": 519,
+    "p95": 4.300000000279397,
+    "max": 5.2000000001862645,
+    "over25": 0
+  },
+  "player": {
+    "count": 519,
+    "p95": 4.300000000279397,
+    "max": 12.899999999906868,
+    "over25": 0
+  },
+  "playerEnvironment": {
+    "dpr": 1.5,
+    "width": 1441,
+    "height": 901,
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "foamWidth": 1523,
+    "foamHeight": 489,
+    "canvasWidth": 630,
+    "canvasHeight": 706,
+    "playing": {
+      "session": 1792908785910,
+      "kind": "state",
+      "trackId": 991,
+      "currentTime": 7.062868,
+      "duration": 240,
+      "isPlaying": true,
+      "buffering": false
+    }
+  },
+  "prototypeEnvironment": {
+    "width": 1440,
+    "height": 900,
+    "dpr": 1.5,
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Laptop GPU (0x00002D19) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "foamWidth": 1506,
+    "foamHeight": 489,
+    "canvasWidth": 630,
+    "canvasHeight": 706
+  },
+  "buildSnapshot": {
+    "directory": "D:\\VSCode\\Auralis\\output\\badge-player-integration\\renderer-build",
+    "base": "7d4da9e46321c991dfc05c67367543a3d562b4fb",
+    "hashes": {
+      "src/renderer/features/archive/runtime/badgeCase.NOTICE.md": "00d7b9b3d8367c7596e03f9065fc903a7e501eac8bf98a63892df7df7bbf7062",
+      "src/renderer/features/archive/runtime/badgeDistanceField.ts": "e8f78a28e4e01b3045e4da2e9410d18f69bcac22b17a644429c1b86bfc066caf",
+      "src/renderer/features/archive/runtime/badgeInspectRenderer.ts": "59a73d77027b9dfad7b5ab1508e7e89a81216256461211d7cb3e4f81d5829c69",
+      "src/renderer/features/archive/runtime/badgeMaterialRenderer.ts": "33aeb0ad03c2a87c769c6180c20eeaeea64eccbb3cd73a2f1b0f141dffead965",
+      "src/renderer/features/archive/runtime/badgePressure.worker.ts": "d4c108394fd5dd8082f9c8fd6ca1448dc08547e1c6f3cf1f628e93f58851a30f",
+      "src/renderer/features/archive/runtime/badgePressurePainter.test.ts": "e2c6e5cb475aee75e9ceac6678aba38751b62876623d64c268ff0180662adec2",
+      "src/renderer/features/archive/runtime/badgePressurePainter.ts": "15bd41c6c9ce778a9de634d13ea46762efe068230798e1521017d1bed2309d30",
+      "src/renderer/features/archive/runtime/badgePressureSurface.ts": "4d4134f4bd5eca72402c0b4168417db3619003fb785bbecfa22fe8ce71f07fd1",
+      "src/renderer/features/archive/runtime/badgeShaders.ts": "76cdf1ba47302675db2f1c6d3cbc3d9f36c8f5136efd853ceecffdbcf72d2ef8",
+      "src/renderer/features/archive/composables/useBadgeInspection.ts": "5ef683fd9d976ca3ccc6445e5e8937da1c724e079c7e5ecc6cd2a161f4b5f71a",
+      "src/renderer/features/archive/components/ArchiveMilestoneGallery.vue": "67e920882f96fcc499113fa625217205af6f2a172345aafb7e38cd7e6ebb5557",
+      "src/renderer/features/archive/components/ArchiveMilestoneCase.vue": "adb4fd4039ace860f05bb1ee6a2d0b34bc9a87951f3c5b7ef9ef206914ed3f9f",
+      "src/renderer/features/archive/styles/badgeGallery.css": "a83a3c44867932f7c541545f2a8ba108d6b1ca9223f0b8e6ae66822f11dbeb41",
+      "src/renderer/features/archive/utils/badgeMaterials.ts": "56d7de80ea0e8c9c711b0c79b93e81d5130a27079a65baa5d26e42acca8e71bb",
+      "src/renderer/features/archive/assets/milestones/materials/manifest.json": "cf19399be4df5d0e3c4c1b6bfaca212843c5383babd391c16935ee2cc98f7b4d"
+    },
+    "measuredDirectory": "D:\\VSCode\\Auralis\\output\\badge-player-build-eCR67f"
+  }
+}

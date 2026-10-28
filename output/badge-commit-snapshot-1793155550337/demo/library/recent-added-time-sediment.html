@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auralis · 最近添加 / 时间沉积</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #302d36; background: #eae9ed; }
+    body { margin: 0; padding: 40px clamp(16px, 4vw, 64px); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #7859a4; outline-offset: 4px; }
+    .motion-toggle { border: 1px solid #c6c0ce; border-radius: 8px; padding: 9px 14px; background: #faf9fc; color: #43364f; font-size: 13px; }
+    .motion-toggle:hover:enabled { background: #f0ecf5; }
+    .motion-toggle:disabled { cursor: default; color: #716b79; background: #dedce3; }
+    .intro, .controls, .previews, .footnote { max-width: 1440px; margin-inline: auto; }
+    .intro { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+    .intro h1 { font-size: 24px; font-weight: 550; letter-spacing: -.6px; margin: 0; }
+    .intro p { color: #77717f; font-size: 13px; line-height: 1.6; margin: 0; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-block: 24px 30px; }
+    .control-group { display: flex; align-items: center; gap: 12px; }
+    .control-label { font-size: 12px; color: #716a7a; }
+    .segmented { display: flex; padding: 4px; background: #dedce3; border-radius: 10px; gap: 2px; }
+    .segmented button { border: 0; background: transparent; color: #716b79; padding: 8px 15px; font-size: 13px; border-radius: 7px; white-space: nowrap; }
+    .segmented button[aria-checked="true"] { background: #faf9fc; color: #43364f; box-shadow: 0 1px 4px #32214013; }
+    .previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+    .previews[data-display="light"], .previews[data-display="dark"] { grid-template-columns: 1fr; }
+    .previews[data-display="light"] .preview[data-theme="dark"], .previews[data-display="dark"] .preview[data-theme="light"] { display: none; }
+    .theme-label { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12px; color: #787180; letter-spacing: 1px; }
+    .surface { --bg: #fff; --fg: #302438; --muted: #776d7e; --line: #3a244414; --tick: #523965; color: var(--fg); background: var(--bg); border-radius: 18px; overflow: hidden; box-shadow: 0 16px 50px #32243c09; }
+    [data-theme="dark"] .surface { color-scheme: dark; --bg: #16141a; --fg: #f5eef9; --muted: #b9a9c5; --line: #e7d4ff16; --tick: #e3c9fc; }
+    .playlist-header { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: center; gap: 28px; padding: 32px; }
+    .playlist-cover { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1; border-radius: 10px; background: linear-gradient(135deg, var(--cover-first, #805f91), var(--cover-mid, #ccbbd1), var(--cover-back, #eee8f2)); box-shadow: 0 12px 28px #1710201c; }
+    [data-theme="dark"] .playlist-cover { box-shadow: 0 12px 32px #0005; }
+    .shader { position: absolute; inset: 0; z-index: -3; pointer-events: none; }
+    .shader canvas { width: 100%; height: 100%; display: block; }
+    .shader canvas[hidden] { display: none; }
+    .playlist-cover::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(150deg, #ffffff12, transparent 45%, #00000008); box-shadow: inset 0 0 0 1px #ffffff18; pointer-events: none; }
+    .playlist-info { min-width: 0; }
+    .eyebrow { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+    .eyebrow::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .playlist-info h2 { margin: 18px 0 12px; font-size: clamp(28px, 2.6vw, 42px); font-weight: 600; letter-spacing: -1.5px; line-height: 1.15; }
+    .hero-meta { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .range-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .range-number { font-size: 28px; font-weight: 350; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+    .range-caption { font-size: 12px; color: var(--muted); }
+    .palette-label { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
+    .timeline { margin-top: 20px; }
+    .timeline-line { position: relative; height: 19px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--tick) 28%, transparent) 0 1px, transparent 1px 20px); mask-image: linear-gradient(90deg, #000, #0008); }
+    .timeline-line::before { content: ""; position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid color-mix(in srgb, var(--tick) 28%, transparent); }
+    .timeline-line::after { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 19px; background: var(--tick); }
+    .timeline-labels { display: flex; justify-content: space-between; margin-top: 7px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+    .list { padding: 22px 32px 26px; }
+    .list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+    .list-header strong { font-size: 13px; font-weight: 550; }
+    .list-header span { font-size: 11px; color: var(--muted); }
+    .track { display: grid; grid-template-columns: 24px 1fr auto; gap: 13px; padding-block: 15px; align-items: center; border-bottom: 1px solid var(--line); }
+    .track:last-child { border: 0; padding-bottom: 0; }
+    .track-number, .track-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .track-title { font-size: 13px; margin-bottom: 5px; }
+    .track-artist { font-size: 11px; color: var(--muted); }
+    .footnote { font-size: 12px; color: #79717f; line-height: 1.8; padding-top: 24px; }
+    .footnote p { margin: 4px 0; }
+    #status { color: #6b4b7e; }
+    @media (max-width: 1200px) { .playlist-header { grid-template-columns: minmax(0, 190px) minmax(0, 1fr); gap: 20px; padding: 24px; } }
+    @media (max-width: 1000px) { .previews { grid-template-columns: 1fr; } .intro { align-items: start; flex-direction: column; gap: 7px; } .playlist-header { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); } }
+    @media (max-width: 520px) { body { padding: 24px 14px; } .controls { align-items: start; } .control-group { flex-wrap: wrap; gap: 8px; } .segmented button { padding: 8px 12px; } .playlist-header { grid-template-columns: 1fr; padding: 24px; gap: 24px; } .playlist-cover { max-width: 260px; } .list { padding-inline: 24px; } }
+  </style>
+</head>
+<body>
+  <header class="intro">
+    <h1>时间沉积</h1>
+    <p>最近添加 · S 形时间褶皱</p>
+  </header>
+  <nav class="controls" aria-label="原型控制">
+    <div class="control-group">
+      <span id="range-label" class="control-label">回溯范围</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="range-label" data-control="range">
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="7">7 天</button>
+        <button type="button" role="radio" aria-checked="true" tabindex="0" data-value="30">30 天</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="90">90 天</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="all">全部</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <span id="display-label" class="control-label">对照</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="display-label" data-control="display">
+        <button type="button" role="radio" aria-checked="true" tabindex="0" data-value="both">并排</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="light">浅色</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="dark">深色</button>
+      </div>
+    </div>
+    <button id="motion-toggle" class="motion-toggle" type="button">暂停动效</button>
+  </nav>
+  <main class="previews" data-display="both"></main>
+  <footer class="footnote">
+    <p>7 天灰玫瑰与暖杏 · 30 天雾紫与灰蓝 · 90 天青灰与烟蓝 · 全部琥珀与褐紫。两条宽窄不同的曲面交融，以 6 秒为一轮沿 S 形走势流动，磨砂颗粒保持固定。统计与曲目为演示数据。</p>
+    <p id="status" role="status" aria-live="polite">正在绘制时间沉积封面…</p>
+    <p>翻开近处，显露过去。扩大范围时，近层向外让开，更早的收藏在右上方层层显露；缩小范围时，近层重新合拢。</p>
+  </footer>
+  <script>
+    (() => {
+    'use strict';
+    // Self-contained demo: a continuous time field, palette curve and seeded grain.
+    const root = document.querySelector('.previews');
+    const status = document.querySelector('#status');
+    const motion = matchMedia('(prefers-reduced-motion: reduce)');
+    const motionToggle = document.querySelector('#motion-toggle');
+    const ambientCycleMs = 6000;
+    const presets = {
+      '7': { reach: 2.6, spread: .72, bend: .28, haze: .18, shift: 0, peel: 0, tracks: 24, albums: 4, past: '7 天前', number: '07', caption: '天内的新收藏' },
+      '30': { reach: 3.8, spread: .87, bend: .30, haze: .24, shift: .008, peel: 0, tracks: 128, albums: 16, past: '30 天前', number: '30', caption: '天内的新收藏' },
+      '90': { reach: 4.9, spread: 1.02, bend: .32, haze: .30, shift: .016, peel: 0, tracks: 386, albums: 42, past: '90 天前', number: '90', caption: '天内的新收藏' },
+      'all': { reach: 6, spread: 1.14, bend: .34, haze: .36, shift: .025, peel: 0, tracks: 2468, albums: 218, past: '收藏之初', number: '全部', caption: '从此刻，回望收藏之初' },
+    };
+    const palettes = {
+      '7': {
+        name: '灰玫瑰 / 暖杏',
+        light: { back: '#f1e4dc', colors: ['#a96f80', '#bd8b94', '#cc9c9c', '#d8b0a4', '#e3c4b0', '#eed7bd', '#f7e9d6'] },
+        dark: { back: '#302124', colors: ['#c88b96', '#b87989', '#a56c77', '#946563', '#7e584f', '#5e4036', '#382b28'] },
+      },
+      '30': {
+        name: '雾紫 / 灰蓝',
+        light: { back: '#e8e8f0', colors: ['#805f91', '#9c80ab', '#b09ac0', '#b4adcc', '#bec3d6', '#d3dbe6', '#ecedf4'] },
+        dark: { back: '#201d30', colors: ['#a68ac1', '#8e73a8', '#786496', '#635d83', '#505a76', '#384257', '#232b3c'] },
+      },
+      '90': {
+        name: '青灰 / 烟蓝',
+        light: { back: '#e4eceb', colors: ['#597e7b', '#759695', '#8eaaa9', '#9db2ba', '#b4c4d1', '#d0dbe2', '#e9eef0'] },
+        dark: { back: '#19282d', colors: ['#83ada5', '#709893', '#5d8386', '#4e6c7b', '#3e556b', '#2e3e52', '#202c3b'] },
+      },
+      'all': {
+        name: '琥珀 / 褐紫',
+        light: { back: '#ece2db', colors: ['#aa7843', '#be925b', '#d0ae80', '#bba095', '#ab92aa', '#cbbbd0', '#eee5ed'] },
+        dark: { back: '#2b2230', colors: ['#bd965b', '#a8804f', '#8d6b50', '#795c61', '#654d69', '#4b3b56', '#302637'] },
+      },
+    };
+    const vertexSource = `#version 300 es
+      layout(location = 0) in vec2 a_position;
+      void main() { gl_Position = vec4(a_position, 0.0, 1.0); }
+    `;
+    const fragmentSource = `#version 300 es
+      precision highp float;
+      uniform vec2 u_resolution;
+      uniform vec2 u_cssSize;
+      uniform sampler2D u_grain;
+      uniform vec3 u_colors[7];
+      uniform vec3 u_back;
+      uniform float u_reach;
+      uniform float u_spread;
+      uniform float u_bend;
+      uniform float u_haze;
+      uniform float u_shift;
+      uniform float u_peel;
+      uniform float u_phase;
+      out vec4 outColor;
+
+      // Noise sampling stays fixed; animation changes the field under this texture.
+      float sampleGrain(vec2 cell) {
+        return texelFetch(u_grain, ivec2(mod(cell, 256.0)), 0).r;
+      }
+      float softNoise(vec2 point) {
+        vec2 cell = floor(point);
+        vec2 f = fract(point);
+        vec2 blend = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(sampleGrain(cell), sampleGrain(cell + vec2(1, 0)), blend.x),
+          mix(sampleGrain(cell + vec2(0, 1)), sampleGrain(cell + vec2(1, 1)), blend.x),
+          blend.y
+        ) - 0.5;
+      }
+      // Positive cubic B-spline weights form a C2-continuous palette curve.
+      // Repeated endpoint colors ease into the ends without overshoot or per-stop plateaus.
+      vec3 samplePalette(float position) {
+        float bounded = clamp(position, -1.0, 7.0);
+        int center = int(floor(bounded));
+        float f = fract(bounded);
+        float f2 = f * f;
+        float f3 = f2 * f;
+        float inverse = 1.0 - f;
+        vec4 weights = vec4(inverse * inverse * inverse,
+          4.0 - 6.0 * f2 + 3.0 * f3,
+          1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3,
+          f3) / 6.0;
+        return u_colors[clamp(center - 1, 0, 6)] * weights.x
+          + u_colors[clamp(center, 0, 6)] * weights.y
+          + u_colors[clamp(center + 1, 0, 6)] * weights.z
+          + u_colors[clamp(center + 2, 0, 6)] * weights.w;
+      }
+      vec3 toDisplay(vec3 linearColor) {
+        vec3 c = max(linearColor, vec3(0));
+        return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
+          step(vec3(0.0031308), c));
+      }
+      void main() {
+        vec2 uv = gl_FragCoord.xy / u_resolution;
+        uv.y = 1.0 - uv.y;
+        // Surface grain uses CSS pixels, independent of curve geometry and DPR.
+        vec2 surfaceCell = floor(uv * u_cssSize * 1.5);
+        float grain = sampleGrain(surfaceCell) - 0.5;
+        float grain2 = sampleGrain(surfaceCell + vec2(79, 137)) - 0.5;
+        // A broad S fold enters at the lower left and narrows toward the upper right.
+        // A lighter counter-fold bends the other way, breaking the former nested arcs.
+        const float turn = 6.283185;
+        float along = 1.0 - uv.y;
+        float opening = clamp((u_spread - 0.72) / 0.42, 0.0, 1.0);
+        float curvePhase = turn * along - 0.18;
+        float flowPhase = u_phase - turn * along;
+        float nearWeight = 1.0 - along;
+        float wave = sin(flowPhase) + 0.28 * sin(2.0 * flowPhase + 0.8);
+        float mainCenter = 0.12 + 0.74 * along + (0.23 + 0.10 * u_bend) * sin(curvePhase);
+        mainCenter += mix(0.050, 0.024, along) * wave;
+        mainCenter -= (0.16 * opening + u_shift) * exp(-3.0 * along);
+        mainCenter -= u_peel * nearWeight;
+        float mainWidth = mix(mix(0.33, 0.27, opening), 0.10, smoothstep(0.0, 1.0, along));
+        mainWidth *= 1.0 + 0.12 * sin(flowPhase - 0.7);
+
+        float counterCenter = 0.34 + 0.48 * along - 0.16 * sin(curvePhase + 0.12);
+        counterCenter += mix(0.032, 0.016, along) * sin(flowPhase - 1.1);
+        counterCenter += 0.06 * opening * nearWeight + 0.45 * u_peel * nearWeight;
+        float counterWidth = mix(0.21, 0.08, along) * (1.0 + 0.09 * sin(flowPhase - 1.8));
+        float mainAcross = (uv.x - mainCenter) / mainWidth;
+        float counterAcross = (uv.x - counterCenter) / counterWidth;
+        // Gaussian falloffs have no contour edge; the counter-fold stays translucent.
+        float mainDensity = exp(-0.5 * mainAcross * mainAcross);
+        float counterDensity = 0.34 * exp(-0.5 * counterAcross * counterAcross);
+        float density = 1.0 - (1.0 - mainDensity) * (1.0 - counterDensity);
+        float mainDepth = 0.35 + 4.8 * along + 0.65 * mainAcross;
+        float counterDepth = 2.0 + 3.5 * along - 0.40 * counterAcross;
+        // Both surfaces contribute to one continuous palette coordinate, never layered colors.
+        float timeDepth = (mainDensity * mainDepth + counterDensity * counterDepth)
+          / max(mainDensity + counterDensity, 0.0001);
+        timeDepth += 1.15 * (u_spread - 0.72) + u_shift;
+        // Fixed coarse and medium noise softly distort the field before palette lookup.
+        timeDepth += 0.20 * softNoise(uv * 2.3 + vec2(18, 39))
+          + 0.10 * softNoise(uv * 6.1 + vec2(67, 12))
+          + 0.04 * softNoise(uv * 15.7 + vec2(29, 81));
+        // Fine grains select nearby colors instead of only adding monochrome speckles.
+        float surfaceGrain = grain * 0.72 + grain2 * 0.28;
+        timeDepth += 0.16 * surfaceGrain;
+        vec3 gradient = samplePalette(timeDepth);
+        vec3 background = mix(u_colors[6], u_back, 0.30);
+        vec2 past = uv - vec2(0.86, 0.15);
+        float distantLight = exp(-dot(past * vec2(1.0, 1.15), past * vec2(1.0, 1.15)) / 0.045);
+        float lightBreath = 0.28 + 0.025 * sin(u_phase - 2.6);
+        background = mix(background, mix(u_colors[3], u_colors[6], 0.72), distantLight * lightBreath);
+        // The graphic fades into its background using the same continuous field.
+        float aa = fwidth(timeDepth);
+        float visibility = 1.0 - smoothstep(u_reach - 1.0 - aa, u_reach + 1.2 + aa, timeDepth);
+        float atmosphere = u_haze * 0.35 * smoothstep(0.0, 6.0, timeDepth);
+        vec3 color = mix(background, gradient, density * visibility * (1.0 - atmosphere));
+        vec3 displayColor = toDisplay(color);
+        // A small final dither supports the palette grain without dominating it.
+        float grainAmount = surfaceGrain * 0.004;
+        outColor = vec4(clamp(displayColor + grainAmount, 0.0, 1.0), 1.0);
+      }
+    `;
+
+    // xorshift32 creates one deterministic monochrome texture shared by both themes.
+    const grainPixels = new Uint8Array(256 * 256);
+    let grainSeed = 0x41555241;
+    for (let i = 0; i < grainPixels.length; i++) {
+      grainSeed ^= grainSeed << 13;
+      grainSeed ^= grainSeed >>> 17;
+      grainSeed ^= grainSeed << 5;
+      grainPixels[i] = grainSeed >>> 24;
+    }
+
+    function linearColor(hex) {
+      return [1, 3, 5].map((start) => {
+        const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+        return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+      });
+    }
+
+    class SedimentRenderer {
+      constructor(host, onStateChange) {
+        this.host = host;
+        this.onStateChange = onStateChange;
+        this.canvas = document.createElement('canvas');
+        this.canvas.setAttribute('aria-hidden', 'true');
+        this.gl = this.canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false });
+        if (!this.gl) throw new Error('WebGL2 unavailable');
+        this.program = null;
+        this.buffer = null;
+        this.texture = null;
+        this.lost = false;
+        this.disposed = false;
+        this.last = null;
+        this.width = 0;
+        this.height = 0;
+        this.visible = false;
+        this.onLost = (event) => {
+          event.preventDefault();
+          this.lost = true;
+          this.canvas.hidden = true;
+          // All GPU objects are invalid after a context loss.
+          this.program = this.buffer = this.texture = null;
+          this.onStateChange();
+        };
+        this.onRestored = () => {
+          if (this.disposed) return;
+          try {
+            this.initialize();
+            this.lost = false;
+            this.canvas.hidden = false;
+            this.resize();
+          } catch (error) {
+            this.release();
+            this.lost = true;
+            this.canvas.hidden = true;
+            console.error('Sediment context restoration failed', error);
+          }
+          this.onStateChange();
+        };
+        try {
+          this.initialize();
+          this.canvas.addEventListener('webglcontextlost', this.onLost);
+          this.canvas.addEventListener('webglcontextrestored', this.onRestored);
+          host.append(this.canvas);
+          this.observer = new ResizeObserver(() => {
+            this.resize();
+            this.onStateChange();
+          });
+          this.observer.observe(host);
+          this.visibilityObserver = new IntersectionObserver(([entry]) => {
+            this.visible = entry.isIntersecting && entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0;
+            if (this.visible) this.resize();
+            this.onStateChange();
+          });
+          this.visibilityObserver.observe(host);
+        } catch (error) {
+          this.dispose();
+          throw error;
+        }
+      }
+      compile(type, source) {
+        const gl = this.gl;
+        const shader = gl.createShader(type);
+        if (!shader) throw new Error('Shader allocation failed');
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const message = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(message || 'Shader compilation failed');
+        }
+        return shader;
+      }
+      initialize() {
+        const gl = this.gl;
+        let vertex = null;
+        let fragment = null;
+        try {
+          vertex = this.compile(gl.VERTEX_SHADER, vertexSource);
+          fragment = this.compile(gl.FRAGMENT_SHADER, fragmentSource);
+          this.program = gl.createProgram();
+          if (!this.program) throw new Error('Program allocation failed');
+          gl.attachShader(this.program, vertex);
+          gl.attachShader(this.program, fragment);
+          gl.linkProgram(this.program);
+          if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(this.program) || 'Program link failed');
+          }
+        } finally {
+          if (vertex) gl.deleteShader(vertex);
+          if (fragment) gl.deleteShader(fragment);
+        }
+        this.buffer = gl.createBuffer();
+        this.texture = gl.createTexture();
+        if (!this.buffer || !this.texture) throw new Error('GPU allocation failed');
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 256, 0, gl.RED, gl.UNSIGNED_BYTE, grainPixels);
+        this.uniforms = Object.fromEntries(['resolution', 'cssSize', 'grain', 'colors[0]', 'back', 'reach', 'spread', 'bend', 'haze', 'shift', 'peel', 'phase']
+          .map((name) => [name, gl.getUniformLocation(this.program, `u_${name}`)]));
+        gl.useProgram(this.program);
+        gl.uniform1i(this.uniforms.grain, 0);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+      }
+      resize() {
+        if (this.disposed || this.lost) return;
+        const rect = this.host.getBoundingClientRect();
+        this.width = rect.width;
+        this.height = rect.height;
+        if (!this.width || !this.height) return;
+        const ratio = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(1_000_000 / (this.width * this.height)));
+        const width = Math.max(1, Math.round(this.width * ratio));
+        const height = Math.max(1, Math.round(this.height * ratio));
+        if (this.canvas.width !== width || this.canvas.height !== height) {
+          this.canvas.width = width;
+          this.canvas.height = height;
+        }
+        this.draw();
+      }
+      render(state, palette, phase) {
+        this.last = { state: { ...state }, palette, phase };
+        this.draw();
+      }
+      isDrawable() {
+        return !this.disposed && !this.lost && this.visible && !document.hidden && this.width > 0 && this.height > 0;
+      }
+      draw() {
+        if (!this.last || !this.isDrawable()) return;
+        const gl = this.gl;
+        const { state, palette, phase } = this.last;
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        gl.useProgram(this.program);
+        gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
+        gl.uniform2f(this.uniforms.cssSize, this.width, this.height);
+        gl.uniform3fv(this.uniforms['colors[0]'], palette.colors.flat());
+        gl.uniform3fv(this.uniforms.back, palette.back);
+        gl.uniform1f(this.uniforms.phase, phase);
+        for (const key of ['reach', 'spread', 'bend', 'haze', 'shift', 'peel']) {
+          gl.uniform1f(this.uniforms[key], state[key]);
+        }
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      release() {
+        if (this.program) this.gl.deleteProgram(this.program);
+        if (this.buffer) this.gl.deleteBuffer(this.buffer);
+        if (this.texture) this.gl.deleteTexture(this.texture);
+        this.program = this.buffer = this.texture = null;
+      }
+      dispose() {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.observer?.disconnect();
+        this.visibilityObserver?.disconnect();
+        this.canvas.removeEventListener('webglcontextlost', this.onLost);
+        this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
+        this.release();
+        this.canvas.remove();
+      }
+    }
+
+    const themes = ['light', 'dark'];
+    const tracks = [['微光', '陈予安 · 夜色之间', '03:42'], ['缓慢的回声', '林序 · 留白', '04:16'], ['昨日来信', '许知遥 · 旧时光', '03:58']];
+    for (const theme of themes) {
+      const section = document.createElement('section');
+      section.className = 'preview';
+      section.dataset.theme = theme;
+      section.setAttribute('aria-label', theme === 'light' ? '浅色模式预览' : '深色模式预览');
+      section.innerHTML = `
+        <div class="theme-label"><span>${theme === 'light' ? '浅色模式' : '深色模式'}</span><span>${theme === 'light' ? 'LIGHT' : 'DARK'}</span></div>
+        <div class="surface">
+          <div class="playlist-header">
+            <div class="playlist-cover" role="img" aria-label="最近添加磨砂渐变歌单封面"><div class="shader" aria-hidden="true"></div></div>
+            <div class="playlist-info">
+              <div class="eyebrow">资料库 / 歌单</div>
+              <h2>最近添加</h2>
+              <p class="hero-meta"></p>
+              <div class="range-title"><span class="range-number"></span><span class="range-caption"></span></div>
+              <p class="palette-label"></p>
+              <div class="timeline" aria-hidden="true"><div class="timeline-line"></div><div class="timeline-labels"><span>此刻</span><span class="past-label"></span></div></div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-header"><strong>新入库的曲目</strong><span>按添加时间</span></div>
+            ${tracks.map(([title, artist, time], i) => `<div class="track"><span class="track-number">0${i + 1}</span><div><div class="track-title">${title}</div><div class="track-artist">${artist}</div></div><span class="track-time">${time}</span></div>`).join('')}
+          </div>
+        </div>`;
+      root.append(section);
+    }
+
+    let selected = '30';
+    let current = { ...presets[selected] };
+    let renderers = [];
+    let animationFrame = 0;
+    let disposed = false;
+    let pageSuspended = false;
+    let userPaused = false;
+    let transition = null;
+    let ambientPhase = 0;
+    let lastFrameTime = null;
+    let currentPalettes = paletteState(selected);
+
+    function paletteState(range) {
+      return Object.fromEntries(themes.map((theme) => [theme, {
+        back: linearColor(palettes[range][theme].back),
+        colors: palettes[range][theme].colors.map(linearColor),
+      }]));
+    }
+
+    function updateLabels() {
+      const p = presets[selected];
+      for (const preview of root.children) {
+        preview.querySelector('.hero-meta').textContent = `${selected === 'all' ? '全部收藏' : `最近 ${selected} 天`} · ${p.tracks.toLocaleString('zh-Hans')} 首曲目 · ${p.albums} 张专辑`;
+        preview.querySelector('.range-number').textContent = p.number;
+        preview.querySelector('.range-caption').textContent = p.caption;
+        preview.querySelector('.past-label').textContent = p.past;
+        preview.querySelector('.palette-label').textContent = palettes[selected].name;
+        const palette = palettes[selected][preview.dataset.theme];
+        const cover = preview.querySelector('.playlist-cover');
+        cover.style.setProperty('--cover-first', palette.colors[0]);
+        cover.style.setProperty('--cover-mid', palette.colors[3]);
+        cover.style.setProperty('--cover-back', palette.back);
+        cover.setAttribute('aria-label', `最近添加，${selected === 'all' ? '全部收藏' : `最近 ${selected} 天`}，${palettes[selected].name}磨砂封面，两条曲面沿不对称的 S 形走势向右上方退远`);
+      }
+    }
+
+    function paint() {
+      for (const { renderer, theme } of renderers) {
+        renderer.render(current, currentPalettes[theme], ambientPhase);
+      }
+    }
+
+    function finishTransition() {
+      transition = null;
+      current = { ...presets[selected] };
+      currentPalettes = paletteState(selected);
+    }
+
+    function stopAnimation() {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      lastFrameTime = null;
+    }
+
+    function canAnimate() {
+      return !disposed && !pageSuspended && !document.hidden && !motion.matches && !userPaused
+        && renderers.some(({ renderer }) => renderer.isDrawable());
+    }
+
+    function syncAnimation() {
+      if (disposed) return;
+      if (!canAnimate()) {
+        stopAnimation();
+        // Hidden, static and failed renderers retain the latest selected range.
+        finishTransition();
+        paint();
+        return;
+      }
+      paint();
+      if (!animationFrame) animationFrame = requestAnimationFrame(tick);
+    }
+
+    function tick(now) {
+      animationFrame = 0;
+      if (!canAnimate()) {
+        syncAnimation();
+        return;
+      }
+      // Both themes share one clock, with GPU drawing capped at approximately 30 fps.
+      if (lastFrameTime === null || now - lastFrameTime >= 1000 / 30 - 0.5) {
+        const elapsed = lastFrameTime === null ? 0 : Math.min(100, now - lastFrameTime);
+        lastFrameTime = now;
+        if (transition) {
+          advanceTransition(now);
+        } else {
+          ambientPhase = (ambientPhase + elapsed / ambientCycleMs * Math.PI * 2) % (Math.PI * 2);
+        }
+        paint();
+      }
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    function changeRange(value) {
+      if (!(value in presets) || value === selected) return;
+      selected = value;
+      updateLabels();
+      if (!canAnimate()) {
+        syncAnimation();
+        return;
+      }
+      const from = { ...current };
+      const to = presets[value];
+      transition = {
+        from, to,
+        direction: Math.sign(to.spread - from.spread),
+        lift: Math.min(1, Math.abs(to.spread - from.spread) / 0.15),
+        fromPalettes: currentPalettes,
+        toPalettes: paletteState(value),
+        start: performance.now(),
+      };
+      // Freeze the ambient phase during the larger reveal, then resume at that phase.
+      syncAnimation();
+    }
+
+    function advanceTransition(now) {
+      const { from, to, direction, lift, fromPalettes, toPalettes, start } = transition;
+      const t = Math.max(0, Math.min(1, (now - start) / 1000));
+      const eased = 1 - (1 - t) ** 3;
+      for (const key of ['reach', 'spread', 'bend', 'haze', 'shift']) {
+        current[key] = from[key] + (to[key] - from[key]) * eased;
+      }
+      // Preserve the current lift on interruption; the new pulse starts at zero.
+      current.peel = from.peel * (1 - eased) + direction * lift * 0.065 * Math.sin(Math.PI * t) ** 2;
+      const mixColor = (a, b) => a.map((channel, index) => channel + (b[index] - channel) * eased);
+      currentPalettes = Object.fromEntries(themes.map((theme) => [theme, {
+        back: mixColor(fromPalettes[theme].back, toPalettes[theme].back),
+        colors: fromPalettes[theme].colors.map((color, index) => mixColor(color, toPalettes[theme].colors[index])),
+      }]));
+      if (t === 1) finishTransition();
+    }
+
+    for (const group of document.querySelectorAll('[role="radiogroup"]')) {
+      const buttons = [...group.querySelectorAll('button')];
+      function choose(button, focus = false) {
+        for (const item of buttons) {
+          const checked = item === button;
+          item.setAttribute('aria-checked', String(checked));
+          item.tabIndex = checked ? 0 : -1;
+        }
+        if (group.dataset.control === 'range') changeRange(button.dataset.value);
+        else {
+          root.dataset.display = button.dataset.value;
+          resizeRenderers();
+        }
+        if (focus) button.focus();
+      }
+      buttons.forEach((button) => button.addEventListener('click', () => choose(button)));
+      group.addEventListener('keydown', (event) => {
+        const index = buttons.indexOf(event.target);
+        if (index < 0) return;
+        let next;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % buttons.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index + buttons.length - 1) % buttons.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = buttons.length - 1;
+        else return;
+        event.preventDefault();
+        choose(buttons[next], true);
+      });
+    }
+    updateLabels();
+
+    function resizeRenderers() {
+      renderers.forEach(({ renderer }) => renderer.resize());
+      syncAnimation();
+    }
+    function onVisibility() {
+      resizeRenderers();
+    }
+    function onMotion() { updateRendererStatus(); }
+    function onToggleMotion() {
+      userPaused = !userPaused;
+      updateRendererStatus();
+    }
+    function onPageShow() {
+      pageSuspended = false;
+      resizeRenderers();
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    motion.addEventListener('change', onMotion);
+    motionToggle.addEventListener('click', onToggleMotion);
+    window.addEventListener('resize', resizeRenderers);
+    window.addEventListener('pageshow', onPageShow);
+    window.visualViewport?.addEventListener('resize', resizeRenderers);
+    window.addEventListener('pagehide', (event) => {
+      pageSuspended = true;
+      stopAnimation();
+      finishTransition();
+      if (event.persisted) return;
+      disposed = true;
+      renderers.forEach(({ renderer }) => renderer.dispose());
+      renderers = [];
+      document.removeEventListener('visibilitychange', onVisibility);
+      motion.removeEventListener('change', onMotion);
+      motionToggle.removeEventListener('click', onToggleMotion);
+      window.removeEventListener('resize', resizeRenderers);
+      window.removeEventListener('pageshow', onPageShow);
+      window.visualViewport?.removeEventListener('resize', resizeRenderers);
+    });
+
+    function updateRendererStatus() {
+      if (disposed) return;
+      const unavailable = themes.filter((theme) => !renderers.some((item) => item.theme === theme && !item.renderer.lost));
+      motionToggle.disabled = motion.matches;
+      motionToggle.textContent = motion.matches ? '已减少动态效果' : userPaused ? '继续动效' : '暂停动效';
+      const motionStatus = motion.matches ? '系统已减少动态效果，封面保持静态。'
+        : userPaused ? '动效已暂停，点击「继续动效」可恢复。'
+        : '颜色沿 S 形褶皱流动，浅色曲面反向弯入；切换范围可展开或合拢。';
+      const message = unavailable.length
+        ? `${unavailable.map((theme) => theme === 'light' ? '浅色' : '深色').join('、')}预览暂用 CSS 占位渐变；请检查 WebGL2 支持，或等待图形上下文恢复后重新显示。`
+        : motionStatus;
+      if (status.textContent !== message) status.textContent = message;
+      syncAnimation();
+    }
+    for (const theme of themes) {
+      const host = root.querySelector(`[data-theme="${theme}"] .shader`);
+      try {
+        const renderer = new SedimentRenderer(host, updateRendererStatus);
+        renderers.push({ renderer, theme });
+        renderer.render(current, currentPalettes[theme], ambientPhase);
+        renderer.resize();
+      } catch (error) {
+        console.error(`Sediment renderer initialization failed (${theme})`, error);
+      }
+    }
+    updateRendererStatus();
+    })();
+  </script>
+</body>
+</html>

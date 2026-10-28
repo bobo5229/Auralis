@@ -1,0 +1,65 @@
+{
+  "wide": {
+    "theme": {
+      "x": 24,
+      "y": 794,
+      "width": 32,
+      "height": 32,
+      "top": 794,
+      "right": 56,
+      "bottom": 826,
+      "left": 24
+    },
+    "vibration": {
+      "x": 72,
+      "y": 794,
+      "width": 32,
+      "height": 32,
+      "top": 794,
+      "right": 104,
+      "bottom": 826,
+      "left": 72
+    },
+    "ringChildren": 2,
+    "legacyPreference": "comet"
+  },
+  "keyboard": {
+    "tabTarget": "vibration",
+    "spaceToggled": true
+  },
+  "wave": {
+    "seekOffset": "0.19999999999999996",
+    "animated": true
+  },
+  "narrow": {
+    "x": 64,
+    "y": 652,
+    "width": 32,
+    "height": 32,
+    "top": 652,
+    "right": 96,
+    "bottom": 684,
+    "left": 64
+  },
+  "motion": {
+    "shapes": [
+      "laser-motion",
+      "iridescence-motion",
+      "reel-motion",
+      "waveform-motion",
+      "retrograde-motion"
+    ],
+    "controls": true
+  },
+  "extended": {
+    "shapes": [
+      "segmented",
+      "waveform",
+      "dot-matrix",
+      "laser-pickup",
+      "grooves"
+    ],
+    "controls": true
+  },
+  "errors": []
+}

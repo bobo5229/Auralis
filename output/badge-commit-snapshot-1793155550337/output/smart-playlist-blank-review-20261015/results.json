@@ -1,0 +1,387 @@
+[
+  {
+    "name": "900h-many-options",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": 1.5,
+    "panel": {
+      "top": 110,
+      "bottom": 790,
+      "width": 960,
+      "height": 680,
+      "clientHeight": 679,
+      "scrollHeight": 679,
+      "display": "grid",
+      "rows": "56.6667px 547.333px 74.6667px",
+      "maxHeight": "820px"
+    },
+    "body": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "grid",
+      "rows": "547.333px",
+      "maxHeight": "none"
+    },
+    "stage": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "controls": {
+      "top": 183.33334350585938,
+      "bottom": 524.0000305175781,
+      "width": 910.6666870117188,
+      "height": 340.66668701171875,
+      "clientHeight": 341,
+      "scrollHeight": 341,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "footer": {
+      "top": 714.6666870117188,
+      "bottom": 789.3333587646484,
+      "width": 958.6666870117188,
+      "height": 74.66667175292969,
+      "clientHeight": 74,
+      "scrollHeight": 74,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "choices": {
+      "top": 366,
+      "bottom": 524,
+      "width": 443.3333435058594,
+      "height": 158,
+      "clientHeight": 158,
+      "scrollHeight": 798,
+      "display": "grid",
+      "rows": "38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px",
+      "maxHeight": "158px"
+    },
+    "blankBelowControls": 191,
+    "visibleChoices": 80,
+    "alerts": []
+  },
+  {
+    "name": "720h-many-options",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "dpr": 1.5,
+    "panel": {
+      "top": 40,
+      "bottom": 680,
+      "width": 960,
+      "height": 640,
+      "clientHeight": 639,
+      "scrollHeight": 639,
+      "display": "grid",
+      "rows": "56.6667px 507.333px 74.6667px",
+      "maxHeight": "640px"
+    },
+    "body": {
+      "top": 97.33333587646484,
+      "bottom": 604.6666793823242,
+      "width": 958.6666870117188,
+      "height": 507.3333435058594,
+      "clientHeight": 507,
+      "scrollHeight": 507,
+      "display": "grid",
+      "rows": "507.333px",
+      "maxHeight": "none"
+    },
+    "stage": {
+      "top": 97.33333587646484,
+      "bottom": 604.6666793823242,
+      "width": 958.6666870117188,
+      "height": 507.3333435058594,
+      "clientHeight": 507,
+      "scrollHeight": 507,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "controls": {
+      "top": 113.33333587646484,
+      "bottom": 454.0000228881836,
+      "width": 910.6666870117188,
+      "height": 340.66668701171875,
+      "clientHeight": 341,
+      "scrollHeight": 341,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "footer": {
+      "top": 604.6666870117188,
+      "bottom": 679.3333587646484,
+      "width": 958.6666870117188,
+      "height": 74.66667175292969,
+      "clientHeight": 74,
+      "scrollHeight": 74,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "choices": {
+      "top": 296,
+      "bottom": 454,
+      "width": 443.3333435058594,
+      "height": 158,
+      "clientHeight": 158,
+      "scrollHeight": 798,
+      "display": "grid",
+      "rows": "38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px",
+      "maxHeight": "158px"
+    },
+    "blankBelowControls": 151,
+    "visibleChoices": 80,
+    "alerts": []
+  },
+  {
+    "name": "900h-few-options",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": 1.5,
+    "panel": {
+      "top": 110,
+      "bottom": 790,
+      "width": 960,
+      "height": 680,
+      "clientHeight": 679,
+      "scrollHeight": 679,
+      "display": "grid",
+      "rows": "56.6667px 547.333px 74.6667px",
+      "maxHeight": "820px"
+    },
+    "body": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "grid",
+      "rows": "547.333px",
+      "maxHeight": "none"
+    },
+    "stage": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "controls": {
+      "top": 183.33334350585938,
+      "bottom": 444.0000305175781,
+      "width": 910.6666870117188,
+      "height": 260.66668701171875,
+      "clientHeight": 261,
+      "scrollHeight": 261,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "footer": {
+      "top": 714.6666870117188,
+      "bottom": 789.3333587646484,
+      "width": 958.6666870117188,
+      "height": 74.66667175292969,
+      "clientHeight": 74,
+      "scrollHeight": 74,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "choices": {
+      "top": 366,
+      "bottom": 444,
+      "width": 443.3333435058594,
+      "height": 78,
+      "clientHeight": 78,
+      "scrollHeight": 78,
+      "display": "grid",
+      "rows": "38px 38px",
+      "maxHeight": "158px"
+    },
+    "blankBelowControls": 271,
+    "visibleChoices": 8,
+    "alerts": []
+  },
+  {
+    "name": "900h-empty",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": 1.5,
+    "panel": {
+      "top": 110,
+      "bottom": 790,
+      "width": 960,
+      "height": 680,
+      "clientHeight": 679,
+      "scrollHeight": 679,
+      "display": "grid",
+      "rows": "56.6667px 547.333px 74.6667px",
+      "maxHeight": "820px"
+    },
+    "body": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "grid",
+      "rows": "547.333px",
+      "maxHeight": "none"
+    },
+    "stage": {
+      "top": 167.33334350585938,
+      "bottom": 714.6667175292969,
+      "width": 958.6666870117188,
+      "height": 547.3333740234375,
+      "clientHeight": 547,
+      "scrollHeight": 547,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "controls": {
+      "top": 183.33334350585938,
+      "bottom": 408.00001525878906,
+      "width": 910.6666870117188,
+      "height": 224.6666717529297,
+      "clientHeight": 225,
+      "scrollHeight": 225,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "footer": {
+      "top": 714.6666870117188,
+      "bottom": 789.3333587646484,
+      "width": 958.6666870117188,
+      "height": 74.66667175292969,
+      "clientHeight": 74,
+      "scrollHeight": 74,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "choices": {
+      "top": 366,
+      "bottom": 366,
+      "width": 443.3333435058594,
+      "height": 0,
+      "clientHeight": 0,
+      "scrollHeight": 0,
+      "display": "grid",
+      "rows": "none",
+      "maxHeight": "158px"
+    },
+    "blankBelowControls": 307,
+    "visibleChoices": 0,
+    "alerts": []
+  },
+  {
+    "name": "900h-auto-height-control",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": 1.5,
+    "panel": {
+      "top": 198.33334350585938,
+      "bottom": 701.6666870117188,
+      "width": 960,
+      "height": 503.3333435058594,
+      "clientHeight": 502,
+      "scrollHeight": 502,
+      "display": "grid",
+      "rows": "56.6667px 370.667px 74.6667px",
+      "maxHeight": "820px"
+    },
+    "body": {
+      "top": 255.6666717529297,
+      "bottom": 626.3333587646484,
+      "width": 958.6666870117188,
+      "height": 370.66668701171875,
+      "clientHeight": 371,
+      "scrollHeight": 371,
+      "display": "grid",
+      "rows": "370.667px",
+      "maxHeight": "none"
+    },
+    "stage": {
+      "top": 255.6666717529297,
+      "bottom": 626.3333587646484,
+      "width": 958.6666870117188,
+      "height": 370.66668701171875,
+      "clientHeight": 371,
+      "scrollHeight": 371,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "controls": {
+      "top": 271.66668701171875,
+      "bottom": 612.3333740234375,
+      "width": 910.6666870117188,
+      "height": 340.66668701171875,
+      "clientHeight": 341,
+      "scrollHeight": 341,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "footer": {
+      "top": 626.3333740234375,
+      "bottom": 701.0000457763672,
+      "width": 958.6666870117188,
+      "height": 74.66667175292969,
+      "clientHeight": 74,
+      "scrollHeight": 74,
+      "display": "block",
+      "rows": "none",
+      "maxHeight": "none"
+    },
+    "choices": {
+      "top": 454.3333435058594,
+      "bottom": 612.3333435058594,
+      "width": 443.3333435058594,
+      "height": 158,
+      "clientHeight": 158,
+      "scrollHeight": 798,
+      "display": "grid",
+      "rows": "38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px 38px",
+      "maxHeight": "158px"
+    },
+    "blankBelowControls": 14,
+    "visibleChoices": 80,
+    "alerts": []
+  }
+]

@@ -1,0 +1,194 @@
+import { watch } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
+import type { TrackRepository } from '@main/repositories/trackRepository'
+import type { MetadataRefreshService } from './metadataRefreshService'
+import type {
+  LibraryIncrementalImportService,
+  ImportResult,
+} from '../libraryScan/libraryIncrementalImportService'
+import { MetadataWatchService } from './metadataWatchService'
+import { normalize } from 'node:path'
+
+vi.mock('node:fs', () => ({ watch: vi.fn() }))
+vi.mock('node:fs/promises', () => ({
+  stat: vi.fn(async () => ({ size: 10, mtimeMs: 1, isFile: () => true })),
+}))
+vi.mock('@main/logging/logger', () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}))
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.clearAllMocks()
+})
+
+describe('metadata watcher shutdown', () => {
+  it('preserves deferred availability work when tag-write suppression starts during import', async () => {
+    vi.useFakeTimers()
+    const filePath = normalize('C:/isolated-music/track.flac')
+    vi.mocked(stat)
+      .mockReset()
+      .mockResolvedValue({
+        size: 10,
+        mtimeMs: 1,
+        isFile: () => true,
+      } as Awaited<ReturnType<typeof stat>>)
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    let finish!: (result: ImportResult) => void
+    const importFiles = vi.fn(
+      () =>
+        new Promise<ImportResult>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const getExistingFilePaths = vi.fn(() => new Set<string>())
+    const markAvailable = vi.fn(() => [1])
+    const refresh = vi.fn()
+    const send = vi.fn()
+    const service = new MetadataWatchService(
+      { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths,
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
+        getFileFingerprintsByFilePaths: () => new Map(),
+        markAvailableByFilePaths: markAvailable,
+      } as unknown as TrackRepository,
+      { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      send,
+    )
+    service.start()
+    notify('rename', 'track.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    notify('rename', 'track.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    service.suppressRefreshForPath(filePath)
+    getExistingFilePaths.mockReturnValue(new Set([filePath]))
+    finish({ imported: [filePath], unstable: [], failed: [] })
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(importFiles).toHaveBeenCalledOnce()
+    expect(markAvailable).toHaveBeenCalledExactlyOnceWith([filePath])
+    expect(refresh).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
+      reason: 'track-restored',
+      trackIds: [1],
+      filePaths: [filePath],
+    })
+    await service.stop()
+  })
+
+  it('routes add-before-unlink events through the importer and does not mark the relocated ID missing later', async () => {
+    vi.useFakeTimers()
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    const oldPath = normalize('C:/isolated-music/old.flac')
+    const newPath = normalize('C:/isolated-music/new.flac')
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === oldPath) throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 10, mtimeMs: 1, isFile: () => true } as Awaited<ReturnType<typeof stat>>
+    })
+    const send = vi.fn()
+    const markMissingByFilePaths = vi.fn(() => [])
+    const importFiles = vi.fn(async (paths: string[]) => ({
+      imported: paths,
+      unstable: [],
+      failed: [],
+    }))
+    const service = new MetadataWatchService(
+      { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths: () => new Set(),
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
+        getFileFingerprintsByFilePaths: () => new Map(),
+        markMissingByFilePaths,
+      } as unknown as TrackRepository,
+      {} as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      send,
+    )
+    service.start()
+    notify('rename', 'new.flac')
+    notify('rename', 'old.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(importFiles).toHaveBeenCalledWith([newPath])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(markMissingByFilePaths).toHaveBeenCalledWith([oldPath])
+    expect(send).not.toHaveBeenCalledWith(
+      'library:changed',
+      expect.objectContaining({ reason: 'track-missing' }),
+    )
+    await service.stop()
+  })
+
+  it('waits for an active import and prevents retry timers or watcher restart', async () => {
+    vi.mocked(stat)
+      .mockReset()
+      .mockResolvedValue({
+        size: 10,
+        mtimeMs: 1,
+        isFile: () => true,
+      } as Awaited<ReturnType<typeof stat>>)
+    vi.useFakeTimers()
+    let notify!: (event: string, filename: string) => void
+    const watcher = { close: vi.fn(), on: vi.fn() }
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return watcher as unknown as ReturnType<typeof watch>
+    })
+    let finish!: (result: ImportResult) => void
+    const importFiles = vi.fn(
+      () =>
+        new Promise<ImportResult>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const service = new MetadataWatchService(
+      { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths: () => new Set(),
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
+        getFileFingerprintsByFilePaths: () => new Map(),
+      } as unknown as TrackRepository,
+      {} as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      vi.fn(),
+    )
+    service.start()
+    notify('rename', 'track.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(importFiles).toHaveBeenCalledOnce()
+    let stopped = false
+    const shutdown = service.stop().then(() => {
+      stopped = true
+    })
+    await Promise.resolve()
+    expect(stopped).toBe(false)
+    expect(watcher.close).toHaveBeenCalledOnce()
+    finish({ imported: [], failed: [], unstable: ['C:/isolated-music/track.flac'] })
+    await shutdown
+    const statCalls = vi.mocked(stat).mock.calls.length
+    service.resumeFlush()
+    service.syncRoots()
+    notify('rename', 'late.flac')
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(watch).toHaveBeenCalledOnce()
+    expect(stat).toHaveBeenCalledTimes(statCalls)
+    expect(importFiles).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})

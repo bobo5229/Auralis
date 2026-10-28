@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hans" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 长静音检测</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="../../../.electron-home/silence-detection-demo/report.js" defer></script>
+    <script src="./sequence.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AURALIS / 音频实验</p>
+          <h1>跳过尾部静音，接着播放下一段</h1>
+          <p class="intro">跳过尾部静音，让 A 渐弱的同时 B 渐强；也可以对比直接衔接。</p>
+        </div>
+        <button id="theme" type="button">切换深色</button>
+      </header>
+
+      <p id="missing" role="status">
+        测试素材尚未准备。请在仓库根目录运行：
+        <code>node demo/playback/silence-detection/prepare.mjs</code>，然后刷新页面。
+      </p>
+
+      <div id="demo" hidden>
+        <div class="parameters" aria-label="本轮检测参数">
+          <span>静音阈值 <strong id="threshold"></strong></span>
+          <span>至少持续 <strong id="minimum"></strong></span>
+          <span>单段对照保留 <strong id="padding"></strong></span>
+          <span id="test-status" role="status"></span>
+        </div>
+
+        <section class="sequence-panel" aria-labelledby="sequence-title">
+          <div class="detail-heading">
+            <div>
+              <h2 id="sequence-title">两段连续播放</h2>
+              <p id="sequence-summary"></p>
+            </div>
+            <span class="result">自动接入下一段</span>
+          </div>
+          <ol class="sequence-tracks">
+            <li id="sequence-a">
+              <strong>片段 A · 低音</strong><span>4 秒声音 + 3 秒尾部静音</span>
+            </li>
+            <li id="sequence-b">
+              <strong>片段 B · 高音</strong><span>4 秒声音，自动接着播放</span>
+            </li>
+          </ol>
+          <fieldset class="sequence-mode">
+            <legend>衔接方式</legend>
+            <label
+              ><input type="radio" name="sequence-mode" value="crossfade" checked />跳过静音 +
+              交叉淡化（2 秒）</label
+            >
+            <label><input type="radio" name="sequence-mode" value="skip" />跳过静音直接衔接</label>
+            <label
+              ><input type="radio" name="sequence-mode" value="original" />保留静音作对照</label
+            >
+          </fieldset>
+          <div class="sequence-controls">
+            <button id="sequence-play" class="play-button" type="button">开始播放 A → B</button>
+            <button id="sequence-stop" type="button" disabled>停止</button>
+            <label class="sequence-volume"
+              >音量<input
+                id="sequence-volume"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value="0.35"
+            /></label>
+          </div>
+          <progress
+            id="sequence-progress"
+            value="0"
+            max="8"
+            aria-label="两段连续播放进度"
+          ></progress>
+          <div class="sequence-position">
+            <span id="sequence-status" role="status">等待播放</span
+            ><span id="sequence-time">0.00 秒</span>
+          </div>
+          <p class="sequence-note">
+            交叉淡化发生在 A 真正的声音结尾与 B 的开头，尾部 3 秒静音跳过。下方单段对照保留原有的
+            0.15 秒余量。
+          </p>
+        </section>
+
+        <h2 class="single-heading">单段检测对照</h2>
+        <div class="workspace">
+          <nav id="samples" aria-label="测试音频"></nav>
+          <section class="detail" aria-labelledby="sample-title">
+            <div class="detail-heading">
+              <div>
+                <h2 id="sample-title"></h2>
+                <p id="description"></p>
+              </div>
+              <span id="result" class="result"></span>
+            </div>
+
+            <div class="metrics">
+              <div><span>原始时长</span><strong id="original-duration"></strong></div>
+              <div><span>处理后</span><strong id="kept-duration"></strong></div>
+              <div><span>跳过空白</span><strong id="removed-duration"></strong></div>
+            </div>
+
+            <figure>
+              <figcaption>
+                <span>原音频与保留范围</span><span class="legend">绿色：保留 · 灰色：跳过</span>
+              </figcaption>
+              <svg
+                id="waveform"
+                viewBox="0 0 720 120"
+                role="img"
+                aria-label="音频波形与首尾裁切范围"
+              ></svg>
+              <div class="timeline">
+                <span>0 秒</span><span id="boundary"></span><span id="end-time"></span>
+              </div>
+            </figure>
+
+            <div class="players">
+              <div>
+                <h3>原音频</h3>
+                <p>试听原来的停顿与结尾空白。</p>
+                <audio id="original" controls preload="none" aria-label="播放原音频"></audio>
+              </div>
+              <div>
+                <h3>处理后</h3>
+                <p id="preview-note">试听保留首尾余量后的副本。</p>
+                <audio id="preview" controls preload="none" aria-label="播放处理后的音频"></audio>
+              </div>
+            </div>
+
+            <details>
+              <summary>查看检测到的静音区间</summary>
+              <ul id="intervals"></ul>
+            </details>
+          </section>
+        </div>
+
+        <footer>
+          <p>全部音频由本地程序合成。FFmpeg 实际检测后生成试听副本，原文件保留。</p>
+          <p>
+            这是独立实验，尚未接入正式播放器。<a
+              href="../../../.electron-home/silence-detection-demo/report.json"
+              target="_blank"
+              rel="noopener"
+              >查看本轮测试报告</a
+            >
+          </p>
+        </footer>
+      </div>
+    </main>
+  </body>
+</html>

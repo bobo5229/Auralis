@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "name": "HarmonyOS_Sans_SC_Black.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "HarmonyOS_Sans_SC_Bold.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "HarmonyOS_Sans_SC_Light.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "HarmonyOS_Sans_SC_Medium.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "HarmonyOS_Sans_SC_Regular.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "HarmonyOS_Sans_SC_Thin.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Bold.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Demibold.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Heavy.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Light.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Medium.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    },
+    {
+      "name": "MiSans-Regular.ttf",
+      "status": "loaded",
+      "samples": 6,
+      "pixelsEqual": true
+    }
+  ],
+  "errors": []
+}

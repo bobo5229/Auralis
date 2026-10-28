@@ -1,0 +1,515 @@
+import type { BadgeAchievements, ListeningProgressBatch } from '@shared/types/badgeAchievements'
+import type { AppInfo, LibraryStats } from '@shared/types/app'
+import type { UiLocale } from '@shared/uiLocale'
+import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
+import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
+import type { AudioResource } from '@shared/types/audioDecode'
+import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
+import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
+import type {
+  LibraryRoot,
+  LibraryScanProgress,
+  LibraryScanStatus,
+  SelectLibraryRootResult,
+  TrackListItem,
+  TrackLyrics,
+  MetadataRefreshFailure,
+  EditableTrackMetadata,
+} from '@shared/types/libraryScan'
+import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
+import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
+import type {
+  AddPlaylistTracksResult,
+  Playlist,
+  PlaylistDetail,
+  PlaylistTrackCount,
+  PlaylistViewMode,
+  SidebarPlaylistItem,
+  SidebarPlaylistKind,
+} from '@shared/types/playlist'
+import type {
+  CreateSmartPlaylistResult,
+  SmartPlaylist,
+  SmartPlaylistDetail,
+  SmartPlaylistRule,
+  SmartPlaylistTrackCount,
+  SmartPlaylistViewMode,
+} from '@shared/types/smartPlaylist'
+import type {
+  LibraryTrackPageResponse,
+  LibraryTrackPageRequest,
+} from '@shared/types/libraryCatalog'
+import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
+import type {
+  AnnualSummary,
+  DailyPlayCount,
+  DailyTopAlbum,
+  DailyTopTrack,
+} from '@shared/types/listeningArchive'
+import type {
+  LyricsEditorResult,
+  LrcEditorState,
+  SaveLrcEditor,
+  LrcEditorSaved,
+} from '@shared/types/lyricsEditor'
+
+export type { LibraryChangedEvent, LibraryChangedReason } from '@shared/types/libraryEvents'
+
+export interface MetadataRefreshProgressEvent {
+  jobId: number
+  status: string
+  totalTracks: number
+  processedTracks: number
+  failedTracks: number
+}
+
+export interface SystemMediaPlaybackState {
+  hasTrack: boolean
+  isPlaying: boolean
+}
+
+export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
+
+// Closed capabilities: no renderer-supplied paths, mpv properties or command strings.
+export type NativePlaybackCommand = { session: number } & (
+  | { action: 'start'; trackId: number; volume: number; muted: boolean }
+  | {
+      action: 'next'
+      trackId: number
+      trimDigitalSilence: boolean
+      softTransition?: boolean
+      softTransitionDurationSeconds?: number
+    }
+  | { action: 'pause' | 'resume' | 'stop' | 'cancel-next' }
+  | { action: 'seek'; time: number }
+  | { action: 'volume'; volume: number; muted: boolean }
+)
+
+export interface NativePlaybackEvent {
+  session: number
+  kind: 'state' | 'boundary' | 'ended' | 'error'
+  trackId: number | null
+  currentTime: number
+  duration: number
+  isPlaying: boolean
+  buffering: boolean
+  detail?: string
+}
+
+/** 开屏就绪通知携带的主题；仅接受枚举值，主进程据此对齐原生底色。 */
+export type SplashScreenTheme = 'light' | 'dark'
+
+export interface SplashScreenReadyPayload {
+  theme: SplashScreenTheme
+}
+
+export interface IpcSendContract {
+  'app:renderer-ready': void
+  'app:splash-ready': SplashScreenReadyPayload
+  'system-media:update-thumbar-state': SystemMediaPlaybackState
+}
+
+export interface IpcEventContract {
+  'playlists:changed': PlaylistChangedEvent
+  'playback:spectrum-frame': PlaybackSpectrumFrame
+  'playback:native-event': NativePlaybackEvent
+  'system-media:command': SystemMediaCommand
+  'window:maximized-changed': { isMaximized: boolean }
+  'window:visibility-changed': { isVisible: boolean }
+  'library:scan-progress': LibraryScanProgress
+  'library:changed': LibraryChangedEvent
+  'metadata:refresh-progress': MetadataRefreshProgressEvent
+  'metadata:track-edit-state-changed': TrackEditStateChangedEvent
+}
+
+export type TrackEditStatus =
+  | 'editable'
+  | 'playback-editable'
+  | 'playback-in-use'
+  | 'preload-in-use'
+  | 'write-in-progress'
+
+export interface TrackEditStateResult {
+  trackId: number
+  status: TrackEditStatus
+  version: number
+}
+
+export interface TrackEditStateChangedEvent {
+  trackId: number
+  status: TrackEditStatus
+  version: number
+}
+
+export type UpdateTrackMetadataResult =
+  | { ok: true; libraryRevision?: string }
+  | {
+      ok: false
+      reason:
+        | 'metadata-conflict'
+        | 'legacy-metadata-unresolved'
+        | 'playback-in-use'
+        | 'write-in-progress'
+        | 'buffer-preparation-failed'
+        | 'file-in-use'
+        | 'playback-restore-failed'
+        | 'playback-changed'
+        | 'tag-preservation-failed'
+        | 'tag-verification-failed'
+        | 'unsupported-date-precision'
+        | 'legacy-date-conflict'
+        | 'tag-write-failed'
+        | 'file-changed'
+        | 'disk-full'
+        | 'permission-denied'
+        | 'file-not-found'
+        | 'save-failed'
+    }
+
+export type IpcEventChannel = keyof IpcEventContract
+export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
+export type IpcSendChannel = keyof IpcSendContract
+export type IpcSendPayload<C extends IpcSendChannel> = IpcSendContract[C]
+
+export type RevealInExplorerReason =
+  | 'not-found'
+  | 'outside-library'
+  | 'unavailable'
+  | 'reveal-failed'
+
+export type RevealInExplorerResult = { ok: true } | { ok: false; reason: RevealInExplorerReason }
+
+export interface DatabaseExportBackupResult {
+  status: 'saved' | 'cancelled' | 'failed'
+  targetPath?: string
+  error?: string
+}
+
+export interface DatabaseRestoreBackupResult {
+  status: 'staged' | 'cancelled' | 'failed'
+  requiresRestart?: boolean
+  error?: string
+}
+
+export interface IpcInvokeContract {
+  'playback:spectrum-subscribe': {
+    request: SpectrumSubscription
+    response: { accepted: boolean }
+  }
+  'playback:native-availability': {
+    request: void
+    response: { available: boolean; reason?: string }
+  }
+  'playback:native-command': {
+    request: NativePlaybackCommand
+    response: { accepted: boolean }
+  }
+  'database:export-backup': {
+    request: void
+    response: DatabaseExportBackupResult
+  }
+  'database:restore-backup': {
+    request: void
+    response: DatabaseRestoreBackupResult
+  }
+  'app:get-info': {
+    request: void
+    response: AppInfo
+  }
+  'app:set-locale': {
+    request: { locale: UiLocale }
+    response: void
+  }
+  'app:claim-startup-album': {
+    request: {
+      excludeAlbumKey?: { albumArtist: string; album: string }
+      recentAlbums?: StartupAlbumHistory
+    } | void
+    response: { album: RandomAlbumTracksResult | null }
+  }
+  'app:claim-cd-startup-entry': {
+    request: void
+    response: { firstEntry: boolean }
+  }
+  'app:draw-startup-album': {
+    request: { recentAlbums: StartupAlbumHistory }
+    response: { album: RandomAlbumTracksResult | null }
+  }
+  'app:export-diagnostics': {
+    request: void
+    response: { status: 'saved' | 'cancelled' | 'failed' }
+  }
+  'library:get-stats': {
+    request: void
+    response: LibraryStats
+  }
+  'library:select-root': {
+    request: void
+    response: SelectLibraryRootResult
+  }
+  'library:get-roots': {
+    request: void
+    response: LibraryRoot[]
+  }
+  'library:start-scan': {
+    request: { rootId: number }
+    response: { jobId: number }
+  }
+  'library:cancel-scan': {
+    request: { jobId: number }
+    response: { ok: boolean }
+  }
+  'library:get-scan-status': {
+    request: { jobId?: number } | void
+    response: LibraryScanStatus | null
+  }
+  'library:get-tracks': {
+    request: void
+    response: TrackListItem[]
+  }
+  'library:get-track-page': {
+    request: LibraryTrackPageRequest
+    response: LibraryTrackPageResponse
+  }
+  'library:get-album-detail': {
+    request: AlbumDetailRequest
+    response: AlbumDetailResult
+  }
+  'library:reveal-in-explorer': {
+    request: { trackIds: number[] }
+    response: RevealInExplorerResult
+  }
+  'smart-playlists:list': {
+    request: void
+    response: SmartPlaylist[]
+  }
+  'smart-playlists:list-track-counts': {
+    request: void
+    response: SmartPlaylistTrackCount[]
+  }
+  'smart-playlists:get-detail': {
+    request: { id: number }
+    response: SmartPlaylistDetail | null
+  }
+  'smart-playlists:create': {
+    request: { name: string; rule: SmartPlaylistRule }
+    response: CreateSmartPlaylistResult
+  }
+  'smart-playlists:create-from-query': {
+    request: { query: string }
+    response: CreateSmartPlaylistResult
+  }
+  'smart-playlists:create-recent-added': {
+    request: { days?: number }
+    response: CreateSmartPlaylistResult
+  }
+  'smart-playlists:update-recent-added-days': {
+    request: { id: number; days: number }
+    response: SmartPlaylist | null
+  }
+  'smart-playlists:rename': {
+    request: { id: number; name: string }
+    response: SmartPlaylist | null
+  }
+  'smart-playlists:update-view-mode': {
+    request: { id: number; viewMode: SmartPlaylistViewMode }
+    response: SmartPlaylist | null
+  }
+  'smart-playlists:delete': {
+    request: { id: number }
+    response: { deleted: boolean }
+  }
+  'smart-playlists:reorder': {
+    request: { ids: number[] }
+    response: SmartPlaylist[]
+  }
+  'playlists:list': {
+    request: void
+    response: Playlist[]
+  }
+  'playlists:list-track-counts': {
+    request: void
+    response: PlaylistTrackCount[]
+  }
+  'playlists:list-sidebar-items': {
+    request: void
+    response: SidebarPlaylistItem[]
+  }
+  'playlists:get-detail': {
+    request: { id: number }
+    response: PlaylistDetail | null
+  }
+  'playlists:create': {
+    request: void
+    response: Playlist
+  }
+  'playlists:rename': {
+    request: { id: number; name: string }
+    response: Playlist | null
+  }
+  'playlists:update-view-mode': {
+    request: { id: number; viewMode: PlaylistViewMode }
+    response: Playlist | null
+  }
+  'playlists:delete': {
+    request: { id: number }
+    response: { deleted: boolean }
+  }
+  'playlists:add-tracks': {
+    request: { id: number; trackIds: number[] }
+    response: AddPlaylistTracksResult
+  }
+  'playlists:reorder-sidebar-items': {
+    request: { items: Array<{ kind: SidebarPlaylistKind; id: number }> }
+    response: SidebarPlaylistItem[]
+  }
+  'lyrics:get-by-track-id': {
+    request: { trackId: number }
+    response: TrackLyrics | null
+  }
+  'lyrics:open-lrc-editor': {
+    request: { trackId: number }
+    response: LyricsEditorResult<LrcEditorState>
+  }
+  'lyrics:save-lrc-editor': {
+    request: SaveLrcEditor
+    response: LyricsEditorResult<LrcEditorSaved>
+  }
+  'lyrics:close-lrc-editor': {
+    request: { sessionId: string }
+    response: LyricsEditorResult<null>
+  }
+  'playback:get-audio-url': {
+    request: { trackId: number }
+    response: AudioResource | null
+  }
+  'playback:get-random-track': {
+    request: { excludeTrackId?: number } | void
+    response: PlaybackTrackDto | null
+  }
+  'playback:get-random-album-tracks': {
+    request: { excludeAlbumKey?: { albumArtist: string; album: string } } | void
+    response: RandomAlbumTracksResult | null
+  }
+  'playback:get-album-tracks': {
+    request: { albumKey: { albumArtist: string; album: string } }
+    response: RandomAlbumTracksResult | null
+  }
+  'playback:record-effective-play': {
+    request: { trackId: number; sessionId: string; playedAtIso: string }
+    response: { ok: boolean; recorded: boolean }
+  }
+  'playback:acquire-read-lease': {
+    request: { trackId: number }
+    response: { leaseId: string }
+  }
+  'playback:release-read-lease': {
+    request: { leaseId: string }
+    response: { ok: true }
+  }
+  'archive:get-badge-achievements': {
+    request: void
+    response: BadgeAchievements
+  }
+  'playback:record-listening-progress': {
+    request: ListeningProgressBatch
+    response: { ok: boolean; epoch: number }
+  }
+  'archive:get-annual-play-counts': {
+    request: { year: number }
+    response: DailyPlayCount[]
+  }
+  'archive:get-annual-summary': {
+    request: { year: number }
+    response: AnnualSummary
+  }
+  'archive:reset-play-stats': {
+    request: void
+    response: { ok: true }
+  }
+  'archive:get-day-top-tracks': {
+    request: { date: string }
+    response: DailyTopTrack[]
+  }
+  'archive:get-day-top-albums': {
+    request: { date: string }
+    response: DailyTopAlbum[]
+  }
+  'metadata:refresh-track': {
+    request: { trackId: number }
+    response: { jobId: number }
+  }
+  'metadata:refresh-tracks': {
+    request: { trackIds: number[] }
+    response: { jobId: number }
+  }
+  'metadata:refresh-lyrics-missing': {
+    request: { limit?: number }
+    response: { jobId: number }
+  }
+  'metadata:get-refresh-status': {
+    request: { jobId: number }
+    response: {
+      id: number
+      scope: string
+      status: string
+      totalTracks: number
+      processedTracks: number
+      failedTracks: number
+      startedAt: string
+      finishedAt: string | null
+      errorMessage: string | null
+    } | null
+  }
+  'metadata:list-refresh-failures': {
+    request: { limit?: number } | void
+    response: MetadataRefreshFailure[]
+  }
+  'metadata:clear-refresh-failures': {
+    request: void
+    response: { deletedCount: number }
+  }
+  'metadata:get-track-metadata': {
+    request: { trackId: number }
+    response: EditableTrackMetadata | null
+  }
+  'metadata:get-track-edit-snapshot': {
+    request: { trackId: number }
+    response: TrackMetadataEditSnapshot | null
+  }
+  'metadata:get-track-edit-state': {
+    request: { trackId: number }
+    response: TrackEditStateResult
+  }
+  'metadata:update-track-metadata': {
+    request: UpdateTrackMetadataRequest
+    response: UpdateTrackMetadataResult
+  }
+  'window:control': {
+    request: { action: 'minimize' | 'toggle-maximize' | 'close' }
+    response: { isMaximized: boolean }
+  }
+  'window:get-maximized': {
+    request: void
+    response: { isMaximized: boolean }
+  }
+  'window:get-visibility': {
+    request: void
+    response: IpcEventPayload<'window:visibility-changed'>
+  }
+  'window:get-close-behavior': {
+    request: void
+    response: WindowBehaviorState
+  }
+  'window:set-close-behavior': {
+    request: { behavior: WindowCloseBehavior }
+    response: WindowBehaviorState
+  }
+}
+
+export type IpcInvokeChannel = keyof IpcInvokeContract
+
+export type IpcRequest<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['request']
+
+export type IpcResponse<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['response']
+import type { TrackMetadataEditSnapshot, UpdateTrackMetadataRequest } from '../types/trackMetadata'

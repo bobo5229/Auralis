@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 渐变金属图标</title>
+    <style>
+      :root { color-scheme: dark; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; color: #f3eee6; background: #141516; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      button, input, select { font: inherit; }
+      button, select, input[type='range'], input[type='checkbox'] { cursor: pointer; }
+      button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #b6cffa; outline-offset: 5px; }
+      main { max-width: 1160px; margin: 0 auto; padding: 48px 32px 32px; }
+      header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+      .eyebrow { color: #a0b8d6; font-size: 11px; letter-spacing: .2em; margin: 0 0 12px; }
+      h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); font-weight: 500; letter-spacing: -.04em; }
+      .intro { color: #aaa8a2; font-size: 13px; line-height: 1.8; margin: 12px 0 0; }
+      .badge { flex-shrink: 0; color: #b3afa6; border: 1px solid #393a39; padding: 7px 11px; border-radius: 20px; font-size: 11px; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 20px; }
+      .hero { position: relative; display: grid; place-items: center; min-height: 480px; border: 1px solid #333943; border-radius: 22px; background: radial-gradient(ellipse at 40% 20%, #303946, #1a1d23 70%); overflow: hidden; }
+      .stage-label { position: absolute; top: 24px; left: 26px; color: #b7c9e0; font-size: 11px; letter-spacing: .14em; }
+      .hero-icon { width: min(74%, 350px); height: auto; overflow: visible; filter: drop-shadow(0 22px 22px #0004); }
+      .hero-caption { position: absolute; bottom: 23px; left: 26px; right: 26px; display: flex; justify-content: space-between; color: #a8a69f; font-size: 11px; }
+      .side { display: flex; flex-direction: column; border-top: 1px solid #393a37; padding: 22px 6px 0; }
+      h2 { font-size: 14px; font-weight: 500; margin: 0; }
+      .original { display: flex; gap: 22px; align-items: center; margin-top: 24px; padding-bottom: 26px; border-bottom: 1px solid #30312f; }
+      .original svg { flex-shrink: 0; width: 118px; height: 118px; }
+      .original p, .note { font-size: 12px; line-height: 1.9; color: #aaa8a2; margin: 8px 0 0; }
+      .controls { padding-top: 24px; }
+      .control { display: block; margin-bottom: 21px; }
+      .control-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; }
+      output { color: #acc7ef; font-variant-numeric: tabular-nums; }
+      input[type='range'] { display: block; width: 100%; margin: 0; height: 16px; accent-color: #b5cbed; }
+      select { width: 100%; padding: 10px 12px; border: 1px solid #424853; border-radius: 6px; background: #20242b; color: #e0e9f7; }
+      .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .toggle { display: flex; gap: 7px; align-items: center; font-size: 12px; color: #c4c0b6; cursor: pointer; }
+      input[type='checkbox'] { accent-color: #b5cbed; }
+      button { border: 1px solid #48483f; background: transparent; color: #c9c3b8; padding: 7px 13px; border-radius: 6px; font-size: 12px; }
+      button:hover { background: #ffffff0a; }
+      .sizes { margin-top: 30px; border-top: 1px solid #30312f; padding-top: 24px; }
+      .sizes-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+      .sizes-heading span { font-size: 11px; color: #99988f; }
+      .size-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 20px; gap: 16px; }
+      .size-pair { background: #1c1d1e; border-radius: 12px; padding: 20px 10px 14px; text-align: center; }
+      .icons { min-height: 132px; display: flex; align-items: center; justify-content: center; gap: 16px; }
+      .icons svg { flex-shrink: 0; }
+      .size-pair p { color: #a5a298; font-size: 11px; margin: 12px 0 0; }
+      footer { color: #85867f; font-size: 11px; line-height: 1.8; margin-top: 24px; }
+      footer a { color: #bcb3a3; text-underline-offset: 3px; }
+      .definitions { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+      @media (max-width: 780px) {
+        main { padding: 28px 18px; }
+        header { align-items: start; }
+        .badge { display: none; }
+        .layout { grid-template-columns: 1fr; }
+        .hero { min-height: 430px; }
+        .size-grid { grid-template-columns: 1fr; }
+        .side { padding-top: 20px; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 所有材质层共用正式图标路径；滤镜施加到合并后的 A，避免声波交界产生接缝。 -->
+    <svg class="definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <g id="mark" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" stroke-width="7.5" />
+          <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6.5" />
+        </g>
+        <!-- 同一片渐变贯穿 A 与声波，明暗窄带模拟抛光金属的环境反射。 -->
+        <linearGradient id="metal-gradient" gradientUnits="userSpaceOnUse" x1="3.72" y1="3.72" x2="60.28" y2="60.28">
+          <stop offset="0" stop-color="#7e9abf" />
+          <stop offset=".14" stop-color="#ddeaff" />
+          <stop offset=".25" stop-color="#f4faff" />
+          <stop offset=".33" stop-color="#8fa9d1" />
+          <stop offset=".42" stop-color="#455f9c" />
+          <stop offset=".49" stop-color="#26385f" />
+          <stop offset=".57" stop-color="#777eb8" />
+          <stop offset=".65" stop-color="#d9d9ef" />
+          <stop offset=".70" stop-color="#fcfaff" />
+          <stop offset=".78" stop-color="#aab6d1" />
+          <stop offset=".89" stop-color="#526b91" />
+          <stop offset="1" stop-color="#b7cfe3" />
+        </linearGradient>
+        <mask id="mark-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64" style="mask-type: alpha">
+          <use href="#mark" stroke="#fff" />
+        </mask>
+        <filter id="metal" x="-12" y="-12" width="88" height="88" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+          <!-- 小范围倒角加强利落边缘；主色来自渐变，避免高光覆盖彩色反射带。 -->
+          <feGaussianBlur in="SourceAlpha" stdDeviation=".22" result="surface" />
+          <feSpecularLighting id="specular" in="surface" surfaceScale=".8" specularConstant=".4" specularExponent="48" lighting-color="#eef5ff" result="reflection">
+            <feDistantLight id="specular-light" azimuth="225" elevation="42" />
+          </feSpecularLighting>
+          <feComposite in="reflection" in2="SourceAlpha" operator="in" result="clippedReflection" />
+          <feBlend in="SourceGraphic" in2="clippedReflection" mode="screen" result="polished" />
+          <feOffset id="bevel-offset" in="SourceAlpha" dx=".12" dy=".16" result="shiftedAlpha" />
+          <feComposite in="SourceAlpha" in2="shiftedAlpha" operator="out" result="rim" />
+          <feFlood flood-color="#edf4ff" flood-opacity=".8" result="rimColor" />
+          <feComposite in="rimColor" in2="rim" operator="in" result="brightRim" />
+          <feMerge><feMergeNode in="polished" /><feMergeNode in="brightRim" /></feMerge>
+          <feDropShadow dx=".08" dy=".38" stdDeviation=".25" flood-color="#080c14" flood-opacity=".7" />
+        </filter>
+        <symbol id="flat-icon" viewBox="0 0 1024 1024">
+          <rect x="48" y="48" width="928" height="928" rx="252" fill="#292b2d" />
+          <g transform="translate(128 128) scale(12)"><use href="#mark" stroke="#f3eee6" /></g>
+        </symbol>
+        <symbol id="metal-icon" viewBox="0 0 1024 1024">
+          <rect x="48" y="48" width="928" height="928" rx="252" fill="#292b2d" />
+          <g transform="translate(128 128) scale(12)" filter="url(#metal)">
+            <rect width="64" height="64" fill="url(#metal-gradient)" mask="url(#mark-mask)" />
+          </g>
+        </symbol>
+      </defs>
+    </svg>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">AURALIS / MATERIAL STUDY 02</p>
+          <h1>让金属，映出色彩。</h1>
+          <p class="intro">冷银高光、钛蓝暗部、淡紫反射。一整片彩色金属渐变，贯穿共鸣 A。</p>
+        </div>
+        <span class="badge">抛光金属 · 彩色渐变</span>
+      </header>
+      <div class="layout">
+        <section class="hero" aria-label="渐变金属图标大图预览">
+          <span class="stage-label" id="material-label">02 / TITANIUM BLUE</span>
+          <svg class="hero-icon" viewBox="0 0 1024 1024" role="img" aria-label="渐变金属 Auralis 图标">
+            <use id="hero-use" href="#metal-icon" />
+          </svg>
+          <div class="hero-caption"><span id="finish-caption">钛蓝渐变 / 石墨灰底板</span><span>高光 · 反射带 · 细倒角</span></div>
+        </section>
+        <aside class="side" aria-label="原版对照与材质调节">
+          <h2>保留形状，改变触感。</h2>
+          <div class="original">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="当前平面原版图标"><use href="#flat-icon" /></svg>
+            <div><h2>当前原版</h2><p>A：#F3EEE6<br />底板：#292B2D<br />纯色、无厚度。</p></div>
+          </div>
+          <form class="controls" id="controls">
+            <label class="control" for="palette">
+              <span class="control-top"><span>金属配色</span></span>
+              <select id="palette">
+                <option value="titanium">钛蓝渐变 · 银 / 蓝 / 紫</option>
+                <option value="chrome">银铬渐变 · 冷银 / 石墨</option>
+                <option value="champagne">香槟金渐变 · 浅金 / 古铜</option>
+              </select>
+            </label>
+            <label class="control" for="gloss">
+              <span class="control-top"><span>抛光高光</span><output id="gloss-value" for="gloss">40%</output></span>
+              <input id="gloss" type="range" min="0" max="100" value="40" />
+            </label>
+            <label class="control" for="depth">
+              <span class="control-top"><span>倒角强度</span><output id="depth-value" for="depth">0.8</output></span>
+              <input id="depth" type="range" min="0" max="20" value="8" />
+            </label>
+            <label class="control" for="light">
+              <span class="control-top"><span>渐变方向</span><output id="light-value" for="light">45°</output></span>
+              <input id="light" type="range" min="0" max="360" value="45" />
+            </label>
+            <div class="actions">
+              <label class="toggle"><input id="compare" type="checkbox" />大图显示原版</label>
+              <button type="reset">恢复默认</button>
+            </div>
+          </form>
+          <p class="note">调节渐变方向，改变明暗反射带穿过 A 的位置；切换配色比较不同金属。下方尺寸预览同步更新。</p>
+        </aside>
+      </div>
+      <section class="sizes" aria-label="实际尺寸对照">
+        <div class="sizes-heading"><h2>缩小以后，是否依然清楚？</h2><span>每组左：原版 / 右：金属</span></div>
+        <div class="size-grid">
+          <div class="size-pair"><div class="icons">
+            <svg width="32" height="32" viewBox="0 0 1024 1024" role="img" aria-label="32px 原版"><use href="#flat-icon" /></svg>
+            <svg width="32" height="32" viewBox="0 0 1024 1024" role="img" aria-label="32px 渐变金属"><use href="#metal-icon" /></svg>
+          </div><p>32 px · 任务栏</p></div>
+          <div class="size-pair"><div class="icons">
+            <svg width="64" height="64" viewBox="0 0 1024 1024" role="img" aria-label="64px 原版"><use href="#flat-icon" /></svg>
+            <svg width="64" height="64" viewBox="0 0 1024 1024" role="img" aria-label="64px 渐变金属"><use href="#metal-icon" /></svg>
+          </div><p>64 px · 应用列表</p></div>
+          <div class="size-pair"><div class="icons">
+            <svg width="128" height="128" viewBox="0 0 1024 1024" role="img" aria-label="128px 原版"><use href="#flat-icon" /></svg>
+            <svg width="128" height="128" viewBox="0 0 1024 1024" role="img" aria-label="128px 渐变金属"><use href="#metal-icon" /></svg>
+          </div><p>128 px · 图标预览</p></div>
+        </div>
+      </section>
+      <footer>独立材质原型 · 直接打开本文件即可使用，无网络依赖。仅探索 A 的材质；正式应用图标未替换。<br />
+        形状来源：<a href="../../resources/icons/auralis-icon.svg">auralis-icon.svg</a>。本页尺寸为 CSS 像素；实际显示受系统缩放影响。</footer>
+    </main>
+    <script>
+      const byId = (id) => document.getElementById(id)
+      const form = byId('controls')
+      const palettes = {
+        titanium: {
+          label: 'TITANIUM BLUE', name: '钛蓝渐变',
+          colors: ['#7e9abf', '#ddeaff', '#f4faff', '#8fa9d1', '#455f9c', '#26385f', '#777eb8', '#d9d9ef', '#fcfaff', '#aab6d1', '#526b91', '#b7cfe3'],
+        },
+        chrome: {
+          label: 'SILVER CHROME', name: '银铬渐变',
+          colors: ['#8997a7', '#d5e0eb', '#fafcff', '#a3b1c0', '#5b697c', '#344151', '#7d8b9e', '#d7e0eb', '#ffffff', '#a2b0c2', '#596b80', '#c7d6e6'],
+        },
+        champagne: {
+          label: 'CHAMPAGNE GOLD', name: '香槟金渐变',
+          colors: ['#a4865e', '#ead7ad', '#fff6da', '#ccb07a', '#8b6c40', '#61472f', '#a58660', '#edd4aa', '#fff7e4', '#c9ac80', '#93704b', '#ead5b1'],
+        },
+      }
+      const stops = byId('metal-gradient').querySelectorAll('stop')
+      function update() {
+        const gloss = Number(byId('gloss').value) / 100
+        const depth = Number(byId('depth').value) / 10
+        const light = Number(byId('light').value)
+        const palette = palettes[byId('palette').value]
+        stops.forEach((stop, index) => stop.setAttribute('stop-color', palette.colors[index]))
+        const radians = light * Math.PI / 180
+        const dx = Math.cos(radians) * 40
+        const dy = Math.sin(radians) * 40
+        const gradient = byId('metal-gradient')
+        gradient.setAttribute('x1', String(32 - dx))
+        gradient.setAttribute('y1', String(32 - dy))
+        gradient.setAttribute('x2', String(32 + dx))
+        gradient.setAttribute('y2', String(32 + dy))
+        byId('specular').setAttribute('specularConstant', String(gloss))
+        byId('specular').setAttribute('surfaceScale', String(depth))
+        byId('specular-light').setAttribute('azimuth', String((light + 180) % 360))
+        byId('bevel-offset').setAttribute('dx', String(depth * .15))
+        byId('bevel-offset').setAttribute('dy', String(depth * .2))
+        byId('gloss-value').value = `${Math.round(gloss * 100)}%`
+        byId('depth-value').value = depth.toFixed(1)
+        byId('light-value').value = `${light}°`
+        const flat = byId('compare').checked
+        byId('hero-use').setAttribute('href', flat ? '#flat-icon' : '#metal-icon')
+        byId('hero-use').parentElement.setAttribute('aria-label', flat ? '当前平面原版 Auralis 图标' : `${palette.name} Auralis 图标`)
+        byId('material-label').textContent = flat ? '00 / ORIGINAL' : `02 / ${palette.label}`
+        byId('finish-caption').textContent = flat ? '暖白纯色 / 石墨灰底板' : `${palette.name} / 石墨灰底板`
+      }
+      form.addEventListener('input', update)
+      form.addEventListener('change', update)
+      form.addEventListener('reset', () => setTimeout(update, 0))
+      update()
+    </script>
+  </body>
+</html>

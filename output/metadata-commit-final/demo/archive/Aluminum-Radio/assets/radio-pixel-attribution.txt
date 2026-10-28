@@ -1,0 +1,22 @@
+Radio Pixel 12 (Regular)
+
+A character subset derived from Fusion Pixel Font, 12px proportional Simplified Chinese (zh_hans), release 2026.09.01.
+Original font copyright (c) 2022, TakWolf (https://takwolf.com).
+Source project: https://github.com/TakWolf/fusion-pixel-font
+Release: https://github.com/TakWolf/fusion-pixel-font/releases/tag/2026.09.01
+Download: https://github.com/TakWolf/fusion-pixel-font/releases/download/2026.09.01/fusion-pixel-font-12px-proportional-ttf.woff-v2026.09.01.zip
+Downloaded archive SHA-256: 43e2b2fc897b076d0132f9044cf4688600945e29e7453302e1eb5ace29cb7bc3
+License source: https://github.com/TakWolf/fusion-pixel-font/blob/2026.09.01/LICENSE-OFL
+
+License: SIL Open Font License 1.1. See radio-pixel-OFL.txt.
+All additional license notices bundled with the source release are preserved in radio-pixel-upstream-licenses/.
+
+Modifications: character subsetting with fontTools; internal family, full name, PostScript name, unique identifier and description renamed for this derivative. Glyph outlines are unchanged. This subset is distributed under SIL OFL 1.1. The primary upstream license does not declare a Reserved Font Name; this derivative is nevertheless distinctly named Radio Pixel 12.
+
+Coverage: all printable ASCII U+0020-U+007E, U+00E3 LATIN SMALL LETTER A WITH TILDE (João), U+00F4 LATIN SMALL LETTER O WITH CIRCUMFLEX (Antônio), plus the distinct Chinese characters in:
+南粤之声陈奕迅富士山下王菲红豆张国荣风继续吹雾都夜航午夜蓝调城市漫游落日海岸朴树平凡之路陈绮贞旅行的意义告五人爱人错过
+
+This is a finite UI subset, not a complete Chinese font. New non-ASCII text may require an expanded subset.
+
+Suggested CSS: font-family: "Radio Pixel 12"; src: url("assets/radio-pixel-12.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap.
+For crisp pixel alignment, prefer the source grid size 12px or integer multiples such as 24px.
