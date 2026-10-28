@@ -708,9 +708,15 @@
   padding: 48px 16px;
   color: var(--auralis-text-muted);
 }
-.archive-summary-page .summary-loading > span {
-  width: 24px;
-  height: 24px;
+.archive-summary-page--loading .summary-page-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.archive-summary-page .summary-loading {
+  flex: 1;
+  padding: 16px;
+  text-align: center;
 }
 .archive-summary-page .summary-action-error {
   margin-top: 16px;

@@ -24,13 +24,13 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-async function renderMenu(hideInsert: boolean) {
+async function renderMenu(hideInsert: boolean, source: 'track' | 'album-artwork' = 'track') {
   vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
   const app = createSSRApp({
     render: () =>
       h(LibraryContextMenu, {
         open: true,
-        source: 'track',
+        source,
         trackTitle: 'Track',
         albumTitle: 'Album',
         anchor: { clientX: 10, clientY: 10, returnFocusTrackId: 1, openReason: 'pointer' },
@@ -55,7 +55,7 @@ describe('LibraryContextMenu insert visibility', () => {
   it('does not render the insert row for the current track, preserving later item indices', async () => {
     const html = await renderMenu(true)
     expect(html).not.toContain('library.contextMenu.insertTrack')
-    expect(html).not.toContain('data-context-main-index="2"')
+    expect(html).not.toContain('data-context-main-index="1"')
     expect(html).toContain('data-context-main-index="3"')
     expect(html).toContain('data-context-main-index="4"')
     expect(html).toContain('data-context-main-index="6"')
@@ -65,7 +65,7 @@ describe('LibraryContextMenu insert visibility', () => {
   it('renders the insert row for another track', async () => {
     const html = await renderMenu(false)
     expect(html).toContain('library.contextMenu.insertTrack')
-    expect(html).toContain('data-context-main-index="2"')
+    expect(html).toContain('data-context-main-index="1"')
   })
 })
 
@@ -118,7 +118,12 @@ function textContent(root: TestNode): string {
 
 async function mountInteractiveMenu(
   addResult: () => Promise<AddPlaylistTracksResult>,
-  options: { canSwitchToCover?: boolean; currentViewMode?: 'flat' | 'cover' } = {},
+  options: {
+    canSwitchToCover?: boolean
+    currentViewMode?: 'flat' | 'cover'
+    hideInsert?: boolean
+    canLocateCurrent?: boolean
+  } = {},
 ) {
   vi.useFakeTimers()
   focused = null
@@ -197,6 +202,7 @@ async function mountInteractiveMenu(
     querySelector: () => body,
   })
   menu.onOpenContextMenu(1, { clientX: 10, clientY: 10 } as MouseEvent, 'track', 'keyboard')
+  const play = vi.fn()
   const switchView = vi.fn()
   const openInExplorer = vi.fn()
   const app = renderer.createApp({
@@ -207,8 +213,9 @@ async function mountInteractiveMenu(
         anchor: menu.contextMenuAnchor.value,
         trackTitle: 'Track',
         albumTitle: 'Album',
-        canLocateCurrent: true,
+        canLocateCurrent: options.canLocateCurrent ?? true,
         canInsert: true,
+        hideInsert: options.hideInsert,
         currentViewMode: options.currentViewMode ?? 'flat',
         canSwitchToCover: options.canSwitchToCover,
         playlists: menu.regularPlaylistItems.value,
@@ -217,6 +224,7 @@ async function mountInteractiveMenu(
         playlistLoadError: menu.playlistLoadError.value,
         creatingPlaylist: menu.isCreatingPlaylistFromMenu.value,
         onClose: () => menu.closeContextMenu(),
+        onPlay: play,
         onSwitchView: switchView,
         onAddToPlaylist: (item: SidebarPlaylistItem) => {
           void menu.onAddContextTracksToPlaylist(item)
@@ -249,20 +257,20 @@ async function mountInteractiveMenu(
     await settle()
   }
   async function openPlaylistSubmenu() {
-    for (let i = 0; i < 3; i++) await key('ArrowDown')
-    expect(focused?.props['data-context-main-index']).toBe('3')
+    for (let i = 0; i < 2; i++) await key('ArrowDown')
+    expect(focused?.props['data-context-main-index']).toBe('2')
     await key('ArrowRight')
     expect(textContent(focused!)).toContain('library.contextMenu.createPlaylist')
     await key('ArrowDown')
     expect(textContent(focused!)).toContain('Night')
   }
-  return { body, menu, key, settle, openPlaylistSubmenu, switchView, openInExplorer }
+  return { body, menu, key, settle, openPlaylistSubmenu, play, switchView, openInExplorer }
 }
 
 describe('LibraryContextMenu cover-view availability', () => {
   it('retains the disabled cover-view item and skips it during keyboard navigation', async () => {
     const harness = await mountInteractiveMenu(vi.fn(), { canSwitchToCover: false })
-    const item = findAll(harness.body, (node) => node.props['data-context-main-index'] === '5')[0]
+    const item = findAll(harness.body, (node) => node.props['data-context-main-index'] === '4')[0]
     expect(textContent(item)).toContain('library.contextMenu.switchToCover')
     expect(item.props.disabled).toBe(true)
     expect(item.props.tabindex).toBe(-1)
@@ -290,6 +298,8 @@ describe('LibraryContextMenu cover-view availability', () => {
     expect(focused?.props['data-context-main-index']).toBe('6')
     await harness.key('ArrowUp')
     expect(focused?.props['data-context-main-index']).toBe('5')
+    await harness.key('ArrowUp')
+    expect(focused?.props['data-context-main-index']).toBe('4')
     await harness.key('Enter')
     expect(harness.switchView).toHaveBeenCalledExactlyOnceWith(options.target)
   })
@@ -330,7 +340,7 @@ describe('LibraryContextMenu add result events and keyboard navigation', () => {
       expect(textContent(harness.body)).not.toContain('library.contextMenu.addedSuccess')
       vi.advanceTimersByTime(1500)
       expect(harness.menu.contextMenu.value).not.toBeNull()
-      expect(focused?.props['data-context-main-index']).toBe('3')
+      expect(focused?.props['data-context-main-index']).toBe('2')
       await harness.key('ArrowRight')
       await harness.key('End')
       expect(textContent(focused!)).toContain('Night')
@@ -366,6 +376,46 @@ describe('LibraryContextMenu add result events and keyboard navigation', () => {
     expect(findAll(harness.body, (item) => item.props.role === 'alert')).toHaveLength(0)
     vi.advanceTimersByTime(1200)
     await harness.settle()
+    expect(harness.menu.contextMenu.value).toBeNull()
+  })
+})
+
+describe('LibraryContextMenu functional grouping', () => {
+  it.each(['track', 'album-artwork'] as const)(
+    'groups %s actions with only two dividers',
+    async (source) => {
+      const html = await renderMenu(false, source)
+      const rows = [...html.matchAll(/data-context-main-index="(\d)"|role="separator"/g)].map(
+        (match) => match[1] ?? '|',
+      )
+      expect(rows).toEqual(['0', '1', '2', '|', '3', '4', '|', '5', '6'])
+      expect(html.indexOf('library.contextMenu.play')).toBeLessThan(
+        html.indexOf('library.contextMenu.locateCurrent'),
+      )
+      expect(html.indexOf('library.contextMenu.switchToFlat')).toBeLessThan(
+        html.indexOf('library.contextMenu.editMetadata'),
+      )
+    },
+  )
+
+  it('preserves groups when next-play is hidden, and navigates only enabled visible items', async () => {
+    const html = await renderMenu(true)
+    const rows = [...html.matchAll(/data-context-main-index="(\d)"|role="separator"/g)].map(
+      (match) => match[1] ?? '|',
+    )
+    expect(rows).toEqual(['0', '2', '|', '3', '4', '|', '5', '6'])
+    const harness = await mountInteractiveMenu(vi.fn(), {
+      hideInsert: true,
+      canLocateCurrent: false,
+    })
+    expect(focused?.props['data-context-main-index']).toBe('0')
+    await harness.key('ArrowDown')
+    expect(focused?.props['data-context-main-index']).toBe('2')
+    await harness.key('ArrowDown')
+    expect(focused?.props['data-context-main-index']).toBe('4')
+    await harness.key('Home')
+    await harness.key('Enter')
+    expect(harness.play).toHaveBeenCalledOnce()
     expect(harness.menu.contextMenu.value).toBeNull()
   })
 })

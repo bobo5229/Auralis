@@ -93,15 +93,6 @@ const menuItems = computed<MenuItemDef[]>(() => {
   const list: MenuItemDef[] = []
 
   list.push({
-    id: 'locate',
-    disabled: !props.canLocateCurrent,
-    action: () => {
-      emit('locateCurrent')
-      emit('close')
-    },
-  })
-
-  list.push({
     id: 'play',
     action: () => {
       emit('play')
@@ -124,10 +115,10 @@ const menuItems = computed<MenuItemDef[]>(() => {
   })
 
   list.push({
-    id: 'editMetadata',
+    id: 'locate',
+    disabled: !props.canLocateCurrent,
     action: () => {
-      emit('editMetadata')
-      // Note: do not emit close here immediately if metadata dialog takes focus return responsibility
+      emit('locateCurrent')
       emit('close')
     },
   })
@@ -138,6 +129,15 @@ const menuItems = computed<MenuItemDef[]>(() => {
     action: () => {
       const targetMode: LibraryViewMode = props.currentViewMode === 'flat' ? 'cover' : 'flat'
       emit('switchView', targetMode)
+      emit('close')
+    },
+  })
+
+  list.push({
+    id: 'editMetadata',
+    action: () => {
+      emit('editMetadata')
+      // Note: do not emit close here immediately if metadata dialog takes focus return responsibility
       emit('close')
     },
   })
@@ -474,38 +474,17 @@ onBeforeUnmount(() => {
           :aria-label="t('library.contextMenu.ariaLabel')"
           @click.stop
         >
-          <!-- 定位当前歌曲 -->
           <button
             class="library-context-menu-item"
             type="button"
             role="menuitem"
             data-context-main-item
             data-context-main-index="0"
-            :disabled="!canLocateCurrent"
             :tabindex="activeIndex === 0 ? 0 : -1"
             @click="activateMainItem(0)"
             @mouseenter="activeIndex = 0"
           >
-            <span class="i-lucide-locate-fixed"></span>
-            <span class="library-context-menu-text truncate">{{
-              t('library.contextMenu.locateCurrent')
-            }}</span>
-          </button>
-
-          <div class="library-context-menu-separator" role="separator"></div>
-
-          <!-- 播放曲目 / 播放专辑 -->
-          <button
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            data-context-main-item
-            data-context-main-index="1"
-            :tabindex="activeIndex === 1 ? 0 : -1"
-            @click="activateMainItem(1)"
-            @mouseenter="activeIndex = 1"
-          >
-            <span class="i-lucide-play"></span>
+            <span class="i-lucide-circle-play"></span>
             <span class="library-context-menu-text truncate">
               {{
                 source === 'album-artwork'
@@ -515,23 +494,19 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <div v-if="!hideInsert" class="library-context-menu-separator" role="separator"></div>
-
-          <!-- 隐藏项不渲染；菜单逻辑索引保持稳定，焦点按显式索引查找。 -->
-          <!-- 插播曲目 / 插播专辑 -->
           <button
             v-if="!hideInsert"
             class="library-context-menu-item library-context-menu-item--insert"
             type="button"
             role="menuitem"
             data-context-main-item
-            data-context-main-index="2"
+            data-context-main-index="1"
             :disabled="!canInsert || hideInsert"
-            :tabindex="activeIndex === 2 ? 0 : -1"
-            @click="activateMainItem(2)"
-            @mouseenter="activeIndex = 2"
+            :tabindex="activeIndex === 1 ? 0 : -1"
+            @click="activateMainItem(1)"
+            @mouseenter="activeIndex = 1"
           >
-            <span class="i-lucide-corner-down-right"></span>
+            <span class="i-lucide-list-end"></span>
             <span class="library-context-menu-text truncate">
               {{
                 source === 'album-artwork'
@@ -541,9 +516,6 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <div class="library-context-menu-separator" role="separator"></div>
-
-          <!-- 添加到歌单 (带子菜单) -->
           <div
             class="library-context-menu-submenu-root relative"
             @mouseenter="onPlaylistMenuMouseEnter"
@@ -555,11 +527,11 @@ onBeforeUnmount(() => {
               type="button"
               role="menuitem"
               data-context-main-item
-              data-context-main-index="3"
+              data-context-main-index="2"
               aria-haspopup="true"
               :aria-expanded="showSubMenu"
-              :tabindex="activeIndex === 3 ? 0 : -1"
-              @mouseenter="activeIndex = 3"
+              :tabindex="activeIndex === 2 ? 0 : -1"
+              @mouseenter="activeIndex = 2"
               @click="showSubMenu = !showSubMenu"
             >
               <span class="i-lucide-folder-plus"></span>
@@ -575,39 +547,36 @@ onBeforeUnmount(() => {
 
           <div class="library-context-menu-separator" role="separator"></div>
 
-          <!-- 编辑元数据 -->
           <button
             class="library-context-menu-item"
             type="button"
             role="menuitem"
             data-context-main-item
-            data-context-main-index="4"
-            :tabindex="activeIndex === 4 ? 0 : -1"
-            @click="activateMainItem(4)"
-            @mouseenter="activeIndex = 4"
+            data-context-main-index="3"
+            :disabled="!canLocateCurrent"
+            :tabindex="activeIndex === 3 ? 0 : -1"
+            @click="activateMainItem(3)"
+            @mouseenter="activeIndex = 3"
           >
-            <span class="i-lucide-pencil"></span>
+            <span class="i-lucide-locate-fixed"></span>
             <span class="library-context-menu-text truncate">{{
-              t('library.contextMenu.editMetadata')
+              t('library.contextMenu.locateCurrent')
             }}</span>
           </button>
 
-          <div class="library-context-menu-separator" role="separator"></div>
-
-          <!-- 切换视图 -->
           <button
             class="library-context-menu-item library-context-menu-item--view-switch"
             type="button"
             role="menuitem"
             data-context-main-item
-            data-context-main-index="5"
+            data-context-main-index="4"
             :disabled="isViewSwitchDisabled"
-            :tabindex="activeIndex === 5 && !isViewSwitchDisabled ? 0 : -1"
-            @click="activateMainItem(5)"
-            @mouseenter="!isViewSwitchDisabled && (activeIndex = 5)"
+            :tabindex="activeIndex === 4 && !isViewSwitchDisabled ? 0 : -1"
+            @click="activateMainItem(4)"
+            @mouseenter="!isViewSwitchDisabled && (activeIndex = 4)"
           >
             <span
-              :class="currentViewMode === 'flat' ? 'i-lucide-layout-grid' : 'i-lucide-list-music'"
+              :class="currentViewMode === 'flat' ? 'i-lucide-image' : 'i-lucide-list-music'"
             ></span>
             <span class="library-context-menu-text truncate">
               {{
@@ -619,6 +588,22 @@ onBeforeUnmount(() => {
           </button>
 
           <div class="library-context-menu-separator" role="separator"></div>
+
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="5"
+            :tabindex="activeIndex === 5 ? 0 : -1"
+            @click="activateMainItem(5)"
+            @mouseenter="activeIndex = 5"
+          >
+            <span class="i-lucide-pencil"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.editMetadata')
+            }}</span>
+          </button>
 
           <button
             class="library-context-menu-item"
@@ -705,7 +690,6 @@ onBeforeUnmount(() => {
           </div>
           <template v-else>
             <template v-for="(pl, idx) in playlists" :key="pl.id">
-              <div v-if="idx > 0" class="library-context-menu-separator" role="separator"></div>
               <button
                 class="library-context-menu-item"
                 type="button"

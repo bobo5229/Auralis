@@ -320,6 +320,9 @@ defineExpose({ requestClose })
   flex: 1;
 }
 .track-editor-artwork {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
   flex: none;
@@ -330,9 +333,13 @@ defineExpose({ requestClose })
   color: var(--auralis-text-muted);
 }
 .track-editor-artwork img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   border-radius: inherit;
 }
 .track-editor-artwork span {

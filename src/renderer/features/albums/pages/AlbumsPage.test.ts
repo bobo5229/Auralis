@@ -13,6 +13,8 @@ import { useChineseTextDisplay } from '@renderer/features/appearance/composables
 
 const fixture = vi.hoisted(() => ({
   tracks: [] as TrackListItem[],
+  playbackState: null as null | { currentTrackId: number | null },
+  play: vi.fn(),
   changed: null as null | ((event: { reason: string }) => void),
   route: { name: 'albums' },
   beforeLeave: null as null | (() => void),
@@ -51,9 +53,11 @@ vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { error: vi.fn(), warn: vi.fn() },
 }))
-vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
-  usePlayback: () => ({ state: { currentTrackId: null }, playTrackFromQueue: vi.fn() }),
-}))
+vi.mock('@renderer/features/playback/composables/usePlayback', async () => {
+  const { reactive } = await import('vue')
+  fixture.playbackState = reactive({ currentTrackId: null as number | null })
+  return { usePlayback: () => ({ state: fixture.playbackState, playTrackFromQueue: fixture.play }) }
+})
 vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', async () => {
   const { ref } = await import('vue')
   return { usePlayerDisplayMode: () => ({ displayMode: ref('normal') }) }
@@ -168,11 +172,26 @@ class TestElement extends TestEventTarget {
   closest(): null {
     return null
   }
-  querySelector(): null {
-    return null
+  get dataset(): { albumMenuAction?: string } {
+    return { albumMenuAction: this.props['data-album-menu-action'] as string | undefined }
   }
-  querySelectorAll(): [] {
-    return []
+  querySelector(selector: string): TestElement | null {
+    if (selector.includes('data-album-menu-action="play"')) {
+      return (
+        this.querySelectorAll('[role="menuitem"]:not(:disabled)').find(
+          (item) => item.dataset.albumMenuAction === 'play',
+        ) ?? null
+      )
+    }
+    return this.querySelectorAll(selector)[0] ?? null
+  }
+  querySelectorAll(selector: string): TestElement[] {
+    if (selector !== '[role="menuitem"]:not(:disabled)') return []
+    const visit = (element: TestElement): TestElement[] => [
+      ...(element.props.role === 'menuitem' && !element.props.disabled ? [element] : []),
+      ...element.children.flatMap(visit),
+    ]
+    return this.children.flatMap(visit)
   }
   getBoundingClientRect() {
     return { left: 0, top: 0, width: 800, right: 800, bottom: 650 }
@@ -264,6 +283,7 @@ beforeEach(() => {
   frames.clear()
   fixture.beforeLeave = null
   fixture.tracks = []
+  fixture.playbackState!.currentTrackId = null
   fixture.route.name = 'albums'
   observers.length = 0
   body.children = []
@@ -742,5 +762,69 @@ describe('AlbumsPage page parameter entry', () => {
     expect(doc.activeElement).toBe(trigger)
     expect(find('page-parameter-trigger')).toBe(trigger)
     expect(find('library-search-input')?.value).toBe('')
+  })
+})
+
+describe('AlbumsPage context menu grouping', () => {
+  async function openMenu() {
+    await mountPage()
+    await setAlbums(2)
+    const card = find('album-card')!
+    ;(card.props.onOpenContextMenu as (album: unknown, event: unknown) => void)(
+      { key: 'album', title: 'Album 0', albumArtist: 'Artist', tracks: [fixture.tracks[0]] },
+      { currentTarget: card, clientX: 20, clientY: 20 },
+    )
+    await settle()
+    return find('library-context-menu')!
+  }
+  function rows(menu: TestElement) {
+    return menu.children.flatMap((child) => {
+      if (child.props['data-album-menu-action']) return [child.props['data-album-menu-action']]
+      if (child.props.role === 'separator') return ['|']
+      return []
+    })
+  }
+  async function key(menu: TestElement, value: string) {
+    ;(menu.props.onKeydown as (event: unknown) => void)({
+      key: value,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    })
+    await settle()
+  }
+  it('prioritizes playback and uses only group separators with a current track', async () => {
+    fixture.playbackState!.currentTrackId = 1
+    const menu = await openMenu()
+    expect(rows(menu)).toEqual([
+      'play',
+      'insert',
+      '|',
+      'locate',
+      'open-in-cd',
+      '|',
+      'open-in-explorer',
+    ])
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
+    await key(menu, 'ArrowDown')
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('insert')
+    await key(menu, 'ArrowDown')
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('locate')
+    fixture.playbackState!.currentTrackId = null
+    await settle()
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
+    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
+  })
+  it('skips unavailable playback actions and preserves the play event', async () => {
+    const menu = await openMenu()
+    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
+    await key(menu, 'ArrowDown')
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('open-in-cd')
+    await key(menu, 'End')
+    expect(doc.activeElement.dataset.albumMenuAction).toBe('open-in-explorer')
+    await key(menu, 'Home')
+    ;(doc.activeElement.props.onClick as () => void)()
+    await settle()
+    expect(fixture.play).toHaveBeenCalledOnce()
+    expect(find('library-context-menu')).toBeUndefined()
   })
 })

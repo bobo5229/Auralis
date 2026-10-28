@@ -407,6 +407,35 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
           @click.stop
           @keydown="onContextMenuKeydown"
         >
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            data-album-menu-action="play"
+            @click="playContextAlbum"
+          >
+            <span class="i-lucide-circle-play"></span>
+            <span>{{
+              t('albums.contextMenu.play', { title: songText(contextMenu.album.title) })
+            }}</span>
+          </button>
+
+          <button
+            class="library-context-menu-item library-context-menu-item--insert"
+            type="button"
+            role="menuitem"
+            data-album-menu-action="insert"
+            :disabled="!hasCurrentTrack"
+            @click="insertContextAlbum"
+          >
+            <span class="i-lucide-list-end"></span>
+            <span>{{
+              t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
+            }}</span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
           <template v-if="hasCurrentTrack">
             <button
               class="library-context-menu-item"
@@ -418,35 +447,8 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
               <span class="i-lucide-locate-fixed"></span>
               <span>{{ t('albums.contextMenu.locateCurrent') }}</span>
             </button>
-            <div class="library-context-menu-separator"></div>
           </template>
-          <button
-            class="library-context-menu-item"
-            role="menuitem"
-            type="button"
-            data-album-menu-action="play"
-            @click="playContextAlbum"
-          >
-            <span class="i-lucide-play"></span>
-            <span>{{
-              t('albums.contextMenu.play', { title: songText(contextMenu.album.title) })
-            }}</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item library-context-menu-item--insert"
-            type="button"
-            role="menuitem"
-            data-album-menu-action="insert"
-            :disabled="!hasCurrentTrack"
-            @click="insertContextAlbum"
-          >
-            <span class="i-lucide-list-plus"></span>
-            <span>{{
-              t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
-            }}</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
+
           <button
             class="library-context-menu-item"
             role="menuitem"
@@ -457,7 +459,9 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
             <span class="i-lucide-disc"></span>
             <span>{{ t('albums.contextMenu.openInCd') }}</span>
           </button>
-          <div class="library-context-menu-separator"></div>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
           <button
             class="library-context-menu-item"
             role="menuitem"

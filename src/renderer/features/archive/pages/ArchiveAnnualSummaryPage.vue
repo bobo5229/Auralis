@@ -114,7 +114,13 @@ onBeforeRouteUpdate((to) => (Number(to.params.year) < 1900 ? { name: 'archive' }
 </script>
 
 <template>
-  <section ref="root" class="archive-summary-page" :aria-label="title" :aria-busy="loading">
+  <section
+    ref="root"
+    class="archive-summary-page"
+    :class="{ 'archive-summary-page--loading': !summary && loading }"
+    :aria-label="title"
+    :aria-busy="loading"
+  >
     <div class="summary-page-content">
       <header class="summary-page-header">
         <RouterLink
@@ -132,7 +138,7 @@ onBeforeRouteUpdate((to) => (Number(to.params.year) < 1900 ? { name: 'archive' }
         </button>
       </div>
       <div v-if="!summary && loading" class="summary-loading" role="status">
-        <span class="i-lucide-disc-3" aria-hidden="true"></span>{{ t('archive.loading') }}
+        {{ t('archive.loading') }}
       </div>
       <template v-if="summary">
         <header class="summary-frontispiece" :style="seasonBannerStyle">

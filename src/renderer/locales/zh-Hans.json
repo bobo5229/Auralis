@@ -863,7 +863,7 @@
       "play": "播放「{title}」",
       "openInCd": "在「唱片室」中打开",
       "openInExplorer": "在资源管理器中打开",
-      "insert": "插播「{title}」"
+      "insert": "接下来播放「{title}」"
     },
     "status": {
       "loading": "正在读取专辑目录…",
@@ -907,8 +907,8 @@
       "locateCurrent": "定位到当前歌曲",
       "playTrack": "播放「{title}」",
       "playAlbum": "播放专辑「{album}」",
-      "insertTrack": "插播「{title}」",
-      "insertAlbum": "插播专辑「{album}」",
+      "insertTrack": "下一首播放「{title}」",
+      "insertAlbum": "接下来播放专辑「{album}」",
       "addToPlaylist": "添加到歌单",
       "createPlaylist": "新建歌单",
       "editMetadata": "编辑元数据",
