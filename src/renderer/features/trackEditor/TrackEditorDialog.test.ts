@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, markRaw, nextTick, reactive, ref } from 'vue'
-import LyricsEditPanel from './LyricsEditPanel.vue'
+import TrackEditorDialog from './TrackEditorDialog.vue'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 
 const api = vi.hoisted(() => ({
   openLrcEditor: vi.fn(),
   closeLrcEditor: vi.fn(),
   saveLrcEditor: vi.fn(),
+  getTrackEditSnapshot: vi.fn(),
+  getTrackEditState: vi.fn(),
+  onTrackEditStateChanged: vi.fn(),
+  updateTrackMetadata: vi.fn(),
 }))
 const playback = reactive({
   currentTrackId: 7 as number | null,
@@ -18,7 +22,7 @@ const playback = reactive({
 })
 const playbackActions = { seekTo: vi.fn(), togglePlayPause: vi.fn(), play: vi.fn() }
 const commandRevision = ref(0)
-vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { lyrics: api } }))
+vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { lyrics: api, metadata: api } }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({
     state: playback,
@@ -26,6 +30,14 @@ vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
     isPlaybackPending: ref(false),
     ...playbackActions,
   }),
+}))
+vi.mock('@renderer/features/library/components/SaveProgressIcon.vue', () => ({
+  default: {
+    setup(_: unknown, { expose }: { expose: (value: unknown) => void }) {
+      expose({ complete: async () => {} })
+      return () => null
+    },
+  },
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/shared/focus/useOverlayFocusTrap', () => ({ useOverlayFocusTrap: vi.fn() }))
@@ -62,6 +74,14 @@ class TestNode {
   select = vi.fn()
   constructor(public type: string) {
     markRaw(this)
+  }
+  addEventListener() {}
+  removeEventListener() {}
+  getRootNode() {
+    return document
+  }
+  get tagName() {
+    return this.type.toUpperCase()
   }
   setSelectionRange(start: number, end: number) {
     this.selectionStart = start
@@ -173,18 +193,28 @@ function lrc(sessionId = 'raw', format: 'lrc' | 'plain' = 'lrc') {
     canSaveTag: true,
   }
 }
-async function mount(returnFocusTo?: TestNode) {
+async function mount(
+  returnFocusTo?: TestNode,
+  initialTab: 'metadata' | 'lyrics' = 'lyrics',
+  restoreFocus?: () => boolean | Promise<boolean>,
+) {
   const open = ref(true)
-  const panel = ref<InstanceType<typeof LyricsEditPanel> | null>(null)
+  const panel = ref<InstanceType<typeof TrackEditorDialog> | null>(null)
   const onClose = vi.fn(() => {
     open.value = false
   })
   app = renderer.createApp({
     setup: () => () =>
-      h(LyricsEditPanel, {
+      h(TrackEditorDialog, {
         ref: panel,
-        open: open.value,
-        returnFocusTo: returnFocusTo as unknown as HTMLElement,
+        request: open.value
+          ? {
+              trackId: 7,
+              initialTab,
+              returnFocusTo: returnFocusTo as unknown as HTMLElement,
+              restoreFocus,
+            }
+          : null,
         onClose,
       }),
   })
@@ -209,6 +239,19 @@ beforeEach(() => {
   body = new TestNode('body')
   activeElement = null
   windowListeners.clear()
+  api.getTrackEditSnapshot.mockResolvedValue({
+    trackId: 7,
+    editToken: 'meta',
+    title: 'First track',
+    artistDisplay: 'First artist',
+    albumTitle: null,
+    albumArtistDisplay: null,
+    genreDisplay: null,
+    releaseDate: null,
+    year: null,
+  })
+  api.getTrackEditState.mockResolvedValue({ status: 'editable', version: 1 })
+  api.onTrackEditStateChanged.mockReturnValue(() => {})
   playback.currentTrackId = 7
   playback.currentTrack = { id: 7, title: 'First track', artist: 'First artist' }
   playback.currentTime = 3
@@ -220,6 +263,8 @@ beforeEach(() => {
     commandRevision.value++
     playback.isPlaying = true
   })
+  vi.stubGlobal('Document', class {})
+  vi.stubGlobal('ShadowRoot', class {})
   vi.stubGlobal('HTMLElement', TestNode)
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('document', {
@@ -302,7 +347,7 @@ it('confirms unsaved dismissal, continues on Escape, and discards without saving
   expect(activeElement).toBe(source())
   view.panel.value!.requestClose()
   await flush()
-  fire(button('lyricsEditor.discard'), 'onClick')
+  fire(button('trackEditor.discardAll'), 'onClick')
   await flush()
   expect(view.onClose).toHaveBeenCalledOnce()
   expect(api.saveLrcEditor).not.toHaveBeenCalled()
@@ -356,18 +401,21 @@ it('handles IME and menu Escape before opening the close confirmation', async ()
   expect(activeElement).toBe(button('lyricsEditor.save'))
 })
 
-it('saves and closes only after selecting a target from the confirmation menu', async () => {
+it('returns to per-page saving instead of saving all from close confirmation', async () => {
   const view = await mount()
   await edit('Changed')
   view.panel.value!.requestClose()
   await flush()
-  fire(button('lyricsEditor.saveClose'), 'onClick')
-  await flush()
+  expect(button('lyricsEditor.saveClose')).toBeUndefined()
   expect(api.saveLrcEditor).not.toHaveBeenCalled()
+  fire(button('lyricsEditor.continue'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
   fire(button('lyricsEditor.file'), 'onClick')
   await flush()
-  expect(view.onClose).toHaveBeenCalledOnce()
-  expect(api.openLrcEditor).toHaveBeenCalledTimes(1)
+  expect(view.onClose).not.toHaveBeenCalled()
+  expect(api.openLrcEditor).toHaveBeenCalledTimes(2)
 })
 
 it('blocks dismissal and duplicate keyboard saves while the write is pending', async () => {
@@ -386,7 +434,7 @@ it('blocks dismissal and duplicate keyboard saves while the write is pending', a
   await flush()
   expect(source().props.readonly).toBe(true)
   expect(button('lyricsEditor.saving').props.disabled).toBe(true)
-  expect(button('lyricsEditor.close').props.disabled).toBe(true)
+  expect(button('dialog.close').props.disabled).toBe(true)
   view.panel.value!.requestClose()
   fire(dialog, 'onKeydownCapture', { ctrlKey: true, key: 's' })
   await flush()
@@ -484,14 +532,17 @@ it('reports unsupported TTML without enabling editing or saving', async () => {
 
 it('keeps the editing track and dirty state visible after playback switches', async () => {
   await mount()
-  expect(textContent(body)).toContain('First track · First artist')
-  expect(textContent(body)).toContain('lyricsEditor.noChanges')
+  expect(textContent(body)).toContain('First track')
+  expect(textContent(body)).toContain('First artist')
+  expect(textContent(body)).not.toContain('First track ·')
   await edit('[00:01.00]Changed')
   expect(textContent(body)).toContain('lyricsEditor.unsaved')
   playback.currentTrackId = 8
   playback.currentTrack = { id: 8, title: 'Second track', artist: 'Second artist' }
   await flush()
-  expect(textContent(body)).toContain('First track · First artist')
+  expect(textContent(body)).toContain('First track')
+  expect(textContent(body)).toContain('First artist')
+  expect(textContent(body)).not.toContain('First track ·')
   expect(textContent(body)).not.toContain('Second track')
   expect(textContent(body)).toContain('lyricsEditor.playbackMismatch')
   expect(button('lyricsEditor.playLine').props.disabled).toBe(true)
@@ -611,10 +662,11 @@ it('does not seek if saving starts while playback is starting', async () => {
   await flush()
 })
 
-it('does not show metadata from a different track when opening', async () => {
+it('loads the editing track metadata independently of playback', async () => {
   playback.currentTrack = { id: 8, title: 'Wrong track', artist: 'Wrong artist' }
   await mount()
-  expect(textContent(body)).toContain('lyricsEditor.unknownTitle')
+  expect(api.getTrackEditSnapshot).toHaveBeenCalledWith(7)
+  expect(textContent(body)).toContain('First track')
   expect(textContent(body)).not.toContain('Wrong track')
 })
 
@@ -633,4 +685,279 @@ it('freezes the body during the close confirmation and restores editing', async 
   await flush()
   expect(source().props.readonly).toBe(false)
   expect(activeElement).toBe(source())
+})
+
+function tab(name: 'metadata' | 'lyrics') {
+  return find((node) => node.props.id === `track-tab-${name}`)!
+}
+function titleInput() {
+  return find((node) => node.props.placeholder === 'library.metadataEditor.placeholders.title')!
+}
+function changeTitle(value: string) {
+  ;(titleInput().props['onUpdate:modelValue'] as (value: string) => void)(value)
+}
+async function switchTo(name: 'metadata' | 'lyrics') {
+  fire(tab(name), 'onClick')
+  await flush()
+}
+async function saveMetadata() {
+  fire(find((node) => node.type === 'form')!, 'onSubmit')
+  await flush()
+}
+
+it('opens metadata without loading lyrics and preserves both drafts, selection, history and scrolling across tabs', async () => {
+  const view = await mount(undefined, 'metadata')
+  expect(tab('metadata').props['aria-selected']).toBe(true)
+  expect(api.openLrcEditor).not.toHaveBeenCalled()
+  changeTitle('Metadata draft')
+  await switchTo('lyrics')
+  await edit('[00:01.00]Lyric draft')
+  const originalEditor = source()
+  originalEditor.setSelectionRange(13, 17)
+  Reflect.set(originalEditor, 'scrollTop', 80)
+  await switchTo('metadata')
+  expect(titleInput().value).toBe('Metadata draft')
+  await switchTo('lyrics')
+  expect(source()).toBe(originalEditor)
+  expect(source().value).toBe('[00:01.00]Lyric draft')
+  expect(source().selectionStart).toBe(13)
+  expect(Reflect.get(source(), 'scrollTop')).toBe(80)
+  expect(api.openLrcEditor).toHaveBeenCalledOnce()
+  fire(button('lyricsEditor.undo'), 'onClick')
+  await flush()
+  expect(source().value).toBe(lrc().text.replace(/\r\n/g, '\n'))
+  view.panel.value!.requestClose()
+  await flush()
+  expect(textContent(body)).toContain('trackEditor.unsavedPages')
+  expect(api.updateTrackMetadata).not.toHaveBeenCalled()
+})
+
+it('refreshes metadata credentials after a lyrics save without resetting the metadata draft', async () => {
+  const snapshot = await api.getTrackEditSnapshot()
+  api.getTrackEditSnapshot
+    .mockResolvedValueOnce(snapshot)
+    .mockResolvedValueOnce({ ...snapshot, editToken: 'after-lyrics' })
+    .mockResolvedValue({ ...snapshot, title: 'Metadata draft', editToken: 'after-metadata' })
+  api.updateTrackMetadata.mockResolvedValue({ ok: true })
+  const view = await mount(undefined, 'metadata')
+  changeTitle('Metadata draft')
+  await switchTo('lyrics')
+  await edit('[00:01.00]Saved lyrics')
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.tag'), 'onClick')
+  await flush()
+  expect(view.onClose).not.toHaveBeenCalled()
+  await switchTo('metadata')
+  expect(titleInput().value).toBe('Metadata draft')
+  await saveMetadata()
+  expect(api.updateTrackMetadata).toHaveBeenCalledWith({
+    trackId: 7,
+    editToken: 'after-lyrics',
+    changes: { title: 'Metadata draft' },
+  })
+  expect(view.onClose).not.toHaveBeenCalled()
+  expect(source().value).toBe('[00:01.00]Saved lyrics')
+})
+
+it('refreshes lyrics credentials after metadata save and preserves lyrics draft and undo', async () => {
+  const snapshot = await api.getTrackEditSnapshot()
+  api.updateTrackMetadata.mockResolvedValue({ ok: true })
+  const view = await mount()
+  await edit('[00:01.00]Lyric draft')
+  const editor = source()
+  editor.setSelectionRange(12, 14)
+  await switchTo('metadata')
+  changeTitle('Saved title')
+  api.getTrackEditSnapshot.mockResolvedValue({
+    ...snapshot,
+    title: 'Saved title',
+    editToken: 'new-token',
+  })
+  api.openLrcEditor.mockResolvedValue({ ok: true, value: lrc('after-metadata') })
+  await saveMetadata()
+  expect(view.onClose).not.toHaveBeenCalled()
+  expect(source()).toBe(editor)
+  expect(source().selectionStart).toBe(12)
+  await switchTo('lyrics')
+  expect(source().value).toBe('[00:01.00]Lyric draft')
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.tag'), 'onClick')
+  await flush()
+  expect(api.saveLrcEditor).toHaveBeenCalledWith(
+    expect.objectContaining({ sessionId: 'after-metadata', text: '[00:01.00]Lyric draft' }),
+  )
+  fire(button('lyricsEditor.undo'), 'onClick')
+  await flush()
+  expect(source().value).toBe(lrc().text.replace(/\r\n/g, '\n'))
+})
+
+it('preserves drafts and blocks metadata save when refreshed disk metadata conflicts', async () => {
+  await mount(undefined, 'metadata')
+  changeTitle('Metadata draft')
+  await switchTo('lyrics')
+  await edit('Lyrics draft')
+  const snapshot = await api.getTrackEditSnapshot()
+  api.getTrackEditSnapshot.mockResolvedValue({
+    ...snapshot,
+    title: 'External edit',
+    editToken: 'external',
+  })
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.file'), 'onClick')
+  await flush()
+  await switchTo('metadata')
+  expect(titleInput().value).toBe('Metadata draft')
+  expect(textContent(body)).toContain('trackEditor.conflict')
+  await saveMetadata()
+  expect(api.updateTrackMetadata).not.toHaveBeenCalled()
+})
+
+it('preserves lyrics and blocks their save when disk lyrics changed during metadata writing', async () => {
+  api.updateTrackMetadata.mockResolvedValue({ ok: true })
+  await mount()
+  await edit('Lyrics draft')
+  await switchTo('metadata')
+  changeTitle('Saved title')
+  api.openLrcEditor.mockResolvedValue({
+    ok: true,
+    value: { ...lrc('external'), text: 'External lyrics' },
+  })
+  await saveMetadata()
+  await switchTo('lyrics')
+  expect(source().value).toBe('Lyrics draft')
+  expect(textContent(body)).toContain('trackEditor.conflict')
+  expect(button('lyricsEditor.save').props.disabled).toBe(true)
+})
+
+it('locks tabs and close during metadata saving, retaining the panel after success', async () => {
+  const view = await mount(undefined, 'metadata')
+  changeTitle('Saving title')
+  let finish!: (value: unknown) => void
+  api.updateTrackMetadata.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve
+    }),
+  )
+  void saveMetadata()
+  await flush()
+  expect(tab('lyrics').props.disabled).toBe(true)
+  fire(tab('lyrics'), 'onKeydown', { key: 'ArrowRight' })
+  await flush()
+  expect(tab('metadata').props['aria-selected']).toBe(true)
+  view.panel.value!.requestClose()
+  expect(view.onClose).not.toHaveBeenCalled()
+  finish({ ok: true })
+  await flush()
+  expect(view.onClose).not.toHaveBeenCalled()
+})
+
+it('waits for a slow peer credential refresh before unlocking lyrics save or tabs', async () => {
+  await mount()
+  await edit('Saved lyrics')
+  let finish!: (value: unknown) => void
+  const original = await api.getTrackEditSnapshot()
+  api.getTrackEditSnapshot.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    }),
+  )
+  const opens = api.openLrcEditor.mock.calls.length
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.tag'), 'onClick')
+  await flush()
+  expect(tab('metadata').props.disabled).toBe(true)
+  expect(button('lyricsEditor.saving').props.disabled).toBe(true)
+  expect(api.openLrcEditor).toHaveBeenCalledTimes(opens)
+  finish({ ...original, editToken: 'refreshed' })
+  await flush()
+  expect(tab('metadata').props.disabled).toBe(false)
+  expect(api.openLrcEditor).toHaveBeenCalledTimes(opens + 1)
+})
+
+it('retains draft C after committed B snapshot failure and a later lyrics save', async () => {
+  await mount()
+  await edit('Lyrics draft')
+  await switchTo('metadata')
+  changeTitle('Committed B')
+  api.updateTrackMetadata.mockResolvedValue({ ok: true })
+  const original = await api.getTrackEditSnapshot()
+  api.getTrackEditSnapshot.mockResolvedValueOnce(null)
+  await saveMetadata()
+  expect(textContent(body)).toContain('library.metadataEditor.errors.saveFailed')
+  changeTitle('New draft C')
+  await switchTo('lyrics')
+  api.getTrackEditSnapshot.mockResolvedValue({
+    ...original,
+    title: 'Committed B',
+    editToken: 'after-lyrics',
+  })
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  fire(button('lyricsEditor.tag'), 'onClick')
+  await flush()
+  await switchTo('metadata')
+  expect(titleInput().value).toBe('New draft C')
+  expect(textContent(body)).not.toContain('trackEditor.conflict')
+  expect(textContent(tab('metadata'))).toContain('lyricsEditor.unsaved')
+  await saveMetadata()
+  expect(api.updateTrackMetadata).toHaveBeenCalledTimes(2)
+  expect(api.updateTrackMetadata).toHaveBeenLastCalledWith({
+    trackId: 7,
+    editToken: 'after-lyrics',
+    changes: { title: 'New draft C' },
+  })
+})
+
+it('falls back to the application focus target when the library callback cannot restore', async () => {
+  const callback = vi.fn(async () => false)
+  await mount(undefined, 'metadata', callback)
+  const fallback = new TestNode('main')
+  vi.stubGlobal('document', { ...document, querySelector: () => fallback })
+  const restore = vi.mocked(useOverlayFocusTrap).mock.calls.at(-1)![0].restoreFocus!
+  await restore(null)
+  expect(callback).toHaveBeenCalledOnce()
+  expect(activeElement).toBe(fallback)
+})
+
+it('clears metadata dirty after a successful normalized unchanged save', async () => {
+  await mount(undefined, 'metadata')
+  changeTitle('First track ')
+  await flush()
+  expect(textContent(tab('metadata'))).toContain('lyricsEditor.unsaved')
+  await saveMetadata()
+  expect(api.updateTrackMetadata).not.toHaveBeenCalled()
+  expect(textContent(tab('metadata'))).not.toContain('lyricsEditor.unsaved')
+})
+
+it('repeated metadata saves must retain the lyric conflict', async () => {
+  await mount()
+  await edit('My unsaved lyric draft')
+  const snapshot = await api.getTrackEditSnapshot()
+  api.updateTrackMetadata.mockImplementation(async (request) => {
+    api.getTrackEditSnapshot.mockResolvedValue({
+      ...snapshot,
+      title: request.changes.title,
+      editToken: 'fresh',
+    })
+    return { ok: true }
+  })
+  api.openLrcEditor.mockResolvedValue({
+    ok: true,
+    value: { ...lrc('external'), text: 'External lyrics' },
+  })
+  await switchTo('metadata')
+  changeTitle('Title 1')
+  await saveMetadata()
+  await switchTo('lyrics')
+  expect(button('lyricsEditor.save').props.disabled).toBe(true)
+  await switchTo('metadata')
+  changeTitle('Title 2')
+  await saveMetadata()
+  await switchTo('lyrics')
+  expect(source().value).toBe('My unsaved lyric draft')
+  expect(button('lyricsEditor.save').props.disabled).toBe(true)
 })

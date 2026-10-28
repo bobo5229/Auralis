@@ -3,6 +3,14 @@
     "play": "播放专辑",
     "skip": "跳过"
   },
+  "trackEditor": {
+    "title": "编辑歌曲",
+    "metadata": "歌曲信息",
+    "lyrics": "歌词",
+    "conflict": "文件内容已变化，草稿已保留。请先保留草稿，再关闭并重新打开编辑。",
+    "unsavedPages": "尚未保存：{pages}。请返回对应页面保存。",
+    "discardAll": "放弃全部修改"
+  },
   "lyricsEditor": {
     "title": "编辑歌词",
     "unknownTitle": "未知曲目",

@@ -10,7 +10,7 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
-import LyricsEditPanel from '@renderer/features/lyrics/components/LyricsEditPanel.vue'
+import TrackEditorDialog from '@renderer/features/trackEditor/TrackEditorDialog.vue'
 import PageParameterPanel from './app/layout/PageParameterPanel.vue'
 import CdViewSwitch from './features/albums/components/CdViewSwitch.vue'
 import { provideCdViewSwitchVisibility } from './features/albums/composables/useCdViewSwitchVisibility'
@@ -38,9 +38,10 @@ const { sidebarCollapsed } = useSidebarLayout()
 
 const {
   isSettingsOpen,
-  isLyricsEditOpen,
-  lyricsEditPanelRef,
-  lyricsEditReturnFocus,
+  isTrackEditorOpen,
+  trackEditorRef,
+  trackEditorRequest,
+  closeTrackEditor,
   openLyricsEditPanel,
   pageParameters,
 } = useAppOverlays(route, displayMode, startupAlbumActive)
@@ -90,7 +91,7 @@ const {
   mainRef,
   displayMode,
   isSettingsOpen,
-  isLyricsEditOpen,
+  isTrackEditorOpen,
   startupAlbumActive,
   pageParameters,
   prepareForDisplay: () => nowPlayingPanelRef.value?.prepareForDisplay(),
@@ -222,12 +223,7 @@ const {
     <FullscreenPlayerOverlay />
   </div>
   <SettingsDialog />
-  <LyricsEditPanel
-    ref="lyricsEditPanelRef"
-    :open="isLyricsEditOpen"
-    :return-focus-to="lyricsEditReturnFocus"
-    @close="isLyricsEditOpen = false"
-  />
+  <TrackEditorDialog ref="trackEditorRef" :request="trackEditorRequest" @close="closeTrackEditor" />
   <component
     :is="startupAlbumOverlay"
     v-if="startupAlbumOverlay && startupAlbumPresentation"

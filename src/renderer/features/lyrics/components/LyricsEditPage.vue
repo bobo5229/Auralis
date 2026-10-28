@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import LyricsSaveMenu from './LyricsSaveMenu.vue'
 import { useLyricsEditSession } from '../composables/useLyricsEditSession'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -15,26 +14,31 @@ import {
 
 const props = defineProps<{
   open: boolean
-  returnFocusTo?: HTMLElement | null
+  trackId: number
+  active?: boolean
+  disabled?: boolean
+  onCommitted?: () => void | Promise<void>
 }>()
 
 const emit = defineEmits<{
-  close: []
+  dirtyChange: [dirty: boolean]
+  busyChange: [busy: boolean]
+  composingChange: [composing: boolean]
 }>()
 
 const { t } = useI18n()
 const playback = usePlayback()
 const editor = ref<HTMLTextAreaElement | null>(null)
-const continueButton = ref<HTMLButtonElement | null>(null)
 const cursor = ref(0)
 const composing = ref(false)
 const startingLine = ref(false)
-const editingTrack = ref('')
 let openGeneration = 0
 const editSession = useLyricsEditSession({
   isOpen: () => props.open,
   t,
   composing: () => composing.value,
+  disabled: () => !!props.disabled,
+  onCommitted: () => props.onCommitted?.(),
   onLrcLoaded: () => {
     cursor.value = 0
     history = []
@@ -42,19 +46,17 @@ const editSession = useLyricsEditSession({
     record()
   },
   focusEditor: (resetSelection = false) => {
-    editor.value?.focus({ preventScroll: true })
+    if (props.active) editor.value?.focus({ preventScroll: true })
     if (resetSelection) editor.value?.setSelectionRange(0, 0)
   },
-  onClose: () => emit('close'),
+  onClose: () => {},
 })
 const {
   session,
-  trackId,
+  trackId: editingTrackId,
   text,
-  baseline,
   loading,
   saving,
-  confirming,
   error,
   notice,
   busy,
@@ -69,7 +71,6 @@ const {
 const saveButton = ref<HTMLButtonElement | null>(null)
 const saveMenuOpen = ref(false)
 const saveMenuVisible = ref(false)
-const saveMenuCloseAfter = ref(false)
 const saveActions = computed(() => [
   {
     target: 'tag' as const,
@@ -85,9 +86,8 @@ const saveActions = computed(() => [
   },
 ])
 
-function openSaveMenu(closeAfter = false): void {
+function openSaveMenu(): void {
   if (!canSave.value) return
-  saveMenuCloseAfter.value = closeAfter
   saveMenuOpen.value = !saveMenuOpen.value
 }
 function closeSaveMenu(reason: string): void {
@@ -96,9 +96,8 @@ function closeSaveMenu(reason: string): void {
 }
 function selectSaveAction(target: SaveLrcEditor['target']): void {
   if (!canSaveTarget(target)) return
-  const closeAfter = saveMenuCloseAfter.value
   saveMenuOpen.value = false
-  void save(target, closeAfter)
+  void save(target)
   void nextTick(() => editor.value?.focus({ preventScroll: true }))
 }
 interface Snapshot {
@@ -111,12 +110,12 @@ const historyIndex = ref(-1)
 const historyLength = ref(0)
 const line = computed(() => getLrcTextLine(text.value, cursor.value))
 const matchesPlayback = computed(
-  () => trackId.value !== null && trackId.value === playback.state.currentTrackId,
+  () => editingTrackId.value !== null && editingTrackId.value === playback.state.currentTrackId,
 )
 const canStamp = computed(
   () =>
     editable.value &&
-    !confirming.value &&
+    !props.disabled &&
     !composing.value &&
     matchesPlayback.value &&
     line.value.editable,
@@ -124,7 +123,7 @@ const canStamp = computed(
 const canNudge = computed(
   () =>
     editable.value &&
-    !confirming.value &&
+    !props.disabled &&
     !composing.value &&
     line.value.editable &&
     !!line.value.timestamp,
@@ -139,7 +138,7 @@ const linePlaybackTime = computed(() => {
 const canPlayLine = computed(
   () =>
     editable.value &&
-    !confirming.value &&
+    !props.disabled &&
     !composing.value &&
     matchesPlayback.value &&
     !startingLine.value &&
@@ -150,7 +149,7 @@ const canPlayLine = computed(
 async function playLine(): Promise<void> {
   if (!canPlayLine.value || linePlaybackTime.value === null) return
   const targetTime = linePlaybackTime.value
-  const targetTrack = trackId.value
+  const targetTrack = editingTrackId.value
   const generation = openGeneration
   startingLine.value = true
   try {
@@ -161,9 +160,9 @@ async function playLine(): Promise<void> {
       if (
         !props.open ||
         generation !== openGeneration ||
-        confirming.value ||
+        props.disabled ||
         !editable.value ||
-        targetTrack !== trackId.value ||
+        targetTrack !== editingTrackId.value ||
         targetTrack !== playback.state.currentTrackId ||
         revision !== playback.commandRevision.value ||
         !playback.state.isPlaying
@@ -216,7 +215,7 @@ function compositionEnd(event: CompositionEvent): void {
   input(event)
 }
 async function replaceLine(value: string | null): Promise<void> {
-  if (value === null || !editable.value || confirming.value || composing.value || !editor.value)
+  if (value === null || !editable.value || props.disabled || composing.value || !editor.value)
     return
   const current = line.value
   const updated = text.value.slice(0, current.start) + value + text.value.slice(current.end)
@@ -242,13 +241,7 @@ function applyTimingEdit(value: string | null): void {
 }
 async function undo(direction: number): Promise<void> {
   const index = historyIndex.value + direction
-  if (
-    !editable.value ||
-    confirming.value ||
-    composing.value ||
-    index < 0 ||
-    index >= history.length
-  )
+  if (!editable.value || props.disabled || composing.value || index < 0 || index >= history.length)
     return
   const state = history[index]
   historyIndex.value = index
@@ -259,34 +252,10 @@ async function undo(direction: number): Promise<void> {
   syncCursor()
   notice.value = ''
 }
-function keepEditing(): void {
-  confirming.value = false
-  void nextTick(() => {
-    editor.value?.focus({ preventScroll: true })
-  })
-}
-function requestClose(reason?: string): void {
-  if (saveMenuOpen.value) {
-    closeSaveMenu(reason ?? 'escape')
-    return
-  }
-  if (busy.value || composing.value) return
-  if (confirming.value && reason === 'escape') {
-    keepEditing()
-    return
-  }
-  if (!dirty.value) {
-    emit('close')
-    return
-  }
-  confirming.value = true
-  void nextTick(() => continueButton.value?.focus())
-}
-function discard(): void {
-  if (!busy.value) {
-    baseline.value = text.value
-    emit('close')
-  }
+function dismissMenu(): boolean {
+  if (!saveMenuOpen.value) return false
+  closeSaveMenu('escape')
+  return true
 }
 function keydown(event: KeyboardEvent): void {
   if (event.isComposing || composing.value) return
@@ -294,10 +263,10 @@ function keydown(event: KeyboardEvent): void {
   if (modifier && event.key.toLowerCase() === 's') {
     event.preventDefault()
     event.stopPropagation()
-    if (!saveMenuOpen.value) openSaveMenu(confirming.value)
+    if (!saveMenuOpen.value) openSaveMenu()
     return
   }
-  if (confirming.value || saveMenuOpen.value) return
+  if (props.disabled || saveMenuOpen.value) return
   if (modifier && event.shiftKey && event.key === 'Enter') {
     event.preventDefault()
     event.stopPropagation()
@@ -313,21 +282,15 @@ function keydown(event: KeyboardEvent): void {
   }
 }
 function seek(event: Event): void {
-  if (!busy.value && !confirming.value && matchesPlayback.value)
+  if (!busy.value && !props.disabled && matchesPlayback.value)
     playback.seekTo(Number((event.target as HTMLInputElement).value))
 }
 async function togglePlay(): Promise<void> {
-  if (busy.value || confirming.value || startingLine.value || !matchesPlayback.value) return
+  if (busy.value || props.disabled || startingLine.value || !matchesPlayback.value) return
   try {
     await playback.togglePlayPause()
   } catch {
     failure('failed')
-  }
-}
-function beforeUnload(event: BeforeUnloadEvent): void {
-  if (props.open && dirty.value) {
-    event.preventDefault()
-    event.returnValue = ''
   }
 }
 watch(
@@ -335,70 +298,38 @@ watch(
   (open) => {
     openGeneration++
     saveMenuOpen.value = false
-    if (open) {
-      const track = playback.state.currentTrack
-      editingTrack.value =
-        track && track.id === playback.state.currentTrackId
-          ? `${track.title || t('lyricsEditor.unknownTitle')} · ${track.artist || t('lyricsEditor.unknownArtist')}`
-          : t('lyricsEditor.unknownTitle')
-      void editSession.open(playback.state.currentTrackId)
-    } else void editSession.close()
+    if (open) void editSession.open(props.trackId)
+    else void editSession.close()
   },
   { immediate: true },
 )
-onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+watch(
+  () => props.active,
+  (active) => {
+    if (!active) saveMenuOpen.value = false
+  },
+)
+watch(dirty, (value) => emit('dirtyChange', value), { immediate: true })
+watch(busy, (value) => emit('busyChange', value), { immediate: true })
+watch(composing, (value) => emit('composingChange', value))
 onBeforeUnmount(() => {
   openGeneration++
   void editSession.close()
-  window.removeEventListener('beforeunload', beforeUnload)
 })
-defineExpose({ requestClose })
-
-function restoreLyricsFocus(captured: HTMLElement | null): void {
-  const target = [
-    props.returnFocusTo,
-    captured,
-    document.querySelector<HTMLElement>(
-      '.lyrics-panel .synced-lyrics-scroll, .lyrics-panel .plain-lyrics-scroll',
-    ),
-  ].find(
-    (element) =>
-      element?.isConnected &&
-      element !== document.body &&
-      !element.matches(':disabled') &&
-      !element.closest('[inert], [aria-hidden="true"]'),
-  )
-  target?.focus({ preventScroll: true })
-}
+defineExpose({
+  dirty,
+  busy,
+  composing,
+  refreshCredentials: editSession.refreshCredentials,
+  dismissMenu,
+  focus: () => editor.value?.focus({ preventScroll: true }),
+  save: openSaveMenu,
+})
 </script>
 
 <template>
-  <AppDialog
-    :open="open"
-    :title="t('lyricsEditor.title')"
-    title-id="lyrics-edit-dialog-title"
-    :close-label="t('lyricsEditor.close')"
-    :return-focus-to="returnFocusTo"
-    :restore-focus="restoreLyricsFocus"
-    panel-class="lyrics-editor-dialog"
-    :busy="busy"
-    :dismissible="!busy && !composing"
-    :close-on-backdrop="false"
-    fill
-    :padded="false"
-    :scroll="false"
-    @keydown.capture="keydown"
-    @close="requestClose"
-  >
-    <template #subtitle>
-      <div class="editor-context">
-        <span class="editor-track" :title="editingTrack">{{ editingTrack }}</span>
-        <span class="editor-dirty" role="status">{{
-          t(dirty ? 'lyricsEditor.unsaved' : 'lyricsEditor.noChanges')
-        }}</span>
-      </div>
-    </template>
-    <div class="lyrics-editor-content" :inert="confirming || undefined">
+  <div class="lyrics-edit-page" @keydown.capture="keydown">
+    <div class="lyrics-editor-content" :inert="disabled || undefined">
       <div class="editor-toolbar">
         <div class="editor-actions">
           <button
@@ -455,7 +386,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         <div class="editor-actions">
           <button
             class="editor-tool"
-            :disabled="!editable || confirming || composing || historyIndex <= 0"
+            :disabled="!editable || disabled || composing || historyIndex <= 0"
             @mousedown.prevent
             @click="undo(-1)"
           >
@@ -463,7 +394,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           </button>
           <button
             class="editor-tool"
-            :disabled="!editable || confirming || composing || historyIndex >= historyLength - 1"
+            :disabled="!editable || disabled || composing || historyIndex >= historyLength - 1"
             @mousedown.prevent
             @click="undo(1)"
           >
@@ -487,13 +418,15 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         }}
         <span v-if="linePlaybackTime === null">{{ t('lyricsEditor.noLineTime') }}</span>
       </p>
-      <div v-if="loading" class="editor-load" role="status">{{ t('lyricsEditor.loading') }}</div>
+      <div v-if="loading && !session" class="editor-load" role="status">
+        {{ t('lyricsEditor.loading') }}
+      </div>
       <textarea
         v-else
         id="lyrics-source-editor"
         ref="editor"
         :value="text"
-        :readonly="!editable || confirming"
+        :readonly="!editable || disabled"
         :maxlength="MAX_LRC_EDITOR_CHARACTERS"
         wrap="off"
         spellcheck="false"
@@ -509,11 +442,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         <button
           class="editor-play"
           :disabled="
-            busy ||
-            confirming ||
-            !matchesPlayback ||
-            startingLine ||
-            playback.isPlaybackPending.value
+            busy || disabled || !matchesPlayback || startingLine || playback.isPlaybackPending.value
           "
           :aria-label="t(playback.state.isPlaying ? 'lyricsEditor.pause' : 'lyricsEditor.play')"
           @click="togglePlay"
@@ -530,17 +459,17 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           :max="Math.max(1, playback.state.duration)"
           step="0.01"
           :value="matchesPlayback ? playback.state.currentTime : 0"
-          :disabled="busy || confirming || !matchesPlayback || playback.state.duration <= 0"
+          :disabled="busy || disabled || !matchesPlayback || playback.state.duration <= 0"
           :aria-label="t('lyricsEditor.position')"
           @input="seek"
         />
         <span>{{ formatLrcTime(matchesPlayback ? playback.state.duration : 0) }}</span>
       </div>
-      <p v-if="!matchesPlayback && trackId !== null" class="editor-notice" role="status">
+      <p v-if="!matchesPlayback && editingTrackId !== null" class="editor-notice" role="status">
         {{ t('lyricsEditor.playbackMismatch') }}
       </p>
       <div v-if="!session && !busy" class="editor-status">
-        <button class="editor-tool" :disabled="confirming" @click="load">
+        <button class="editor-tool" :disabled="disabled" @click="load">
           {{ t('lyricsEditor.reload') }}
         </button>
       </div>
@@ -549,33 +478,8 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
       </p>
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
     </div>
-    <template #footer>
-      <div v-if="confirming" class="editor-footer editor-confirm">
-        <span>{{ t('lyricsEditor.saveChanges') }}</span>
-        <div class="editor-actions">
-          <button ref="continueButton" class="auralis-dialog-action" @click="keepEditing">
-            {{ t('lyricsEditor.continue') }}</button
-          ><button class="auralis-dialog-action" @click="discard">
-            {{ t('lyricsEditor.discard') }}</button
-          ><button
-            id="lyrics-save-button"
-            ref="saveButton"
-            class="auralis-dialog-action auralis-dialog-action--primary"
-            :class="{ 'editor-save-covered': saveMenuVisible }"
-            :tabindex="saveMenuVisible ? -1 : undefined"
-            :aria-hidden="saveMenuVisible || undefined"
-            :disabled="!canSave"
-            aria-haspopup="menu"
-            :aria-expanded="saveMenuOpen"
-            :aria-controls="saveMenuOpen ? 'lyrics-save-menu' : undefined"
-            @click="openSaveMenu(true)"
-          >
-            {{ t('lyricsEditor.saveClose') }}
-            <span class="i-lucide-chevron-down editor-save-chevron" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      <div v-else class="editor-footer editor-footer--save">
+    <footer class="lyrics-edit-footer">
+      <div class="editor-footer editor-footer--save">
         <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
         <button
           id="lyrics-save-button"
@@ -594,28 +498,29 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           <span class="i-lucide-chevron-down editor-save-chevron" aria-hidden="true" />
         </button>
       </div>
-    </template>
-    <template #overlay>
-      <LyricsSaveMenu
-        :open="saveMenuOpen"
-        :anchor="saveButton"
-        :label="t(saveMenuCloseAfter ? 'lyricsEditor.saveClose' : 'lyricsEditor.save')"
-        :actions="saveActions"
-        @select="selectSaveAction"
-        @close="closeSaveMenu"
-        @surface-change="saveMenuVisible = $event"
-      />
-    </template>
-  </AppDialog>
+    </footer>
+    <LyricsSaveMenu
+      :open="saveMenuOpen"
+      :anchor="saveButton"
+      :label="t('lyricsEditor.save')"
+      :actions="saveActions"
+      @select="selectSaveAction"
+      @close="closeSaveMenu"
+      @surface-change="saveMenuVisible = $event"
+    />
+  </div>
 </template>
 
 <style scoped>
-:global(.auralis-dialog-panel.lyrics-editor-dialog) {
-  /* The anchored save menu extends beyond the panel; the body still clips its own content. */
-  overflow: visible;
+.lyrics-edit-page {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  height: 100%;
 }
-:deep(.auralis-dialog-header) {
-  padding-inline: 24px;
+.lyrics-edit-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--auralis-border-subtle);
 }
 .lyrics-editor-content {
   display: flex;

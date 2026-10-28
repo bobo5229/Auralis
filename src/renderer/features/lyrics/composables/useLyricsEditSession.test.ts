@@ -237,3 +237,46 @@ it('releases a late saved-baseline reopen instead of installing it after dismiss
   expect(api.closeLrcEditor).toHaveBeenCalledWith('late-reopen')
   expect(api.saveLrcEditor).toHaveBeenCalledOnce()
 })
+
+it('refreshes credentials after peer writes without touching text, baseline or history', async () => {
+  const { editor, onLrcLoaded } = fixture()
+  await editor.open(7)
+  editor.text.value = 'Unsaved draft'
+  const baseline = editor.baseline.value
+  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('refreshed') })
+  await editor.refreshCredentials()
+  expect(editor.text.value).toBe('Unsaved draft')
+  expect(editor.baseline.value).toBe(baseline)
+  expect(editor.session.value?.sessionId).toBe('refreshed')
+  expect(onLrcLoaded).toHaveBeenCalledOnce()
+  expect(editor.canSave.value).toBe(true)
+})
+it('blocks saving changed disk lyrics while preserving the draft and uses resolved source for sidecar refresh', async () => {
+  const { editor } = fixture()
+  await editor.open(7)
+  editor.text.value = 'Saved sidecar'
+  await editor.saveLrc('file')
+  // The existing embedded lyric source stays active after this sidecar save.
+  await editor.refreshCredentials()
+  expect(editor.canSave.value).toBe(true)
+  editor.text.value = 'Unsaved next draft'
+  api.openLrcEditor.mockResolvedValue({
+    ok: true,
+    value: { ...raw('external'), text: 'External edit' },
+  })
+  await editor.refreshCredentials()
+  expect(editor.text.value).toBe('Unsaved next draft')
+  expect(editor.error.value).toBe('trackEditor.conflict')
+  expect(editor.canSave.value).toBe(false)
+  const sessionId = editor.session.value?.sessionId
+  await editor.refreshCredentials()
+  expect(editor.session.value?.sessionId).toBe(sessionId)
+  expect(editor.text.value).toBe('Unsaved next draft')
+  expect(editor.error.value).toBe('trackEditor.conflict')
+  expect(editor.canSaveTarget('tag')).toBe(false)
+  expect(editor.canSaveTarget('file')).toBe(false)
+  expect(api.closeLrcEditor).toHaveBeenCalledWith('external')
+  await editor.saveLrc('tag')
+  await editor.saveLrc('file')
+  expect(api.saveLrcEditor).toHaveBeenCalledOnce()
+})

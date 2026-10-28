@@ -5,7 +5,6 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import { useElementSize } from '@vueuse/core'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { createMetadataEditRequest } from '@shared/utils/metadataEditRequest'
 import { auralis } from '@renderer/shared/ipc/client'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -20,7 +19,6 @@ import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
 import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
-import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
 import {
@@ -33,14 +31,14 @@ import {
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import { metadataSaveFailureMessageKey } from '../utils/metadataSaveFailure'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { useLibraryMetadataEditor } from '../composables/useLibraryMetadataEditor'
+import { useTrackEditor } from '@renderer/features/trackEditor/trackEditor'
+import type { LibraryMetadataFocusTarget } from '../composables/useLibraryMetadataEditor'
 import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
@@ -61,6 +59,9 @@ const {
 } = usePageSearchTools('songs')
 
 const playback = usePlayback()
+const trackEditor = useTrackEditor()
+const isMetadataEditorOpen = computed(() => !!trackEditor?.request.value)
+let metadataReturnTarget: LibraryMetadataFocusTarget | null = null
 const route = useRoute()
 const router = useRouter()
 const instanceRouteName = route.name
@@ -516,8 +517,23 @@ const {
   insertTrackAfterCurrent: (track) => playback.insertTrackAfterCurrent(track),
   insertTracksAfterCurrent: (albumTracks) => playback.insertTracksAfterCurrent(albumTracks),
   scrollToTrackById,
-  openMetadataEditor: (trackId) => metadataEditor.open(trackId),
-  setMetadataReturnTarget: (target) => metadataEditor.setReturnTarget(target),
+  openMetadataEditor: (trackId) => {
+    const target = metadataReturnTarget
+    trackEditor?.open({
+      trackId,
+      initialTab: 'metadata',
+      returnFocusTo: document.activeElement as HTMLElement,
+      restoreFocus: async () => {
+        if (isPageUnmounted || hasLeftInstanceRoute) return false
+        await restoreLibraryFocus(target ?? { trackId, source: 'track' })
+        return true
+      },
+    })
+    metadataReturnTarget = null
+  },
+  setMetadataReturnTarget: (target) => {
+    metadataReturnTarget = target
+  },
   setViewSwitchReturnTarget,
   restoreFocus: (target, scroll) =>
     flatColumnMenu.value ? Promise.resolve() : restoreLibraryFocus(target, scroll),
@@ -842,52 +858,6 @@ const {
   onScanProgress: (callback) => auralis.library.onScanProgress(callback),
 })
 
-const metadataDialogRef = ref<InstanceType<typeof MetadataEditDialog> | null>(null)
-const metadataEditor = useLibraryMetadataEditor({
-  loadTrackMetadata: (trackId) => auralis.metadata.getTrackEditSnapshot(trackId),
-  updateTrackMetadata: (metadata, baseline) =>
-    auralis.metadata.updateTrackMetadata(createMetadataEditRequest(metadata, baseline!)),
-  captureRouteScope: captureLibraryRouteScope,
-  refreshLibrary: (libraryRevision) => loadLibraryData('metadata-save', libraryRevision),
-  showSaveSuccess: async (signal) => {
-    await metadataDialogRef.value?.showSaveSuccess(signal)
-  },
-  restoreFocus: restoreLibraryFocus,
-  isDisposed: () => isPageUnmounted,
-  getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
-  getSaveFailureMessage: (reason) => t(metadataSaveFailureMessageKey(reason)),
-  getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
-  getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
-  getPreloadInUseMessage: () => t('library.metadataEditor.status.preloadInUse'),
-  getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),
-  getTrackEditState: (trackId) => auralis.metadata.getTrackEditState(trackId),
-  onTrackEditStateChanged: (callback) => auralis.metadata.onTrackEditStateChanged(callback),
-  logSaveError: (error) =>
-    rendererDiagnostics.error({
-      scope: 'library.metadata',
-      message: 'Failed to save metadata edits',
-      cause: error,
-    }),
-  logLoadError: (error) =>
-    rendererDiagnostics.error({
-      scope: 'library.metadata',
-      message: 'Failed to load track metadata',
-      cause: error,
-    }),
-})
-
-const {
-  editingMetadata,
-  isMetadataEditorOpen,
-  isLoadingMetadata,
-  isSavingMetadata,
-  metadataEditError,
-  editStatus: metadataEditStatus,
-} = metadataEditor
-const closeMetadataEditor = metadataEditor.close
-const saveMetadata = metadataEditor.save
-const retryMetadataEditStatus = metadataEditor.retryCheckStatus
-
 onMounted(async () => {
   if (hasLeftInstanceRoute) return
   document.addEventListener('pointerdown', onDocumentPointerDown)
@@ -931,7 +901,6 @@ onBeforeUnmount(() => {
   flatContainerWidthFrame = 0
   flatColumnMenu.value = null
   flatColumnLayoutState.cancelPreview()
-  metadataEditor.dispose()
   invalidateLibrarySearchSession()
   disposeLibraryViewport()
   disposeLibraryContextMenu()
@@ -1225,20 +1194,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-
-    <MetadataEditDialog
-      ref="metadataDialogRef"
-      :open="isMetadataEditorOpen"
-      :loading="isLoadingMetadata"
-      :metadata="editingMetadata"
-      :saving="isSavingMetadata"
-      :error-message="metadataEditError"
-      :edit-status="metadataEditStatus"
-      @close="closeMetadataEditor"
-      @save="saveMetadata"
-      @retry-status="retryMetadataEditStatus"
-      @retry-load="metadataEditor.retryLoad"
-    />
 
     <LibraryContextMenu
       :open="contextMenu !== null"

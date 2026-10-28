@@ -14,6 +14,7 @@ import {
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import LibraryPage from './LibraryPage.vue'
+import { provideTrackEditor } from '@renderer/features/trackEditor/trackEditor'
 import zhHans from '../../../locales/zh-Hans.json'
 import en from '../../../locales/en.json'
 
@@ -127,17 +128,6 @@ vi.mock('../components/LibraryContextMenu.vue', () => ({
     },
   },
 }))
-vi.mock('../components/MetadataEditDialog.vue', () => ({
-  default: {
-    props: ['open'],
-    emits: ['close'],
-    render(this: { open: boolean; $emit: (event: string) => void }) {
-      return this.open
-        ? h('div', { class: 'test-editor', role: 'dialog', onClick: () => this.$emit('close') })
-        : null
-    },
-  },
-}))
 vi.mock('../components/FlatTrackColumnHeader.vue', () => ({
   default: { methods: { getResizeHandles: () => [] }, render: () => null },
 }))
@@ -234,7 +224,21 @@ async function mount(withParameters = false) {
         parameters = createPageParameters(ref(fixture.route.name), ref(false))
         providePageParameters(parameters)
       }
-      return () => h(LibraryPage as Component)
+      const editor = provideTrackEditor(() => {})
+      return () =>
+        h('div', [
+          h(LibraryPage as Component),
+          editor.request.value
+            ? h('button', {
+                class: 'test-editor',
+                onClick: () => {
+                  const request = editor.request.value
+                  editor.close()
+                  void request?.restoreFocus?.()
+                },
+              })
+            : null,
+        ])
     },
   })
   app.directive('tooltip', {})

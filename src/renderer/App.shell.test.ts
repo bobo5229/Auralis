@@ -36,6 +36,9 @@ const fixture = vi.hoisted(() => ({
   requestClose: vi.fn(),
   syncCd: vi.fn(),
 }))
+vi.mock('./features/playback/composables/usePlayback', () => ({
+  usePlayback: () => ({ state: { currentTrackId: 7 } }),
+}))
 vi.mock('vue-router', async () => {
   const { reactive, h } = await import('vue')
   fixture.route = reactive({ name: 'library', fullPath: '/library', query: {} })
@@ -135,7 +138,7 @@ vi.mock('./features/settings/components/SettingsDialog.vue', () => ({
 vi.mock('./app/layout/PageParameterPanel.vue', () => ({
   default: { render: () => h('div', { class: 'test-parameters' }) },
 }))
-vi.mock('./features/lyrics/components/LyricsEditPanel.vue', () => ({
+vi.mock('./features/trackEditor/TrackEditorDialog.vue', () => ({
   default: {
     setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
       expose({ requestClose: fixture.requestClose })
@@ -505,13 +508,16 @@ describe('App shell composition', () => {
     ;(find('.now-playing-panel').props.onEditLyrics as (node: unknown) => void)(trigger)
     await flush()
     expect(settings.isSettingsOpen.value).toBe(false)
-    expect(find('.test-editor').props.returnFocusTo).toBe(trigger)
+    expect((find('.test-editor').props.request as { returnFocusTo: unknown }).returnFocusTo).toBe(
+      trigger,
+    )
+    expect((find('.test-editor').props.request as { initialTab: string }).initialTab).toBe('lyrics')
     const parameters = find('.test-parameters').props.controller as { supported: Ref<boolean> }
     expect(parameters.supported.value).toBe(false)
     settings.openSettings()
     await flush()
     expect(fixture.requestClose).toHaveBeenCalledOnce()
-    expect(find('.test-editor').props.open).toBe(true)
+    expect(find('.test-editor').props.request).not.toBeNull()
     await navigate('albums')
     expect(fixture.requestClose).toHaveBeenCalledTimes(2)
     ;(find('.test-editor').props.onClose as () => void)()
@@ -520,6 +526,17 @@ describe('App shell composition', () => {
     fixture.startup.value = true
     await flush()
     expect(parameters.supported.value).toBe(false)
+  })
+
+  it('keeps an editor that declines closure visible when fullscreen is requested', async () => {
+    await mount()
+    ;(find('.now-playing-panel').props.onEditLyrics as (node: unknown) => void)(null)
+    await flush()
+    display.showFullscreenPlayer()
+    await flush()
+    expect(display.displayMode.value).toBe('normal')
+    expect(fixture.requestClose).toHaveBeenCalledOnce()
+    expect(find('.test-editor').props.request).not.toBeNull()
   })
 
   it('ignores failed navigation and stale route completion while restoring the latest focus', async () => {

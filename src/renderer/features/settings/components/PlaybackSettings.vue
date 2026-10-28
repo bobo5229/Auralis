@@ -43,6 +43,14 @@ const durationProgress = computed(
 const durationText = computed(() =>
   t('settings.playback.softTransitionDurationValue', { seconds: durationPreview.value }),
 )
+const durationTicks = Array.from(
+  {
+    length:
+      (SOFT_TRANSITION_MAX_SECONDS - SOFT_TRANSITION_MIN_SECONDS) / SOFT_TRANSITION_STEP_SECONDS -
+      1,
+  },
+  (_, index) => SOFT_TRANSITION_MIN_SECONDS + (index + 1) * SOFT_TRANSITION_STEP_SECONDS,
+)
 function commitDuration(event: Event): void {
   setSoftTransitionDurationSeconds(Number((event.target as HTMLInputElement).value))
   durationPreview.value = softTransitionDurationSeconds.value
@@ -160,6 +168,25 @@ onMounted(async () => {
               @input="durationPreview = Number(($event.target as HTMLInputElement).value)"
               @change="commitDuration"
             />
+            <div
+              class="soft-transition-ticks"
+              :class="{ 'is-disabled': durationDisabled }"
+              aria-hidden="true"
+            >
+              <span
+                v-for="seconds in durationTicks"
+                :key="seconds"
+                class="soft-transition-tick"
+                :class="{
+                  'is-major': Number.isInteger(seconds),
+                  'is-passed': seconds < durationPreview,
+                  'is-current': seconds === durationPreview,
+                }"
+                :style="{
+                  left: `calc(8px + (100% - 16px) * ${(seconds - SOFT_TRANSITION_MIN_SECONDS) / (SOFT_TRANSITION_MAX_SECONDS - SOFT_TRANSITION_MIN_SECONDS)})`,
+                }"
+              ></span>
+            </div>
             <output for="soft-transition-duration">{{ durationText }}</output>
           </div>
         </div>
@@ -175,5 +202,53 @@ onMounted(async () => {
   min-height: 72px;
   max-height: 72px;
   row-gap: 8px;
+}
+
+.settings-surface .soft-transition-duration-row input::-webkit-slider-runnable-track {
+  height: 7px;
+}
+
+.settings-surface .soft-transition-duration-row input::-webkit-slider-thumb {
+  margin-top: -4.5px;
+}
+
+.settings-surface .soft-transition-duration-row input::-moz-range-track {
+  height: 7px;
+}
+
+.soft-transition-ticks {
+  position: relative;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: center;
+  height: 20px;
+  pointer-events: none;
+}
+
+.soft-transition-ticks.is-disabled {
+  opacity: 0.38;
+}
+
+.soft-transition-tick {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--auralis-text) 45%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.soft-transition-tick.is-major {
+  width: 5px;
+  height: 5px;
+}
+
+.soft-transition-tick.is-passed {
+  background: color-mix(in srgb, var(--settings-range-fill) 25%, var(--auralis-main-bg));
+}
+
+.soft-transition-tick.is-current {
+  visibility: hidden;
 }
 </style>

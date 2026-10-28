@@ -273,3 +273,66 @@ it('keeps enhanced source text and the previous external LRC backup intact', asy
   expect(await readFile(sidecar, 'utf8')).toBe(enhanced)
   expect(await readFile(saved.backupPath!, 'utf8')).toBe(original)
 })
+
+// The unified renderer preserves each draft and refreshes only the peer's credentials.
+it.each(['metadata-first', 'lyrics-first'] as const)(
+  'supports %s with fresh credentials through real tag writes',
+  async (order) => {
+    const initialMetadata = await metadata!.getTrackEditSnapshot(1)
+    expect(initialMetadata).toBeTruthy()
+    const initialLyrics = await editor.open(10, 1)
+    const saveMetadata = async (token: string) =>
+      metadata!.saveTrackMetadata({ trackId: 1, editToken: token, changes: { title: 'Renamed' } })
+    const saveLyrics = async (state: typeof initialLyrics) =>
+      editor.save(10, {
+        sessionId: state.sessionId,
+        expectedRevision: state.revision,
+        text: updated,
+        target: 'tag',
+      })
+    if (order === 'metadata-first') {
+      await expect(saveMetadata(initialMetadata!.editToken)).resolves.toMatchObject({ ok: true })
+      await expect(saveLyrics(initialLyrics)).rejects.toMatchObject({ code: 'file-changed' })
+      const fresh = await editor.open(10, 1)
+      expect(fresh.text).toBe(original)
+      await expect(saveLyrics(fresh)).resolves.toMatchObject({ cacheUpdated: true })
+    } else {
+      await expect(saveLyrics(initialLyrics)).resolves.toMatchObject({ cacheUpdated: true })
+      const fresh = await metadata!.getTrackEditSnapshot(1)
+      expect(fresh?.title).toBe(initialMetadata!.title)
+      await expect(saveMetadata(fresh!.editToken)).resolves.toMatchObject({ ok: true })
+    }
+    const parsed = await parseAudioMetadata(source)
+    expect(parsed.common.title).toBe('Renamed')
+    expect((await resolveLyricsForFile(source, parsed))?.text.trim()).toBe(updated.trim())
+  },
+  30_000,
+)
+
+it('refreshes credentials after sidecar saving without changing the resolved embedded lyrics', async () => {
+  const first = await editor.open(10, 1)
+  await editor.save(10, {
+    sessionId: first.sessionId,
+    expectedRevision: first.revision,
+    text: updated,
+    target: 'file',
+  })
+  const snapshot = await metadata!.getTrackEditSnapshot(1)
+  await expect(
+    metadata!.saveTrackMetadata({
+      trackId: 1,
+      editToken: snapshot!.editToken,
+      changes: { title: 'Renamed' },
+    }),
+  ).resolves.toMatchObject({ ok: true })
+  const refreshed = await editor.open(10, 1)
+  expect(refreshed.text).toBe(original)
+  expect(await readFile(join(directory, 'source.lrc'), 'utf8')).toBe(updated)
+  await editor.save(10, {
+    sessionId: refreshed.sessionId,
+    expectedRevision: refreshed.revision,
+    text: updated + '[00:00.20]Draft\n',
+    target: 'file',
+  })
+  expect(await readFile(join(directory, 'source.lrc'), 'utf8')).toContain('Draft')
+}, 30_000)

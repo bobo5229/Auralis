@@ -97,6 +97,16 @@ function find(node: TestNode, className: string): TestNode | undefined {
   return undefined
 }
 
+function findAll(node: TestNode, className: string): TestNode[] {
+  const matches: TestNode[] = []
+  const visit = (current: TestNode): void => {
+    if (String(current.props.class).split(' ').includes(className)) matches.push(current)
+    current.children.forEach(visit)
+  }
+  visit(node)
+  return matches
+}
+
 afterEach(() => {
   setLyricsScrollPreset('standard')
   useLyricsCountdownPreference().setEffect('lighting')
@@ -478,13 +488,14 @@ it('uses the saved particle effect in the normal lyrics panel and follows playba
   })
   app.mount(root)
   await nextTick()
-  expect(find(root, 'lyrics-fracture-dot')?.props['data-fracture-progress']).toBe(0)
+  const intact = findAll(root, 'lyrics-fracture-dot')
+  expect(intact.map((dot) => dot.props['data-fracture-progress'])).toEqual([0, 0, 0])
   expect(find(root, 'lyric-dot')).toBeUndefined()
   elapsed.value = 0.775
   await nextTick()
-  expect(Number(find(root, 'lyrics-fracture-dot')?.props['data-fracture-progress'])).toBeCloseTo(
-    0.5,
-  )
+  const breaking = findAll(root, 'lyrics-fracture-dot')
+  expect(Number(breaking[2].props['data-fracture-progress'])).toBeCloseTo(0.5)
+  expect(Number(breaking[0].props['data-fracture-progress'])).toBe(0)
   expect(find(root, 'lyrics-fracture-particles')).toBeDefined()
   elapsed.value = 0
   await nextTick()

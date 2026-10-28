@@ -3,6 +3,14 @@
     "play": "Play album",
     "skip": "Skip"
   },
+  "trackEditor": {
+    "title": "Edit song",
+    "metadata": "Song information",
+    "lyrics": "Lyrics",
+    "conflict": "The file has changed. Your draft is preserved. Keep a copy, then close and reopen the editor.",
+    "unsavedPages": "Unsaved: {pages}. Return to each page to save.",
+    "discardAll": "Discard all changes"
+  },
   "lyricsEditor": {
     "title": "Edit lyrics",
     "unknownTitle": "Unknown track",

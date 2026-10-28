@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, defineComponent, h, nextTick } from 'vue'
-import MetadataEditDialog from './MetadataEditDialog.vue'
+import MetadataEditPage from './MetadataEditPage.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
@@ -66,7 +66,7 @@ async function mount(metadata: EditableTrackMetadata, saving = false) {
   const save = vi.fn(),
     root = node('root')
   const app = renderer.createApp({
-    render: () => h(MetadataEditDialog, { metadata, saving, errorMessage: null, onSave: save }),
+    render: () => h(MetadataEditPage, { metadata, saving, errorMessage: null, onSave: save }),
   })
   app.mount(root)
   cleanup.push(() => app.unmount())

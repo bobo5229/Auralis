@@ -1,6 +1,11 @@
 import { computed, ref, watch, type Ref } from 'vue'
+import { provideTrackEditor } from '@renderer/features/trackEditor/trackEditor'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import type { PlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import {
+  usePlayerDisplayMode,
+  type PlayerDisplayMode,
+} from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import {
   createPageParameters,
@@ -13,18 +18,18 @@ export function useAppOverlays(
   startupAlbumActive: Readonly<Ref<boolean>>,
 ) {
   const { isSettingsOpen, closeSettings } = useSettingsDialog()
-  const isLyricsEditOpen = ref(false)
-  const lyricsEditPanelRef = ref<{ requestClose(): void } | null>(null)
-  const lyricsEditReturnFocus = ref<HTMLElement | null>(null)
+  const trackEditor = provideTrackEditor(() => closeSettings())
+  const isTrackEditorOpen = computed(() => trackEditor.request.value !== null)
+  const trackEditorRef = ref<{ requestClose(): void } | null>(null)
 
   function openLyricsEditPanel(trigger: HTMLElement | null): void {
-    lyricsEditReturnFocus.value = trigger
-    closeSettings()
-    isLyricsEditOpen.value = true
+    const trackId = usePlayback().state.currentTrackId
+    if (trackId !== null)
+      trackEditor.open({ trackId, initialTab: 'lyrics', returnFocusTo: trigger })
   }
 
-  function closeLyricsEditPanel(): void {
-    if (isLyricsEditOpen.value) lyricsEditPanelRef.value?.requestClose()
+  function requestCloseTrackEditor(): void {
+    if (isTrackEditorOpen.value) trackEditorRef.value?.requestClose()
   }
 
   const pageParameters = createPageParameters(
@@ -32,7 +37,7 @@ export function useAppOverlays(
     computed(
       () =>
         isSettingsOpen.value ||
-        isLyricsEditOpen.value ||
+        isTrackEditorOpen.value ||
         displayMode.value === 'fullscreen' ||
         startupAlbumActive.value,
     ),
@@ -43,16 +48,16 @@ export function useAppOverlays(
     () => route.fullPath,
     () => {
       closeSettings()
-      closeLyricsEditPanel()
+      requestCloseTrackEditor()
     },
     { flush: 'sync' },
   )
   watch(
     isSettingsOpen,
     (open) => {
-      if (open && isLyricsEditOpen.value) {
+      if (open && isTrackEditorOpen.value) {
         closeSettings()
-        closeLyricsEditPanel()
+        requestCloseTrackEditor()
       }
     },
     { flush: 'sync' },
@@ -62,7 +67,11 @@ export function useAppOverlays(
     (mode) => {
       if (mode === 'fullscreen') {
         closeSettings()
-        closeLyricsEditPanel()
+        if (isTrackEditorOpen.value) {
+          // Resolve the modal before allowing another surface to take its focus.
+          usePlayerDisplayMode().showNormalPlayer()
+          requestCloseTrackEditor()
+        }
       }
     },
     { flush: 'sync' },
@@ -70,9 +79,10 @@ export function useAppOverlays(
 
   return {
     isSettingsOpen,
-    isLyricsEditOpen,
-    lyricsEditPanelRef,
-    lyricsEditReturnFocus,
+    isTrackEditorOpen,
+    trackEditorRef,
+    trackEditorRequest: trackEditor.request,
+    closeTrackEditor: trackEditor.close,
     openLyricsEditPanel,
     pageParameters,
   }

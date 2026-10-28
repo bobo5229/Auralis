@@ -9,6 +9,7 @@ import type {
 import type { LibraryContextMenuSource } from '../types/libraryInteraction'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
 import { createLibraryMetadataSaveCommit } from '../utils/libraryMetadataSaveCommit'
+import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
 
 export type LibraryMetadataRefreshResult =
   | 'committed'
@@ -31,10 +32,12 @@ interface UseLibraryMetadataEditorOptions {
     metadata: EditableTrackMetadata,
     baseline?: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
-  captureRouteScope: () => LibraryRouteScope
-  refreshLibrary: (libraryRevision?: string) => Promise<LibraryMetadataRefreshResult>
+  captureRouteScope?: () => LibraryRouteScope
+  refreshLibrary?: (libraryRevision?: string) => Promise<LibraryMetadataRefreshResult>
+  retainAfterSave?: boolean
+  onWriteCommitted?: () => void | Promise<void>
   showSaveSuccess?: (signal: AbortSignal) => Promise<void>
-  restoreFocus: (target: LibraryMetadataFocusTarget) => Promise<void>
+  restoreFocus?: (target: LibraryMetadataFocusTarget) => Promise<void>
   isDisposed: () => boolean
   getSaveErrorMessage: () => string
   getSaveFailureMessage?: (reason: string) => string
@@ -56,6 +59,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   const errorMessageSource = shallowRef<(() => string) | null>(null)
   const metadataEditError = computed(() => errorMessageSource.value?.() ?? null)
   const editStatus = ref<MetadataEditStatus>('checking')
+  const conflict = ref(false)
 
   let currentTrackId: number | null = null
   let currentVersion = 0
@@ -119,6 +123,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     }
 
     currentTrackId = trackId
+    conflict.value = false
     saveCommit.reset()
     isMetadataEditorOpen.value = true
     isLoadingMetadata.value = true
@@ -183,7 +188,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     pendingReturnTarget = null
 
     if (returnTarget && restoreFocus) {
-      void options.restoreFocus(returnTarget)
+      void options.restoreFocus?.(returnTarget)
     }
   }
 
@@ -225,6 +230,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   async function save(metadata: EditableTrackMetadata): Promise<void> {
     if (
       isSavingMetadata.value ||
+      conflict.value ||
       !['editable', 'playback-editable'].includes(editStatus.value) ||
       !editingMetadata.value ||
       currentTrackId !== metadata.trackId
@@ -238,7 +244,11 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       saveCommit.isUnchanged(metadata, editingMetadata.value)
     isSavingMetadata.value = true
     errorMessageSource.value = null
-    const saveScope = options.captureRouteScope()
+    const saveScope = options.captureRouteScope?.()
+    const sameScope = () => {
+      const current = options.captureRouteScope?.()
+      return !!saveScope && !!current && isSameLibraryRouteScope(saveScope, current)
+    }
     const saveLoadRevision = loadRevision
     const controller = new AbortController()
     saveFeedbackController = controller
@@ -250,7 +260,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         await showSaveSuccess(controller.signal)
         if (!isCurrentSave()) return
         isSavingMetadata.value = false
-        close(isSameLibraryRouteScope(saveScope, options.captureRouteScope()))
+        if (!options.retainAfterSave) close(sameScope())
         return
       }
       if (!unchanged) {
@@ -276,14 +286,16 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         }
 
         saveCommit.recordCommitted(metadata, saveResult)
+        await options.onWriteCommitted?.()
       }
 
       const returnTarget = pendingReturnTarget ?? {
         trackId: metadata.trackId,
         source: 'track' as const,
       }
-      const loadResult = await options.refreshLibrary(saveCommit.current?.libraryRevision)
-      const isStillInSaveScope = isSameLibraryRouteScope(saveScope, options.captureRouteScope())
+      const loadResult =
+        (await options.refreshLibrary?.(saveCommit.current?.libraryRevision)) ?? 'committed'
+      const isStillInSaveScope = sameScope()
 
       if (loadResult === 'failed' || loadResult === 'queued') {
         throw new Error('Metadata refresh after save failed')
@@ -292,6 +304,15 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         throw new Error('Metadata refresh after save became stale')
       }
       if (!isCurrentSave()) return
+      if (options.retainAfterSave) {
+        const fresh = await options.loadTrackMetadata(metadata.trackId)
+        if (!isCurrentSave()) return
+        if (!fresh) throw new Error('Saved metadata snapshot unavailable')
+        editingMetadata.value = fresh
+        saveCommit.reset()
+        await showSaveSuccess(controller.signal)
+        return
+      }
       await showSaveSuccess(controller.signal)
       if (!isCurrentSave()) return
 
@@ -307,8 +328,8 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       editingMetadata.value = null
       pendingReturnTarget = null
 
-      if (isSameLibraryRouteScope(saveScope, options.captureRouteScope())) {
-        await options.restoreFocus(returnTarget)
+      if (sameScope()) {
+        await options.restoreFocus?.(returnTarget)
       }
     } catch (error) {
       options.logSaveError?.(error)
@@ -320,6 +341,32 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       if (!options.isDisposed()) {
         isSavingMetadata.value = false
       }
+    }
+  }
+
+  async function refreshCredentials(): Promise<void> {
+    const previous = editingMetadata.value
+    if (!previous || currentTrackId === null) return
+    const revision = loadRevision
+    try {
+      const fresh = await options.loadTrackMetadata(previous.trackId)
+      if (!isCurrentLoad(previous.trackId, revision)) return
+      const committed = saveCommit.current?.metadata
+      const expected = committed ?? previous
+      const expectedLegacy = committed?.legacyAction ? undefined : previous.legacyMetadata
+      if (
+        !fresh ||
+        !isSameEditableMetadata(fresh, expected) ||
+        JSON.stringify(fresh.legacyMetadata) !== JSON.stringify(expectedLegacy)
+      ) {
+        conflict.value = true
+        return
+      }
+      editingMetadata.value = fresh
+      saveCommit.reset()
+      conflict.value = false
+    } catch {
+      if (isCurrentLoad(previous.trackId, revision)) conflict.value = true
     }
   }
 
@@ -337,5 +384,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     retryCheckStatus,
     retryLoad,
     dispose,
+    conflict,
+    refreshCredentials,
   }
 }

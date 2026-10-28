@@ -40,7 +40,7 @@ interface AppShellLayoutOptions {
   mainRef: Ref<HTMLElement | null>
   displayMode: Readonly<Ref<PlayerDisplayMode>>
   isSettingsOpen: Readonly<Ref<boolean>>
-  isLyricsEditOpen: Readonly<Ref<boolean>>
+  isTrackEditorOpen: Readonly<Ref<boolean>>
   startupAlbumActive: Readonly<Ref<boolean>>
   pageParameters: PageParameters
   prepareForDisplay(): Promise<void> | undefined
@@ -54,7 +54,7 @@ export function useAppShellLayout({
   mainRef,
   displayMode,
   isSettingsOpen,
-  isLyricsEditOpen,
+  isTrackEditorOpen,
   startupAlbumActive,
   pageParameters,
   prepareForDisplay,
@@ -280,7 +280,7 @@ export function useAppShellLayout({
       isAlbumRouteTransitioning.value ||
       isSidebarResizing.value ||
       isSettingsOpen.value ||
-      isLyricsEditOpen.value ||
+      isTrackEditorOpen.value ||
       pageParameters.open.value ||
       startupAlbumActive.value,
   )

@@ -6,6 +6,8 @@ interface LyricsEditSessionOptions {
   isOpen: () => boolean
   t: (key: string) => string
   composing: () => boolean
+  disabled?: () => boolean
+  onCommitted?: () => void | Promise<void>
   onLrcLoaded: () => void
   focusEditor: (resetSelection?: boolean) => void
   onClose: () => void
@@ -23,15 +25,17 @@ export function useLyricsEditSession(options: LyricsEditSessionOptions) {
   const confirming = ref(false)
   const error = ref('')
   const notice = ref('')
+  const conflict = ref(false)
   const busy = computed(() => loading.value || saving.value)
   const dirty = computed(() => text.value !== baseline.value)
-  const editable = computed(() => !!session.value && !busy.value)
+  const editable = computed(() => !!session.value && !busy.value && !options.disabled?.())
   const canSave = computed(() => canSaveTarget('tag') || canSaveTarget('file'))
   let generation = 0
 
   function canSaveTarget(target: SaveLrcEditor['target']): boolean {
     return (
       editable.value &&
+      !conflict.value &&
       !options.composing() &&
       (target !== 'tag' || (!!session.value?.canSaveTag && dirty.value))
     )
@@ -86,6 +90,7 @@ export function useLyricsEditSession(options: LyricsEditSessionOptions) {
     loading.value = true
     error.value = ''
     notice.value = ''
+    conflict.value = false
     await release()
     if (token !== generation || !options.isOpen()) return
     try {
@@ -138,6 +143,7 @@ export function useLyricsEditSession(options: LyricsEditSessionOptions) {
       baseline.value = draft
       session.value = null
       confirming.value = false
+      await options.onCommitted?.()
       if (
         closeAfter &&
         !result.value.writeWarning &&
@@ -173,6 +179,44 @@ export function useLyricsEditSession(options: LyricsEditSessionOptions) {
       if (token === generation) saving.value = false
     }
   }
+  /** Refresh the file identity after the other editor writes, without replacing its draft. */
+  async function refreshCredentials(): Promise<void> {
+    if (!session.value || trackId.value === null || saving.value) return
+    const token = generation
+    loading.value = true
+    try {
+      const result = await auralis.lyrics.openLrcEditor(trackId.value)
+      if (token !== generation || !options.isOpen()) {
+        if (result.ok)
+          void auralis.lyrics.closeLrcEditor(result.value.sessionId).catch(() => undefined)
+        return
+      }
+      if (!result.ok) {
+        conflict.value = true
+        failure(result.code)
+        return
+      }
+      const previous = session.value
+      if (result.value.text.replace(/\r\n?/g, '\n') !== previous?.text.replace(/\r\n?/g, '\n')) {
+        // Reject the new baseline so repeated refreshes cannot authorize a stale draft.
+        void auralis.lyrics.closeLrcEditor(result.value.sessionId).catch(() => undefined)
+        conflict.value = true
+        error.value = t('trackEditor.conflict')
+        return
+      }
+      session.value = result.value
+      if (previous) void auralis.lyrics.closeLrcEditor(previous.sessionId).catch(() => undefined)
+      conflict.value = false
+      error.value = ''
+    } catch {
+      if (token === generation) {
+        conflict.value = true
+        failure('failed')
+      }
+    } finally {
+      if (token === generation) loading.value = false
+    }
+  }
   return {
     session,
     trackId,
@@ -193,5 +237,6 @@ export function useLyricsEditSession(options: LyricsEditSessionOptions) {
     close,
     saveLrc,
     failure,
+    refreshCredentials,
   }
 }

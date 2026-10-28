@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
+import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
 import SaveProgressIcon from './SaveProgressIcon.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
@@ -10,7 +10,8 @@ import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor
 const props = withDefaults(
   defineProps<{
     metadata: EditableTrackMetadata | null
-    open?: boolean
+    disabled?: boolean
+    active?: boolean
     loading?: boolean
     saving: boolean
     errorMessage: string | null
@@ -18,13 +19,11 @@ const props = withDefaults(
   }>(),
   {
     editStatus: 'editable',
-    open: false,
     loading: false,
   },
 )
 
 const emit = defineEmits<{
-  close: []
   save: [metadata: EditableTrackMetadata]
   retryStatus: []
   retryLoad: []
@@ -32,8 +31,16 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const dialog = ref<InstanceType<typeof AppDialog> | null>(null)
-const dialogRef = computed(() => (dialog.value?.panel as HTMLFormElement | null) ?? null)
+const dialogRef = ref<HTMLFormElement | null>(null)
+const savedForm = ref('')
+const composing = ref(false)
+const dirty = computed(() => !!props.metadata && JSON.stringify(form) !== savedForm.value)
+function markCommitted(): void {
+  savedForm.value = JSON.stringify(form)
+}
+function focus(): void {
+  titleInputRef.value?.focus({ preventScroll: true })
+}
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
 const saveProgress = ref<InstanceType<typeof SaveProgressIcon> | null>(null)
@@ -60,9 +67,8 @@ async function showSaveSuccess(signal: AbortSignal): Promise<void> {
   if (!signal.aborted) await saveProgress.value?.complete(signal)
 }
 
-defineExpose({ showSaveSuccess })
+defineExpose({ showSaveSuccess, dirty, composing, markCommitted, focus, save: onSave })
 
-const isOpen = computed(() => props.open || props.metadata !== null)
 const legacyDifferences = computed(() => {
   const legacy = props.metadata?.legacyMetadata
   if (!legacy || !props.metadata) return []
@@ -89,6 +95,7 @@ const legacyDifferences = computed(() => {
 })
 const isEditingDisabled = computed(
   () =>
+    props.disabled ||
     !props.metadata ||
     props.loading ||
     props.saving ||
@@ -144,7 +151,15 @@ const form = reactive({
 
 watch(
   () => props.metadata,
-  (metadata) => {
+  (metadata, previous) => {
+    if (metadata && previous && metadata.trackId === previous.trackId && dirty.value) return
+    if (
+      metadata &&
+      previous &&
+      isSameEditableMetadata(metadata, previous) &&
+      JSON.stringify(metadata.legacyMetadata) === JSON.stringify(previous.legacyMetadata)
+    )
+      return
     localError.value = null
     form.title = metadata?.title ?? ''
     form.artistDisplay = metadata?.artistDisplay ?? ''
@@ -153,7 +168,8 @@ watch(
     form.genreDisplay = metadata?.genreDisplay ?? ''
     form.releaseDate = metadata?.releaseDate ?? (metadata?.year?.toString().padStart(4, '0') || '')
 
-    if (metadata && !isEditingDisabled.value) {
+    markCommitted()
+    if (props.active && metadata && !isEditingDisabled.value) {
       nextTick(() => {
         titleInputRef.value?.focus()
       })
@@ -165,7 +181,7 @@ watch(
 watch(
   () => isEditingDisabled.value,
   (disabled, wasDisabled) => {
-    if (wasDisabled && !disabled && props.metadata) {
+    if (props.active && wasDisabled && !disabled && props.metadata) {
       if (
         !dialogRef.value?.contains(document.activeElement) ||
         document.activeElement === dialogRef.value
@@ -193,7 +209,7 @@ function validateReleaseDate(value: string): string | null {
 }
 
 function onSave(): void {
-  if (!props.metadata || isEditingDisabled.value) {
+  if (!props.metadata || isEditingDisabled.value || composing.value) {
     return
   }
 
@@ -222,179 +238,164 @@ function onSave(): void {
   })
 }
 
-function onClose(): void {
-  if (props.saving) return
-  emit('close')
-}
-
 function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
-  if (!props.metadata || isEditingDisabled.value) return
+  if (!props.metadata || isEditingDisabled.value || composing.value) return
   emit('save', { ...props.metadata, legacyAction: action })
 }
 </script>
 
 <template>
-  <AppDialog
-    ref="dialog"
-    :open="isOpen"
-    :title="t('library.metadataEditor.title')"
-    title-id="metadata-dialog-title"
-    :close-label="t('facets.close')"
-    as="form"
-    size="medium"
-    panel-class="metadata-dialog-panel"
-    backdrop-class="library-overlay"
-    data-library-overlay="metadata-dialog"
-    :busy="loading || saving"
-    :dismissible="!saving"
-    :close-on-backdrop="false"
-    :described-by="localError || errorMessage ? 'metadata-dialog-error' : undefined"
-    :initial-focus="
-      () =>
-        !isEditingDisabled ? (titleInputRef ?? dialogRef ?? undefined) : (dialogRef ?? undefined)
-    "
-    @close="onClose"
-    @submit="onSave"
+  <form
+    ref="dialogRef"
+    class="metadata-edit-page"
+    @submit.prevent="onSave"
+    @compositionstart="composing = true"
+    @compositionend="composing = false"
   >
-    <p
-      v-if="metadata && ['playback-in-use', 'preload-in-use'].includes(editStatus)"
-      class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
-      role="status"
-      aria-live="polite"
-    >
-      {{
-        t(
-          editStatus === 'preload-in-use'
-            ? 'library.metadataEditor.status.preloadInUse'
-            : 'library.metadataEditor.status.playbackInUse',
-        )
-      }}
-    </p>
-
-    <div
-      v-else-if="metadata && statusBanner"
-      class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
-      :class="statusBanner.classes"
-      role="status"
-      aria-live="polite"
-    >
-      <div class="flex items-center gap-2 min-w-0">
-        <span v-if="statusBanner.icon" :class="statusBanner.icon" class="text-sm shrink-0"></span>
-        <span>{{ statusBanner.message }}</span>
-      </div>
-      <button
-        v-if="editStatus === 'query-failed'"
-        type="button"
-        class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
-        @click="emit('retryStatus')"
+    <div class="metadata-edit-body">
+      <p
+        v-if="metadata && ['playback-in-use', 'preload-in-use'].includes(editStatus)"
+        class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
+        role="status"
+        aria-live="polite"
       >
-        {{ t('library.metadataEditor.status.retry') }}
-      </button>
-    </div>
-
-    <p v-if="loading" class="auralis-type-control" role="status">
-      {{ t('library.metadataEditor.status.loading') }}
-    </p>
-
-    <section
-      v-if="metadata?.legacyMetadata"
-      class="metadata-dialog-legacy metadata-dialog-status-banner metadata-dialog-status-banner--warning mb-3 grid gap-2"
-      aria-labelledby="legacy-metadata-title"
-    >
-      <p id="legacy-metadata-title" class="auralis-type-control font-semibold">
-        {{ t('library.metadataEditor.legacy.title') }}
+        {{
+          t(
+            editStatus === 'preload-in-use'
+              ? 'library.metadataEditor.status.preloadInUse'
+              : 'library.metadataEditor.status.playbackInUse',
+          )
+        }}
       </p>
-      <p class="auralis-type-caption">{{ t('library.metadataEditor.legacy.description') }}</p>
-      <div v-if="legacyDifferences.length" class="max-h-56 overflow-auto">
-        <table class="w-full table-fixed auralis-type-caption">
-          <thead>
-            <tr>
-              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.field') }}</th>
-              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.file') }}</th>
-              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.saved') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="difference in legacyDifferences" :key="difference.key">
-              <th scope="row" class="text-left align-top">{{ difference.label }}</th>
-              <td class="align-top break-words">{{ difference.file }}</td>
-              <td class="align-top break-words">{{ difference.legacy }}</td>
-            </tr>
-          </tbody>
-        </table>
+
+      <div
+        v-else-if="metadata && statusBanner"
+        class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
+        :class="statusBanner.classes"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="flex items-center gap-2 min-w-0">
+          <span v-if="statusBanner.icon" :class="statusBanner.icon" class="text-sm shrink-0"></span>
+          <span>{{ statusBanner.message }}</span>
+        </div>
+        <button
+          v-if="editStatus === 'query-failed'"
+          type="button"
+          class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
+          @click="emit('retryStatus')"
+        >
+          {{ t('library.metadataEditor.status.retry') }}
+        </button>
       </div>
-    </section>
 
-    <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3" spellcheck="false">
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.title') }}
-        <input
-          ref="titleInputRef"
-          v-model="form.title"
-          class="metadata-dialog-input metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.title')"
-          :disabled="isEditingDisabled"
-        />
-      </label>
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.artist') }}
-        <input
-          v-model="form.artistDisplay"
-          class="metadata-dialog-input metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.artist')"
-          :disabled="isEditingDisabled"
-        />
-      </label>
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.album') }}
-        <input
-          v-model="form.albumTitle"
-          class="metadata-dialog-input metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.album')"
-          :disabled="isEditingDisabled"
-        />
-      </label>
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.albumArtist') }}
-        <input
-          v-model="form.albumArtistDisplay"
-          class="metadata-dialog-input metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
-          :disabled="isEditingDisabled"
-        />
-      </label>
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.genre') }}
-        <input
-          v-model="form.genreDisplay"
-          class="metadata-dialog-input metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.genre')"
-          :disabled="isEditingDisabled"
-        />
-      </label>
-      <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
-        {{ t('library.metadataEditor.fields.releaseDate') }}
-        <input
-          v-model="form.releaseDate"
-          class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
-          :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
-          :disabled="isEditingDisabled"
-          :aria-invalid="releaseDateHasError ? 'true' : undefined"
-          :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
-        />
-      </label>
+      <p v-if="loading" class="auralis-type-control" role="status">
+        {{ t('library.metadataEditor.status.loading') }}
+      </p>
+
+      <section
+        v-if="metadata?.legacyMetadata"
+        class="metadata-dialog-legacy metadata-dialog-status-banner metadata-dialog-status-banner--warning mb-3 grid gap-2"
+        aria-labelledby="legacy-metadata-title"
+      >
+        <p id="legacy-metadata-title" class="auralis-type-control font-semibold">
+          {{ t('library.metadataEditor.legacy.title') }}
+        </p>
+        <p class="auralis-type-caption">{{ t('library.metadataEditor.legacy.description') }}</p>
+        <div v-if="legacyDifferences.length" class="max-h-56 overflow-auto">
+          <table class="w-full table-fixed auralis-type-caption">
+            <thead>
+              <tr>
+                <th scope="col" class="text-left">
+                  {{ t('library.metadataEditor.legacy.field') }}
+                </th>
+                <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.file') }}</th>
+                <th scope="col" class="text-left">
+                  {{ t('library.metadataEditor.legacy.saved') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="difference in legacyDifferences" :key="difference.key">
+                <th scope="row" class="text-left align-top">{{ difference.label }}</th>
+                <td class="align-top break-words">{{ difference.file }}</td>
+                <td class="align-top break-words">{{ difference.legacy }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3" spellcheck="false">
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.title') }}
+          <input
+            ref="titleInputRef"
+            v-model="form.title"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.title')"
+            :disabled="isEditingDisabled"
+          />
+        </label>
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.artist') }}
+          <input
+            v-model="form.artistDisplay"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.artist')"
+            :disabled="isEditingDisabled"
+          />
+        </label>
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.album') }}
+          <input
+            v-model="form.albumTitle"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.album')"
+            :disabled="isEditingDisabled"
+          />
+        </label>
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.albumArtist') }}
+          <input
+            v-model="form.albumArtistDisplay"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
+            :disabled="isEditingDisabled"
+          />
+        </label>
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.genre') }}
+          <input
+            v-model="form.genreDisplay"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.genre')"
+            :disabled="isEditingDisabled"
+          />
+        </label>
+        <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+          {{ t('library.metadataEditor.fields.releaseDate') }}
+          <input
+            v-model="form.releaseDate"
+            class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
+            :disabled="isEditingDisabled"
+            :aria-invalid="releaseDateHasError ? 'true' : undefined"
+            :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
+          />
+        </label>
+      </div>
+
+      <p
+        v-if="localError || errorMessage"
+        id="metadata-dialog-error"
+        class="mt-3 auralis-type-caption text-red-600 font-medium"
+        role="alert"
+      >
+        {{ localError ? t(localError) : errorMessage }}
+      </p>
     </div>
-
-    <p
-      v-if="localError || errorMessage"
-      id="metadata-dialog-error"
-      class="mt-3 auralis-type-caption text-red-600 font-medium"
-      role="alert"
-    >
-      {{ localError ? t(localError) : errorMessage }}
-    </p>
-
-    <template #footer>
+    <footer class="metadata-edit-footer">
       <span class="sr-only" role="status" aria-live="polite">
         {{ saving ? saveButtonLabel : '' }}
       </span>
@@ -417,14 +418,6 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             {{ t('library.metadataEditor.legacy.write') }}
           </button>
         </template>
-        <button
-          class="metadata-dialog-btn-secondary auralis-dialog-action"
-          type="button"
-          :disabled="saving"
-          @click="onClose"
-        >
-          {{ t('library.metadataEditor.actions.cancel') }}
-        </button>
         <button
           v-if="!metadata && !loading && errorMessage"
           class="metadata-dialog-btn-retry auralis-dialog-action"
@@ -458,11 +451,31 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           </span>
         </button>
       </div>
-    </template>
-  </AppDialog>
+    </footer>
+  </form>
 </template>
 
 <style scoped>
+.metadata-edit-page {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+.metadata-edit-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 24px;
+}
+.metadata-edit-body > .grid {
+  max-width: 640px;
+  margin-inline: auto;
+}
+.metadata-edit-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--auralis-border-subtle);
+}
+
 .metadata-dialog-legacy {
   padding: 12px;
 }

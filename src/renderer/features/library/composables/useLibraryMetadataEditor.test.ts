@@ -24,6 +24,8 @@ const metadata: EditableTrackMetadata = {
 }
 
 function createEditor(overrides?: {
+  retainAfterSave?: boolean
+  onWriteCommitted?: () => void | Promise<void>
   scope?: LibraryRouteScope
   refreshResult?: LibraryMetadataRefreshResult
   getTrackEditState?: (trackId: number) => Promise<TrackEditStateResult>
@@ -49,6 +51,8 @@ function createEditor(overrides?: {
   const editor = useLibraryMetadataEditor({
     loadTrackMetadata,
     updateTrackMetadata,
+    retainAfterSave: overrides?.retainAfterSave,
+    onWriteCommitted: overrides?.onWriteCommitted,
     captureRouteScope: () => scope,
     refreshLibrary,
     showSaveSuccess: overrides?.showSaveSuccess,
@@ -689,4 +693,41 @@ describe('useLibraryMetadataEditor', () => {
     editor.close()
     expect(unsubscribe).toHaveBeenCalledOnce()
   })
+})
+
+it('keeps a retained editor open and retries snapshot refresh without repeating a committed write', async () => {
+  const onWriteCommitted = vi.fn()
+  const { editor, loadTrackMetadata, updateTrackMetadata } = createEditor({
+    retainAfterSave: true,
+    onWriteCommitted,
+  })
+  await editor.open(42)
+  const draft = { ...metadata, title: 'Committed title' }
+  loadTrackMetadata.mockResolvedValueOnce(null)
+  await editor.save(draft)
+  expect(editor.isMetadataEditorOpen.value).toBe(true)
+  expect(editor.metadataEditError.value).toBe('save failed')
+  loadTrackMetadata.mockResolvedValueOnce({ ...draft, editToken: 'fresh' })
+  await editor.save(draft)
+  expect(updateTrackMetadata).toHaveBeenCalledOnce()
+  expect(onWriteCommitted).toHaveBeenCalledOnce()
+  expect(editor.editingMetadata.value?.editToken).toBe('fresh')
+  expect(editor.isMetadataEditorOpen.value).toBe(true)
+})
+it('refreshes a peer token only when file metadata and legacy state still match', async () => {
+  const { editor, loadTrackMetadata, updateTrackMetadata } = createEditor({ retainAfterSave: true })
+  await editor.open(42)
+  loadTrackMetadata.mockResolvedValueOnce({ ...metadata, editToken: 'peer-token' })
+  await editor.refreshCredentials()
+  expect(editor.editingMetadata.value?.editToken).toBe('peer-token')
+  loadTrackMetadata.mockResolvedValueOnce({
+    ...metadata,
+    title: 'External title',
+    editToken: 'external',
+  })
+  await editor.refreshCredentials()
+  expect(editor.conflict.value).toBe(true)
+  expect(editor.editingMetadata.value?.title).toBe(metadata.title)
+  await editor.save({ ...metadata, title: 'Draft' })
+  expect(updateTrackMetadata).not.toHaveBeenCalled()
 })

@@ -8,7 +8,8 @@ const motion = useReducedMotion()
 onBeforeUnmount(motion.dispose)
 const grains = [1, 2, 3].map(createCountdownParticles)
 const progress = computed(() =>
-  grains.map((_, index) => getCountdownFractureProgress(props.elapsed, index)),
+  // Reverse the DOM order so the rightmost dot breaks first.
+  grains.map((_, index) => getCountdownFractureProgress(props.elapsed, grains.length - 1 - index)),
 )
 </script>
 
