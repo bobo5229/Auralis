@@ -54,6 +54,7 @@ export default defineConfig({
         '**/LyricsEditPanel.test.ts',
         '**/LyricsDuetLines.test.ts',
         '**/LibraryContextMenu.test.ts',
+        '**/MetadataEditDialog.test.ts',
       ],
     },
     include: ['src/**/*.test.ts'],

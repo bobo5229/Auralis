@@ -19,7 +19,7 @@ function nameAtom(value: string): Buffer {
   return Buffer.concat([Buffer.alloc(4), Buffer.from(value, 'utf8')])
 }
 
-function sampleFile(): Buffer {
+function sampleFile(date?: string): Buffer {
   const title = atom('\u00A9nam', textData('Song'))
   const coverPrefix = Buffer.alloc(8)
   coverPrefix.writeUInt32BE(13, 0)
@@ -39,7 +39,10 @@ function sampleFile(): Buffer {
       textData('USRC17607839'),
     ]),
   )
-  const ilst = atom('ilst', Buffer.concat([title, cover, track, isrc]))
+  const ilst = atom(
+    'ilst',
+    Buffer.concat([title, cover, track, isrc, ...(date ? [atom('©day', textData(date))] : [])]),
+  )
   const meta = atom('meta', Buffer.concat([Buffer.alloc(4), atom('hdlr', Buffer.alloc(8)), ilst]))
   const moov = atom('moov', atom('udta', meta))
   return Buffer.concat([
@@ -56,6 +59,19 @@ function payloadRegion(file: Buffer, type: string): [number, number] {
 }
 
 describe('m4a text tag reader', () => {
+  it('reports malformed dates without losing other tags', async () => {
+    const file = sampleFile('2023-02-29')
+    const metadata = await readM4aTextMetadataFromReader({
+      size: file.length,
+      async readAt(position, length) {
+        return file.subarray(position, position + length)
+      },
+    })
+    expect(metadata.quality.warnings).toContainEqual({
+      message: 'Invalid release date in audio tags',
+    })
+    expect(normalizeMetadata(metadata).title).toBe('Song')
+  })
   it('reads text atoms and does not read covr or mdat payloads', async () => {
     const file = sampleFile()
     const cover = payloadRegion(file, 'covr')

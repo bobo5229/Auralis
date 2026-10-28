@@ -114,8 +114,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(74)
-    expect(kinds).toEqual({ void: 22, optional: 6, required: 46 })
+    expect(actualChannels).toHaveLength(75)
+    expect(kinds).toEqual({ void: 22, optional: 6, required: 47 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -266,6 +266,22 @@ describe('IPC schema security and resource compatibility', () => {
 })
 
 describe('domain IPC payload validation behavior', () => {
+  it('requires an edit token and restricts patches to editable tag fields', () => {
+    const request = {
+      trackId: 1,
+      editToken: 'token',
+      changes: { title: null, artistDisplay: 'AC/DC; B' },
+    }
+    expect(parse('metadata:update-track-metadata', request)).toBe(request)
+    for (const changes of [
+      { year: 2026 },
+      { lyricsText: 'private' },
+      { filePath: 'C:/secret.flac' },
+      { title: 42 },
+    ])
+      expect(() => parse('metadata:update-track-metadata', { ...request, changes })).toThrow()
+    expect(() => parse('metadata:update-track-metadata', { trackId: 1, changes: {} })).toThrow()
+  })
   it('accepts a bounded spectrum subscription and rejects paths and decoder options', () => {
     const request = {
       subscriptionId: 1,
@@ -403,13 +419,15 @@ describe('domain IPC payload validation behavior', () => {
     expect(
       parse('metadata:update-track-metadata', {
         trackId: 42,
-        title: 'Title',
-        artistDisplay: null,
-        albumTitle: 'Album',
-        albumArtistDisplay: 'Artist',
-        genreDisplay: 'Genre',
-        year: 2026,
-        releaseDate: '2026-08-24',
+        editToken: 'test-token',
+        changes: {
+          title: 'Title',
+          artistDisplay: null,
+          albumTitle: 'Album',
+          albumArtistDisplay: 'Artist',
+          genreDisplay: 'Genre',
+          releaseDate: '2026-08-24',
+        },
       }),
     ).toBeTruthy()
     expect(
@@ -494,17 +512,12 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/invalid item count/)
   })
 
-  it('accepts structurally valid metadata years and dates without calendar or range checks', () => {
+  it('accepts structurally valid metadata dates without calendar checks', () => {
     expect(
       parse('metadata:update-track-metadata', {
         trackId: 42,
-        title: 'Title',
-        artistDisplay: null,
-        albumTitle: 'Album',
-        albumArtistDisplay: 'Artist',
-        genreDisplay: 'Genre',
-        year: 0,
-        releaseDate: '2026-02-30',
+        editToken: 'test-token',
+        changes: { releaseDate: '2026-02-30' },
       }),
     ).toBeTruthy()
   })

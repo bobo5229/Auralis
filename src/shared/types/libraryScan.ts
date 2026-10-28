@@ -1,4 +1,5 @@
 import type { TrackFileFingerprint } from './trackFile'
+import type { FileMetadataSnapshot } from './trackMetadata'
 
 export type { TrackFileFingerprint } from './trackFile'
 
@@ -56,7 +57,7 @@ export interface LibraryScanProgress {
   message: string | null
 }
 
-export interface ScannedTrack {
+export interface ScannedTrack extends FileMetadataSnapshot {
   fileFingerprint?: TrackFileFingerprint
   /** Actual audio codec; older internal worker payloads may omit it. */
   codec?: string | null
@@ -102,6 +103,10 @@ export interface MetadataRefreshFailure {
 }
 
 export interface EditableTrackMetadata {
+  /** Editor-only transport state, never persisted as tag values. */
+  editToken?: string
+  legacyMetadata?: EditableTrackMetadata
+  legacyAction?: 'adopt-file' | 'write-legacy'
   trackId: number
   title: string | null
   artistDisplay: string | null
@@ -112,10 +117,11 @@ export interface EditableTrackMetadata {
   releaseDate: string | null
 }
 
-export interface AlbumArtworkPatch {
+export interface AlbumArtworkPatch extends FileMetadataSnapshot {
+  filePath?: string
   album: string
   artist: string
-  artworkCacheKey: string
+  artworkCacheKey: string | null
 }
 
 export interface TrackLyricsPatch {
@@ -127,7 +133,7 @@ export interface TrackLyricsPatch {
 }
 
 /** Text-tag refresh for an unchanged file. Duration, bitrate, codec, lyrics and artwork bytes stay stored. */
-export interface TrackTagPatch {
+export interface TrackTagPatch extends FileMetadataSnapshot {
   fileFingerprint?: TrackFileFingerprint
   filePath: string
   fileMtimeMs: number

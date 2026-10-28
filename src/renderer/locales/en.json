@@ -938,6 +938,8 @@
         "saveFailed": "Could not save metadata. Try again.",
         "tagPreservationFailed": "Saving would discard existing tags, so the write was cancelled. Your edits are retained.",
         "tagVerificationFailed": "The written tags do not match your edits. Saving did not complete. Reload the track information to check.",
+        "unsupportedDatePrecision": "This format cannot save a year and month without a day. Use a year or a full date.",
+        "legacyDateConflict": "The existing year and release date disagree. To protect the existing data, change the release date before saving.",
         "tagWriteFailed": "Could not prepare the updated tag file. Your edits are retained. Try again.",
         "fileChanged": "Another operation changed the audio file, so this save was cancelled. Reload its information and retry.",
         "diskFull": "There is not enough disk space to complete the save. Free some space and retry.",
@@ -948,7 +950,19 @@
         "bufferPreparationFailed": "Unable to save during playback right now. Your edits are retained. Retry or save after switching tracks.",
         "fileInUse": "Unable to write the file. Your edits are retained. Check file access and free disk space, then retry.",
         "playbackRestoreFailed": "Unable to restore playback. The file may have been updated. Reload its metadata to check.",
-        "playbackChanged": "Playback changed before this save completed. Your edits are retained. Check the file and retry."
+        "playbackChanged": "Playback changed before this save completed. Your edits are retained. Check the file and retry.",
+        "metadataConflict": "The file or tags changed. Your input is preserved. Reopen the editor to compare before saving.",
+        "legacyMetadataUnresolved": "Choose how to resolve the saved metadata first."
+      },
+      "legacy": {
+        "title": "Review saved metadata",
+        "description": "The library retains edits from an earlier version. Use file tags updates only the library. Write saved values changes the music file and removes the override after saving.",
+        "field": "Field",
+        "file": "File tags",
+        "saved": "Saved values",
+        "year": "Year",
+        "adopt": "Use file tags",
+        "write": "Write saved values to file"
       }
     },
     "status": {

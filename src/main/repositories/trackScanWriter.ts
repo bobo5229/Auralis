@@ -7,6 +7,7 @@ import type {
 import { isCurrentArtworkCacheKey } from '@main/features/artwork/artworkCachePolicy'
 import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import { BaseRepository } from './baseRepository'
+import { captureArtworkAlbum, commitArtworkProjection } from './trackArtworkProjection'
 import {
   prepareScannedMetadataDisplayUpdate,
   prepareScannedTagDisplayUpdate,
@@ -100,6 +101,11 @@ export class TrackScanWriter extends BaseRepository {
 
     const upsertBatch = this.db.transaction((items: ScannedTrack[]) => {
       for (const track of items) {
+        const oldId = this.db
+          .prepare('SELECT id FROM tracks WHERE file_path=?')
+          .pluck()
+          .get(track.filePath) as number | undefined
+        const previous = oldId ? captureArtworkAlbum(this.db, oldId) : undefined
         upsertTrack.run(
           track.filePath,
           track.fileSize,
@@ -128,8 +134,8 @@ export class TrackScanWriter extends BaseRepository {
           track.metadataSignature,
         )
         updateFingerprint.run(encodeScanFileFingerprint(track.fileFingerprint), track.filePath)
-        syncFileMetadata(track)
         upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
+        syncFileMetadata(track, previous)
       }
     })
 
@@ -157,6 +163,14 @@ export class TrackScanWriter extends BaseRepository {
 
     const batch = this.db.transaction((patches: AlbumArtworkPatch[]) => {
       for (const patch of patches) {
+        if (patch.filePath && patch.artworkRead) {
+          const id = this.db
+            .prepare('SELECT id FROM tracks WHERE file_path=?')
+            .pluck()
+            .get(patch.filePath) as number | undefined
+          if (id) commitArtworkProjection(this.db, id, patch)
+          continue
+        }
         upsert.run(patch.album, patch.artist, patch.artworkCacheKey)
       }
     })
@@ -246,6 +260,11 @@ export class TrackScanWriter extends BaseRepository {
     `)
     const batch = this.db.transaction((patches: TrackTagPatch[]) => {
       for (const patch of patches) {
+        const oldId = this.db
+          .prepare('SELECT id FROM tracks WHERE file_path=?')
+          .pluck()
+          .get(patch.filePath) as number | undefined
+        const previous = oldId ? captureArtworkAlbum(this.db, oldId) : undefined
         update.run(
           patch.title,
           patch.artist,
@@ -265,10 +284,10 @@ export class TrackScanWriter extends BaseRepository {
           patch.filePath,
         )
         updateFingerprint.run(encodeScanFileFingerprint(patch.fileFingerprint), patch.filePath)
-        syncFileMetadata(patch)
         if (isCurrentArtworkCacheKey(patch.artworkCacheKey)) {
           upsertAlbum.run(patch.album, patch.albumArtist || patch.artist, patch.artworkCacheKey)
         }
+        syncFileMetadata(patch, previous)
       }
     })
 

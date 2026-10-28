@@ -1,16 +1,19 @@
-import { dirname, join } from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import type { IAudioMetadata } from 'music-metadata'
-import { writeArtworkToCache } from '../artwork/artworkCache'
-import { extractEmbeddedArtwork } from '../artwork/resolveArtworkForFile'
+import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
+import { readDirectoryArtwork, type DirectoryArtworkRead } from '../artwork/directoryArtwork'
 
 /** A fresh instance owns the artwork caches for one scan, including cached misses. */
 export class LibraryScanArtwork {
-  private readonly directoryCoverCache = new Map<string, Promise<string | null>>()
+  private readonly directoryCoverCache = new Map<string, Promise<DirectoryArtworkRead>>()
 
   constructor(private readonly artworkCacheDir: string) {}
 
   async resolveDirectoryCover(filePath: string): Promise<string | null> {
+    return (await this.readDirectoryCover(filePath)).cacheKey
+  }
+
+  private readDirectoryCover(filePath: string): Promise<DirectoryArtworkRead> {
     const dir = dirname(filePath)
     const cached = this.directoryCoverCache.get(dir)
 
@@ -18,28 +21,18 @@ export class LibraryScanArtwork {
       return cached
     }
 
-    const pending = this.readDirectoryCover(dir)
+    const pending = readDirectoryArtwork(filePath, this.artworkCacheDir)
     this.directoryCoverCache.set(dir, pending)
     return pending
   }
 
-  private async readDirectoryCover(dir: string): Promise<string | null> {
-    try {
-      const data = await readFile(join(dir, 'cover.jpg'))
-      return await writeArtworkToCache(this.artworkCacheDir, {
-        data,
-        mimeType: 'image/jpeg',
-      })
-    } catch {
-      return null
-    }
+  async resolveArtwork(filePath: string, metadata: IAudioMetadata | null): Promise<string | null> {
+    return (await this.readArtwork(filePath, metadata)).artworkCacheKey
   }
 
-  async resolveArtwork(filePath: string, metadata: IAudioMetadata | null): Promise<string | null> {
-    if (metadata) {
-      const embedded = extractEmbeddedArtwork(metadata)
-      if (embedded) return writeArtworkToCache(this.artworkCacheDir, embedded, filePath)
-    }
-    return this.resolveDirectoryCover(filePath)
+  readArtwork(filePath: string, metadata: IAudioMetadata | null) {
+    return readArtworkForFile(filePath, metadata, this.artworkCacheDir, () =>
+      this.readDirectoryCover(filePath),
+    )
   }
 }

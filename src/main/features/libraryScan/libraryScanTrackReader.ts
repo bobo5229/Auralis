@@ -17,6 +17,9 @@ import {
 import { LibraryScanArtwork } from './libraryScanArtwork'
 import { readM4aTextMetadata } from './m4aTextTags'
 import { hasSameScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
+import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
+import { getDirectoryArtworkFingerprint } from '../artwork/directoryArtwork'
+import type { FileMetadataSnapshot } from '@shared/types/trackMetadata'
 import type {
   ScanFileFingerprint,
   ScannedTrackFile,
@@ -80,6 +83,18 @@ export class LibraryScanTrackReader {
       knownFile?.metadataCheckedMtimeMs === fileMtimeMs &&
       knownFile.metadataParserVersion === getMetadataParserVersion(filePath)
     const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
+    let artworkChecked =
+      knownFile?.artworkCheckedFingerprint ===
+      encodeScanFileFingerprint(scanFileFingerprint(fileStat))
+    if (artworkChecked && !knownFile?.embeddedArtworkCacheKey) {
+      try {
+        artworkChecked =
+          knownFile?.directoryArtworkFingerprint ===
+          (await getDirectoryArtworkFingerprint(filePath))
+      } catch {
+        artworkChecked = false
+      }
+    }
 
     try {
       const lyricsChecked =
@@ -92,18 +107,14 @@ export class LibraryScanTrackReader {
 
       // Audio and sidecar fingerprints are independent. Old rows without a
       // sidecar fingerprint get one lyrics backfill before the fast path applies.
-      if (
-        fileUnchanged &&
-        isCurrentArtworkCacheKey(knownFile.artworkCacheKey) &&
-        !needsLyricsBackfill &&
-        !needsMetadataBackfill
-      ) {
+      if (fileUnchanged && artworkChecked && !needsLyricsBackfill && !needsMetadataBackfill) {
         return { kind: 'skip' }
       }
 
       // A changed file still needs duration and artwork. An unchanged file only rereads text.
       if (!fileUnchanged) {
         const result = await this.readFullTrack(filePath, fileStat)
+        await this.assertArtworkUnchanged(filePath, result)
         await this.assertUnchanged(filePath, fileStat)
         return result
       }
@@ -114,13 +125,22 @@ export class LibraryScanTrackReader {
           fileStat,
           knownFile,
           needsLyricsBackfill,
+          !artworkChecked,
         )
+        await this.assertArtworkUnchanged(filePath, result)
         await this.assertUnchanged(filePath, fileStat)
         return result
       }
 
       if (fileUnchanged) {
-        const result = await this.readBackfill(filePath, fileStat, knownFile, needsLyricsBackfill)
+        const result = await this.readBackfill(
+          filePath,
+          fileStat,
+          knownFile,
+          needsLyricsBackfill,
+          !artworkChecked,
+        )
+        await this.assertArtworkUnchanged(filePath, result)
         await this.assertUnchanged(filePath, fileStat)
         return result
       }
@@ -142,11 +162,30 @@ export class LibraryScanTrackReader {
     }
   }
 
+  private async assertArtworkUnchanged(filePath: string, result: ReadTrackResult): Promise<void> {
+    const state: FileMetadataSnapshot | undefined =
+      result.kind === 'track'
+        ? result.track
+        : result.kind === 'tags'
+          ? result.patch
+          : result.kind === 'artwork'
+            ? result.patch
+            : result.kind === 'patches'
+              ? (result.artworkPatch ?? undefined)
+              : undefined
+    if (
+      state?.directoryArtworkFingerprint !== undefined &&
+      state.directoryArtworkFingerprint !== (await getDirectoryArtworkFingerprint(filePath))
+    )
+      throw new Error('Directory artwork changed while being read')
+  }
+
   private async readUnchangedTags(
     filePath: string,
     fileStat: Stats,
     knownFile: KnownTrackFile,
     needsLyricsBackfill: boolean,
+    needsArtworkBackfill: boolean,
   ): Promise<ReadTrackResult> {
     const { size: fileSize, mtimeMs: fileMtimeMs } = fileStat
     const carriedArtworkKey = isCurrentArtworkCacheKey(knownFile.artworkCacheKey)
@@ -154,11 +193,14 @@ export class LibraryScanTrackReader {
       : null
 
     const metadata =
-      extname(filePath).toLowerCase() === '.m4a'
+      extname(filePath).toLowerCase() === '.m4a' && !needsArtworkBackfill
         ? await readM4aTextMetadata(filePath)
-        : await parseFile(filePath, { duration: false, skipCovers: true })
+        : await parseFile(filePath, { duration: false, skipCovers: !needsArtworkBackfill })
     const normalized = normalizeMetadata(metadata, filePath)
     const identity = normalizeIdentityText(metadata)
+    const artwork = needsArtworkBackfill
+      ? await this.artwork.readArtwork(filePath, metadata)
+      : { artworkCacheKey: carriedArtworkKey }
 
     let lyricsPatch: ScannedLyricsPatch | null = null
     if (needsLyricsBackfill) {
@@ -178,6 +220,8 @@ export class LibraryScanTrackReader {
       lyricsPatch,
       patch: {
         filePath,
+        fileTags: normalized.fileTags,
+        ...artwork,
         fileFingerprint: scanFileFingerprint(fileStat),
         fileMtimeMs,
         title: normalized.title,
@@ -198,7 +242,7 @@ export class LibraryScanTrackReader {
           fileSize,
         ),
         metadataParserVersion: getMetadataParserVersion(filePath),
-        artworkCacheKey: carriedArtworkKey,
+        artworkCacheKey: artwork.artworkCacheKey,
       },
     }
   }
@@ -217,13 +261,14 @@ export class LibraryScanTrackReader {
     fileStat: Stats,
     knownFile: KnownTrackFile,
     needsLyricsBackfill: boolean,
+    needsArtworkBackfill: boolean,
   ): Promise<ReadTrackResult> {
     let artworkPatch: AlbumArtworkPatch | null = null
     let lyricsPatch: ScannedLyricsPatch | null = null
 
     // Only this unchanged file's current key can skip embedded artwork parsing.
     const knownKey = knownFile.artworkCacheKey
-    const skipCovers = isCurrentArtworkCacheKey(knownKey)
+    const skipCovers = !needsArtworkBackfill
     const metadata = await parseFile(filePath, { duration: false, skipCovers })
 
     if (needsLyricsBackfill) {
@@ -240,14 +285,18 @@ export class LibraryScanTrackReader {
 
     // Reuse only a CURRENT v2 key; legacy keys must be re-resolved so the
     // artwork cache is upgraded even when the audio file itself is unchanged.
-    const artworkCacheKey = isCurrentArtworkCacheKey(knownKey)
-      ? knownKey
-      : await this.artwork.resolveArtwork(filePath, metadata)
+    const artwork = skipCovers
+      ? { artworkCacheKey: knownKey, artworkRead: { status: 'unread' as const } }
+      : await this.artwork.readArtwork(filePath, metadata)
+    const artworkCacheKey = artwork.artworkCacheKey
 
-    if (artworkCacheKey && knownFile?.album && knownFile.albumArtist) {
+    if (!skipCovers || artworkCacheKey) {
       artworkPatch = {
-        album: knownFile.album,
-        artist: knownFile.albumArtist,
+        filePath,
+        fileFingerprint: scanFileFingerprint(fileStat),
+        ...artwork,
+        album: knownFile.album || 'Unknown Album',
+        artist: knownFile.albumArtist || 'Unknown Artist',
         artworkCacheKey,
       }
     }
@@ -269,12 +318,14 @@ export class LibraryScanTrackReader {
     metadata: Awaited<ReturnType<typeof parseFile>>,
   ): Promise<ScannedTrackFile> {
     const normalized = normalizeMetadata(metadata, filePath)
-    const artworkCacheKey = await this.artwork.resolveArtwork(filePath, metadata)
+    const artwork = await this.artwork.readArtwork(filePath, metadata)
     const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
     const identity = normalizeIdentityText(metadata)
 
     return {
       filePath,
+      fileTags: normalized.fileTags,
+      ...artwork,
       fileFingerprint: scanFileFingerprint(fileStat),
       metadataParserVersion: getMetadataParserVersion(filePath),
       fileSize: Number(fileStat.size),
@@ -293,7 +344,7 @@ export class LibraryScanTrackReader {
       copyright: normalized.copyright,
       composer: normalized.composer,
       genre: normalized.genre,
-      artworkCacheKey,
+      artworkCacheKey: artwork.artworkCacheKey,
       lyricsText: lyrics?.text ?? null,
       lyricsFormat: lyrics?.format ?? null,
       lyricsSidecarFingerprint,

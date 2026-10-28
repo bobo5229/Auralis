@@ -17,19 +17,50 @@ type TextField = (typeof TEXT_FIELDS)[keyof typeof TEXT_FIELDS]
 
 /** Some ID3v2.3 writers store a full date in TYER; the parser exposes only its year. */
 function decodeId3v23Date(metadata: IAudioMetadata): void {
-  if (metadata.common.date) return
-  for (const tag of metadata.native['ID3v2.3'] ?? []) {
+  if (metadata.common.date) {
+    try {
+      normalizeEditableReleaseDate(metadata.common.date)
+    } catch {
+      metadata.quality.warnings.push({ message: 'Invalid release date in audio tags' })
+    }
+    return
+  }
+  const tags = metadata.native['ID3v2.3'] ?? []
+  for (const tag of tags) {
     if (tag.id !== 'TYER' || typeof tag.value !== 'string') continue
     const value = tag.value.trim()
-    if (!/^\d{4}-\d{2}(?:-\d{2})?$/.test(value)) continue
+    if (!/^\d{4}-\d{2}(?:-\d{2})?$/.test(value)) {
+      if (!/^\d{4}$/.test(value))
+        metadata.quality.warnings.push({ message: 'Invalid ID3v2.3 TYER release date' })
+      continue
+    }
     if (metadata.common.year !== undefined && metadata.common.year !== Number(value.slice(0, 4)))
       continue
     try {
       metadata.common.date = normalizeEditableReleaseDate(value) ?? undefined
       return
     } catch {
-      // Invalid optional dates must not prevent importing the rest of the tags.
+      metadata.quality.warnings.push({ message: 'Invalid ID3v2.3 TYER release date' })
     }
+  }
+  const year = tags.find((tag) => tag.id === 'TYER' && typeof tag.value === 'string')?.value
+  const dayMonth = tags.find((tag) => tag.id === 'TDAT' && typeof tag.value === 'string')?.value
+  if (typeof year !== 'string' || !/^\d{4}$/.test(year.trim())) return
+  if (typeof dayMonth !== 'string') return
+  if (!/^\d{4}$/.test(dayMonth.trim())) {
+    metadata.quality.warnings.push({ message: 'Invalid ID3v2.3 TDAT release date' })
+    return
+  }
+  const normalizedYear = year.trim()
+  if (metadata.common.year !== undefined && metadata.common.year !== Number(normalizedYear)) return
+  const normalizedDayMonth = dayMonth.trim()
+  try {
+    metadata.common.date =
+      normalizeEditableReleaseDate(
+        `${normalizedYear}-${normalizedDayMonth.slice(2)}-${normalizedDayMonth.slice(0, 2)}`,
+      ) ?? undefined
+  } catch {
+    metadata.quality.warnings.push({ message: 'Invalid ID3v2.3 TDAT release date' })
   }
 }
 

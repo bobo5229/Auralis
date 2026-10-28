@@ -51,7 +51,12 @@ describe('stable metadata reading', () => {
   it('verifies actual tags including ID3v2.3 dates and rejects mismatched edits', async () => {
     const metadata = await parseFile('fixture')
     metadata.common.year = 2026
-    metadata.native = { 'ID3v2.3': [{ id: 'TDAT', value: '2209' }] }
+    metadata.native = {
+      'ID3v2.3': [
+        { id: 'TYER', value: '2026' },
+        { id: 'TDAT', value: '2209' },
+      ],
+    }
     vi.mocked(parseFile).mockResolvedValue(metadata)
     const edit: EditableTrackMetadata = {
       trackId: 1,

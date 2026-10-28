@@ -60,7 +60,13 @@ export function initializeDatabase(): Database.Database {
     throw new Error(`Database quick_check failed: ${String(healthCheck)}`)
   }
 
-  migrateDatabase(database, dbPath)
+  try {
+    migrateDatabase(database, dbPath)
+  } catch (error) {
+    database.close()
+    database = undefined
+    throw error
+  }
 
   logger.info({ databasePath: dbPath }, 'SQLite initialized')
 

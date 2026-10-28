@@ -184,6 +184,9 @@ export interface AuralisApi {
     getTrackMetadata: (
       trackId: Req<'metadata:get-track-metadata'>['trackId'],
     ) => Result<'metadata:get-track-metadata'>
+    getTrackEditSnapshot: (
+      trackId: Req<'metadata:get-track-edit-snapshot'>['trackId'],
+    ) => Result<'metadata:get-track-edit-snapshot'>
     getTrackEditState: (
       trackId: Req<'metadata:get-track-edit-state'>['trackId'],
     ) => Result<'metadata:get-track-edit-state'>

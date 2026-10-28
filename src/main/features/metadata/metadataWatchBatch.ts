@@ -115,6 +115,7 @@ export class MetadataWatchBatch {
     for (const filePath of incoming) {
       if (!this.state.pendingFilePaths.has(filePath)) {
         this.state.pendingLyricsIntentPaths.delete(filePath)
+        this.state.pendingArtworkIntentPaths.delete(filePath)
       }
     }
   }
@@ -220,6 +221,9 @@ export class MetadataWatchBatch {
       fingerprints,
       lyricsIntentPaths: refreshCandidates
         .filter((entry) => this.state.pendingLyricsIntentPaths.has(entry.eventPath))
+        .map((entry) => entry.resolvedPath),
+      artworkIntentPaths: refreshCandidates
+        .filter((entry) => this.state.pendingArtworkIntentPaths.has(entry.eventPath))
         .map((entry) => entry.resolvedPath),
     })
 

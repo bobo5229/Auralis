@@ -308,12 +308,15 @@ export class TrackQueryRepository extends BaseRepository {
     const rows = this.db
       .prepare(
         `SELECT t.file_path AS filePath,
+                t.embedded_artwork_checked_fingerprint AS artworkCheckedFingerprint,
+                t.directory_artwork_checked_fingerprint AS directoryArtworkFingerprint,
+                t.embedded_artwork_cache_key AS embeddedArtworkCacheKey,
                 t.file_size AS fileSize,
                 t.file_mtime_ms AS fileMtimeMs,
                 t.file_stat_fingerprint AS storedFingerprint,
                 t.album AS album,
                 t.album_artist AS albumArtist,
-                a.artwork_cache_key AS artworkCacheKey,
+                COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key,a.artwork_cache_key) AS artworkCacheKey,
                 t.lyrics_format AS lyricsFormat,
                 t.lyrics_checked_mtime_ms AS lyricsCheckedMtimeMs,
                 t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,

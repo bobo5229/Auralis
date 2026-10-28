@@ -31,6 +31,29 @@ function displayArtwork(db: Database.Database, trackId: number): string | null {
 }
 
 describe('updateUserEditedMetadata artwork', () => {
+  it('uses the effective album artist when preserving an explicit null override', () => {
+    const db = createDatabase()
+    db.exec(`
+      INSERT INTO tracks(id,file_path,title,artist,album,album_artist)
+      VALUES(1,'song.flac','Title','User Artist','Album','File AA');
+      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display,source,override_mask)
+      VALUES(1,'Title','User Artist','Album',NULL,'legacy_user_edit',127);
+      INSERT INTO albums(title,artist,artwork_cache_key) VALUES
+        ('Album','User Artist','right-cover'), ('Album','File AA','wrong-cover');
+    `)
+    expect(displayArtwork(db, 1)).toBe('right-cover')
+    new MetadataRefreshRepository(db).updateUserEditedMetadata({
+      trackId: 1,
+      title: 'New title',
+      artistDisplay: 'User Artist',
+      albumTitle: 'Album',
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    expect(displayArtwork(db, 1)).toBe('right-cover')
+  })
   it('stores one canonical list in both layers and keeps user values on later file refresh', () => {
     const db = createDatabase()
     const filePath = 'C:\\isolated\\multivalue.flac'
@@ -91,7 +114,7 @@ describe('updateUserEditedMetadata artwork', () => {
     })
     expect(fields()).toEqual(expected)
     expect(db.prepare('SELECT source FROM track_metadata WHERE track_id=1').get()).toEqual({
-      source: 'user_edit',
+      source: 'legacy_user_edit',
     })
     expect(db.prepare('SELECT composer,copyright FROM tracks WHERE id=1').get()).toEqual({
       composer: 'A/B; C',

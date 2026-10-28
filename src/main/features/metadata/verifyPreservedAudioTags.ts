@@ -1,11 +1,14 @@
 import { isDeepStrictEqual } from 'node:util'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { MetadataSaveError } from './metadataSaveError'
+import { resolveArtists, resolveAlbumArtists } from './metadataNormalizer'
+import type { EditableTagField } from '@shared/types/trackMetadata'
 
 export async function verifyPreservedAudioTags(
   source: string,
   staging: string,
   lyricsOnly = false,
+  editedFields?: readonly EditableTagField[],
 ): Promise<void> {
   const [before, after] = await Promise.all([
     parseAudioMetadata(source),
@@ -26,6 +29,23 @@ export async function verifyPreservedAudioTags(
     edited.clear()
     edited.add('lyrics')
   }
+  const commonGroups: Record<EditableTagField, string[]> = {
+    title: ['title'],
+    artistDisplay: ['artist', 'artists'],
+    albumTitle: ['album'],
+    albumArtistDisplay: ['albumartist', 'albumartists'],
+    genreDisplay: ['genre'],
+    releaseDate: ['date', 'year'],
+  }
+  if (editedFields && !lyricsOnly) {
+    edited.clear()
+    for (const field of editedFields) for (const key of commonGroups[field]) edited.add(key)
+  }
+  const artistsChanged = !isDeepStrictEqual(resolveArtists(before), resolveArtists(after))
+  const albumArtistsChanged = !isDeepStrictEqual(
+    resolveAlbumArtists(before),
+    resolveAlbumArtists(after),
+  )
   for (const key of Object.keys(before.common)) {
     if (edited.has(key)) continue
     const name = key as keyof typeof before.common
@@ -97,11 +117,56 @@ export async function verifyPreservedAudioTags(
     // Plain lyric fields are intentionally edited; synchronized/private fields remain protected.
     for (const id of ['uslt', 'ult', 'lyrics', 'unsyncedlyrics', '©lyr']) editedNative.add(id)
   }
+  if (editedFields && !lyricsOnly) {
+    const nativeGroups: Record<EditableTagField, string[]> = {
+      title: ['title', 'tit2', 'tt2', '©nam', 'inam'],
+      artistDisplay: ['artist', 'artists', 'tpe1', 'tp1', '©art', 'iart'],
+      albumTitle: ['album', 'talb', 'tal', '©alb', 'iprd'],
+      albumArtistDisplay: [
+        'album_artist',
+        'albumartist',
+        'tpe2',
+        'tp2',
+        'aart',
+        'txxx:album_artist',
+      ],
+      genreDisplay: ['genre', 'tcon', 'tco', '©gen', 'gnre', 'ignr', '----:com.apple.itunes:genre'],
+      releaseDate: [
+        'date',
+        'year',
+        'tdrc',
+        'tyer',
+        'tye',
+        'tdat',
+        'tda',
+        'txxx:date',
+        'txxx:year',
+        '©day',
+        'icrd',
+      ],
+    }
+    for (const field of Object.keys(nativeGroups) as EditableTagField[])
+      if (!editedFields.includes(field))
+        for (const id of nativeGroups[field]) editedNative.delete(id)
+  }
   const nativeTags = (tags: typeof before.native) => {
     const values = new Map<string, unknown[]>()
     for (const [type, entries] of Object.entries(tags)) {
       for (const tag of entries) {
         if (editedNative.has(tag.id.toLowerCase())) continue
+        const freeform = /^----:([^:]+):(.+)$/.exec(tag.id)
+        if (
+          !lyricsOnly &&
+          type === 'iTunes' &&
+          freeform?.[1]?.toLowerCase() === 'com.apple.itunes' &&
+          ((freeform[2]?.toLowerCase() === 'artists' &&
+            artistsChanged &&
+            (!editedFields || editedFields.includes('artistDisplay'))) ||
+            (freeform[2]?.toLowerCase() === 'albumartists' &&
+              albumArtistsChanged &&
+              (!editedFields || editedFields.includes('albumArtistDisplay'))))
+        )
+          continue
         const key = JSON.stringify([type.startsWith('ID3v2.') ? 'ID3v2' : type, tag.id])
         const occurrences = values.get(key) ?? []
         occurrences.push(tag.value)

@@ -3,8 +3,11 @@ import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
 import type { LyricsFormat } from '@shared/types/libraryScan'
 import { classifyLyrics, isTtmlLike, type ResolvedLyrics } from './classifyLyrics'
+import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
+import type { FileTagValues } from '@shared/types/trackMetadata'
 
 export interface NormalizedMetadata {
+  fileTags: FileTagValues
   title: string
   artistDisplay: string
   artists: string[]
@@ -42,15 +45,46 @@ export interface NormalizedIdentity {
 // Year extraction
 // ---------------------------------------------------------------------------
 
-export function getYear(commonYear: number | undefined, date: string | undefined): number | null {
-  if (typeof commonYear === 'number') return commonYear
-
-  if (date) {
-    const parsedYear = Number.parseInt(date.slice(0, 4), 10)
-    return Number.isNaN(parsedYear) ? null : parsedYear
+export function resolveFileDate(metadata: MetadataTags): string | null {
+  const parse = (value: string | null | undefined): string | null => {
+    try {
+      return normalizeReleaseDate(value ?? null)
+    } catch {
+      return null
+    }
   }
-
-  return null
+  const date = parse(metadata.common.date)
+  if (date) return date
+  const tags = metadata.native['ID3v2.3'] ?? []
+  const year = tags.find((tag) => tag.id === 'TYER' && typeof tag.value === 'string')?.value
+  if (typeof year === 'string') {
+    const parsed = parse(year)
+    const matchesYear =
+      metadata.common.year === undefined ||
+      (parsed !== null && metadata.common.year === releaseDateYear(parsed))
+    if (parsed && parsed.length > 4 && matchesYear) return parsed
+    const dayMonth = tags.find((tag) => tag.id === 'TDAT' && typeof tag.value === 'string')?.value
+    if (
+      parsed &&
+      parsed.length === 4 &&
+      matchesYear &&
+      typeof dayMonth === 'string' &&
+      /^\d{4}$/.test(dayMonth.trim())
+    ) {
+      const value = dayMonth.trim()
+      const complete = parse(`${parsed}-${value.slice(2)}-${value.slice(0, 2)}`)
+      if (complete) return complete
+    }
+  }
+  const commonYear = metadata.common.year
+  if (
+    typeof commonYear === 'number' &&
+    Number.isInteger(commonYear) &&
+    commonYear >= 0 &&
+    commonYear <= 9999
+  )
+    return String(commonYear).padStart(4, '0')
+  return typeof year === 'string' ? parse(year) : null
 }
 
 // ---------------------------------------------------------------------------
@@ -127,9 +161,16 @@ function nativeTextKey(id: string): string {
 function nativeTextValues(metadata: MetadataTags, keys: ReadonlySet<string>): string[] {
   return cleanDelimitedValues(
     getNativeTagGroups(metadata).flatMap((tags) =>
-      tags.flatMap((tag) =>
-        keys.has(nativeTextKey(tag.id)) ? getTextValuesFromUnknown(tag.value) : [],
-      ),
+      tags.flatMap((tag) => {
+        const freeform = /^----:([^:]+):(.+)$/.exec(tag.id)
+        if (
+          freeform &&
+          (keys.has('ARTISTS') || keys.has('ALBUMARTISTS')) &&
+          freeform[1]!.toLowerCase() !== 'com.apple.itunes'
+        )
+          return []
+        return keys.has(nativeTextKey(tag.id)) ? getTextValuesFromUnknown(tag.value) : []
+      }),
     ),
   )
 }
@@ -304,6 +345,7 @@ export function buildMetadataSignature(
 
 export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): NormalizedMetadata {
   const common = metadata.common
+  const releaseDate = resolveFileDate(metadata)
   const lyrics = resolveLyrics(metadata)
   const artists = resolveArtists(metadata)
   const artistDisplay = joinDelimitedValues(artists) || 'Unknown Artist'
@@ -315,6 +357,15 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
   const composers = resolveComposers(metadata)
 
   return {
+    fileTags: {
+      title: common.title?.trim() || null,
+      artistDisplay: joinDelimitedValues(artists),
+      albumTitle: common.album?.trim() || null,
+      albumArtistDisplay: joinDelimitedValues(taggedAlbumArtists),
+      genreDisplay: joinDelimitedValues(genres),
+      year: releaseDateYear(releaseDate),
+      releaseDate,
+    },
     title:
       common.title || (filePath ? parse(filePath).name || basename(filePath) : 'Unknown Title'),
     artistDisplay,
@@ -335,8 +386,8 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
       metadata.format.bitrate > 0
         ? metadata.format.bitrate
         : null,
-    year: getYear(common.year, common.date),
-    releaseDate: common.date ?? null,
+    year: releaseDateYear(releaseDate),
+    releaseDate,
     copyright: joinDelimitedValues(resolveCopyright(metadata)),
     composers,
     composer: joinDelimitedValues(composers),

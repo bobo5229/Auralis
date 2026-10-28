@@ -3,11 +3,15 @@ import type { NormalizedIdentity } from '@main/features/metadata/metadataNormali
 import type { MissingTrackCandidate } from './trackRepositoryTypes'
 import { toRootPrefixes, toPathVariants, escapeLikePattern } from './trackRepositoryPaths'
 import { BaseRepository } from './baseRepository'
+import { captureArtworkAlbum, refreshArtworkAlbum } from './trackArtworkProjection'
 import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
 import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 
 export class TrackAvailabilityRepository extends BaseRepository {
   markMissingByFilePaths(filePaths: string[]): number[] {
+    return this.db.transaction(() => this.markMissingPaths(filePaths))()
+  }
+  private markMissingPaths(filePaths: string[]): number[] {
     if (filePaths.length === 0) return []
 
     const markedIds: number[] = []
@@ -30,10 +34,14 @@ export class TrackAvailabilityRepository extends BaseRepository {
       markedIds.push(...rows.map((row) => row.id))
     }
 
+    this.refreshArtwork(markedIds)
     return markedIds
   }
 
   markAvailableByFilePaths(filePaths: string[]): number[] {
+    return this.db.transaction(() => this.restorePaths(filePaths))()
+  }
+  private restorePaths(filePaths: string[]): number[] {
     if (filePaths.length === 0) return []
 
     const restoredIds: number[] = []
@@ -56,6 +64,7 @@ export class TrackAvailabilityRepository extends BaseRepository {
       restoredIds.push(...rows.map((row) => row.id))
     }
 
+    this.refreshArtwork(restoredIds)
     return restoredIds
   }
 
@@ -125,6 +134,15 @@ export class TrackAvailabilityRepository extends BaseRepository {
     foundFilePaths: string[],
     unreadableDirectoryPaths: string[] = [],
   ): number[] {
+    return this.db.transaction(() =>
+      this.markMissingUnderRoot(rootPath, foundFilePaths, unreadableDirectoryPaths),
+    )()
+  }
+  private markMissingUnderRoot(
+    rootPath: string,
+    foundFilePaths: string[],
+    unreadableDirectoryPaths: string[],
+  ): number[] {
     const rootPrefixes = toRootPrefixes(rootPath)
     const rootPredicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
     const rootPatternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
@@ -151,7 +169,9 @@ export class TrackAvailabilityRepository extends BaseRepository {
         )
         .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
 
-      return rows.map((row) => row.id)
+      const ids = rows.map((row) => row.id)
+      this.refreshArtwork(ids)
+      return ids
     }
 
     try {
@@ -191,7 +211,9 @@ export class TrackAvailabilityRepository extends BaseRepository {
         )
         .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
 
-      return rows.map((row) => row.id)
+      const ids = rows.map((row) => row.id)
+      this.refreshArtwork(ids)
+      return ids
     } finally {
       this.db.exec('DROP TABLE IF EXISTS _temp_found_paths')
     }
@@ -214,6 +236,7 @@ export class TrackAvailabilityRepository extends BaseRepository {
 
     try {
       return this.db.transaction(() => {
+        const previous = captureArtworkAlbum(this.db, trackId)
         const result = this.db
           .prepare(
             `UPDATE tracks
@@ -281,7 +304,7 @@ export class TrackAvailabilityRepository extends BaseRepository {
           this.db
             .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = ?')
             .run(encodeScanFileFingerprint(scannedTrack.fileFingerprint), trackId)
-          prepareScannedMetadataDisplayUpdate(this.db)(scannedTrack)
+          prepareScannedMetadataDisplayUpdate(this.db)(scannedTrack, previous)
         }
         return result.changes > 0
       })()
@@ -300,19 +323,35 @@ export class TrackAvailabilityRepository extends BaseRepository {
   }
 
   markMissingByPathPrefix(rootPath: string): number {
+    return this.db.transaction(() => this.markMissingPrefix(rootPath))()
+  }
+  private markMissingPrefix(rootPath: string): number {
     const rootPrefixes = toRootPrefixes(rootPath)
     const predicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
     const patternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
 
-    return this.db
+    const rows = this.db
       .prepare(
         `UPDATE tracks
          SET availability = 'missing',
              missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
              updated_at = CURRENT_TIMESTAMP
          WHERE availability = 'available'
-           AND (${predicates})`,
+           AND (${predicates}) RETURNING id`,
       )
-      .run(...patternArgs).changes
+      .all(...patternArgs) as { id: number }[]
+    this.refreshArtwork(rows.map((row) => row.id))
+    return rows.length
+  }
+
+  private refreshArtwork(ids: number[]): void {
+    const seen = new Set<string>()
+    for (const id of ids) {
+      const identity = captureArtworkAlbum(this.db, id)
+      if (identity && !seen.has(JSON.stringify(identity))) {
+        seen.add(JSON.stringify(identity))
+        refreshArtworkAlbum(this.db, identity)
+      }
+    }
   }
 }

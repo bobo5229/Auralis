@@ -25,7 +25,9 @@ vi.mock('music-metadata', () => ({
   }),
 }))
 vi.mock('../metadata/resolveLyricsForFile', () => ({ resolveLyricsForFile: async () => null }))
-vi.mock('../artwork/resolveArtworkForFile', () => ({ resolveArtworkForFile: async () => null }))
+vi.mock('../artwork/resolveArtworkForFile', () => ({
+  readArtworkForFile: async () => ({ artworkCacheKey: null, artworkRead: { status: 'absent' } }),
+}))
 vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn() } }))
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (

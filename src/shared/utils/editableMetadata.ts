@@ -7,6 +7,8 @@ export function isSameEditableMetadata(
   right: EditableTrackMetadata,
 ): boolean {
   const text = (value: string | null) => value?.trim() || null
+  const date = (value: EditableTrackMetadata) =>
+    text(value.releaseDate) ?? (value.year === null ? null : String(value.year).padStart(4, '0'))
   return (
     left.trackId === right.trackId &&
     text(left.title) === text(right.title) &&
@@ -17,7 +19,6 @@ export function isSameEditableMetadata(
       canonicalizeDelimitedValues(right.albumArtistDisplay) &&
     canonicalizeDelimitedValues(left.genreDisplay) ===
       canonicalizeDelimitedValues(right.genreDisplay) &&
-    left.year === right.year &&
-    text(left.releaseDate) === text(right.releaseDate)
+    date(left) === date(right)
   )
 }

@@ -12,7 +12,7 @@ it('reads a year snapshot through real SQLite, including edits and removed histo
     migrateDatabase(db)
     db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist,duration_seconds) VALUES
       (1,'one.flac','Original','Artist','Album','Artist',180), (2,'two.flac','Two','Artist','Album','Artist',240);
-      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display) VALUES(1,'Edited','Artist','Album','Artist');
+      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display,source,override_mask) VALUES(1,'Edited','Artist','Album','Artist','legacy_user_edit',1);
       INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
         ('2026-03-01',1,4,720), ('2026-03-02',2,2,480), ('2025-01-01',1,100,18000);
       INSERT INTO removed_track_history(id,title,artist,album,album_artist,source_file_path,recovery_json)

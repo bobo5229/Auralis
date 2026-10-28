@@ -15,9 +15,9 @@ import { LibraryIncrementalImportService } from './libraryIncrementalImportServi
 
 const artwork = vi.hoisted(() => ({ hook: undefined as (() => Promise<void>) | undefined }))
 vi.mock('../artwork/resolveArtworkForFile', () => ({
-  resolveArtworkForFile: async () => {
+  readArtworkForFile: async () => {
     await artwork.hook?.()
-    return null
+    return { artworkCacheKey: null, artworkRead: { status: 'absent' } }
   },
 }))
 

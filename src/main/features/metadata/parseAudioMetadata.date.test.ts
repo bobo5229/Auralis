@@ -59,7 +59,7 @@ describe('ID3v2.3 extended TYER dates with the real parser', () => {
       const metadata = await parseAudioMetadata(await fixture([['TYER', value]]))
       expect(normalizeMetadata(metadata)).toMatchObject({
         year: Number(value.slice(0, 4)),
-        releaseDate: null,
+        releaseDate: value.slice(0, 4),
       })
     },
   )
@@ -77,5 +77,50 @@ describe('ID3v2.3 extended TYER dates with the real parser', () => {
   it('keeps standard ID3v2.4 TDRC dates', async () => {
     const metadata = await parseAudioMetadata(await fixture([['TDRC', '2024-05-20']], 4))
     expect(normalizeMetadata(metadata)).toMatchObject({ year: 2024, releaseDate: '2024-05-20' })
+  })
+
+  it.each([
+    ['2012', '3009', '2012-09-30'],
+    ['2024', '2902', '2024-02-29'],
+  ])('decodes ID3v2.3 TYER %s and TDAT %s', async (year, dayMonth, date) => {
+    const metadata = await parseAudioMetadata(
+      await fixture([
+        ['TYER', year],
+        ['TDAT', dayMonth],
+      ]),
+    )
+    expect(normalizeMetadata(metadata)).toMatchObject({ year: Number(year), releaseDate: date })
+  })
+
+  it.each(['2902', '3104', '0001', '1234'])('ignores an invalid TDAT %s', async (dayMonth) => {
+    const metadata = await parseAudioMetadata(
+      await fixture([
+        ['TYER', '2023'],
+        ['TDAT', dayMonth],
+      ]),
+    )
+    expect(normalizeMetadata(metadata)).toMatchObject({ year: 2023, releaseDate: '2023' })
+    expect(metadata.quality.warnings).toContainEqual(
+      expect.objectContaining({ message: expect.stringContaining('TDAT') }),
+    )
+  })
+
+  it.each(['abcd', '300', '30090'])('warns about malformed TDAT %s', async (dayMonth) => {
+    const metadata = await parseAudioMetadata(
+      await fixture([
+        ['TYER', '2024'],
+        ['TDAT', dayMonth],
+      ]),
+    )
+    expect(metadata.quality.warnings).toContainEqual(
+      expect.objectContaining({ message: expect.stringContaining('TDAT') }),
+    )
+  })
+
+  it.each(['2012-9-30', '2012/09/30'])('warns about malformed TYER %s', async (year) => {
+    const metadata = await parseAudioMetadata(await fixture([['TYER', year]]))
+    expect(metadata.quality.warnings).toContainEqual(
+      expect.objectContaining({ message: expect.stringContaining('TYER') }),
+    )
   })
 })

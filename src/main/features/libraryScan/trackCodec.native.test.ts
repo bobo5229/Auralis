@@ -96,11 +96,17 @@ describe('audio codec persistence', () => {
     const tables = ['tracks', 'track_metadata', 'playlists', 'playlist_tracks', 'track_play_stats']
     const before = tables.map((t) => db.prepare(`SELECT * FROM ${t}`).all())
     migrateDatabase(db)
-    expect(tables.map((t) => db.prepare(`SELECT * FROM ${t}`).all())).toEqual(
+    expect(tables.map((t) => db.prepare(`SELECT * FROM ${t}`).all())).toMatchObject(
       before.map((rows, i) =>
         i === 0
           ? rows.map((row) => ({ ...(row as object), codec: null, file_stat_fingerprint: null }))
-          : rows,
+          : i === 1
+            ? rows.map((row) => ({
+                ...(row as object),
+                source: 'legacy_user_edit',
+                override_mask: 127,
+              }))
+            : rows,
       ),
     )
     db.exec("UPDATE tracks SET codec='FLAC'")

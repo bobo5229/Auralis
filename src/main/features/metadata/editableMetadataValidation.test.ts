@@ -2,6 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { normalizeEditableMetadata } from './editableMetadataValidation'
 
 describe('normalizeEditableMetadata', () => {
+  it.each([
+    ['2024-05-20', 2024],
+    ['2024-05', 2024],
+    ['2024', 2024],
+    [null, null],
+  ])('derives the year from the edited date %s', (releaseDate, year) => {
+    expect(
+      normalizeEditableMetadata({
+        trackId: 1,
+        title: null,
+        artistDisplay: null,
+        albumTitle: null,
+        albumArtistDisplay: null,
+        genreDisplay: null,
+        year: 2001,
+        releaseDate,
+      }),
+    ).toMatchObject({ releaseDate, year })
+  })
   it('uses canonical multi-values without changing punctuation in scalar fields', () => {
     const request = {
       trackId: 1,

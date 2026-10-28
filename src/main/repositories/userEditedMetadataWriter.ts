@@ -8,6 +8,7 @@ import {
 } from '../features/metadata/editableMetadataValidation'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
+import { ALL_METADATA_OVERRIDES } from '@shared/types/metadataOverrides'
 
 export function resolveArtworkKeyForUserEdit(
   trackMetadataKey: string | null | undefined,
@@ -58,15 +59,10 @@ export class UserEditedMetadataWriter {
       const existingArtwork = this.db
         .prepare(
           `SELECT tm.artwork_cache_key AS trackMetadataKey,
-                  a.artwork_cache_key AS albumKey
+                  d.artwork_cache_key AS albumKey
            FROM tracks t
            LEFT JOIN track_metadata tm ON tm.track_id = t.id
-           LEFT JOIN albums a
-             ON COALESCE(tm.album_title, t.album) = a.title
-            AND COALESCE(
-                  NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
-                  COALESCE(tm.artist_display, t.artist)
-                ) = a.artist
+           LEFT JOIN library_track_display d ON d.id = t.id
            WHERE t.id = ?`,
         )
         .get(item.trackId) as
@@ -90,9 +86,10 @@ export class UserEditedMetadataWriter {
             release_date,
             artwork_cache_key,
             source,
+            override_mask,
             refreshed_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user_edit', CURRENT_TIMESTAMP)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'legacy_user_edit', ${ALL_METADATA_OVERRIDES}, CURRENT_TIMESTAMP)
           ON CONFLICT(track_id) DO UPDATE SET
             title = excluded.title,
             artist_display = excluded.artist_display,
@@ -106,6 +103,7 @@ export class UserEditedMetadataWriter {
               excluded.artwork_cache_key
             ),
             source = excluded.source,
+            override_mask = excluded.override_mask,
             refreshed_at = CURRENT_TIMESTAMP`,
         )
         .run(

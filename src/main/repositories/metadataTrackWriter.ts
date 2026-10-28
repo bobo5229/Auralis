@@ -7,11 +7,14 @@ import {
 import type { RefreshedTrackMetadata } from './metadataRefreshRepositoryTypes'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
 import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
+import { prepareFileMetadataProjection } from './fileMetadataProjection'
+import { captureArtworkAlbum } from './trackArtworkProjection'
 
 export class MetadataTrackWriter {
   constructor(private readonly db: Database.Database) {}
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
+    const project = prepareFileMetadataProjection(this.db)
     // These results do not carry a stable sidecar snapshot. Invalidate that
     // derived scan fingerprint so the next scan verifies the current lyric sidecars.
     // Full file_tag write — skipped when user_edit must be preserved.
@@ -53,7 +56,7 @@ export class MetadataTrackWriter {
         END,
         source = excluded.source,
         refreshed_at = CURRENT_TIMESTAMP
-      WHERE track_metadata.source IS NOT 'user_edit'
+      WHERE track_metadata.source NOT IN ('user_edit', 'legacy_user_edit')
     `)
 
     // Technical + non-display fields only (keeps user-edited display columns).
@@ -126,7 +129,7 @@ export class MetadataTrackWriter {
           END,
           refreshed_at = CURRENT_TIMESTAMP
       WHERE track_id = ?
-        AND source = 'user_edit'
+        AND source IN ('user_edit', 'legacy_user_edit')
     `)
 
     const upsertAlbum = this.db.prepare(`
@@ -170,6 +173,7 @@ export class MetadataTrackWriter {
 
     const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
       this.assertTrackIdentity(metadata)
+      const previous = captureArtworkAlbum(this.db, metadata.trackId)
       this.db
         .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = ? AND file_path = ?')
         .run(
@@ -180,7 +184,8 @@ export class MetadataTrackWriter {
       const existingSource = this.db
         .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
         .get(metadata.trackId) as { source: string } | undefined
-      const preserveUserEdit = existingSource?.source === 'user_edit'
+      const preserveUserEdit =
+        existingSource?.source === 'user_edit' || existingSource?.source === 'legacy_user_edit'
       const artists = cleanDelimitedValues(
         metadata.artists.length > 0
           ? metadata.artists
@@ -229,6 +234,7 @@ export class MetadataTrackWriter {
           metadata.trackId,
           metadata.sourceFilePath,
         )
+        project(metadata.trackId, metadata.sourceFilePath, metadata.fileTags, metadata, previous)
         return
       }
 
@@ -293,6 +299,7 @@ export class MetadataTrackWriter {
         deleteTrackArtists,
         insertTrackArtist,
       )
+      project(metadata.trackId, metadata.sourceFilePath, metadata.fileTags, metadata, previous)
     })
 
     write(result)

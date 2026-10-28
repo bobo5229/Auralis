@@ -8,6 +8,7 @@ import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '@main/logging/logger'
 import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
 import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
+import { MetadataSaveError } from './metadataSaveError'
 
 export interface MetadataWriteCoordinator {
   tryAcquireWriteLease: (
@@ -116,11 +117,25 @@ export class MetadataTagWriteCoordinator {
     const existing = this.repository.getEditableTrackMetadata(metadata.trackId)
     if (
       metadata.lyricsText === undefined &&
+      !metadata.commitFileTags &&
       !this.pendingPublishedWrites.has(metadata.trackId) &&
       existing &&
       isSameEditableMetadata(metadata, existing)
     )
       return { ok: true }
+
+    // Old user overrides may contain independently edited year and date values.
+    // Do not silently reconcile them while saving an unrelated field.
+    if (
+      metadata.lyricsText === undefined &&
+      !metadata.commitFileTags &&
+      !this.pendingPublishedWrites.has(metadata.trackId) &&
+      existing?.year != null &&
+      existing.releaseDate &&
+      existing.year !== Number(existing.releaseDate.slice(0, 4)) &&
+      metadata.releaseDate === existing.releaseDate
+    )
+      return { ok: false, reason: 'legacy-date-conflict' }
 
     let writeLeaseId: string | null = null
     let usesPlaybackWriter = false
@@ -164,7 +179,9 @@ export class MetadataTagWriteCoordinator {
         await assertMetadataFingerprint(result)
         if (this.trackGenerations.get(metadata.trackId) !== generation)
           throw new Error('Tag write became stale')
+        this.assertEditRevision(metadata)
         if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
+        else if (metadata.commitFileTags) this.repository.commitVerifiedFileEdit(result)
         else this.repository.commitVerifiedUserEdit(metadata, result)
         this.pendingPublishedWrites.delete(metadata.trackId)
         databaseCommitted = true
@@ -184,7 +201,7 @@ export class MetadataTagWriteCoordinator {
         if (result.ok && libraryRevision) return { ...result, libraryRevision }
         return result
       }
-      if (metadata.lyricsText !== undefined) {
+      if (metadata.lyricsText !== undefined || metadata.commitFileTags) {
         const prepared = await prepareAudioTagWrite(filePath, metadata, this.ffmpegPath)
         try {
           await commitAndReconcile(() => prepared.commit())
@@ -233,6 +250,17 @@ export class MetadataTagWriteCoordinator {
     this.reconciliation = reconciliation
   }
 
+  private assertEditRevision(metadata: EditableTrackMetadata): void {
+    if (
+      metadata.expectedEditRevision !== undefined &&
+      metadata.expectedEditRevision !== this.repository.getMetadataEditRevision(metadata.trackId)
+    )
+      throw new MetadataSaveError(
+        'metadata-conflict',
+        'Metadata changed before the database commit',
+      )
+  }
+
   async awaitReconciliation(): Promise<void> {
     while (this.reconciliation) await this.reconciliation
     await this.reconcilePublishedWrites()
@@ -261,7 +289,9 @@ export class MetadataTagWriteCoordinator {
           this.repository.getTrackFilePath(trackId) !== filePath
         )
           continue
+        this.assertEditRevision(metadata)
         if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
+        else if (metadata.commitFileTags) this.repository.commitVerifiedFileEdit(result)
         else this.repository.commitVerifiedUserEdit(metadata, result)
         this.pendingPublishedWrites.delete(trackId)
         this.onTagWriteSuccess?.(filePath)

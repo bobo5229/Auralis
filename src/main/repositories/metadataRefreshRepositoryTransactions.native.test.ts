@@ -158,7 +158,9 @@ describe('metadata repository writer transaction boundaries', () => {
     expect(snapshot(first.db)).toEqual(firstAfter)
     expect(first.repository.getEditableTrackMetadata(1)?.title).toBe('Edited')
     expect(second.repository.getEditableTrackMetadata(1)?.title).toBe('Second file title')
-    expect(first.db.prepare('SELECT source FROM track_metadata').pluck().get()).toBe('user_edit')
+    expect(first.db.prepare('SELECT source FROM track_metadata').pluck().get()).toBe(
+      'legacy_user_edit',
+    )
     expect(second.db.prepare('SELECT source FROM track_metadata').pluck().get()).toBe('file_tag')
   })
 })

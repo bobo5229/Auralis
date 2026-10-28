@@ -1,5 +1,5 @@
 import { ipcChannels } from '@shared/ipc/channels'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { UpdateTrackMetadataRequest } from '@shared/types/trackMetadata'
 import type { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import type { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
@@ -15,6 +15,8 @@ type MetadataOperations = Pick<
   | 'clearFailures'
   | 'getTrackMetadata'
   | 'updateTrackMetadata'
+  | 'getTrackEditSnapshot'
+  | 'saveTrackMetadata'
 >
 
 export interface MetadataIpcDependencies {
@@ -56,11 +58,14 @@ export function registerMetadataIpcHandlers(
   registrar.handle(ipcChannels.metadata.getTrackMetadata, (_event, payload: { trackId: number }) =>
     metadataRefreshService.getTrackMetadata(payload.trackId),
   )
+  registrar.handle(ipcChannels.metadata.getTrackEditSnapshot, (_event, payload) =>
+    metadataRefreshService.getTrackEditSnapshot(payload.trackId),
+  )
   registrar.handle(
     ipcChannels.metadata.updateTrackMetadata,
-    async (_event, payload: EditableTrackMetadata) => {
+    async (_event, payload: UpdateTrackMetadataRequest) => {
       try {
-        return await metadataRefreshService.updateTrackMetadata(payload)
+        return await metadataRefreshService.saveTrackMetadata(payload)
       } catch (error) {
         return { ok: false, reason: metadataSaveFailureReason(error) ?? 'save-failed' }
       }

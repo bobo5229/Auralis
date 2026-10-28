@@ -60,6 +60,8 @@ beforeEach(() => {
         fileSize: 100,
         fileFingerprint: { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 },
         fileMtimeMs: 100,
+        artworkCheckedFingerprint: JSON.stringify([100, 100, 1, 1, 1]),
+        embeddedArtworkCacheKey: `v2-${'a'.repeat(64)}.webp`,
         album: 'Album',
         albumArtist: 'Artist',
         artworkCacheKey: `v2-${'a'.repeat(64)}.webp`,

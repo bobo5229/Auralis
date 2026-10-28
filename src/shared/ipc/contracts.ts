@@ -146,6 +146,8 @@ export type UpdateTrackMetadataResult =
   | {
       ok: false
       reason:
+        | 'metadata-conflict'
+        | 'legacy-metadata-unresolved'
         | 'playback-in-use'
         | 'write-in-progress'
         | 'buffer-preparation-failed'
@@ -154,6 +156,8 @@ export type UpdateTrackMetadataResult =
         | 'playback-changed'
         | 'tag-preservation-failed'
         | 'tag-verification-failed'
+        | 'unsupported-date-precision'
+        | 'legacy-date-conflict'
         | 'tag-write-failed'
         | 'file-changed'
         | 'disk-full'
@@ -469,12 +473,16 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: EditableTrackMetadata | null
   }
+  'metadata:get-track-edit-snapshot': {
+    request: { trackId: number }
+    response: TrackMetadataEditSnapshot | null
+  }
   'metadata:get-track-edit-state': {
     request: { trackId: number }
     response: TrackEditStateResult
   }
   'metadata:update-track-metadata': {
-    request: EditableTrackMetadata
+    request: UpdateTrackMetadataRequest
     response: UpdateTrackMetadataResult
   }
   'window:control': {
@@ -504,3 +512,4 @@ export type IpcInvokeChannel = keyof IpcInvokeContract
 export type IpcRequest<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['request']
 
 export type IpcResponse<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['response']
+import type { TrackMetadataEditSnapshot, UpdateTrackMetadataRequest } from '../types/trackMetadata'

@@ -124,7 +124,7 @@ describe('parser version migration and automatic backfill', () => {
     const before = tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     migrateDatabase(db)
     const after = tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
-    expect(after).toEqual(
+    expect(after).toMatchObject(
       before.map((rows, i) =>
         i === 0
           ? rows.map((row) => ({
@@ -132,8 +132,18 @@ describe('parser version migration and automatic backfill', () => {
               metadata_parser_version: 'metadata:1',
               codec: null,
               file_stat_fingerprint: null,
+              title_fallback: null,
+              embedded_artwork_cache_key: null,
+              directory_artwork_cache_key: null,
+              embedded_artwork_checked_fingerprint: null,
             }))
-          : rows,
+          : i === 1
+            ? rows.map((row) => ({
+                ...(row as object),
+                source: 'legacy_user_edit',
+                override_mask: 127,
+              }))
+            : rows,
       ),
     )
     expect(getMetadataParserVersion('song.mp3')).not.toBe('metadata:1')
@@ -201,6 +211,9 @@ describe('parser version migration and automatic backfill', () => {
       encodeScanFileFingerprint(scanFileFingerprint(fingerprint)),
       path,
     )
+    db.prepare(
+      `UPDATE tracks SET embedded_artwork_checked_fingerprint=file_stat_fingerprint,directory_artwork_checked_fingerprint='absent' WHERE file_path=?`,
+    ).run(path)
     const failures: string[] = []
     const reader = new LibraryScanTrackReader(
       tracks.getKnownFiles(),
@@ -216,6 +229,9 @@ describe('parser version migration and automatic backfill', () => {
     db.prepare('UPDATE tracks SET metadata_parser_version=? WHERE id=1').run(
       getMetadataParserVersion(path),
     )
+    db.prepare(
+      `UPDATE tracks SET embedded_artwork_checked_fingerprint=file_stat_fingerprint,directory_artwork_checked_fingerprint='absent' WHERE id=1`,
+    ).run()
     const before = db.prepare('SELECT * FROM tracks WHERE id=1').get()
     expect(await read()).toEqual({ kind: 'skip' })
     expect(await read()).toEqual({ kind: 'skip' })

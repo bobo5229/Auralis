@@ -39,16 +39,30 @@ export function migrateDatabase(
 
   const pendingMigrations = migrations.filter((migration) => !hasMigration.get(migration.id))
 
-  if (pendingMigrations.length > 0 && databasePath && databasePath !== ':memory:') {
-    const resolvedBackupsDir = resolveBackupsDir(databasePath, backupsDir)
-    if (resolvedBackupsDir) {
-      createPreMigrationBackup({
-        db,
-        databasePath,
-        targetVersion: pendingMigrations[0].id,
-        backupsDir: resolvedBackupsDir,
-      })
-    }
+  if (pendingMigrations.length > 0 && !db.memory) {
+    const actualDatabasePath = databasePath ?? db.name
+    const hasExistingData = Boolean(
+      db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations' LIMIT 1",
+        )
+        .get(),
+    )
+    const resolvedBackupsDir = databasePath
+      ? resolveBackupsDir(actualDatabasePath, backupsDir)
+      : (backupsDir ??
+        (actualDatabasePath ? join(dirname(actualDatabasePath), 'backups') : undefined))
+    const backup =
+      hasExistingData && resolvedBackupsDir
+        ? createPreMigrationBackup({
+            db,
+            databasePath: actualDatabasePath,
+            targetVersion: pendingMigrations[0].id,
+            backupsDir: resolvedBackupsDir,
+          })
+        : null
+    if (hasExistingData && !backup)
+      throw new Error('Database migration requires a successful pre-migration backup')
   }
 
   const insertMigration = db.prepare('INSERT INTO schema_migrations (id, name) VALUES (?, ?)')

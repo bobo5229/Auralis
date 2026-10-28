@@ -7,7 +7,8 @@ import {
   normalizeIdentityText,
   buildMetadataSignature,
 } from './metadataNormalizer'
-import { writeArtworkToCache } from '../artwork/artworkCache'
+import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
+import { getDirectoryArtworkFingerprint } from '../artwork/directoryArtwork'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
 import type { StableTrackMetadata } from './metadataRefreshTypes'
 import {
@@ -24,7 +25,11 @@ export class MetadataFileChangedError extends Error {
 export async function assertMetadataFingerprint(
   result: Pick<
     StableTrackMetadata,
-    'sourceFilePath' | 'fileSize' | 'fileMtimeMs' | 'fileFingerprint'
+    | 'sourceFilePath'
+    | 'fileSize'
+    | 'fileMtimeMs'
+    | 'fileFingerprint'
+    | 'directoryArtworkFingerprint'
   >,
 ): Promise<void> {
   const current = await stat(result.sourceFilePath)
@@ -32,7 +37,10 @@ export async function assertMetadataFingerprint(
     !current.isFile() ||
     current.size !== result.fileSize ||
     current.mtimeMs !== result.fileMtimeMs ||
-    !hasSameScanFileFingerprint(current, result.fileFingerprint)
+    !hasSameScanFileFingerprint(current, result.fileFingerprint) ||
+    (result.directoryArtworkFingerprint !== undefined &&
+      result.directoryArtworkFingerprint !==
+        (await getDirectoryArtworkFingerprint(result.sourceFilePath)))
   ) {
     throw new MetadataFileChangedError()
   }
@@ -59,18 +67,11 @@ export async function readStableMetadata(
         fileFingerprint: scanFileFingerprint(before),
       }
       await assertMetadataFingerprint(fingerprint)
-      const picture = metadata.common.picture?.[0]
-      const artworkCacheKey = picture
-        ? await writeArtworkToCache(
-            artworkCacheDir,
-            {
-              data: Buffer.from(picture.data),
-              mimeType: picture.format,
-            },
-            filePath,
-          )
-        : null
-      await assertMetadataFingerprint(fingerprint)
+      const artwork = await readArtworkForFile(filePath, metadata, artworkCacheDir)
+      await assertMetadataFingerprint({
+        ...fingerprint,
+        directoryArtworkFingerprint: artwork.directoryArtworkFingerprint,
+      })
       // User edits verify the parsed tags locally; refresh results only carry
       // fields consumed by the repository, without serialized tag snapshots.
       verifyTags?.(metadata)
@@ -81,7 +82,7 @@ export async function readStableMetadata(
         trackId,
         lyricsText: lyrics?.text ?? null,
         lyricsFormat: lyrics?.format ?? null,
-        artworkCacheKey,
+        ...artwork,
         metadataSignature: buildMetadataSignature(
           normalizeIdentityText(metadata),
           normalized.durationSeconds,

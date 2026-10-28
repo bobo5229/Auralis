@@ -61,9 +61,9 @@ async function fixture() {
   db.prepare(
     "INSERT INTO track_metadata(track_id,title,genre_display,artwork_cache_key,source) VALUES(?,'Edited title','Live; Pop',?,'user_edit')",
   ).run(id, track.artworkCacheKey)
-  db.prepare("INSERT INTO artists(id,name) VALUES(1,'Artist')").run()
+  db.prepare("INSERT OR IGNORE INTO artists(id,name) VALUES(1,'Artist')").run()
   db.prepare(
-    "INSERT INTO track_artists(track_id,artist_id,position,role) VALUES(?,1,0,'primary')",
+    "INSERT OR IGNORE INTO track_artists(track_id,artist_id,position,role) VALUES(?,1,0,'primary')",
   ).run(id)
   db.prepare("INSERT INTO playlists(id,name) VALUES(1,'Favorites')").run()
   db.prepare('INSERT INTO playlist_tracks(playlist_id,track_id,position) VALUES(1,?,0)').run(id)
@@ -163,7 +163,7 @@ it('preserves shared albums, artists and other playlist entries', async () => {
   ])
   const otherId = db.prepare('SELECT MAX(id) FROM tracks').pluck().get() as number
   db.prepare(
-    "INSERT INTO track_artists(track_id,artist_id,position,role) VALUES(?,1,0,'primary')",
+    "INSERT OR IGNORE INTO track_artists(track_id,artist_id,position,role) VALUES(?,1,0,'primary')",
   ).run(otherId)
   db.prepare('INSERT INTO playlist_tracks(playlist_id,track_id,position) VALUES(1,?,1)').run(
     otherId,

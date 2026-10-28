@@ -29,6 +29,7 @@ interface UseLibraryMetadataEditorOptions {
   loadTrackMetadata: (trackId: number) => Promise<EditableTrackMetadata | null>
   updateTrackMetadata: (
     metadata: EditableTrackMetadata,
+    baseline?: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
   captureRouteScope: () => LibraryRouteScope
   refreshLibrary: (libraryRevision?: string) => Promise<LibraryMetadataRefreshResult>
@@ -231,7 +232,10 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       return
     }
 
-    const unchanged = saveCommit.isUnchanged(metadata, editingMetadata.value)
+    const unchanged =
+      (!metadata.legacyAction ||
+        saveCommit.current?.metadata.legacyAction === metadata.legacyAction) &&
+      saveCommit.isUnchanged(metadata, editingMetadata.value)
     isSavingMetadata.value = true
     errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
@@ -251,7 +255,13 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       }
       if (!unchanged) {
         saveCommit.beginWrite(metadata.trackId)
-        const saveResult = await options.updateTrackMetadata(metadata)
+        const baseline = {
+          ...(saveCommit.current?.metadata ?? editingMetadata.value),
+          editToken: editingMetadata.value.editToken,
+        }
+        const saveResult = editingMetadata.value.editToken
+          ? await options.updateTrackMetadata(metadata, baseline)
+          : await options.updateTrackMetadata(metadata)
         if (!isCurrentSave()) return
 
         if (

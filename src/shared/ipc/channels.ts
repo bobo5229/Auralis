@@ -94,6 +94,7 @@ export const ipcChannels = {
     listRefreshFailures: 'metadata:list-refresh-failures',
     clearRefreshFailures: 'metadata:clear-refresh-failures',
     getTrackMetadata: 'metadata:get-track-metadata',
+    getTrackEditSnapshot: 'metadata:get-track-edit-snapshot',
     getTrackEditState: 'metadata:get-track-edit-state',
     updateTrackMetadata: 'metadata:update-track-metadata',
     refreshProgress: 'metadata:refresh-progress',

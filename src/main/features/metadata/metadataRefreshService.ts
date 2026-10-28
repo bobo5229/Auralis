@@ -5,6 +5,8 @@ import type { MetadataRefreshWorkerInput } from './metadataRefreshTypes'
 import type { MetadataRefreshEvents } from './metadataRefreshEvents'
 import { MetadataRefreshWorkerHost } from './metadataRefreshWorkerHost'
 import { logger } from '@main/logging/logger'
+import { MetadataEditSessions } from './metadataEditSessions'
+import type { UpdateTrackMetadataRequest } from '@shared/types/trackMetadata'
 import {
   MetadataTagWriteCoordinator,
   type MetadataWriteCoordinator,
@@ -15,6 +17,8 @@ export type { MetadataWriteCoordinator } from './metadataTagWriteCoordinator'
 export type { MetadataRefreshProgress } from './metadataRefreshWorkerHost'
 
 export class MetadataRefreshService {
+  private readonly editSessions: MetadataEditSessions
+  private readonly editOperations = new Set<Promise<unknown>>()
   private readonly workerHost: MetadataRefreshWorkerHost
   private readonly tagWrites: MetadataTagWriteCoordinator
   private stopping = false
@@ -36,6 +40,20 @@ export class MetadataRefreshService {
     coordinator?: MetadataWriteCoordinator,
     readLibraryRevision?: () => string,
   ) {
+    this.editSessions = new MetadataEditSessions(
+      repository,
+      (metadata, beforeCommit) => this.tagWrites.updateTrackMetadata(metadata, beforeCommit),
+      (trackId, filePath) => {
+        const libraryRevision = readLibraryRevision?.()
+        events.libraryChanged({
+          reason: 'metadata-refresh',
+          trackIds: [trackId],
+          filePaths: [filePath],
+          ...(libraryRevision ? { libraryRevision } : {}),
+        })
+        return libraryRevision
+      },
+    )
     this.tagWrites = new MetadataTagWriteCoordinator(
       repository,
       artworkCacheDir,
@@ -154,12 +172,17 @@ export class MetadataRefreshService {
 
   async shutdown(): Promise<void> {
     this.stopping = true
+    // Close worker acceptance synchronously before awaiting editor reads or writes.
+    const workerShutdown = this.workerHost.shutdown()
+    void workerShutdown.catch(() => undefined)
     if (this.legacyRecoveryTimer) clearTimeout(this.legacyRecoveryTimer)
     this.legacyRecoveryTimer = null
     try {
+      await Promise.allSettled([...this.editOperations])
+      this.editSessions.clear()
       if (this.preemption) await this.preemption
       await this.tagWrites.drain()
-      await this.workerHost.shutdown()
+      await workerShutdown
       await this.tagWrites.awaitReconciliation()
     } finally {
       this.legacyRecoveryJob = null
@@ -288,6 +311,25 @@ export class MetadataRefreshService {
 
   getTrackMetadata(trackId: number) {
     return this.repository.getEditableTrackMetadata(trackId)
+  }
+
+  getTrackEditSnapshot(trackId: number) {
+    this.assertRunning()
+    return this.trackEditOperation(this.editSessions.load(trackId))
+  }
+
+  saveTrackMetadata(request: UpdateTrackMetadataRequest): Promise<UpdateTrackMetadataResult> {
+    this.assertRunning()
+    return this.trackEditOperation(this.editSessions.save(request))
+  }
+
+  private trackEditOperation<T>(operation: Promise<T>): Promise<T> {
+    this.editOperations.add(operation)
+    void operation.then(
+      () => this.editOperations.delete(operation),
+      () => this.editOperations.delete(operation),
+    )
+    return operation
   }
 
   updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseFile } from 'music-metadata'
 import { stat } from 'node:fs/promises'
 import { statSync } from 'node:fs'
-import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
+import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
 import type { TrackRepository } from '../../repositories/trackRepository'
 import { LibraryIncrementalImportService } from './libraryIncrementalImportService'
 
@@ -14,7 +14,7 @@ vi.mock('node:fs', async (importOriginal) => ({
 }))
 vi.mock('music-metadata', () => ({ parseFile: vi.fn() }))
 vi.mock('../metadata/resolveLyricsForFile', () => ({ resolveLyricsForFile: async () => null }))
-vi.mock('../artwork/resolveArtworkForFile', () => ({ resolveArtworkForFile: vi.fn() }))
+vi.mock('../artwork/resolveArtworkForFile', () => ({ readArtworkForFile: vi.fn() }))
 vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn() } }))
 
 function setup() {
@@ -43,7 +43,9 @@ beforeEach(() => {
       if (path === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
       return { size: 100, mtimeMs: 100 } as ReturnType<typeof statSync>
     })
-  vi.mocked(resolveArtworkForFile).mockReset().mockResolvedValue(null)
+  vi.mocked(readArtworkForFile)
+    .mockReset()
+    .mockResolvedValue({ artworkCacheKey: null, artworkRead: { status: 'absent' } })
   vi.mocked(stat)
     .mockReset()
     .mockResolvedValue({ size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>)
@@ -126,12 +128,12 @@ describe('incremental import batching', () => {
       const { service, repo, send } = setup()
       const fingerprint = { size: 100, mtimeMs: 100, ctimeMs: 100, dev: 1, ino: 1 }
       vi.mocked(stat).mockResolvedValue(fingerprint as Awaited<ReturnType<typeof stat>>)
-      vi.mocked(resolveArtworkForFile).mockImplementationOnce(async () => {
+      vi.mocked(readArtworkForFile).mockImplementationOnce(async () => {
         vi.mocked(stat).mockResolvedValue({
           ...fingerprint,
           [field]: fingerprint[field] + 1,
         } as Awaited<ReturnType<typeof stat>>)
-        return null
+        return { artworkCacheKey: null, artworkRead: { status: 'absent' } }
       })
       const pending = service.importFiles(['changed.flac'])
       await vi.runAllTimersAsync()
@@ -147,9 +149,9 @@ describe('incremental import batching', () => {
     'defers a file that becomes inaccessible after parsing: %s',
     async (code) => {
       const { service, repo, send } = setup()
-      vi.mocked(resolveArtworkForFile).mockImplementationOnce(async () => {
+      vi.mocked(readArtworkForFile).mockImplementationOnce(async () => {
         vi.mocked(stat).mockRejectedValue(Object.assign(new Error(code), { code }))
-        return null
+        return { artworkCacheKey: null, artworkRead: { status: 'absent' } }
       })
       const pending = service.importFiles(['changed.flac'])
       await vi.runAllTimersAsync()

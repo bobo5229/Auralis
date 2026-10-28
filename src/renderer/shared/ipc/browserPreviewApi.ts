@@ -45,6 +45,7 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'playback.getAlbumTracks':
     case 'lyrics.getByTrackId':
     case 'metadata.getTrackMetadata':
+    case 'metadata.getTrackEditSnapshot':
     case 'metadata.getRefreshStatus':
     case 'smartPlaylists.getDetail':
     case 'playlists.getDetail':

@@ -6,7 +6,8 @@ import {
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
 import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
-import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
+import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
+import { getDirectoryArtworkFingerprintSync } from '../artwork/directoryArtwork'
 import { checkFileStability } from './fileStabilityChecker'
 import { findUniqueRelocations } from './trackRelocationMatcher'
 import { scanFileFingerprint } from './libraryScanFileFingerprint'
@@ -148,7 +149,13 @@ export class LibraryIncrementalImportService {
       for (const track of parsedTracks.slice(offset, offset + IMPORT_BATCH_SIZE)) {
         // Parsing other batches and checking old paths may have taken a long time.
         // Keep the last check and the synchronous DB mutation in the same turn.
-        if (!this.isCurrentFile(track.filePath, fingerprints.get(track.filePath)!)) {
+        if (
+          !this.isCurrentFile(
+            track.filePath,
+            fingerprints.get(track.filePath)!,
+            track.directoryArtworkFingerprint,
+          )
+        ) {
           result.unstable.push(track.filePath)
           continue
         }
@@ -177,7 +184,14 @@ export class LibraryIncrementalImportService {
       if (additions.length) {
         // Relocations and their event callbacks run before this batch upsert.
         const currentAdditions = additions.filter((track) => {
-          if (this.isCurrentFile(track.filePath, fingerprints.get(track.filePath)!)) return true
+          if (
+            this.isCurrentFile(
+              track.filePath,
+              fingerprints.get(track.filePath)!,
+              track.directoryArtworkFingerprint,
+            )
+          )
+            return true
           result.unstable.push(track.filePath)
           return false
         })
@@ -201,9 +215,17 @@ export class LibraryIncrementalImportService {
     return result
   }
 
-  private isCurrentFile(filePath: string, fingerprint: Stats): boolean {
+  private isCurrentFile(
+    filePath: string,
+    fingerprint: Stats,
+    directoryArtworkFingerprint?: string,
+  ): boolean {
     try {
-      return hasSameFingerprint(fingerprint, statSync(filePath))
+      return (
+        hasSameFingerprint(fingerprint, statSync(filePath)) &&
+        (directoryArtworkFingerprint === undefined ||
+          directoryArtworkFingerprint === getDirectoryArtworkFingerprintSync(filePath))
+      )
     } catch {
       return false
     }
@@ -250,7 +272,7 @@ export class LibraryIncrementalImportService {
       const metadata = await parseFile(filePath, { duration: true })
       const normalized = normalizeMetadata(metadata, filePath)
       const lyrics = await resolveLyricsForFile(filePath, metadata)
-      const artworkCacheKey = await resolveArtworkForFile(filePath, metadata, this.artworkCacheDir)
+      const artwork = await readArtworkForFile(filePath, metadata, this.artworkCacheDir)
       try {
         if (!hasSameFingerprint(fileStat, await stat(filePath))) return null
       } catch {
@@ -266,6 +288,8 @@ export class LibraryIncrementalImportService {
       return {
         track: {
           filePath,
+          fileTags: normalized.fileTags,
+          ...artwork,
           fileFingerprint: scanFileFingerprint(fileStat),
           metadataParserVersion: getMetadataParserVersion(filePath),
           fileSize: fileStat.size,
@@ -284,7 +308,7 @@ export class LibraryIncrementalImportService {
           copyright: normalized.copyright,
           composer: normalized.composer,
           genre: normalized.genre,
-          artworkCacheKey,
+          artworkCacheKey: artwork.artworkCacheKey,
           lyricsText: lyrics?.text ?? null,
           lyricsFormat: lyrics?.format ?? null,
           isrc: identity.isrc,

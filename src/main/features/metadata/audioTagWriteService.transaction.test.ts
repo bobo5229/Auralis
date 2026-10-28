@@ -173,6 +173,31 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     ['m4a', 'aac'],
     ['ogg', 'libvorbis'],
     ['opus', 'libopus'],
+  ])('round-trips year, day and clear dates in %s', async (extension, codec) => {
+    const target = join(directory, `dates-${extension}.${extension}`)
+    execFileSync(ffmpeg, ['-nostdin', '-v', 'error', '-y', '-i', file, '-c:a', codec, target], {
+      windowsHide: true,
+    })
+    for (const date of ['2024', '2024-02', '2024-02-29', null]) {
+      if (extension === 'mp3' && date === '2024-02') {
+        const before = await readFile(target)
+        await expect(
+          writeAudioTags(target, { ...edit, releaseDate: date, year: 1999 }, ffmpeg),
+        ).rejects.toMatchObject({ reason: 'unsupported-date-precision' })
+        expect(await readFile(target)).toEqual(before)
+        continue
+      }
+      await writeAudioTags(target, { ...edit, releaseDate: date, year: 1999 }, ffmpeg)
+      const result = await metadataParser.parseAudioMetadata(target)
+      expect((await import('./metadataNormalizer')).resolveFileDate(result)).toBe(date)
+    }
+  })
+  it.each([
+    ['flac', 'flac'],
+    ['mp3', 'libmp3lame'],
+    ['m4a', 'aac'],
+    ['ogg', 'libvorbis'],
+    ['opus', 'libopus'],
   ])(
     'refuses to overwrite embedded TTML in %s before creating a staging file',
     async (extension, codec) => {

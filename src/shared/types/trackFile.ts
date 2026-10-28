@@ -7,6 +7,9 @@ export interface TrackFileFingerprint {
 }
 
 export interface KnownTrackFile {
+  directoryArtworkFingerprint?: string | null
+  embeddedArtworkCacheKey?: string | null
+  artworkCheckedFingerprint?: string | null
   fileFingerprint?: TrackFileFingerprint | null
   filePath: string
   fileSize: number | null

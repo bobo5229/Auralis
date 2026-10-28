@@ -88,6 +88,34 @@ afterEach(() => {
 })
 
 describe('complete WAL backup snapshots', () => {
+  it('does not migrate an existing database when the consistent backup fails', () => {
+    const path = join(tempDir, 'library.sqlite')
+    const db = createWalDatabase(path, 29)
+    addCommittedWalData(db)
+    const invalidBackupsDir = join(tempDir, 'not-a-directory')
+    writeFileSync(invalidBackupsDir, 'file')
+    expect(() => migrateDatabase(db, path, invalidBackupsDir)).toThrow(
+      'Database migration requires a successful pre-migration backup',
+    )
+    expect(db.prepare('SELECT MAX(id) FROM schema_migrations').pluck().get()).toBe(29)
+    expect(userData(db)).toEqual({ playlists: 1, members: 1, plays: 9 })
+  })
+
+  it('enforces the backup when the caller omits the database path', () => {
+    const path = join(tempDir, 'inferred.sqlite')
+    const db = createWalDatabase(path, 29)
+    addCommittedWalData(db)
+    const invalidBackupsDir = join(tempDir, 'not-a-directory')
+    writeFileSync(invalidBackupsDir, 'file')
+    expect(() => migrateDatabase(db, undefined, invalidBackupsDir)).toThrow(
+      'Database migration requires a successful pre-migration backup',
+    )
+    expect(db.prepare('SELECT MAX(id) FROM schema_migrations').pluck().get()).toBe(29)
+    migrateDatabase(db)
+    expect(readdirSync(join(tempDir, 'backups'))).toHaveLength(1)
+    expect(userData(db)).toEqual({ playlists: 1, members: 1, plays: 9 })
+  })
+
   it.each(['current', 'other'])(
     'stages committed WAL from a live %s database and restores it',
     async (selection) => {

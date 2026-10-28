@@ -25,6 +25,50 @@ afterEach(() => {
 })
 
 describe('metadata watcher shutdown', () => {
+  it('refreshes same-directory tracks when cover.jpg changes even though audio fingerprints are unchanged', async () => {
+    vi.useFakeTimers()
+    const root = normalize('C:/isolated-music')
+    const filePath = normalize('C:/isolated-music/track.flac')
+    const nested = normalize('C:/isolated-music/sub/track.flac')
+    const fingerprint = { size: 10, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1 }
+    vi.mocked(stat)
+      .mockReset()
+      .mockResolvedValue({ ...fingerprint, isFile: () => true } as Awaited<ReturnType<typeof stat>>)
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    const refresh = vi.fn(() => ({ jobId: 1 }))
+    const service = new MetadataWatchService(
+      { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
+      {
+        getWatchRecoveryTracks: () => [
+          { filePath, lyricsSidecarFingerprint: null },
+          { filePath: nested, lyricsSidecarFingerprint: null },
+        ],
+        getExistingFilePaths: () => new Set([filePath, nested]),
+        getTrackIdsByPlaybackPath: () => [],
+        getFilePathById: () => null,
+        adoptPlaybackPath: () => false,
+        markAvailableByFilePaths: () => [],
+        getFileFingerprintsByFilePaths: () =>
+          new Map([[filePath, { fileSize: 10, fileMtimeMs: 1, fileFingerprint: fingerprint }]]),
+        getTrackIdsByFilePaths: (paths: string[]) => (paths.includes(filePath) ? [1] : []),
+      } as unknown as TrackRepository,
+      {
+        refreshTracksFromFileChanges: refresh,
+        isWritingFile: () => false,
+      } as unknown as MetadataRefreshService,
+      { importFiles: vi.fn() } as unknown as LibraryIncrementalImportService,
+      vi.fn(),
+    )
+    service.start()
+    notify('change', 'cover.jpg')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    await service.stop()
+  })
   it('preserves deferred availability work when tag-write suppression starts during import', async () => {
     vi.useFakeTimers()
     const filePath = normalize('C:/isolated-music/track.flac')

@@ -4,6 +4,10 @@ import type { EditableTrackMetadata, MetadataRefreshFailure } from '@shared/type
 import { BaseRepository } from './baseRepository'
 import { UserEditedMetadataWriter } from './userEditedMetadataWriter'
 import { MetadataTrackWriter } from './metadataTrackWriter'
+import type { FileTagValues } from '@shared/types/trackMetadata'
+import { prepareFileMetadataProjection } from './fileMetadataProjection'
+import { captureArtworkAlbum, refreshArtworkAlbum } from './trackArtworkProjection'
+import { decodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import type {
   MetadataRefreshJob,
   TrackForMetadataRefresh,
@@ -330,6 +334,70 @@ export class MetadataRefreshRepository extends BaseRepository {
 
   getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
     return this.userEditWriter.getEditableTrackMetadata(trackId)
+  }
+
+  getMetadataEditRevision(trackId: number): string {
+    return JSON.stringify(
+      this.db
+        .prepare(
+          `SELECT t.file_path,t.title,t.artist,t.album,t.album_artist,t.genre,t.year,t.release_date,
+      tm.title AS override_title,tm.artist_display,tm.album_title,tm.album_artist_display,tm.genre_display,
+      tm.year AS override_year,tm.release_date AS override_date,tm.source,tm.override_mask
+      FROM tracks t LEFT JOIN track_metadata tm ON tm.track_id=t.id WHERE t.id=?`,
+        )
+        .get(trackId) ?? null,
+    )
+  }
+
+  getMetadataFileFingerprint(trackId: number) {
+    return decodeScanFileFingerprint(
+      this.db
+        .prepare('SELECT file_stat_fingerprint FROM tracks WHERE id=?')
+        .pluck()
+        .get(trackId) as string | null,
+    )
+  }
+
+  getLegacyMetadata(trackId: number): EditableTrackMetadata | null {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM track_metadata WHERE track_id=?
+      AND (override_mask!=0 OR source IN ('user_edit','legacy_user_edit'))`,
+      )
+      .get(trackId)
+    return row ? this.getEditableTrackMetadata(trackId) : null
+  }
+
+  adoptFileMetadata(
+    trackId: number,
+    path: string,
+    tags: FileTagValues,
+    expectedRevision: string,
+  ): void {
+    this.db.transaction(() => {
+      const previous = captureArtworkAlbum(this.db, trackId)
+      if (
+        this.getMetadataEditRevision(trackId) !== expectedRevision ||
+        this.getTrackFilePath(trackId) !== path
+      )
+        throw new Error('Metadata changed before adopting file values')
+      this.db
+        .prepare(`UPDATE track_metadata SET source='file_tag',override_mask=0 WHERE track_id=?`)
+        .run(trackId)
+      prepareFileMetadataProjection(this.db)(trackId, path, tags, {}, previous)
+    })()
+  }
+
+  commitVerifiedFileEdit(result: RefreshedTrackMetadata): void {
+    this.db.transaction(() => {
+      this.trackWriter.assertTrackIdentity(result)
+      const previous = captureArtworkAlbum(this.db, result.trackId)
+      this.db
+        .prepare(`UPDATE track_metadata SET source='file_tag',override_mask=0 WHERE track_id=?`)
+        .run(result.trackId)
+      this.updateTrackMetadata(result)
+      if (previous) refreshArtworkAlbum(this.db, previous)
+    })()
   }
 
   updateUserEditedMetadata(metadata: EditableTrackMetadata): void {

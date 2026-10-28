@@ -145,7 +145,7 @@ describe('metadata fingerprint transactions', () => {
       metadataChecked: 200.25,
     })
     expect(db.prepare('SELECT source, title FROM track_metadata').get()).toEqual({
-      source: 'user_edit',
+      source: 'legacy_user_edit',
       title: edit.title,
     })
     expect(

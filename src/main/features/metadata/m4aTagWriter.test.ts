@@ -245,4 +245,42 @@ describe('M4A atom writes on isolated AAC and ALAC', () => {
       value: 'Private value',
     })
   })
+
+  it.each(['aac', 'alac'])('updates existing artist aliases in %s', async (codec) => {
+    const path = join(directory, `artist-aliases-${codec}.m4a`)
+    execFileSync(
+      ffmpeg,
+      ['-v', 'error', '-f', 'lavfi', '-i', 'sine=duration=0.1', '-c:a', codec, path],
+      {
+        windowsHide: true,
+      },
+    )
+    const file = new Mpeg4File(path, ReadStyle.None)
+    try {
+      file.tag.setItunesStrings('com.apple.iTunes', 'ARTISTS', 'Old artist', 'Other artist')
+      file.tag.setItunesStrings('com.apple.iTunes', 'ALBUMARTISTS', 'Old album artist')
+      file.tag.setItunesStrings('example.vendor', 'ARTISTS', 'Private artist')
+      file.tag.setItunesStrings('example.vendor', 'ALBUMARTISTS', 'Private album artist')
+      file.tag.setItunesStrings('example.vendor', 'PRIVATE', 'Preserve')
+      file.save()
+    } finally {
+      file.dispose()
+    }
+    await writeAudioTags(path, edit, ffmpeg)
+    const metadata = await parseAudioMetadata(path)
+    expect(metadata.native.iTunes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: '----:com.apple.iTunes:ARTISTS', value: 'AC/DC' }),
+        expect.objectContaining({ id: '----:com.apple.iTunes:ARTISTS', value: 'Artist B' }),
+        expect.objectContaining({ id: '----:com.apple.iTunes:ALBUMARTISTS', value: 'Album A' }),
+        expect.objectContaining({ id: '----:com.apple.iTunes:ALBUMARTISTS', value: 'Album B' }),
+        expect.objectContaining({ id: '----:example.vendor:PRIVATE', value: 'Preserve' }),
+        expect.objectContaining({ id: '----:example.vendor:ARTISTS', value: 'Private artist' }),
+        expect.objectContaining({
+          id: '----:example.vendor:ALBUMARTISTS',
+          value: 'Private album artist',
+        }),
+      ]),
+    )
+  })
 })

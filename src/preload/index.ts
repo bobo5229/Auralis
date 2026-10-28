@@ -160,6 +160,8 @@ export const auralisApi: AuralisApi = {
       invoke(ipcChannels.metadata.listRefreshFailures, limit ? { limit } : undefined),
     clearRefreshFailures: () => invoke(ipcChannels.metadata.clearRefreshFailures),
     getTrackMetadata: (trackId) => invoke(ipcChannels.metadata.getTrackMetadata, { trackId }),
+    getTrackEditSnapshot: (trackId) =>
+      invoke(ipcChannels.metadata.getTrackEditSnapshot, { trackId }),
     getTrackEditState: (trackId) => invoke(ipcChannels.metadata.getTrackEditState, { trackId }),
     updateTrackMetadata: (metadata) => invoke(ipcChannels.metadata.updateTrackMetadata, metadata),
     onRefreshProgress: (callback) => on(ipcChannels.metadata.refreshProgress, callback),

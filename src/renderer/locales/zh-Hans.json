@@ -938,6 +938,8 @@
         "saveFailed": "保存元数据失败",
         "tagPreservationFailed": "保存会丢失原有标签，已取消写入。编辑内容已保留。",
         "tagVerificationFailed": "写入结果与编辑内容不一致，保存未完成。请重新读取歌曲信息后核对。",
+        "unsupportedDatePrecision": "此格式暂不支持只包含年月的发行日期。请选择年份或完整日期。",
+        "legacyDateConflict": "已有年份与发行日期不一致。为保护原有数据，请先修改发行日期后再保存。",
         "tagWriteFailed": "无法生成更新后的标签文件。编辑内容已保留，请重试。",
         "fileChanged": "歌曲文件已被其他操作修改，本次保存已取消。请重新读取歌曲信息后重试。",
         "diskFull": "磁盘空间不足，无法完成保存。请释放空间后重试。",
@@ -948,7 +950,19 @@
         "bufferPreparationFailed": "暂时无法在播放中保存。编辑内容已保留，请重试或切曲后保存。",
         "fileInUse": "文件写回失败。编辑内容已保留，请检查文件占用或磁盘空间后重试。",
         "playbackRestoreFailed": "续播恢复失败。文件可能已更新，请重新读取元数据后核对。",
-        "playbackChanged": "播放状态已改变，本次保存未完成。编辑内容已保留，请核对后重试。"
+        "playbackChanged": "播放状态已改变，本次保存未完成。编辑内容已保留，请核对后重试。",
+        "metadataConflict": "文件或标签已变化。你输入的内容已保留，请重新打开并核对后保存。",
+        "legacyMetadataUnresolved": "请先选择如何处理历史保留值。"
+      },
+      "legacy": {
+        "title": "核对历史保留值",
+        "description": "曲库中保留了旧版编辑值。采用文件标签只更新曲库；写入保留值会修改音乐文件，并在成功后解除覆盖。",
+        "field": "字段",
+        "file": "文件标签",
+        "saved": "历史保留值",
+        "year": "年份",
+        "adopt": "采用文件标签",
+        "write": "将保留值写入文件"
       }
     },
     "status": {

@@ -60,9 +60,7 @@ function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () 
     getTracksByIds: vi.fn(() => [{ trackId: 1, filePath: 'isolated.flac' }]),
     getTracksWithMissingLyrics: vi.fn(() => [{ trackId: 1, filePath: 'isolated.flac' }]),
     pruneLegacyLyricsJobs: vi.fn(),
-    getLegacyTtmlTracks: vi.fn(
-      (_afterId: number, _limit: number) => [] as Array<{ trackId: number; filePath: string }>,
-    ),
+    getLegacyTtmlTracks: vi.fn<MetadataRefreshRepository['getLegacyTtmlTracks']>(() => []),
     updateLegacyTtmlLyrics: vi.fn(() => true),
     createJob: vi.fn(() => ++job),
     getTrackFilePath: vi.fn<MetadataRefreshRepository['getTrackFilePath']>(() => 'isolated.flac'),
@@ -100,6 +98,49 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it.each([
+    [2024, null, '2024'],
+    [2001, '2024-05-20', '2024-05-20'],
+  ])('does not rewrite an unchanged legacy date', async (year, oldDate, shownDate) => {
+    const { service, repo } = setup()
+    const existing = {
+      trackId: 1,
+      title: 'Title',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year,
+      releaseDate: oldDate,
+    }
+    repo.getEditableTrackMetadata.mockReturnValue(existing)
+    expect(
+      await service.updateTrackMetadata({ ...existing, year: 2024, releaseDate: shownDate }),
+    ).toEqual({ ok: true })
+    expect(writeAudioTags).not.toHaveBeenCalled()
+    await service.shutdown()
+  })
+
+  it('preserves a conflicting legacy year when another field is edited', async () => {
+    const { service, repo } = setup()
+    const existing = {
+      trackId: 1,
+      title: 'Title',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: 2001,
+      releaseDate: '2024-05-20',
+    }
+    repo.getEditableTrackMetadata.mockReturnValue(existing)
+    expect(await service.updateTrackMetadata({ ...existing, title: 'Changed' })).toEqual({
+      ok: false,
+      reason: 'legacy-date-conflict',
+    })
+    expect(writeAudioTags).not.toHaveBeenCalled()
+    await service.shutdown()
+  })
   it('writes the old database value when a failed save has already published another value', async () => {
     const { service, repo } = setup()
     const old = {

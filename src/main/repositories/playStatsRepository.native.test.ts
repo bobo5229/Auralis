@@ -282,7 +282,7 @@ it('ranks at most three daily tracks including removed history with stable ties 
     db.exec(`INSERT INTO tracks(id,file_path,title,artist) VALUES
       (1,'one.flac','One','Artist'),(2,'two.flac','Two','Artist'),
       (3,'three.flac','Three',NULL),(4,'four.flac','Four',NULL);
-      INSERT INTO track_metadata(track_id,title) VALUES(1,'Edited One');
+      INSERT INTO track_metadata(track_id,title,source,override_mask) VALUES(1,'Edited One','legacy_user_edit',1);
       INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
       ('2026-10-09',1,5,900),('2026-10-09',2,5,1200),('2026-10-09',3,5,900),('2026-10-09',4,0,0),
       ('2026-10-08',4,99,9999);
@@ -400,8 +400,8 @@ it('groups active and removed tracks together using current display metadata and
     db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist) VALUES
       (1,'edited.flac','Original','Original','Original Album','Original'),
       (2,'other.flac','Other','Other','Shared','Other');
-      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display,artwork_cache_key)
-      VALUES(1,'Edited','Artist','Shared','   ','edited-cover');
+      INSERT INTO track_metadata(track_id,title,artist_display,album_title,album_artist_display,artwork_cache_key,source,override_mask)
+      VALUES(1,'Edited','Artist','Shared','   ','edited-cover','legacy_user_edit',127);
       INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
       ('2026-10-09',1,2,600),('2026-10-09',2,3,900);
       INSERT INTO removed_track_history(id,title,artist,album,album_artist,artwork_cache_key,source_file_path,recovery_json)

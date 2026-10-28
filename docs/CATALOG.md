@@ -99,6 +99,7 @@
 
 ### metadata：元数据
 
+- [TECHDOC：元数据体系优化技术方案](topics/metadata/TECHDOC-metadata-system-optimization-2026-10-28.md) — 审计发现、数据权威与历史覆盖、日期与格式适配、编辑契约、封面来源及分阶段验收；含 2026-10-28 实施与独立验收记录。
 - [REPORT：当前曲库流派上层统计与映射草案](topics/metadata/REPORT-genre-upper-classification-2026-10-04.md)
 - [TECHDOC：多值元数据统一处理规则](topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)
 - [TECHDOC：播放器占用歌曲的元数据编辑限制](topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md)

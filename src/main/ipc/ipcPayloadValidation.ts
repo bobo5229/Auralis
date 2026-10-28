@@ -165,7 +165,6 @@ const nativePlaybackCommand: Validator = (value, path, context) => {
   objectShape(fields)(value, path, context)
 }
 const positiveLimit = finiteNumber({ integer: true, min: 1, max: MAX_ID_LIST_LENGTH })
-const metadataYear = finiteNumber({ integer: true })
 
 function enumValue(values: readonly string[]): Validator {
   return schemaValidator(v.picklist(values, 'has an unsupported value'))
@@ -370,13 +369,18 @@ const smartPlaylistRule: Validator = (value, path, context) => {
 
 const editableMetadata = objectShape({
   trackId: field(positiveId),
-  title: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
-  artistDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
-  albumTitle: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
-  albumArtistDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
-  genreDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
-  year: field(nullable(metadataYear)),
-  releaseDate: field(nullable(partialDate)),
+  editToken: field(stringValue({ min: 1, max: 128 })),
+  legacyAction: field(enumValue(['adopt-file', 'write-legacy']), true),
+  changes: field(
+    objectShape({
+      title: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      artistDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      albumTitle: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      albumArtistDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      genreDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      releaseDate: field(nullable(partialDate), true),
+    }),
+  ),
 })
 
 export const domainIpcPayloadPolicies = {
@@ -572,6 +576,9 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.metadata.getTrackMetadata]: required(idPayload('trackId')),
   [ipcChannels.metadata.getTrackEditState]: required(idPayload('trackId')),
   [ipcChannels.metadata.updateTrackMetadata]: required(editableMetadata),
+  [ipcChannels.metadata.getTrackEditSnapshot]: required(
+    objectShape({ trackId: field(positiveId) }),
+  ),
   [ipcChannels.window.control]: required(
     objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),
   ),

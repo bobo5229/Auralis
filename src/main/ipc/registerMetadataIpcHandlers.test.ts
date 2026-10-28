@@ -3,22 +3,13 @@ import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 import { MetadataSaveError } from '../features/metadata/metadataSaveError'
 
-const edit = {
-  trackId: 1,
-  title: 'Title',
-  artistDisplay: null,
-  albumTitle: null,
-  albumArtistDisplay: null,
-  genreDisplay: null,
-  year: null,
-  releaseDate: null,
-}
+const edit = { trackId: 1, editToken: 'test-token', changes: { title: 'Title' } }
 
 describe('metadata save failure transport', () => {
   it('passes the successful public library revision through the existing save IPC', async () => {
     const handlers = new Map<string, (...args: unknown[]) => unknown>()
     const service = {
-      updateTrackMetadata: vi.fn(async () => ({ ok: true as const, libraryRevision: '12:1' })),
+      saveTrackMetadata: vi.fn(async () => ({ ok: true as const, libraryRevision: '12:1' })),
     }
     registerMetadataIpcHandlers(
       {
@@ -33,7 +24,7 @@ describe('metadata save failure transport', () => {
       ok: true,
       libraryRevision: '12:1',
     })
-    expect(service.updateTrackMetadata).toHaveBeenCalledWith(edit)
+    expect(service.saveTrackMetadata).toHaveBeenCalledWith(edit)
   })
 
   it.each([
@@ -54,7 +45,7 @@ describe('metadata save failure transport', () => {
   ])('returns a safe reason for %s', async (error, reason) => {
     const handlers = new Map<string, (...args: unknown[]) => unknown>()
     const service = {
-      updateTrackMetadata: vi.fn(async () => {
+      saveTrackMetadata: vi.fn(async () => {
         throw error
       }),
     }
@@ -71,6 +62,6 @@ describe('metadata save failure transport', () => {
       ok: false,
       reason,
     })
-    expect(service.updateTrackMetadata).toHaveBeenCalledWith(edit)
+    expect(service.saveTrackMetadata).toHaveBeenCalledWith(edit)
   })
 })

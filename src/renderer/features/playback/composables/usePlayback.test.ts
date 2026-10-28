@@ -288,6 +288,7 @@ function createApi(): AuralisApi {
       listRefreshFailures: vi.fn(),
       clearRefreshFailures: vi.fn(),
       getTrackMetadata: vi.fn(),
+      getTrackEditSnapshot: vi.fn(),
       updateTrackMetadata: vi.fn(),
       getTrackEditState: vi.fn(async (trackId: number) => ({
         trackId,

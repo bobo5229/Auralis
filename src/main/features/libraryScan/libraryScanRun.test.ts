@@ -331,6 +331,12 @@ describe('scan orchestration boundaries', () => {
   })
 
   it('isolates artwork caches and counters across repeated runs of the same module', async () => {
+    const audioStat = harness.stat.getMockImplementation()!
+    harness.stat.mockImplementation(async (path: string) =>
+      path.endsWith('cover.jpg')
+        ? { size: 15, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 2 }
+        : audioStat(path),
+    )
     harness.readFile.mockImplementation(async (filePath: string) => {
       if (filePath.endsWith('cover.jpg')) return Buffer.from('directory cover')
       throw missing()
@@ -356,7 +362,13 @@ describe('scan orchestration boundaries', () => {
   it('rereads text tags for unchecked metadata without a full audio or artwork read', async () => {
     const filePath = join(rootPath, 'song.flac')
     harness.input.knownFiles = [
-      { ...knownFile(filePath), artworkCacheKey: currentKey, metadataCheckedMtimeMs: null },
+      {
+        ...knownFile(filePath),
+        artworkCheckedFingerprint: JSON.stringify([100, 100, 1, 1, 1]),
+        embeddedArtworkCacheKey: currentKey,
+        artworkCacheKey: currentKey,
+        metadataCheckedMtimeMs: null,
+      },
     ]
     const messages = await scan()
     expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
@@ -392,6 +404,12 @@ describe('per-file artwork priority', () => {
   })
 
   function provideDirectoryCover() {
+    const audioStat = harness.stat.getMockImplementation()!
+    harness.stat.mockImplementation(async (path: string) =>
+      path.endsWith('cover.jpg')
+        ? { size: 15, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 2 }
+        : audioStat(path),
+    )
     harness.readFile.mockImplementation(async (filePath: string) => {
       if (filePath.endsWith('cover.jpg')) return Buffer.from('directory cover')
       throw missing()
@@ -454,8 +472,9 @@ describe('per-file artwork priority', () => {
       track: { artworkCacheKey: null },
     })
     expect(harness.readFile.mock.calls.filter(([path]) => path.endsWith('cover.jpg'))).toHaveLength(
-      1,
+      0,
     )
+    expect(harness.stat).toHaveBeenCalledWith(join(rootPath, 'cover.jpg'))
   })
 
   it('preserves the shared resolver’s null result when embedded conversion fails', async () => {
@@ -519,7 +538,15 @@ describe('per-file artwork priority', () => {
     harness.parseFile.mockResolvedValue(withPicture('embedded'))
     const filePath = join(rootPath, 'song.flac')
     const reader = new LibraryScanTrackReader(
-      [{ ...knownFile(filePath), artworkCacheKey: currentKey, lyricsCheckedMtimeMs: null }],
+      [
+        {
+          ...knownFile(filePath),
+          artworkCheckedFingerprint: JSON.stringify([100, 100, 1, 1, 1]),
+          embeddedArtworkCacheKey: currentKey,
+          artworkCacheKey: currentKey,
+          lyricsCheckedMtimeMs: null,
+        },
+      ],
       new LibraryScanArtwork('C:\\IsolatedCache'),
       vi.fn(),
     )

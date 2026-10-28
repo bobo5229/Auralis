@@ -13,6 +13,7 @@ import { MetadataMissingConfirmation } from './metadataMissingConfirmation'
 import { createMetadataWatchState } from './metadataWatchState'
 import { MetadataWatchBatch } from './metadataWatchBatch'
 import { MetadataWatchRecovery } from './metadataWatchRecovery'
+import { win32 } from 'node:path'
 
 const WATCH_DEBOUNCE_MS = 1200
 /** Suppress watch-triggered metadata refresh after a successful user tag write. */
@@ -103,6 +104,7 @@ export class MetadataWatchService {
     this.state.pendingFilePaths.clear()
     this.missingConfirmation.clear()
     this.state.pendingLyricsIntentPaths.clear()
+    this.state.pendingArtworkIntentPaths.clear()
     this.importQueue.clearDeferred()
   }
 
@@ -159,6 +161,7 @@ export class MetadataWatchService {
     for (const paths of [
       this.state.pendingFilePaths,
       this.state.pendingLyricsIntentPaths,
+      this.state.pendingArtworkIntentPaths,
       this.state.statRetries,
       this.state.suppressRefreshUntil,
     ]) {
@@ -181,6 +184,22 @@ export class MetadataWatchService {
 
   private enqueueChangedPath(filePath: string): void {
     if (!this.isCurrentPath(filePath)) return
+    if (win32.basename(filePath).toLowerCase() === 'cover.jpg') {
+      const directory = win32.dirname(filePath)
+      const normalized = normalizeAudioFilePath(directory)
+      const tracks = this.trackRepository.getWatchRecoveryTracks(directory)
+      for (const track of tracks) {
+        if (
+          normalizeAudioFilePath(win32.dirname(track.filePath)) !== normalized ||
+          !this.isCurrentPath(track.filePath)
+        )
+          continue
+        this.state.pendingFilePaths.set(track.filePath, Date.now())
+        this.state.pendingArtworkIntentPaths.add(track.filePath)
+      }
+      if (this.state.pendingFilePaths.size) this.scheduleFlush()
+      return
+    }
     if (isLyricSidecar(filePath)) {
       const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
       const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)

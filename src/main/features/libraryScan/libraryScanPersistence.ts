@@ -118,7 +118,24 @@ export class LibraryScanPersistence {
     }
 
     if (message.type === 'albumArtwork') {
-      this.trackRepository.patchAlbumArtwork(message.payload)
+      const patches = message.payload.filter(
+        (patch) =>
+          !patch.filePath ||
+          (patch.fileFingerprint &&
+            this.acceptCurrentSnapshots(
+              [{ ...patch, filePath: patch.filePath, fileFingerprint: patch.fileFingerprint }],
+              workerJobId,
+              false,
+            ).length > 0),
+      )
+      this.trackRepository.patchAlbumArtwork(patches)
+      const paths = patches.flatMap((patch) => (patch.filePath ? [patch.filePath] : []))
+      if (paths.length)
+        this.publishChanged(
+          'metadata-refresh',
+          this.trackRepository.getTrackIdsByFilePaths(paths),
+          paths,
+        )
       return
     }
 

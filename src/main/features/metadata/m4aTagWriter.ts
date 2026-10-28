@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { Worker } from 'node:worker_threads'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { resolveArtists, resolveAlbumArtists, resolveGenres } from './metadataNormalizer'
@@ -25,6 +25,7 @@ try {
       Mpeg4AppleDataBoxFlagType.ContainsText);
   }
   for (const [mean, name] of workerData.removeFreeform) file.tag.setItunesStrings(mean, name);
+  for (const [mean, name, values] of workerData.updateFreeform) file.tag.setItunesStrings(mean, name, ...values);
   file.save();
 } catch (error) {
   parentPort.postMessage({ message: error.message, code: error.code });
@@ -43,13 +44,32 @@ export async function writeM4aStagingTags(
   const fields: [string, string[]][] = []
   const textValues = (value: string | null | undefined): string[] =>
     value?.trim() ? [value.trim()] : []
+  const changed = (field: NonNullable<EditableTrackMetadata['editedFields']>[number]) =>
+    !metadata.editedFields || metadata.editedFields.includes(field)
   const patch = (id: string, actual: string[], requested: string[]) => {
+    const field = (
+      {
+        '©nam': 'title',
+        '©ART': 'artistDisplay',
+        '©alb': 'albumTitle',
+        aART: 'albumArtistDisplay',
+        '©day': 'releaseDate',
+      } as const
+    )[id as '©nam']
+    if (field && !changed(field)) return
     if (JSON.stringify(actual) !== JSON.stringify(requested)) fields.push([id, requested])
   }
   patch('©nam', textValues(before.common.title), textValues(metadata.title))
-  patch('©ART', resolveArtists(before), splitDelimitedValues(metadata.artistDisplay))
+  const artists = splitDelimitedValues(metadata.artistDisplay)
+  const albumArtists = splitDelimitedValues(metadata.albumArtistDisplay)
+  const artistsChanged =
+    changed('artistDisplay') && JSON.stringify(resolveArtists(before)) !== JSON.stringify(artists)
+  const albumArtistsChanged =
+    changed('albumArtistDisplay') &&
+    JSON.stringify(resolveAlbumArtists(before)) !== JSON.stringify(albumArtists)
+  patch('©ART', resolveArtists(before), artists)
   patch('©alb', textValues(before.common.album), textValues(metadata.albumTitle))
-  patch('aART', resolveAlbumArtists(before), splitDelimitedValues(metadata.albumArtistDisplay))
+  patch('aART', resolveAlbumArtists(before), albumArtists)
   patch(
     '©day',
     textValues(before.common.date || String(before.common.year ?? '')),
@@ -57,7 +77,16 @@ export async function writeM4aStagingTags(
   )
   const genres = splitDelimitedValues(metadata.genreDisplay)
   const removeFreeform: [string, string][] = []
-  if (JSON.stringify(resolveGenres(before)) !== JSON.stringify(genres)) {
+  const updateFreeform: [string, string, string[]][] = []
+  for (const tag of before.native.iTunes ?? []) {
+    const match = /^----:([^:]+):(.+)$/.exec(tag.id)
+    if (!match || match[1]!.toLowerCase() !== 'com.apple.itunes') continue
+    const name = match[2]!.toLowerCase()
+    if (name === 'artists' && artistsChanged) updateFreeform.push([match[1]!, match[2]!, artists])
+    if (name === 'albumartists' && albumArtistsChanged)
+      updateFreeform.push([match[1]!, match[2]!, albumArtists])
+  }
+  if (changed('genreDisplay') && JSON.stringify(resolveGenres(before)) !== JSON.stringify(genres)) {
     fields.push(['©gen', genres], ['gnre', []])
     for (const tag of before.native.iTunes ?? []) {
       const match = /^----:([^:]+):(.+)$/.exec(tag.id)
@@ -69,7 +98,7 @@ export async function writeM4aStagingTags(
         removeFreeform.push([match[1]!, match[2]!])
     }
   }
-  if (!fields.length) return
+  if (!fields.length && !updateFreeform.length) return
   await new Promise<void>((resolve, reject) => {
     const worker = new Worker(workerSource, {
       eval: true,
@@ -78,6 +107,7 @@ export async function writeM4aStagingTags(
         path,
         fields,
         removeFreeform,
+        updateFreeform,
       },
     })
     let failure: Error | undefined

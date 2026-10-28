@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import { useElementSize } from '@vueuse/core'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import { createMetadataEditRequest } from '@shared/utils/metadataEditRequest'
 import { auralis } from '@renderer/shared/ipc/client'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -816,8 +817,9 @@ const {
 
 const metadataDialogRef = ref<InstanceType<typeof MetadataEditDialog> | null>(null)
 const metadataEditor = useLibraryMetadataEditor({
-  loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
-  updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
+  loadTrackMetadata: (trackId) => auralis.metadata.getTrackEditSnapshot(trackId),
+  updateTrackMetadata: (metadata, baseline) =>
+    auralis.metadata.updateTrackMetadata(createMetadataEditRequest(metadata, baseline!)),
   captureRouteScope: captureLibraryRouteScope,
   refreshLibrary: (libraryRevision) => loadLibraryData('metadata-save', libraryRevision),
   showSaveSuccess: async (signal) => {

@@ -1,4 +1,5 @@
 import { badgeAchievementMigration } from './badgeAchievementMigration'
+import { ALL_METADATA_OVERRIDES, METADATA_OVERRIDE } from '@shared/types/metadataOverrides'
 
 export const migrations = [
   {
@@ -833,6 +834,75 @@ export const migrations = [
         ON track_metadata(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
       CREATE INDEX idx_removed_track_history_artwork_cache_key
         ON removed_track_history(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+    `,
+  },
+  {
+    id: 31,
+    name: 'preserve_legacy_metadata_overrides',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN title_fallback TEXT;
+      ALTER TABLE tracks ADD COLUMN embedded_artwork_cache_key TEXT;
+      ALTER TABLE tracks ADD COLUMN directory_artwork_cache_key TEXT;
+      ALTER TABLE tracks ADD COLUMN embedded_artwork_checked_fingerprint TEXT;
+      ALTER TABLE tracks ADD COLUMN effective_album_title TEXT;
+      ALTER TABLE tracks ADD COLUMN effective_album_artist TEXT;
+      ALTER TABLE tracks ADD COLUMN directory_artwork_checked_fingerprint TEXT;
+      ALTER TABLE track_metadata ADD COLUMN override_mask INTEGER NOT NULL DEFAULT 0;
+      -- Preserve exactly what the old display view exposed before changing its semantics.
+      UPDATE track_metadata SET
+        title = (SELECT title FROM library_track_display WHERE id = track_metadata.track_id),
+        artist_display = (SELECT artist FROM library_track_display WHERE id = track_metadata.track_id),
+        album_title = (SELECT album FROM library_track_display WHERE id = track_metadata.track_id),
+        album_artist_display = (SELECT album_artist FROM library_track_display WHERE id = track_metadata.track_id),
+        genre_display = (SELECT genre FROM library_track_display WHERE id = track_metadata.track_id),
+        year = (SELECT year FROM library_track_display WHERE id = track_metadata.track_id),
+        release_date = (SELECT release_date FROM library_track_display WHERE id = track_metadata.track_id),
+        override_mask = ${ALL_METADATA_OVERRIDES}, source = 'legacy_user_edit'
+      WHERE source = 'user_edit';
+      DROP VIEW library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT t.id, t.file_path, t.file_size, t.file_mtime_ms,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.title,t.title)
+          WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.title}) != 0 THEN tm.title ELSE COALESCE(t.title, t.title_fallback) END AS title,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.artist_display,t.artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.artist}) != 0 THEN tm.artist_display ELSE t.artist END AS artist,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_title,t.album) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.album}) != 0 THEN tm.album_title ELSE t.album END AS album,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_artist_display,t.album_artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.albumArtist}) != 0 THEN tm.album_artist_display ELSE t.album_artist END AS album_artist,
+        t.track_no, t.disc_no,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.year,t.year) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.year}) != 0 THEN tm.year ELSE t.year END AS year,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.release_date,t.release_date) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.releaseDate}) != 0 THEN tm.release_date ELSE t.release_date END AS release_date,
+        t.copyright, t.composer,
+        CASE WHEN tm.source='user_edit' THEN COALESCE(tm.genre_display,t.genre) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.genre}) != 0 THEN tm.genre_display ELSE t.genre END AS genre,
+        t.duration_seconds, t.bitrate_bps,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key,
+          CASE WHEN t.embedded_artwork_checked_fingerprint IS NULL THEN NULLIF(tm.artwork_cache_key, '') END,
+          a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source, tm.refreshed_at AS metadata_refreshed_at,
+        t.availability, t.missing_since, t.isrc, t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count, ps.last_played_at, t.created_at, t.updated_at
+      FROM tracks t LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON
+        COALESCE(NULLIF((CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_title,t.album) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.album}) != 0 THEN tm.album_title ELSE t.album END),''),'Unknown Album') = a.title
+        AND COALESCE(
+          NULLIF(CASE WHEN tm.source='user_edit' THEN COALESCE(tm.album_artist_display,t.album_artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.albumArtist}) != 0 THEN tm.album_artist_display ELSE t.album_artist END, ''),
+          CASE WHEN tm.source='user_edit' THEN COALESCE(tm.artist_display,t.artist) WHEN (COALESCE(tm.override_mask, 0) & ${METADATA_OVERRIDE.artist}) != 0 THEN tm.artist_display ELSE t.artist END, 'Unknown Artist'
+        ) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+      UPDATE tracks SET effective_album_title=(SELECT COALESCE(NULLIF(album,''),'Unknown Album') FROM library_track_display WHERE id=tracks.id),
+        effective_album_artist=(SELECT COALESCE(NULLIF(album_artist,''),NULLIF(artist,''),'Unknown Artist') FROM library_track_display WHERE id=tracks.id);
+      CREATE INDEX idx_tracks_effective_album_artwork ON tracks(effective_album_title,effective_album_artist,availability,disc_no,track_no,id);
+      CREATE INDEX idx_tracks_embedded_artwork ON tracks(embedded_artwork_cache_key) WHERE embedded_artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_tracks_directory_artwork ON tracks(directory_artwork_cache_key) WHERE directory_artwork_cache_key IS NOT NULL;
+      CREATE TRIGGER catalog_file_projection_update AFTER UPDATE ON tracks
+      WHEN NEW.title_fallback IS NOT OLD.title_fallback
+        OR NEW.embedded_artwork_cache_key IS NOT OLD.embedded_artwork_cache_key
+        OR NEW.directory_artwork_cache_key IS NOT OLD.directory_artwork_cache_key
+        OR NEW.embedded_artwork_checked_fingerprint IS NOT OLD.embedded_artwork_checked_fingerprint
+      BEGIN UPDATE library_catalog_revision SET revision=revision+1 WHERE id=1; END;
+      CREATE TRIGGER catalog_override_update AFTER UPDATE ON track_metadata
+      WHEN NEW.override_mask IS NOT OLD.override_mask OR NEW.source IS NOT OLD.source
+      BEGIN UPDATE library_catalog_revision SET revision=revision+1 WHERE id=1; END;
     `,
   },
   badgeAchievementMigration,

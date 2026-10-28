@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import SaveProgressIcon from './SaveProgressIcon.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
 import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor'
 
 const props = withDefaults(
@@ -62,6 +63,30 @@ async function showSaveSuccess(signal: AbortSignal): Promise<void> {
 defineExpose({ showSaveSuccess })
 
 const isOpen = computed(() => props.open || props.metadata !== null)
+const legacyDifferences = computed(() => {
+  const legacy = props.metadata?.legacyMetadata
+  if (!legacy || !props.metadata) return []
+  const fields = {
+    title: 'title',
+    artistDisplay: 'artist',
+    albumTitle: 'album',
+    albumArtistDisplay: 'albumArtist',
+    genreDisplay: 'genre',
+    releaseDate: 'releaseDate',
+    year: 'year',
+  } as const
+  return (Object.keys(fields) as Array<keyof typeof fields>)
+    .filter((key) => legacy[key] !== props.metadata![key])
+    .map((key) => ({
+      key,
+      label:
+        key === 'year'
+          ? t('library.metadataEditor.legacy.year')
+          : t(`library.metadataEditor.fields.${fields[key]}`),
+      file: props.metadata![key] ?? '—',
+      legacy: legacy[key] ?? '—',
+    }))
+})
 const isEditingDisabled = computed(
   () =>
     !props.metadata ||
@@ -126,7 +151,7 @@ watch(
     form.albumTitle = metadata?.albumTitle ?? ''
     form.albumArtistDisplay = metadata?.albumArtistDisplay ?? ''
     form.genreDisplay = metadata?.genreDisplay ?? ''
-    form.releaseDate = metadata?.releaseDate ?? ''
+    form.releaseDate = metadata?.releaseDate ?? (metadata?.year?.toString().padStart(4, '0') || '')
 
     if (metadata && !isEditingDisabled.value) {
       nextTick(() => {
@@ -159,23 +184,11 @@ function normalize(value: string): string | null {
 }
 
 function validateReleaseDate(value: string): string | null {
-  const match = value.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/)
-
-  if (!match) {
+  try {
+    normalizeReleaseDate(value)
+  } catch {
     return 'library.metadataEditor.validation.dateInvalid'
   }
-
-  const month = match[2] ? Number.parseInt(match[2], 10) : null
-  const day = match[3] ? Number.parseInt(match[3], 10) : null
-
-  if (month !== null && (month < 1 || month > 12)) {
-    return 'library.metadataEditor.validation.dateInvalid'
-  }
-
-  if (day !== null && (day < 1 || day > 31)) {
-    return 'library.metadataEditor.validation.dateInvalid'
-  }
-
   return null
 }
 
@@ -204,7 +217,7 @@ function onSave(): void {
     albumTitle: normalize(form.albumTitle),
     albumArtistDisplay: normalize(form.albumArtistDisplay),
     genreDisplay: normalize(form.genreDisplay),
-    year: props.metadata.year,
+    year: releaseDateYear(releaseDate),
     releaseDate,
   })
 }
@@ -212,6 +225,11 @@ function onSave(): void {
 function onClose(): void {
   if (props.saving) return
   emit('close')
+}
+
+function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
+  if (!props.metadata || isEditingDisabled.value) return
+  emit('save', { ...props.metadata, legacyAction: action })
 }
 </script>
 
@@ -278,7 +296,36 @@ function onClose(): void {
       {{ t('library.metadataEditor.status.loading') }}
     </p>
 
-    <div v-if="metadata" class="grid gap-3">
+    <section
+      v-if="metadata?.legacyMetadata"
+      class="metadata-dialog-legacy metadata-dialog-status-banner metadata-dialog-status-banner--warning mb-3 grid gap-2"
+      aria-labelledby="legacy-metadata-title"
+    >
+      <p id="legacy-metadata-title" class="auralis-type-control font-semibold">
+        {{ t('library.metadataEditor.legacy.title') }}
+      </p>
+      <p class="auralis-type-caption">{{ t('library.metadataEditor.legacy.description') }}</p>
+      <div v-if="legacyDifferences.length" class="max-h-56 overflow-auto">
+        <table class="w-full table-fixed auralis-type-caption">
+          <thead>
+            <tr>
+              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.field') }}</th>
+              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.file') }}</th>
+              <th scope="col" class="text-left">{{ t('library.metadataEditor.legacy.saved') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="difference in legacyDifferences" :key="difference.key">
+              <th scope="row" class="text-left align-top">{{ difference.label }}</th>
+              <td class="align-top break-words">{{ difference.file }}</td>
+              <td class="align-top break-words">{{ difference.legacy }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div v-if="metadata && !metadata.legacyMetadata" class="grid gap-3">
       <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
         {{ t('library.metadataEditor.fields.title') }}
         <input
@@ -351,7 +398,25 @@ function onClose(): void {
       <span class="sr-only" role="status" aria-live="polite">
         {{ saving ? saveButtonLabel : '' }}
       </span>
-      <div class="flex justify-end gap-2">
+      <div class="flex flex-wrap justify-end gap-2">
+        <template v-if="metadata?.legacyMetadata">
+          <button
+            type="button"
+            class="metadata-dialog-btn-retry auralis-dialog-action"
+            :disabled="isEditingDisabled"
+            @click="resolveLegacy('adopt-file')"
+          >
+            {{ t('library.metadataEditor.legacy.adopt') }}
+          </button>
+          <button
+            type="button"
+            class="metadata-dialog-btn-retry auralis-dialog-action"
+            :disabled="isEditingDisabled"
+            @click="resolveLegacy('write-legacy')"
+          >
+            {{ t('library.metadataEditor.legacy.write') }}
+          </button>
+        </template>
         <button
           class="metadata-dialog-btn-secondary auralis-dialog-action"
           type="button"
@@ -369,7 +434,7 @@ function onClose(): void {
           {{ t('library.metadataEditor.status.retry') }}
         </button>
         <button
-          v-if="metadata"
+          v-if="metadata && !metadata.legacyMetadata"
           class="metadata-dialog-btn-primary metadata-dialog-btn-save auralis-dialog-action auralis-dialog-action--primary"
           :class="{ 'metadata-dialog-btn-save--busy': saving }"
           type="submit"
@@ -398,6 +463,19 @@ function onClose(): void {
 </template>
 
 <style scoped>
+.metadata-dialog-legacy {
+  padding: 12px;
+}
+.metadata-dialog-legacy p {
+  margin: 0;
+}
+.metadata-dialog-legacy th,
+.metadata-dialog-legacy td {
+  padding: 4px;
+}
+.metadata-dialog-legacy th:first-child {
+  width: 22%;
+}
 .metadata-dialog-playback-notice {
   color: var(--auralis-danger);
 }

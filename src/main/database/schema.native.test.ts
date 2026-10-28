@@ -22,6 +22,46 @@ afterEach(() => {
 })
 
 describe('migrateDatabase', () => {
+  it('materializes legacy display values and preserves an explicit null override', () => {
+    const db = createDatabase()
+    db.exec(
+      'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+    )
+    for (const migration of migrations.filter((item) => item.id <= 30)) {
+      db.exec(migration.sql)
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    db.exec(`
+      INSERT INTO tracks(id,file_path,title,artist,genre,year,release_date)
+      VALUES(1,'song.flac','File title','File artist','File genre',2001,'2024-05-20');
+      INSERT INTO track_metadata(track_id,title,genre_display,source)
+      VALUES(1,'Edited title',NULL,'user_edit');
+    `)
+    const before = db
+      .prepare('SELECT title,artist,genre,year,release_date FROM library_track_display WHERE id=1')
+      .get()
+    migrateDatabase(db)
+    expect(
+      db
+        .prepare(
+          'SELECT title,artist,genre,year,release_date FROM library_track_display WHERE id=1',
+        )
+        .get(),
+    ).toEqual(before)
+    expect(
+      db.prepare('SELECT source,override_mask FROM track_metadata WHERE track_id=1').get(),
+    ).toEqual({ source: 'legacy_user_edit', override_mask: 127 })
+    db.exec(
+      "UPDATE track_metadata SET genre_display=NULL WHERE track_id=1; UPDATE tracks SET genre='New file genre' WHERE id=1",
+    )
+    expect(
+      db.prepare('SELECT genre FROM library_track_display WHERE id=1').pluck().get(),
+    ).toBeNull()
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
   it('upgrades version 29 with indexed artwork lookups and preserves all existing rows', () => {
     const db = createDatabase()
     db.exec(
@@ -46,18 +86,44 @@ describe('migrateDatabase', () => {
     const tables = [
       'tracks',
       'albums',
-      'track_metadata',
       'removed_track_history',
       'track_play_stats',
       'playlists',
       'playlist_tracks',
-      'library_catalog_revision',
     ]
     const snapshot = () => tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     const before = snapshot()
+    const display = db
+      .prepare(
+        'SELECT id,title,artist,album,album_artist,genre,year,release_date FROM library_track_display ORDER BY id',
+      )
+      .all()
+    const metadataSideData = db
+      .prepare(
+        'SELECT track_id,artwork_cache_key,lyrics_text,lyrics_format,refreshed_at FROM track_metadata ORDER BY track_id',
+      )
+      .all()
     migrateDatabase(db)
     migrateDatabase(db)
-    expect(snapshot()).toEqual(before)
+    // New projection columns are additive; every pre-existing field and row stays intact.
+    expect(snapshot()).toMatchObject(before)
+    expect(
+      db
+        .prepare(
+          'SELECT id,title,artist,album,album_artist,genre,year,release_date FROM library_track_display ORDER BY id',
+        )
+        .all(),
+    ).toEqual(display)
+    expect(
+      db
+        .prepare(
+          'SELECT track_id,artwork_cache_key,lyrics_text,lyrics_format,refreshed_at FROM track_metadata ORDER BY track_id',
+        )
+        .all(),
+    ).toEqual(metadataSideData)
+    expect(
+      db.prepare('SELECT source,override_mask FROM track_metadata WHERE track_id=1').get(),
+    ).toEqual({ source: 'legacy_user_edit', override_mask: 127 })
     for (const table of ['albums', 'track_metadata', 'removed_track_history']) {
       const plan = db
         .prepare(`EXPLAIN QUERY PLAN SELECT 1 FROM ${table} WHERE artwork_cache_key = ?`)
@@ -83,18 +149,22 @@ describe('migrateDatabase', () => {
     db.exec(
       "INSERT INTO tracks(id,file_path,title,file_size,file_mtime_ms) VALUES(1,'song.flac','Song',100,123); INSERT INTO track_metadata(track_id,title,source) VALUES(1,'Edited','user_edit'); INSERT INTO track_play_stats(track_id,play_count) VALUES(1,7); INSERT INTO playlists(id,name) VALUES(1,'Favorites'); INSERT INTO playlist_tracks(playlist_id,track_id,position) VALUES(1,1,0)",
     )
-    const display = db.prepare('SELECT * FROM library_track_display').all()
-    const tables = [
-      'track_metadata',
-      'track_play_stats',
-      'playlists',
-      'playlist_tracks',
-      'library_catalog_revision',
-    ]
+    const display = db
+      .prepare(
+        'SELECT id,title,artist,album,album_artist,genre,year,release_date FROM library_track_display',
+      )
+      .all()
+    const tables = ['track_play_stats', 'playlists', 'playlist_tracks']
     const snapshot = () => tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     const before = snapshot()
     migrateDatabase(db)
-    expect(db.prepare('SELECT * FROM library_track_display').all()).toEqual(display)
+    expect(
+      db
+        .prepare(
+          'SELECT id,title,artist,album,album_artist,genre,year,release_date FROM library_track_display',
+        )
+        .all(),
+    ).toEqual(display)
     expect(snapshot()).toEqual(before)
     expect(db.prepare('SELECT file_stat_fingerprint FROM tracks').pluck().get()).toBeNull()
     expect(db.pragma('foreign_key_check')).toEqual([])

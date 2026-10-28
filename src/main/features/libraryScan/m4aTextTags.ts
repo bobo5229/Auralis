@@ -1,5 +1,6 @@
 import { open } from 'node:fs/promises'
 import type { IAudioMetadata, ITag } from 'music-metadata'
+import { normalizeReleaseDate } from '@shared/utils/releaseDate'
 
 const MAX_TEXT_BYTES = 1024 * 1024
 const CONTAINERS = new Set(['moov', 'udta', 'meta', 'ilst'])
@@ -366,6 +367,7 @@ function metadataFromTags(tags: ITag[]): IAudioMetadata {
   let album: string | undefined
   let date: string | undefined
   let year: number | undefined
+  const warnings: Array<{ message: string }> = []
   const track = { no: null as number | null, of: null as number | null }
   const disk = { no: null as number | null, of: null as number | null }
   for (const tag of tags) {
@@ -374,6 +376,11 @@ function metadataFromTags(tags: ITag[]): IAudioMetadata {
     else if (tag.id === '\u00A9alb') album = value
     else if (tag.id === '\u00A9day') {
       date = value
+      try {
+        normalizeReleaseDate(value)
+      } catch {
+        warnings.push({ message: 'Invalid release date in audio tags' })
+      }
       const parsed = Number.parseInt(value.slice(0, 4), 10)
       if (!Number.isNaN(parsed)) year = parsed
     } else if (tag.id === 'trkn' || tag.id === 'disk') {
@@ -387,7 +394,7 @@ function metadataFromTags(tags: ITag[]): IAudioMetadata {
   return {
     format: { trackInfo: [], tagTypes },
     native: tags.length > 0 ? { iTunes: tags } : {},
-    quality: { warnings: [] },
+    quality: { warnings },
     common: {
       title,
       album,

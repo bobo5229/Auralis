@@ -17,6 +17,7 @@ import { hasM4aPublicationHelper, publishWindowsM4a } from './windowsM4aPublicat
 import { lockWindowsAudioSource, type LockedAudioSource } from './windowsAudioSourceLock'
 import { writeLyricsStagingTag } from './lyricsTagWriter'
 import { logger } from '@main/logging/logger'
+import { hasSameScanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -51,22 +52,18 @@ function normalizeTagValue(value: string | null): string {
 function buildMetadataArguments(metadata: EditableTrackMetadata, flag = '-metadata'): string[] {
   const releaseDate = normalizeTagValue(metadata.releaseDate) || String(metadata.year ?? '')
 
-  return [
-    flag,
-    `title=${normalizeTagValue(metadata.title)}`,
-    flag,
-    `artist=${normalizeTagValue(metadata.artistDisplay)}`,
-    flag,
-    `album=${normalizeTagValue(metadata.albumTitle)}`,
-    flag,
-    `album_artist=${normalizeTagValue(metadata.albumArtistDisplay)}`,
-    flag,
-    `genre=${normalizeTagValue(metadata.genreDisplay)}`,
-    flag,
-    `date=${releaseDate}`,
-    flag,
-    `year=${metadata.year ?? ''}`,
+  const fields: Array<[NonNullable<EditableTrackMetadata['editedFields']>[number], string]> = [
+    ['title', `title=${normalizeTagValue(metadata.title)}`],
+    ['artistDisplay', `artist=${normalizeTagValue(metadata.artistDisplay)}`],
+    ['albumTitle', `album=${normalizeTagValue(metadata.albumTitle)}`],
+    ['albumArtistDisplay', `album_artist=${normalizeTagValue(metadata.albumArtistDisplay)}`],
+    ['genreDisplay', `genre=${normalizeTagValue(metadata.genreDisplay)}`],
+    ['releaseDate', `date=${releaseDate}`],
+    ['releaseDate', `year=${metadata.year ?? ''}`],
   ]
+  return fields
+    .filter(([field]) => !metadata.editedFields || metadata.editedFields.includes(field))
+    .flatMap(([, value]) => [flag, value])
 }
 
 export function resolveCoverFileExtension(mimeType: string): string {
@@ -269,9 +266,24 @@ export async function prepareAudioTagWrite(
   if (!extension) {
     throw new Error(`Unable to determine the audio format for ${basename(filePath)}.`)
   }
+  if (
+    metadata.lyricsText === undefined &&
+    (!metadata.editedFields || metadata.editedFields.includes('releaseDate')) &&
+    extension.toLowerCase() === '.mp3' &&
+    metadata.releaseDate?.length === 7
+  )
+    throw new MetadataSaveError(
+      'unsupported-date-precision',
+      'ID3v2.3 cannot preserve month-precision dates',
+    )
   const nativePublication =
     extension.toLowerCase() === '.m4a' && hasM4aPublicationHelper(ffmpegPath)
   const originalIdentity = await stat(filePath, { bigint: true })
+  if (
+    metadata.expectedFingerprint &&
+    !hasSameScanFileFingerprint(await stat(filePath), metadata.expectedFingerprint)
+  )
+    throw new MetadataSaveError('metadata-conflict', 'Audio file changed since the editor opened')
   const assertUnchanged = async () => {
     if (!sameFileIdentity(await stat(filePath, { bigint: true }), originalIdentity))
       throw new MetadataSaveError(
@@ -335,7 +347,12 @@ export async function prepareAudioTagWrite(
     // can be renamed, including ordinary saves without a playback buffer.
     try {
       verifyWrittenMetadata(metadata, await parseAudioMetadata(stagingPath))
-      await verifyPreservedAudioTags(filePath, stagingPath, metadata.lyricsText !== undefined)
+      await verifyPreservedAudioTags(
+        filePath,
+        stagingPath,
+        metadata.lyricsText !== undefined,
+        metadata.editedFields,
+      )
     } catch (error) {
       await assertUnchanged()
       throw error

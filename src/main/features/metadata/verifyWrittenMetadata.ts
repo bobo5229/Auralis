@@ -6,6 +6,7 @@ import {
   resolveAlbumArtists,
   resolveGenres,
   resolveLyrics,
+  resolveFileDate,
 } from './metadataNormalizer'
 import { MetadataSaveError } from './metadataSaveError'
 
@@ -20,18 +21,11 @@ export function verifyWrittenMetadata(
       throw new MetadataSaveError('tag-verification-failed', 'Written lyrics do not match the edit')
     return
   }
-  const { common, native } = actual
+  const { common } = actual
   const text = (value: string | null | undefined) => value?.trim() || ''
   const list = (value: string | null) => canonicalizeDelimitedValues(value) ?? ''
   const expectedDate = text(expected.releaseDate) || String(expected.year ?? '')
-  let actualDate = text(common.date) || String(common.year ?? '')
-  if (!common.date && common.year !== undefined) {
-    const dayMonth = native['ID3v2.3']?.find((tag) => tag.id === 'TDAT')?.value
-    // FFmpeg writes v2.3 dates as TYER + TDAT (DDMM); music-metadata exposes only TYER in common.
-    if (typeof dayMonth === 'string' && /^\d{4}$/.test(dayMonth)) {
-      actualDate = `${String(common.year).padStart(4, '0')}-${dayMonth.slice(2)}-${dayMonth.slice(0, 2)}`
-    }
-  }
+  const actualDate = resolveFileDate(actual) ?? ''
   const actualGenres = joinDelimitedValues(resolveGenres(actual)) ?? ''
   if (
     text(common.title) !== text(expected.title) ||

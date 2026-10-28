@@ -15,6 +15,10 @@ const unusedAlbumIds = `
              COALESCE(metadata.artist_display, tracks.artist)
            ) AS TEXT)
     FROM tracks JOIN track_metadata AS metadata ON metadata.track_id = tracks.id
+    UNION
+    SELECT COALESCE(NULLIF(album, ''), 'Unknown Album'),
+           CAST(COALESCE(NULLIF(album_artist, ''), NULLIF(artist, ''), 'Unknown Artist') AS TEXT)
+    FROM library_track_display
   )
   SELECT albums.id FROM albums
   LEFT JOIN referenced
