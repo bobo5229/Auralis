@@ -244,6 +244,7 @@ function createApi(): AuralisApi {
       closeLrcEditor: vi.fn(),
     },
     playback: {
+      recordListeningProgress: vi.fn(async () => ({ ok: true, epoch: 0 })),
       subscribeSpectrum: vi.fn(async () => ({ accepted: true })),
       onSpectrumFrame: vi.fn(() => () => undefined),
       nativeAvailability: vi.fn(async () => ({ available: false })),
@@ -262,6 +263,15 @@ function createApi(): AuralisApi {
       onCommand: vi.fn(),
     },
     archive: {
+      getBadgeAchievements: vi.fn(async () => ({
+        epoch: 0,
+        listeningSeconds: 0,
+        listeningDays: 0,
+        completeAlbums: 0,
+        completeLiveAlbums: 0,
+        albumProgress: { completedTracks: 0, totalTracks: 0 },
+        liveAlbumProgress: { completedTracks: 0, totalTracks: 0 },
+      })),
       getAnnualPlayCounts: vi.fn(async () => []),
       getAnnualSummary: vi.fn(async () => {
         throw new Error('Annual summary is unused in playback tests')

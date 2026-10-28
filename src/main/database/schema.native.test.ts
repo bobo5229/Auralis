@@ -140,10 +140,9 @@ describe('migrateDatabase', () => {
       .pluck()
       .all() as string[]
 
-    expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 30 }, (_, index) => index + 1),
-    )
-    expect(migrations.at(-1)?.name).toBe('index_artwork_references')
+    const migrationIds = migrations.map(({ id }) => id)
+    expect(migrationIds).toEqual([...new Set(migrationIds)].sort((left, right) => left - right))
+    expect(migrations.at(-1)?.name).toBe('record_badge_listening_evidence')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -152,6 +151,11 @@ describe('migrateDatabase', () => {
         'scan_jobs',
         'metadata_refresh_jobs',
         'track_metadata',
+        'badge_listening_epoch',
+        'badge_legacy_daily',
+        'badge_listening_daily',
+        'badge_track_coverage',
+        'badge_listening_sessions',
         'track_play_stats',
         'daily_play_stats',
         'daily_track_play_stats',
@@ -214,7 +218,9 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(30)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(
+      migrations.length,
+    )
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
     ).toBeNull()

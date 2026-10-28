@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { defineAsyncComponent, ref, useId } from 'vue'
+import { computed, defineAsyncComponent, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { featuredMilestoneBadges } from '../constants/milestoneBadges'
+import { milestoneBadges, milestoneGroups } from '../constants/milestoneBadges'
+import { badgeAchievementStatus } from '../utils/badgeAchievementStatus'
+import { useBadgeAchievements } from '../composables/useBadgeAchievements'
 import { getBadgePreview } from '../utils/badgeMaterials'
 import '../styles/milestoneCase.css'
 
@@ -9,9 +11,21 @@ const ArchiveMilestoneGallery = defineAsyncComponent(() => import('./ArchiveMile
 const { t, te } = useI18n()
 const titleId = useId()
 const noteId = useId()
+const { achievements, hasError, refresh } = useBadgeAchievements()
+const featuredMilestoneBadges = computed(() =>
+  milestoneGroups.map((group) => {
+    const candidates = milestoneBadges.filter((badge) => badge.group === group)
+    return (
+      candidates.findLast(
+        (badge) => achievements.value && badgeAchievementStatus(badge, achievements.value).earned,
+      ) ?? candidates[0]
+    )
+  }),
+)
 const galleryOpen = ref(false)
 const galleryTrigger = ref<HTMLButtonElement | null>(null)
 function openGallery() {
+  if (hasError.value) void refresh()
   galleryOpen.value = true
 }
 </script>
@@ -52,7 +66,13 @@ function openGallery() {
           class="archive-milestone-case__slot"
         >
           <img
-            :src="getBadgePreview(badge.id)"
+            v-if="achievements"
+            :src="
+              getBadgePreview(
+                badge.id,
+                badgeAchievementStatus(badge, achievements).earned ? 'lit' : 'unlit',
+              )
+            "
             :alt="
               te(`archive.milestones.names.${badge.id}`)
                 ? t(`archive.milestones.names.${badge.id}`)
@@ -69,6 +89,8 @@ function openGallery() {
   <ArchiveMilestoneGallery
     v-if="galleryOpen"
     :open="galleryOpen"
+    :achievements="achievements"
+    :achievements-error="hasError"
     :return-focus-to="galleryTrigger"
     @close="galleryOpen = false"
   />

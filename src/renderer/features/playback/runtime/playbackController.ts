@@ -1,3 +1,4 @@
+import { ListeningProgressTracker } from '../core/listeningProgressTracker'
 import { isReadonly, reactive, readonly, ref, toRaw, type DeepReadonly, type Ref } from 'vue'
 import {
   isSoftTransitionDuration,
@@ -214,6 +215,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   function setPlaybackError(err: unknown): void {
     effectivePlayTracker.setPlaying(false)
+    listeningProgress?.setPlaying(false)
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
   }
@@ -232,6 +234,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       const recoveredFromBuffering = audioBuffering && isPlaying
       state.isPlaying = isPlaying && !pausedByUser
       effectivePlayTracker.setPlaying(state.isPlaying)
+      listeningProgress?.setPlaying(state.isPlaying)
       const snapshot = audioRuntime.getSnapshot()
       if (
         recoveredFromBuffering &&
@@ -246,10 +249,12 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     },
     onEnded: (nextTrackId) => {
       effectivePlayTracker.end()
+      listeningProgress?.finish(state.duration)
       void commitBoundary(nextTrackId).catch(setPlaybackError)
     },
     onError: (error) => {
       effectivePlayTracker.end()
+      listeningProgress?.end()
       audioRuntime.clear()
       state.isPlaying = false
       state.error = `Audio error: ${error.detail}`
@@ -267,13 +272,16 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     },
     onSeeking: () => {
       effectivePlayTracker.beginSeekingWithFallback()
+      listeningProgress?.beginSeekingWithFallback()
     },
     onSeeked: () => {
       effectivePlayTracker.endSeeking()
+      listeningProgress?.endSeeking()
     },
     onBufferingChange: (buffering) => {
       audioBuffering = buffering
       effectivePlayTracker.setBuffering(buffering)
+      listeningProgress?.setBuffering(buffering)
     },
   }
   const createAudioRuntime = deps.createAudioRuntime ?? createPlaybackAudioRuntime
@@ -281,6 +289,29 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   audioRuntime.setVolume(state.volume, state.isMuted)
 
+  const listeningProgress =
+    deps.getListeningEpoch && deps.recordListeningProgress
+      ? new ListeningProgressTracker({
+          getEpoch: deps.getListeningEpoch,
+          record: deps.recordListeningProgress,
+          snapshot: () => {
+            const snapshot = audioRuntime.getSnapshot()
+            return {
+              trackId: snapshot.trackId,
+              position: snapshot.currentTime,
+              duration: snapshot.duration,
+              playing: snapshot.isPlaying,
+              hasData: snapshot.hasCurrentData,
+            }
+          },
+          onError: (cause) =>
+            deps.diagnostics.warn({
+              scope: 'playback.achievements',
+              message: 'Failed to record listening evidence',
+              cause,
+            }),
+        })
+      : undefined
   const effectivePlayTracker = new EffectivePlayTracker({
     isPlaybackCountable: (trackId) => {
       if (trackId !== state.currentTrackId) return false
@@ -334,8 +365,10 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function applyTransitionPlan(plan: PlaybackTransitionPlan): void {
     navigationSession.applyPlan(plan, state.currentTrack, state.queue)
     effectivePlayTracker.end()
+    listeningProgress?.end()
     commitCurrentTrack(plan.track, plan.queue, audioRuntime.getSnapshot().duration)
     effectivePlayTracker.start(plan.track.id)
+    listeningProgress?.start(plan.track.id)
   }
 
   async function resolveTransitionPlan(
@@ -431,6 +464,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     try {
       gaplessSession.endAudioLifetime()
       effectivePlayTracker.end()
+      listeningProgress?.end()
       audioRuntime.clear({ replacing: true })
 
       if (options?.recordHistory !== false) {
@@ -463,6 +497,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       state.duration = snapshot.duration
       state.currentTime = snapshot.currentTime
       effectivePlayTracker.start(trackId)
+      listeningProgress?.start(trackId)
       if (snapshot.kind === 'gapless' || snapshot.kind === 'mpv') {
         void gaplessSession.refresh(trackId)
       }
@@ -503,6 +538,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
       if (decision.kind === 'stop') {
         effectivePlayTracker.end()
+        listeningProgress?.end()
         audioRuntime.pause()
         state.isPlaying = false
         if (decision.resetTime) {
@@ -521,6 +557,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         ) {
           playbackRequests.transition(pendingToken, 'resuming')
           effectivePlayTracker.start(state.currentTrackId!)
+          listeningProgress?.start(state.currentTrackId!)
           await audioRuntime.seek(0)
           if (!playbackRequests.isCurrent(pendingToken)) return
           state.currentTime = 0
@@ -786,6 +823,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     playbackRequests.invalidate()
     gaplessSession.cancelPreload()
     effectivePlayTracker.setPlaying(false)
+    listeningProgress?.setPlaying(false)
     audioRuntime.pause()
     state.isPlaying = false
   }
@@ -845,6 +883,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     const trackId = state.currentTrackId
     if (trackId === null) return
     effectivePlayTracker.beginSeekingWithFallback()
+    listeningProgress?.beginSeekingWithFallback()
     gaplessSession.cancelPreload()
     const isValidGeneration = gaplessSession.captureValidity()
     const isCurrentSeek = () =>
@@ -957,6 +996,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     pausedByUser = true
     playbackRequests.invalidate()
     effectivePlayTracker.end()
+    listeningProgress?.end()
     gaplessSession.endAudioLifetime()
     audioRuntime.clear()
     state.currentIndex = -1
@@ -1074,7 +1114,10 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const unsubscribeLibraryChanged = deps.onLibraryChanged((event) => {
     if (event.reason === 'metadata-refresh' || event.reason === 'file-change')
       void refreshPlaybackMetadata(event.trackIds)
-    if (event.reason === 'play-stats-reset') effectivePlayTracker.discardPendingRecords()
+    if (event.reason === 'play-stats-reset') {
+      effectivePlayTracker.discardPendingRecords()
+      listeningProgress?.discardPendingRecords()
+    }
     if (event.reason === 'track-missing') removeMissingTracksFromPlayback(event.trackIds)
     if (['track-added', 'track-restored', 'track-relocated'].includes(event.reason)) {
       for (const id of event.trackIds) missingTrackIds.delete(id)
@@ -1090,6 +1133,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     gaplessSession.dispose()
     missingTrackIds.clear()
     effectivePlayTracker.dispose()
+    listeningProgress?.dispose()
     audioRuntime.dispose()
     unsubscribeLibraryChanged()
     navigationSession.clear()

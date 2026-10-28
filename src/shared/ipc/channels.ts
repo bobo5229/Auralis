@@ -70,6 +70,7 @@ export const ipcChannels = {
     getRandomAlbumTracks: 'playback:get-random-album-tracks',
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
+    recordListeningProgress: 'playback:record-listening-progress',
     acquireReadLease: 'playback:acquire-read-lease',
     releaseReadLease: 'playback:release-read-lease',
   },
@@ -78,6 +79,7 @@ export const ipcChannels = {
     command: 'system-media:command',
   },
   archive: {
+    getBadgeAchievements: 'archive:get-badge-achievements',
     getAnnualPlayCounts: 'archive:get-annual-play-counts',
     getAnnualSummary: 'archive:get-annual-summary',
     getDayTopTracks: 'archive:get-day-top-tracks',

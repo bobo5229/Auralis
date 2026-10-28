@@ -40,6 +40,7 @@ const renderer = createRenderer<object, object>({
 let clock = 0,
   serial = 0
 const frames = new Map<number, FrameRequestCallback>()
+const resizeCallbacks: Array<() => void> = []
 const apps: Array<ReturnType<typeof renderer.createApp>> = []
 function step(milliseconds: number) {
   clock += milliseconds
@@ -73,6 +74,7 @@ function fixture() {
     focus: vi.fn(),
     getBoundingClientRect: () => ({ left: 510, top: 214, width: 420, height: 471 }),
   }
+  const caption = { style: { top: '' }, offsetHeight: 74 }
   const callbacks = { onLift: vi.fn(), onReturn: vi.fn(), onError: vi.fn(), onSwitchError: vi.fn() }
   let inspection!: ReturnType<typeof useBadgeInspection>
   const app = renderer.createApp({
@@ -80,6 +82,7 @@ function fixture() {
       inspection = useBadgeInspection({
         stage: shallowRef(stage as unknown as HTMLElement),
         canvas: shallowRef({} as HTMLCanvasElement),
+        caption: shallowRef(caption as unknown as HTMLElement),
         ...callbacks,
       })
       return () => null
@@ -87,7 +90,7 @@ function fixture() {
   })
   app.mount({})
   apps.push(app)
-  return { inspection, stage, app, ...callbacks }
+  return { inspection, stage, caption, app, ...callbacks }
 }
 async function opened() {
   const f = fixture()
@@ -101,6 +104,17 @@ beforeEach(() => {
   vi.clearAllMocks()
   clock = serial = 0
   frames.clear()
+  resizeCallbacks.length = 0
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resizeCallbacks.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
   mocks.motion.matches = false
   mocks.graphics.load.mockResolvedValue(true)
   mocks.graphics.prepare.mockResolvedValue(true)
@@ -125,6 +139,23 @@ afterEach(() => {
 })
 
 describe('badge inspection handoff', () => {
+  it('reserves caption and bottom-control space and reacts to taller localized text', async () => {
+    vi.stubGlobal('innerWidth', 680)
+    vi.stubGlobal('innerHeight', 620)
+    const f = await opened()
+    const stageHeight = Number.parseFloat((f.stage.style as unknown as CSSStyleDeclaration).height)
+    expect(stageHeight).toBeCloseTo(406)
+    expect(Number.parseFloat(f.caption.style.top) + f.caption.offsetHeight).toBeCloseTo(528)
+    f.caption.offsetHeight = 100
+    resizeCallbacks[0]()
+    step(16)
+    expect(Number.parseFloat((f.stage.style as unknown as CSSStyleDeclaration).height)).toBeCloseTo(
+      380,
+    )
+    expect(Number.parseFloat(f.caption.style.top) + f.caption.offsetHeight).toBeCloseTo(528)
+    expect(f.inspection.snapshot().running).toBe(false)
+  })
+
   it('recenters and redraws the current badge on resize while its target is still loading', async () => {
     const f = await opened()
     const target = deferred()
@@ -137,7 +168,9 @@ describe('badge inspection handoff', () => {
     step(16)
     expect(f.inspection.phase.value).toBe('switch-loading')
     expect(f.inspection.badgeId.value).toBe('first')
-    expect(f.stage.style.transform).toContain('translate(240px, 74.54545454545453px) scale(1)')
+    const position = f.stage.style.transform.match(/translate\(([^p]+)px, ([^p]+)px\)/)!
+    expect(Number(position[1])).toBeCloseTo(240)
+    expect(Number(position[2])).toBeCloseTo(25.54545)
     expect(mocks.graphics.render).toHaveBeenCalledTimes(draws + 1)
     expect(mocks.graphics.activatePrepared).not.toHaveBeenCalled()
     expect(f.inspection.snapshot().running).toBe(false)

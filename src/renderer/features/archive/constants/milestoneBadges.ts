@@ -18,7 +18,4 @@ export const milestoneBadges: readonly MilestoneBadge[] = Object.values(manifest
   }),
 )
 
-export const featuredMilestoneBadges = ['hours100', 'days30', 'albums1'].map(
-  (id) => milestoneBadges.find((badge) => badge.id === id)!,
-)
 export const milestoneGroups: readonly MilestoneGroup[] = ['hours', 'days', 'albums']

@@ -108,6 +108,9 @@ export interface AuralisApi {
     closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
   }
   playback: {
+    recordListeningProgress: (
+      payload: Req<'playback:record-listening-progress'>,
+    ) => Result<'playback:record-listening-progress'>
     subscribeSpectrum: (
       request: Req<'playback:spectrum-subscribe'>,
     ) => Result<'playback:spectrum-subscribe'>
@@ -146,6 +149,7 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
+    getBadgeAchievements: () => Result<'archive:get-badge-achievements'>
     getAnnualSummary: (
       year: Req<'archive:get-annual-summary'>['year'],
     ) => Result<'archive:get-annual-summary'>

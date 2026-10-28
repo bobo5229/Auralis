@@ -2,6 +2,20 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
+  'playback:record-listening-progress': {
+    epoch: 0,
+    sessionId: 'session',
+    sequence: 1,
+    trackId: 1,
+    samples: [
+      {
+        startedAtIso: '2026-10-28T12:00:00.000Z',
+        startSeconds: 0,
+        endSeconds: 1,
+        playedSeconds: 1,
+      },
+    ],
+  },
   'app:set-locale': { locale: 'en' },
   'app:claim-startup-album': {
     recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }],

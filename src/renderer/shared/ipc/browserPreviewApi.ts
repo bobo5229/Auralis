@@ -54,6 +54,18 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
       return { ok: false, code: 'track-unavailable' }
     case 'lyrics.closeLrcEditor':
       return { ok: true, value: null }
+    case 'archive.getBadgeAchievements':
+      return {
+        epoch: 0,
+        listeningSeconds: 0,
+        listeningDays: 0,
+        completeAlbums: 0,
+        completeLiveAlbums: 0,
+        albumProgress: { completedTracks: 0, totalTracks: 0 },
+        liveAlbumProgress: { completedTracks: 0, totalTracks: 0 },
+      }
+    case 'playback.recordListeningProgress':
+      return { ok: false, epoch: 0 }
     case 'playback.recordEffectivePlay':
       return { ok: false, recorded: false }
     case 'archive.getAnnualPlayCounts':

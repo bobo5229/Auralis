@@ -1008,7 +1008,7 @@
       "browse": "徽章陈列，可横向滚动",
       "browsePrevious": "向前浏览",
       "browseNext": "向后浏览",
-      "inspectBadge": "检视{name}",
+      "inspectBadge": "检视{name}，{status}",
       "returnBadge": "放回盒中",
       "previousBadge": "检视上一枚徽章",
       "nextBadge": "检视下一枚徽章",
@@ -1021,13 +1021,29 @@
       "previewFor": "{name}，可旋转的徽章预览",
       "instructions": "移动鼠标欣赏反光；方向键调整，Home 复位。",
       "staticPreview": "静态徽章预览",
-      "appearance": "徽章展示样式",
-      "lit": "点亮样式",
-      "unlit": "未点亮样式",
-      "catalogNote": "图鉴陈列全部徽章，展示状态不代表个人达成记录。",
+      "achievementsError": "暂时无法读取成就，请重新打开纪念盒重试。",
+      "earned": "已达成",
+      "notEarned": "未达成",
+      "noEligibleAlbum": "还没有符合条件的本地专辑",
+      "progress": {
+        "hours": "已聆听 {count} / {total} 小时",
+        "days": "已积累 {count} / {total} 个聆听日",
+        "tracks": "专辑进度 {count} / {total} 首"
+      },
+      "conditions": {
+        "hours": "累计聆听 {count} 小时",
+        "days": "累计 {count} 个聆听日，每天至少 1 小时",
+        "albums1": "一张本地专辑的全部曲目均已听满 90%",
+        "albumsLive": "一张流派均含 Live 的专辑，全部曲目已听满 90%"
+      },
+      "catalogNote": "徽章根据聆听记录点亮。历史折算时长计入小时和聆听日；专辑完成度从启用片段记录后累计。",
       "hoursLabel": "{count} 小时",
       "daysLabel": "{count} 天",
-      "groups": { "hours": "聆听时光", "days": "相伴日子", "albums": "专辑记忆" },
+      "groups": {
+        "hours": "聆听时光",
+        "days": "相伴日子",
+        "albums": "专辑记忆"
+      },
       "names": {
         "hours10": "初响",
         "hours100": "成章",
@@ -1041,7 +1057,10 @@
         "albums1": "从头到尾",
         "albumsLive": "现场回声"
       },
-      "labels": { "albums1": "完整专辑", "albumsLive": "现场专辑" }
+      "labels": {
+        "albums1": "完整专辑",
+        "albumsLive": "现场专辑"
+      }
     },
     "summary": {
       "eyebrow": "聆听档案 · 年度记忆",

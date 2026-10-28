@@ -283,6 +283,60 @@
     outline: 2px solid var(--auralis-focus-ring);
     outline-offset: 8px;
   }
+  .inspect-caption {
+    position: absolute;
+    isolation: isolate;
+    left: 50%;
+    width: min(360px, calc(100vw - 48px));
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 140ms ease-out,
+      visibility 0s 140ms;
+  }
+  .inspect-caption::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -32px -64px;
+    background: radial-gradient(
+      ellipse,
+      rgb(7 9 10 / 62%) 15%,
+      rgb(7 9 10 / 42%) 55%,
+      transparent 75%
+    );
+    pointer-events: none;
+  }
+  .inspect-caption.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .inspect-caption__name {
+    margin: 0;
+    color: #edf0ef;
+    font-size: var(--auralis-type-section-size);
+    line-height: var(--auralis-type-section-line-height);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+  .inspect-caption__condition {
+    min-height: calc(var(--auralis-type-control-line-height) * 2);
+    margin: 8px 0 0;
+    color: #c2cbc7;
+    font-size: var(--auralis-type-control-size);
+    line-height: var(--auralis-type-control-line-height);
+    overflow-wrap: anywhere;
+  }
+  .inspect-caption__progress {
+    margin: 6px 0 0;
+    min-height: var(--auralis-type-caption-line-height);
+    color: #c2cbc7;
+    font-size: var(--auralis-type-caption-size);
+    line-height: var(--auralis-type-caption-line-height);
+  }
   .inspect-close {
     position: absolute;
     right: 24px;
@@ -311,6 +365,9 @@
     font-weight: 400;
     text-shadow: 0 1px 1px #000;
     letter-spacing: 0.035em;
+  }
+  .is-inspecting .badge-name {
+    visibility: hidden;
   }
   .scroll-arrow {
     position: absolute;
@@ -387,23 +444,6 @@
     display: grid;
     color: var(--case-ink);
   }
-  .case-appearance {
-    display: flex;
-    gap: 6px;
-  }
-  .case-appearance button {
-    padding: 5px 10px;
-    border: 1px solid rgb(37 51 58 / 18%);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--case-ink-muted);
-    font: inherit;
-    cursor: pointer;
-  }
-  .case-appearance button[aria-pressed='true'] {
-    color: var(--case-ink);
-    background: rgb(255 255 255 / 24%);
-  }
   button {
     font: inherit;
     cursor: pointer;
@@ -418,7 +458,7 @@
   }
   .inspect-switch {
     position: absolute;
-    top: 50%;
+    top: calc(var(--inspect-center-y, 50vh) - 26px);
     width: 52px;
     height: 52px;
     border: 1px solid rgb(235 241 244 / 55%);
@@ -499,7 +539,8 @@ html[data-reduced-motion='true'] .archive-badge-dialog {
   .badge-image {
     transition: none;
   }
-  .badge-inspector {
+  .badge-inspector,
+  .inspect-caption {
     transition: none;
   }
 }

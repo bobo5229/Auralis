@@ -7,23 +7,36 @@ import { milestoneBadges, milestoneGroups, type MilestoneGroup } from '../consta
 import { badgeContours, badgeMaterialDescriptors, getBadgePreview } from '../utils/badgeMaterials'
 import { useBadgeInspection } from '../composables/useBadgeInspection'
 import { createPressureSurface } from '../runtime/badgePressureSurface'
-import type { BadgeState } from '../runtime/badgeMaterialRenderer'
+import type { BadgeAchievements } from '@shared/types/badgeAchievements'
+import { badgeAchievementStatus } from '../utils/badgeAchievementStatus'
 import type { InspectBadge } from '../runtime/badgeInspectRenderer'
 import aluminiumTexture from '../assets/milestones/case/brushed-aluminium.png?url'
 import '../styles/badgeGallery.css'
 
-defineProps<{ open: boolean; returnFocusTo: HTMLElement | null }>()
+const props = defineProps<{
+  open: boolean
+  returnFocusTo: HTMLElement | null
+  achievements: BadgeAchievements | null
+  achievementsError: boolean
+}>()
 const emit = defineEmits<{ close: [] }>()
 const { t, te } = useI18n()
 const titleId = useId()
 const caseClose = ref<HTMLButtonElement | null>(null)
 const canvasRevision = ref(0)
-const group = ref<MilestoneGroup>('hours'),
-  appearance = ref<BadgeState>('lit')
+const group = ref<MilestoneGroup>('hours')
+const displayAchievements = ref(props.achievements)
 const badges = computed(() => milestoneBadges.filter((badge) => badge.group === group.value))
-const previewSources = computed(() =>
-  badges.value.map((badge) => getBadgePreview(badge.id, appearance.value)),
-)
+const previewSources = computed<string[]>((previous) => {
+  const sources = displayAchievements.value
+    ? badges.value.map((badge) => getBadgePreview(badge.id, badgeState(badge)))
+    : []
+  return previous &&
+    sources.length === previous.length &&
+    sources.every((source, index) => source === previous[index])
+    ? previous
+    : sources
+})
 const previewsReady = ref(false),
   previewsFailed = ref(false)
 const casePresented = ref(false),
@@ -39,6 +52,7 @@ watch(
     })
     previewsReady.value = false
     previewsFailed.value = false
+    if (!sources.length) return
     try {
       await Promise.all(
         sources.map(async (src) => {
@@ -58,19 +72,22 @@ const viewport = ref<HTMLElement | null>(null),
   sheet = ref<HTMLElement | null>(null),
   row = ref<HTMLElement | null>(null)
 const stage = ref<HTMLElement | null>(null),
-  canvas = ref<HTMLCanvasElement | null>(null)
+  canvas = ref<HTMLCanvasElement | null>(null),
+  caption = ref<HTMLElement | null>(null)
 const canPrevious = ref(false),
   canNext = ref(false),
   failed = ref(false),
   foamFailed = ref(false)
 const caseError = computed(() =>
-  previewsFailed.value
-    ? t('archive.milestones.previewError')
-    : foamFailed.value || aluminiumFailed.value
-      ? t('archive.milestones.caseError')
-      : failed.value
-        ? t('archive.milestones.inspectError')
-        : '',
+  props.achievementsError
+    ? t('archive.milestones.achievementsError')
+    : previewsFailed.value
+      ? t('archive.milestones.previewError')
+      : foamFailed.value || aluminiumFailed.value
+        ? t('archive.milestones.caseError')
+        : failed.value
+          ? t('archive.milestones.inspectError')
+          : '',
 )
 const lifetime = new AbortController()
 const motion = createReducedMotionQuery()
@@ -89,6 +106,7 @@ let observer: ResizeObserver | undefined
 const inspection = useBadgeInspection({
   stage,
   canvas,
+  caption,
   onLift: (id) => surface?.setRemoved(id, true),
   onReturn: (id) => surface?.setRemoved(id, false),
   onError: () => {
@@ -101,11 +119,38 @@ const inspection = useBadgeInspection({
   },
 })
 const { phase, badgeId, liftedId, active } = inspection
-const index = computed(() => badges.value.findIndex((badge) => badge.id === badgeId.value))
-const currentName = computed(() => {
-  const badge = milestoneBadges.find((item) => item.id === badgeId.value)
-  return badge ? badgeName(badge) : ''
+// Keep model appearance, previews and text on one snapshot throughout an inspection.
+watch([() => props.achievements, active], () => {
+  if (!active.value) displayAchievements.value = props.achievements
 })
+function badgeState(badge: (typeof milestoneBadges)[number]) {
+  return displayAchievements.value &&
+    badgeAchievementStatus(badge, displayAchievements.value).earned
+    ? ('lit' as const)
+    : ('unlit' as const)
+}
+const index = computed(() => badges.value.findIndex((badge) => badge.id === badgeId.value))
+const currentBadge = computed(() => milestoneBadges.find((item) => item.id === badgeId.value))
+const currentName = computed(() => (currentBadge.value ? badgeName(currentBadge.value) : ''))
+const currentCondition = computed(() => {
+  const badge = currentBadge.value
+  if (!badge) return ''
+  const key = badge.group === 'albums' ? badge.id : badge.group
+  return t(`archive.milestones.conditions.${key}`, { count: badge.amount ?? 0 })
+})
+const currentProgress = computed(() => {
+  if (!currentBadge.value || !displayAchievements.value) return ''
+  const status = badgeAchievementStatus(currentBadge.value, displayAchievements.value)
+  if (status.earned) return t('archive.milestones.earned')
+  if (!status.target) return t('archive.milestones.noEligibleAlbum')
+  return t(`archive.milestones.progress.${status.unit}`, {
+    count: status.unit === 'hours' ? Math.floor(status.current * 10) / 10 : status.current,
+    total: status.target,
+  })
+})
+const captionVisible = computed(
+  () => phase.value === 'inspecting' || phase.value === 'switch-loading',
+)
 function badgeName(badge: (typeof milestoneBadges)[number]) {
   const key = `archive.milestones.names.${badge.id}`
   return te(key) ? t(key) : badge.name
@@ -115,7 +160,7 @@ function descriptor(id: string): InspectBadge {
     id,
     contour: badgeContours[id],
     material: badgeMaterialDescriptors[id],
-    state: appearance.value,
+    state: badgeState(milestoneBadges.find((badge) => badge.id === id)!),
   }
 }
 function buttonFor(id: string) {
@@ -219,7 +264,7 @@ defineExpose({
     </template>
     <div
       class="archive-badge-gallery"
-      :class="{ 'is-ready': casePresented }"
+      :class="{ 'is-ready': casePresented, 'is-inspecting': active }"
       :inert="active || !casePresented"
       :data-foam-failed="foamFailed || undefined"
     >
@@ -241,22 +286,6 @@ defineExpose({
               </button>
             </nav>
             <div class="case-actions">
-              <div
-                class="case-appearance auralis-type-caption"
-                role="group"
-                :aria-label="t('archive.milestones.appearance')"
-              >
-                <button
-                  v-for="state in ['lit', 'unlit'] as const"
-                  :key="state"
-                  type="button"
-                  :data-badge-state="state"
-                  :aria-pressed="appearance === state"
-                  @click="appearance = state"
-                >
-                  {{ t(`archive.milestones.${state}`) }}
-                </button>
-              </div>
               <span
                 v-if="caseError"
                 class="case-error-icon"
@@ -302,16 +331,26 @@ defineExpose({
                       type="button"
                       class="badge-button"
                       :data-badge="badge.id"
+                      :data-achievement-state="badgeState(badge)"
                       :data-badge-select="badge.id"
                       :data-inspected="liftedId === badge.id ? 'true' : undefined"
                       :aria-pressed="liftedId === badge.id"
-                      :aria-label="t('archive.milestones.inspectBadge', { name: badgeName(badge) })"
+                      :aria-label="
+                        t('archive.milestones.inspectBadge', {
+                          name: badgeName(badge),
+                          status: t(
+                            badgeState(badge) === 'lit'
+                              ? 'archive.milestones.earned'
+                              : 'archive.milestones.notEarned',
+                          ),
+                        })
+                      "
                       aria-haspopup="dialog"
                       @click="inspect(badge.id)"
                     >
                       <img
                         class="badge-image"
-                        :src="getBadgePreview(badge.id, appearance)"
+                        :src="getBadgePreview(badge.id, badgeState(badge))"
                         alt=""
                         width="330"
                         height="370"
@@ -368,7 +407,7 @@ defineExpose({
           tabindex="0"
           role="img"
           :aria-label="t('archive.milestones.previewFor', { name: currentName })"
-          :aria-describedby="`${titleId}-instructions`"
+          :aria-describedby="`${titleId}-instructions ${titleId}-condition ${titleId}-progress`"
           @pointermove="inspection.pointer"
           @pointerleave="inspection.reset"
           @pointercancel="inspection.reset"
@@ -383,6 +422,18 @@ defineExpose({
           <p :id="`${titleId}-instructions`" class="sr-only">
             {{ t('archive.milestones.instructions') }}
           </p>
+        </div>
+        <div
+          ref="caption"
+          class="inspect-caption"
+          :class="{ 'is-visible': captionVisible }"
+          :aria-hidden="!captionVisible"
+        >
+          <h3 class="inspect-caption__name">{{ currentName }}</h3>
+          <p :id="`${titleId}-condition`" class="inspect-caption__condition">
+            {{ currentCondition }}
+          </p>
+          <p :id="`${titleId}-progress`" class="inspect-caption__progress">{{ currentProgress }}</p>
         </div>
         <button
           class="inspect-close"

@@ -61,9 +61,10 @@ function createFixture(trusted = true) {
 const payload = { trackId: 42, sessionId: 'session-42', playedAtIso: '2026-10-08T12:00:00Z' }
 
 describe('playback statistics and annual archive IPC', () => {
-  it('exposes only the annual counts query and retained reset operation', () => {
+  it('keeps archive statistics registration separate from badge evidence', () => {
     const { handlers } = createFixture()
     expect(Object.values(ipcChannels.archive)).toEqual([
+      'archive:get-badge-achievements',
       'archive:get-annual-play-counts',
       'archive:get-annual-summary',
       'archive:get-day-top-tracks',

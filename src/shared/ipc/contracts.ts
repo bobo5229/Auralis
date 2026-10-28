@@ -1,3 +1,4 @@
+import type { BadgeAchievements, ListeningProgressBatch } from '@shared/types/badgeAchievements'
 import type { AppInfo, LibraryStats } from '@shared/types/app'
 import type { UiLocale } from '@shared/uiLocale'
 import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
@@ -401,6 +402,14 @@ export interface IpcInvokeContract {
   'playback:release-read-lease': {
     request: { leaseId: string }
     response: { ok: true }
+  }
+  'archive:get-badge-achievements': {
+    request: void
+    response: BadgeAchievements
+  }
+  'playback:record-listening-progress': {
+    request: ListeningProgressBatch
+    response: { ok: boolean; epoch: number }
   }
   'archive:get-annual-play-counts': {
     request: { year: number }

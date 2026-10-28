@@ -1,4 +1,4 @@
-import { computed, nextTick, onBeforeUnmount, readonly, ref, type Ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, readonly, ref, watch, type Ref } from 'vue'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { InspectBadge, createInspectRenderer } from '../runtime/badgeInspectRenderer'
 
@@ -29,7 +29,7 @@ interface Flight {
 const TAU = Math.PI * 2
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const ease = (t: number) => 1 - (1 - t) ** 3
-const switchEase = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
 const SWITCH_DURATION = 220
 const SWITCH_DISTANCE = 64
 
@@ -37,6 +37,7 @@ const SWITCH_DISTANCE = 64
 export function useBadgeInspection(options: {
   stage: Ref<HTMLElement | null>
   canvas: Ref<HTMLCanvasElement | null>
+  caption: Ref<HTMLElement | null>
   onLift: (id: string) => void
   onReturn: (id: string) => void
   onError: () => void
@@ -57,24 +58,39 @@ export function useBadgeInspection(options: {
     revision = 0,
     disposed = false
   let width = 420,
-    height = (width * 370) / 330
+    height = (width * 370) / 330,
+    top = 0
   const pose = { x: 0, y: TAU, targetX: 0, targetY: TAU }
   function resize() {
-    width = Math.min(420, innerWidth - 56, ((innerHeight - 120) * 330) / 370)
+    const captionHeight = options.caption.value?.offsetHeight || 74
+    const bottom = innerWidth <= 700 ? 92 : 24
+    const available = innerHeight - 24 - bottom
+    width = Math.max(
+      1,
+      Math.min(420, innerWidth - 56, ((available - 24 - captionHeight) * 330) / 370),
+    )
     height = (width * 370) / 330
+    top = 24 + Math.max(0, (available - height - 24 - captionHeight) / 2)
+    if (options.caption.value) {
+      options.caption.value.style.top = `${top + height + 24}px`
+      options.caption.value.parentElement?.style.setProperty(
+        '--inspect-center-y',
+        `${top + height / 2}px`,
+      )
+    }
     if (options.stage.value)
       Object.assign(options.stage.value.style, { width: `${width}px`, height: `${height}px` })
     graphics?.resize(width, height)
     if (current) current.source = current.button.querySelector('img')!.getBoundingClientRect()
     if (active.value && phase.value !== 'loading') requestDraw()
   }
-  function place(progress: number) {
+  function place(progress: number, easing = ease) {
     if (!current || !options.stage.value) return
     const source = current.source,
-      p = ease(progress)
+      p = easing(progress)
     const scale = source.width / width + (1 - source.width / width) * p
     const x = source.left + (innerWidth / 2 - width / 2 - source.left) * p
-    const y = source.top + (innerHeight / 2 - height / 2 - source.top) * p
+    const y = source.top + (top - source.top) * p
     options.stage.value.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
   }
   function stop() {
@@ -164,7 +180,7 @@ export function useBadgeInspection(options: {
     if (phase.value === 'switch-out' || phase.value === 'switch-in') {
       const turn = slide!
       const t = motion.matches ? 1 : clamp((time - turn.start) / SWITCH_DURATION, 0, 1)
-      const p = switchEase(t)
+      const p = easeInOutCubic(t)
       const outgoing = phase.value === 'switch-out'
       place(1)
       const x = turn.direction * SWITCH_DISTANCE * (outgoing ? -p : 1 - p)
@@ -199,9 +215,10 @@ export function useBadgeInspection(options: {
       const t = motion.matches ? 1 : clamp((time - turn.start) / turn.duration, 0, 1)
       if (phase.value === 'entering') {
         turn.progress = t
-        place(t)
-        pose.x = -Math.sin(Math.PI * t) * 0.08
-        pose.y = TAU * t * t * (3 - 2 * t)
+        const p = easeInOutCubic(t)
+        place(t, easeInOutCubic)
+        pose.x = -Math.sin(Math.PI * p) * 0.08
+        pose.y = TAU * p
         graphics?.render(pose.x, pose.y)
         if (t === 1) {
           finishInspecting()
@@ -379,6 +396,18 @@ export function useBadgeInspection(options: {
     resize()
     watchResolution()
   }
+  let captionObserver: ResizeObserver | undefined
+  watch(
+    options.caption,
+    (element) => {
+      captionObserver?.disconnect()
+      if (element) {
+        captionObserver = new ResizeObserver(resize)
+        captionObserver.observe(element)
+      }
+    },
+    { immediate: true, flush: 'post' },
+  )
   watchResolution()
   window.addEventListener('resize', resize)
   document.addEventListener('visibilitychange', visibility)
@@ -389,6 +418,7 @@ export function useBadgeInspection(options: {
     pending = undefined
     finishClose(false)
     graphics?.dispose()
+    captionObserver?.disconnect()
     resolution?.removeEventListener('change', onResolution)
     window.removeEventListener('resize', resize)
     document.removeEventListener('visibilitychange', visibility)

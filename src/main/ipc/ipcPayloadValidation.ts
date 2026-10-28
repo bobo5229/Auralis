@@ -513,6 +513,26 @@ export const domainIpcPayloadPolicies = {
     objectShape({ excludeAlbumKey: field(albumKey, true) }),
   ),
   [ipcChannels.playback.getAlbumTracks]: required(objectShape({ albumKey: field(albumKey) })),
+  [ipcChannels.archive.getBadgeAchievements]: voidPayload(),
+  [ipcChannels.playback.recordListeningProgress]: required(
+    objectShape({
+      epoch: field(finiteNumber({ integer: true, min: 0, max: Number.MAX_SAFE_INTEGER })),
+      sessionId: field(stringValue({ min: 1, max: MAX_SESSION_ID_LENGTH })),
+      sequence: field(positiveId),
+      trackId: field(positiveId),
+      samples: field(
+        arrayOf(
+          objectShape({
+            startedAtIso: field(isoTimestamp),
+            startSeconds: field(finiteNumber({ min: 0, max: 86400 })),
+            endSeconds: field(finiteNumber({ min: 0, max: 86400 })),
+            playedSeconds: field(finiteNumber({ min: 0.001, max: 2.5 })),
+          }),
+          { min: 1, max: 32 },
+        ),
+      ),
+    }),
+  ),
   [ipcChannels.playback.recordEffectivePlay]: required(
     objectShape({
       trackId: field(positiveId),

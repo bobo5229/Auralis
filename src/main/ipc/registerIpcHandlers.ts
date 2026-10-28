@@ -1,3 +1,5 @@
+import { BadgeAchievementRepository } from '@main/repositories/badgeAchievementRepository'
+import { registerBadgeAchievementIpcHandlers } from './registerBadgeAchievementIpcHandlers'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -423,6 +425,11 @@ export function registerIpcHandlers(
     smartPlaylistService,
     getSmartTrackCounts,
   })
+  registerBadgeAchievementIpcHandlers(
+    electronIpcRegistrar,
+    new BadgeAchievementRepository(db),
+    () => notifyLibraryChanged({ reason: 'play-stats-updated', trackIds: [], filePaths: [] }),
+  )
   registerPlaybackArchiveIpcHandlers(electronIpcRegistrar, {
     libraryService,
     playStatsService,

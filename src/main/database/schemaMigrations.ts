@@ -1,3 +1,5 @@
+import { badgeAchievementMigration } from './badgeAchievementMigration'
+
 export const migrations = [
   {
     id: 1,
@@ -833,4 +835,5 @@ export const migrations = [
         ON removed_track_history(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
     `,
   },
+  badgeAchievementMigration,
 ] as const

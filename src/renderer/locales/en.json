@@ -1008,7 +1008,7 @@
       "browse": "Badge display, scroll horizontally",
       "browsePrevious": "Scroll back",
       "browseNext": "Scroll forward",
-      "inspectBadge": "Inspect {name}",
+      "inspectBadge": "Inspect {name}, {status}",
       "returnBadge": "Return to case",
       "previousBadge": "Inspect previous badge",
       "nextBadge": "Inspect next badge",
@@ -1021,13 +1021,29 @@
       "previewFor": "{name}, rotatable badge preview",
       "instructions": "Move the pointer to explore reflections. Arrow keys adjust the view; Home resets it.",
       "staticPreview": "Static badge preview",
-      "appearance": "Badge appearance",
-      "lit": "Lit appearance",
-      "unlit": "Unlit appearance",
-      "catalogNote": "The catalogue displays all badge designs, not your personal achievement record.",
+      "achievementsError": "Achievements could not load. Reopen the case to retry.",
+      "earned": "Achieved",
+      "notEarned": "Not achieved",
+      "noEligibleAlbum": "No eligible local album yet",
+      "progress": {
+        "hours": "{count} / {total} hours heard",
+        "days": "{count} / {total} listening days",
+        "tracks": "Album progress: {count} / {total} tracks"
+      },
+      "conditions": {
+        "hours": "Listen for {count} hours in total",
+        "days": "Listen for at least one hour on each of {count} days",
+        "albums1": "Hear 90% of every track in a local album",
+        "albumsLive": "Hear 90% of every track in an album where every genre contains Live"
+      },
+      "catalogNote": "Badges reflect listening history. Legacy estimated time counts toward hours and listening days; album coverage starts with interval recording.",
       "hoursLabel": "{count} hours",
       "daysLabel": "{count} days",
-      "groups": { "hours": "Time with music", "days": "Days together", "albums": "Album memories" },
+      "groups": {
+        "hours": "Time with music",
+        "days": "Days together",
+        "albums": "Album memories"
+      },
       "names": {
         "hours10": "First Notes",
         "hours100": "Taking Shape",
@@ -1041,7 +1057,10 @@
         "albums1": "From Start to Finish",
         "albumsLive": "Live Echoes"
       },
-      "labels": { "albums1": "Complete album", "albumsLive": "Live album" }
+      "labels": {
+        "albums1": "Complete album",
+        "albumsLive": "Live album"
+      }
     },
     "summary": {
       "eyebrow": "Listening archive · A year remembered",

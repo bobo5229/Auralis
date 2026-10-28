@@ -119,6 +119,8 @@ export const auralisApi: AuralisApi = {
     closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
   },
   playback: {
+    recordListeningProgress: (payload) =>
+      invoke(ipcChannels.playback.recordListeningProgress, payload),
     subscribeSpectrum: (request) => invoke(ipcChannels.playback.spectrumSubscribe, request),
     onSpectrumFrame: (callback) => on(ipcChannels.playback.spectrumFrame, callback),
     nativeAvailability: () => invoke(ipcChannels.playback.nativeAvailability),
@@ -142,6 +144,7 @@ export const auralisApi: AuralisApi = {
     onCommand: (callback) => on(ipcChannels.systemMedia.command, callback),
   },
   archive: {
+    getBadgeAchievements: () => invoke(ipcChannels.archive.getBadgeAchievements),
     getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
     getAnnualSummary: (year) => invoke(ipcChannels.archive.getAnnualSummary, { year }),
     getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
