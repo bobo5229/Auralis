@@ -1,5 +1,7 @@
 # 界面原型
 
+歌词强调：[普通 LRC 整行 / 增强 LRC 计时片段](lyrics/emphasis/README.md)。运行 `node demo/lyrics/emphasis/serve.mjs` 后打开 <http://127.0.0.1:4196/demo/lyrics/emphasis/>；支持点选、试听本行、浮起/缩放/光晕、撤销与本地标记保存，可加载自己的歌曲和 LRC。附原创合成伴奏，未接入正式曲库。
+
 徽章收藏盒：[铝盒外框、海绵内胆与徽章检视](archive/badge-case-material/README.md)。运行 `node demo/archive/badge-case-material/serve.mjs` 后打开 <http://127.0.0.1:4198/>；单击徽章移动放大并绕竖轴翻转，悬停观察 GLSL 反光，空白或 Esc 放回；支持分类、横向浏览、残留压痕与深浅展示环境。
 
 封面取色比较：[Wu / 调整后的 Wu / OKLab K-means](playback/palette-comparison/index.html)，离线打开；内置代表性封面，支持三列并排、全样本总览、本地封面导入与单列放大，统一背景适配规则，未接入正式界面。[说明与验证](playback/palette-comparison/README.md)。
