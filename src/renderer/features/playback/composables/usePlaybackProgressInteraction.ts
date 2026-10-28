@@ -5,6 +5,7 @@ type ReadonlyRef<T> = Readonly<Ref<T>>
 type FrameSubscriber = (callback: (now: number) => void) => () => void
 
 export interface PlaybackProgressInteractionOptions {
+  trackId: ReadonlyRef<number | null>
   duration: ReadonlyRef<number>
   currentTime: ReadonlyRef<number>
   isPlaying: ReadonlyRef<boolean>
@@ -56,6 +57,7 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   let progressAnchorAt = 0
   let activePointerTarget: ProgressPointerTarget | null = null
   let activePointerId: number | null = null
+  let draggingTrackId: number | null = null
   let disposed = false
   let lastVisualFrameAt: number | null = null
   const visualFrameInterval =
@@ -124,29 +126,36 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   }
 
   function releasePointerCapture(): void {
-    if (
-      activePointerTarget &&
-      activePointerId !== null &&
-      activePointerTarget.hasPointerCapture(activePointerId)
-    ) {
-      activePointerTarget.releasePointerCapture(activePointerId)
-    }
+    const target = activePointerTarget
+    const pointerId = activePointerId
     activePointerTarget = null
     activePointerId = null
+    if (target && pointerId !== null && target.hasPointerCapture(pointerId))
+      target.releasePointerCapture(pointerId)
   }
 
   function finishDragging(commit: boolean, event?: PointerEvent): void {
     if (!isDragging.value) return
-    if (event && commit) updateFromPointer(event)
-    if (commit && draggingRatio.value !== null) options.seekByRatio(draggingRatio.value)
-    releasePointerCapture()
+    const valid =
+      !disposed &&
+      options.active.value &&
+      options.duration.value > 0 &&
+      draggingTrackId === options.trackId.value
+    if (event && commit && valid) updateFromPointer(event)
+    const finalRatio = draggingRatio.value
     isDragging.value = false
     draggingRatio.value = null
+    draggingTrackId = null
+    releasePointerCapture()
+    if (commit && valid && finalRatio !== null) options.seekByRatio(finalRatio)
     syncAnchor()
   }
 
   function onPointerDown(event: PointerEvent): void {
     if (
+      disposed ||
+      !options.active.value ||
+      options.trackId.value === null ||
       event.button !== 0 ||
       activePointerId !== null ||
       options.duration.value <= 0 ||
@@ -154,6 +163,7 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
     )
       return
     isDragging.value = true
+    draggingTrackId = options.trackId.value
     activePointerTarget = event.currentTarget
     activePointerId = event.pointerId
     activePointerTarget.setPointerCapture(event.pointerId)
@@ -177,7 +187,7 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   }
 
   function onKeydown(event: KeyboardEvent): void {
-    if (options.duration.value <= 0) return
+    if (disposed || !options.active.value || options.duration.value <= 0) return
     const step = options.resolveSeekStepSeconds(event.shiftKey)
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
@@ -192,14 +202,28 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   function dispose(): void {
     if (disposed) return
     disposed = true
+    stopClockWatch()
+    stopFrameWatch()
+    stopContextWatch()
+    if (typeof window !== 'undefined') window.removeEventListener('blur', cancelDragging)
+    if (typeof document !== 'undefined')
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     frameUnsubscribe?.()
     frameUnsubscribe = null
-    releasePointerCapture()
     isDragging.value = false
     draggingRatio.value = null
+    draggingTrackId = null
+    releasePointerCapture()
   }
 
-  watch(
+  function cancelDragging(): void {
+    finishDragging(false)
+  }
+  function onVisibilityChange(): void {
+    if (document.hidden) cancelDragging()
+  }
+
+  const stopClockWatch = watch(
     () => [options.currentTime.value, options.duration.value],
     ([time, duration], [, previousDuration]) => {
       const elapsed = options.isPlaying.value ? Math.max(0, getNow() - progressAnchorAt) / 1000 : 0
@@ -214,10 +238,20 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
       )
     },
   )
-  watch(
+  const stopFrameWatch = watch(
     () => [options.active.value, options.isPlaying.value],
     () => nextTick(syncFrameSubscription),
   )
+  const stopContextWatch = watch(
+    [options.trackId, options.active, () => options.duration.value > 0],
+    ([trackId, active, seekable]) => {
+      if (!active || !seekable || trackId !== draggingTrackId) cancelDragging()
+    },
+    { flush: 'sync' },
+  )
+  if (typeof window !== 'undefined') window.addEventListener('blur', cancelDragging)
+  if (typeof document !== 'undefined')
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
   syncFrameSubscription()
   if (getCurrentScope()) onScopeDispose(dispose)

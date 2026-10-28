@@ -255,23 +255,6 @@ describe('gapless playback session', () => {
     expect(t.session.acceptBoundary(2).kind).toBe('ignore')
   })
 
-  it('invalidates seek credentials on cancellation, replacement, boundaries and disposal', async () => {
-    const t = setup()
-    for (const invalidate of [
-      () => t.session.cancelPreload(),
-      () => t.session.refresh(1),
-      () => t.session.endAudioLifetime(),
-      () => t.session.acceptBoundary(null),
-      () => t.session.dispose(),
-    ]) {
-      const isValid = t.session.captureValidity()
-      expect(isValid()).toBe(true)
-      await invalidate()
-      expect(isValid()).toBe(false)
-    }
-    expect(t.session.captureValidity()()).toBe(false)
-  })
-
   it('filters a missing candidate before loading its audio', async () => {
     const t = setup()
     t.filterPlan.mockReturnValue(null)

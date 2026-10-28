@@ -21,6 +21,7 @@ export function createNativePlaybackRuntime(
   let retainedSession: number | null = null
   let disposed = false
   let session = ++nextSession
+  let seekRevision = 0
   let volume = 0.8
   let muted = false
   let snapshot: PlaybackAudioSnapshot = idle()
@@ -45,6 +46,7 @@ export function createNativePlaybackRuntime(
   }
   function receive(event: NativePlaybackEvent): void {
     if (!native || disposed || event.session !== session) return
+    if (event.kind === 'boundary' || event.kind === 'ended') seekRevision += 1
     if (event.kind === 'error') {
       failure(event.detail)
       return
@@ -142,11 +144,18 @@ export function createNativePlaybackRuntime(
     },
     async seek(time) {
       if (!native) return fallback.seek(time)
+      const seekSession = session
+      const revision = ++seekRevision
+      const isCurrent = () =>
+        !disposed && native && session === seekSession && seekRevision === revision
       callbacks.onSeeking?.()
       try {
-        await api.nativeCommand({ action: 'seek', session, time })
+        const result = await api.nativeCommand({ action: 'seek', session: seekSession, time })
+        if (isCurrent() && !result.accepted) throw new Error('Native playback seek was rejected')
+      } catch (error) {
+        if (isCurrent()) throw error
       } finally {
-        callbacks.onSeeked?.()
+        if (isCurrent()) callbacks.onSeeked?.()
       }
     },
     setVolume(value, isMuted) {

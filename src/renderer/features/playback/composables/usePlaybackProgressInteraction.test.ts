@@ -30,7 +30,7 @@ function pointerEvent(
   } as unknown as PointerEvent
 }
 
-function setup(activeInitially = false, maxVisualFps?: number) {
+function setup(activeInitially = true, maxVisualFps?: number) {
   const duration = ref(100)
   const currentTime = ref(20)
   const isPlaying = ref(false)
@@ -41,6 +41,7 @@ function setup(activeInitially = false, maxVisualFps?: number) {
   const unsubscribe = vi.fn()
   const subscribeFrame = vi.fn<(callback: (now: number) => void) => () => void>(() => unsubscribe)
   const interaction = usePlaybackProgressInteraction({
+    trackId: ref(1),
     duration,
     currentTime,
     isPlaying,
@@ -84,6 +85,7 @@ describe('usePlaybackProgressInteraction', () => {
     const renderRatio = vi.fn()
     let tick: (time: number) => void = () => {}
     const interaction = usePlaybackProgressInteraction({
+      trackId: ref(1),
       duration: ref(100),
       currentTime,
       isPlaying: ref(true),

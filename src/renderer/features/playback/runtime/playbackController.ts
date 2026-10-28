@@ -17,7 +17,7 @@ import type {
   PlaybackTransitionPlan,
   PlaybackTransitionSource,
 } from '../core/playbackTransitionPlanner'
-import type { PlaybackRequestToken } from '../utils/playbackRequestGate'
+import { createPlaybackRequestGate, type PlaybackRequestToken } from '../utils/playbackRequestGate'
 import { createPlaybackRequestLifecycle } from './playbackRequestLifecycle'
 import { createGaplessPlaybackSession } from './gaplessPlaybackSession'
 import { createPlaybackDataOwner } from './playbackDataOwner'
@@ -120,6 +120,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   )
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
   const playbackRequests = createPlaybackRequestLifecycle()
+  const seekRequests = createPlaybackRequestGate()
   const navigationSession = new PlaybackNavigationSession()
   const { track: playbackTrack, queue: playbackQueue } = createPlaybackDataOwner()
   function preparePlaybackPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan {
@@ -165,6 +166,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const missingTrackIds = new Set<number>()
 
   function setPlaybackError(err: unknown): void {
+    seekRequests.invalidate()
     effectivePlayTracker.setPlaying(false)
     listeningProgress?.setPlaying(false)
     state.isPlaying = false
@@ -204,6 +206,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       void commitBoundary(nextTrackId).catch(setPlaybackError)
     },
     onError: (error) => {
+      seekRequests.invalidate()
       effectivePlayTracker.end()
       listeningProgress?.end()
       audioRuntime.clear()
@@ -302,6 +305,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     queue: readonly PlaybackTrack[],
     duration = 0,
   ): void {
+    seekRequests.invalidate()
     audioBuffering = false
     state.queue = playbackQueue(queue)
     state.currentIndex = queue.findIndex((t) => t.id === track.id)
@@ -367,6 +371,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   async function commitBoundary(nextTrackId: number | null): Promise<void> {
     const boundary = gaplessSession.acceptBoundary(nextTrackId)
     if (boundary.kind === 'ignore') return
+    seekRequests.invalidate()
     if (boundary.kind === 'entered') {
       if (missingTrackIds.has(boundary.plan.track.id)) {
         stopMissingCurrentTrack()
@@ -771,6 +776,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function pause(): void {
     commandRevision.value += 1
     pausedByUser = true
+    seekRequests.invalidate()
     playbackRequests.invalidate()
     gaplessSession.cancelPreload()
     effectivePlayTracker.setPlaying(false)
@@ -780,6 +786,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function playPrevious(): Promise<void> {
+    seekRequests.invalidate()
     commandRevision.value += 1
     playbackRequests.invalidate()
     gaplessSession.navigationChanged(true)
@@ -808,6 +815,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function playNext(): Promise<void> {
+    seekRequests.invalidate()
     commandRevision.value += 1
     await advanceTrack('manual-next')
   }
@@ -826,19 +834,20 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
     commandRevision.value += 1
     const nextTime = Math.min(duration, Math.max(0, targetTime))
-    void seekCurrentTrack(nextTime).catch(setPlaybackError)
+    void seekCurrentTrack(nextTime)
     state.currentTime = nextTime
   }
 
   async function seekCurrentTrack(time: number): Promise<void> {
     const trackId = state.currentTrackId
-    if (trackId === null) return
+    if (isDisposed || trackId === null) return
+    const request = seekRequests.begin()
     effectivePlayTracker.beginSeekingWithFallback()
     listeningProgress?.beginSeekingWithFallback()
     gaplessSession.cancelPreload()
-    const isValidGeneration = gaplessSession.captureValidity()
     const isCurrentSeek = () =>
-      isValidGeneration() &&
+      !isDisposed &&
+      seekRequests.isCurrent(request) &&
       state.currentTrackId === trackId &&
       audioRuntime.getSnapshot().trackId === trackId
     try {
@@ -849,7 +858,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         void gaplessSession.refresh(trackId)
       }
     } catch (error) {
-      if (isCurrentSeek()) throw error
+      if (isCurrentSeek()) setPlaybackError(error)
+    } finally {
+      seekRequests.finish(request)
     }
   }
 
@@ -944,6 +955,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function stopMissingCurrentTrack(): void {
+    seekRequests.invalidate()
     pausedByUser = true
     playbackRequests.invalidate()
     effectivePlayTracker.end()
@@ -1079,6 +1091,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function dispose(): void {
     if (isDisposed) return
     isDisposed = true
+    seekRequests.invalidate()
     queueSession.value = null
     playbackRequests.invalidate()
     gaplessSession.dispose()

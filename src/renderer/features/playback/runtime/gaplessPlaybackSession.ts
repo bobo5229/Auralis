@@ -69,12 +69,6 @@ export function createGaplessPlaybackSession(deps: GaplessPlaybackDependencies) 
     submitted.clear()
   }
 
-  // The closure is an opaque credential; callers never compare internal counters.
-  function captureValidity(): () => boolean {
-    const captured = generation
-    return () => !disposed && captured === generation
-  }
-
   function isCurrentPrefetch(requestGeneration: number, fromTrackId: number): boolean {
     const playback = deps.getPlayback()
     return (
@@ -155,7 +149,6 @@ export function createGaplessPlaybackSession(deps: GaplessPlaybackDependencies) 
     refresh,
     cancelPreload,
     endAudioLifetime,
-    captureValidity,
     acceptBoundary,
     navigationChanged(resetContext = false): void {
       navigationRevision += 1

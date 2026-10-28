@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
@@ -19,7 +19,6 @@ let stopVisibility: (() => void) | undefined
 let resizeObserver: ResizeObserver | undefined
 let railWidth = 0
 let lastRenderedRatio = Number.NaN
-let draggingTrackId: number | null = null
 
 const hasSeekableTrack = computed(
   () => Boolean(playback.state.currentTrack) && playback.state.duration > 0 && props.interactive,
@@ -47,6 +46,7 @@ function renderProgressRatio(ratio: number): void {
 }
 
 const interaction = usePlaybackProgressInteraction({
+  trackId: computed(() => playback.state.currentTrackId),
   duration: computed(() => (hasSeekableTrack.value ? playback.state.duration : 0)),
   currentTime: computed(() => playback.state.currentTime),
   isPlaying: computed(() => playback.state.isPlaying),
@@ -59,41 +59,12 @@ const interaction = usePlaybackProgressInteraction({
 })
 const progressValueNow = interaction.valueNow
 
-function cancelDraggingProgress(): void {
-  draggingTrackId = null
-  interaction.onPointerCancel()
-}
-function handleProgressPointerDown(event: PointerEvent): void {
-  if (!active.value) return
-  interaction.onPointerDown(event)
-  if (interaction.isDragging.value) draggingTrackId = playback.state.currentTrackId
-}
-function handleProgressPointerUp(event: PointerEvent): void {
-  if (!hasSeekableTrack.value || draggingTrackId !== playback.state.currentTrackId) {
-    cancelDraggingProgress()
-    return
-  }
-  interaction.onPointerUp(event)
-  if (!interaction.isDragging.value) draggingTrackId = null
-}
-function handleProgressKeydown(event: KeyboardEvent): void {
-  if (hasSeekableTrack.value) interaction.onKeydown(event)
-}
 function syncDocumentVisibility(): void {
   documentVisible.value = !document.hidden
 }
 
-watch(() => playback.state.currentTrackId, cancelDraggingProgress, { flush: 'sync' })
-watch(
-  active,
-  (visible) => {
-    if (!visible) cancelDraggingProgress()
-  },
-  { flush: 'sync' },
-)
 onMounted(() => {
   document.addEventListener('visibilitychange', syncDocumentVisibility)
-  window.addEventListener('blur', cancelDraggingProgress)
   stopVisibility = observeWindowVisibility((visible) => {
     windowVisible.value = visible
   })
@@ -107,7 +78,6 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', syncDocumentVisibility)
-  window.removeEventListener('blur', cancelDraggingProgress)
   stopVisibility?.()
   resizeObserver?.disconnect()
 })
@@ -126,12 +96,12 @@ onBeforeUnmount(() => {
     :aria-valuemax="Math.round(playback.state.duration || 0)"
     :aria-valuenow="Math.round(playback.state.currentTime || 0)"
     :aria-valuetext="`${progressValueNow}%`"
-    @pointerdown="handleProgressPointerDown"
+    @pointerdown="interaction.onPointerDown"
     @pointermove="interaction.onPointerMove"
-    @pointerup="handleProgressPointerUp"
+    @pointerup="interaction.onPointerUp"
     @pointercancel="interaction.onPointerCancel"
     @lostpointercapture="interaction.onPointerCancel"
-    @keydown="handleProgressKeydown"
+    @keydown="interaction.onKeydown"
   >
     <div ref="progressFillRef" class="track-progress-fill"></div>
   </div>

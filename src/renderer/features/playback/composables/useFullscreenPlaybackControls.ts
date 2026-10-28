@@ -97,6 +97,7 @@ export function useFullscreenPlaybackControls({
     onPointerCancel: handleProgressPointerCancel,
     onKeydown: handleProgressKeydown,
   } = usePlaybackProgressInteraction({
+    trackId: computed(() => playback.state.currentTrackId),
     duration: computed(() => playback.state.duration),
     currentTime: computed(() => playback.state.currentTime),
     isPlaying: computed(() => playback.state.isPlaying),

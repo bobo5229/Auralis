@@ -23,6 +23,7 @@ export default defineConfig({
       web: [
         '**/App.shell.test.ts',
         '**/AppSidebar.test.ts',
+        '**/PlayerBarProgress.test.ts',
         '**/FlatTrackColumnHeader.test.ts',
         '**/FacetsDialog.test.ts',
         '**/SongRow.test.ts',

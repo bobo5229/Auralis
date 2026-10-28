@@ -75,6 +75,83 @@ describe('playbackController unit tests with injected dependencies', () => {
     }
   })
 
+  it.each(['none', 'gapless', 'silence', 'transition', 'mode'] as const)(
+    'reports a current seek failure after an independent %s change',
+    async (change) => {
+      const controller = createPlaybackController(deps)
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      vi.mocked(runtime.getSnapshot).mockReturnValue({
+        kind: 'mpv',
+        trackId: 1,
+        currentTime: 0,
+        duration: 180,
+        isPlaying: true,
+        hasCurrentData: true,
+      })
+      const { api } = controller
+      let reject!: (error: Error) => void
+      vi.mocked(runtime.seek).mockReturnValueOnce(
+        new Promise((_yes, no) => {
+          reject = no
+        }),
+      )
+      try {
+        await api.playTrackFromQueue(frozenTracks(), 1, { playbackMode: 'sequential' })
+        vi.mocked(deps.createAudioRuntime!).mock.calls[0][0].onPlayingChange(true)
+        for (let i = 0; i < 8; i++) await Promise.resolve()
+        api.seekTo(30)
+        if (change === 'gapless') api.setGaplessPlaybackEnabled(false)
+        if (change === 'silence') api.setSkipDigitalSilenceEnabled(true)
+        if (change === 'transition') api.setSoftTransitionEnabled(true)
+        if (change === 'mode') api.setPlaybackMode('repeat-all')
+        reject(new Error('Seek failed'))
+        await vi.waitFor(() => expect(api.state.error).toBe('Seek failed'))
+        expect(api.state.isPlaying).toBe(false)
+      } finally {
+        controller.dispose()
+      }
+    },
+  )
+
+  it.each(['new-seek', 'track', 'same-track', 'pause', 'dispose'] as const)(
+    'ignores a late seek failure after %s takes ownership',
+    async (change) => {
+      const controller = createPlaybackController(deps)
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      vi.mocked(runtime.getSnapshot).mockReturnValue({
+        kind: 'mpv',
+        trackId: 1,
+        currentTime: 0,
+        duration: 180,
+        isPlaying: true,
+        hasCurrentData: true,
+      })
+      const { api } = controller
+      let reject!: (error: Error) => void
+      vi.mocked(runtime.seek).mockReturnValueOnce(
+        new Promise((_yes, no) => {
+          reject = no
+        }),
+      )
+      try {
+        await api.playTrackFromQueue(frozenTracks(), 1)
+        for (let i = 0; i < 8; i++) await Promise.resolve()
+        api.seekTo(30)
+        if (change === 'new-seek') api.seekTo(60)
+        if (change === 'track' || change === 'same-track')
+          await api.playTrackFromQueue(api.state.queue, change === 'track' ? 2 : 1)
+        if (change === 'pause') api.pause()
+        if (change === 'dispose') controller.dispose()
+        reject(new Error('Stale seek failed'))
+        for (let i = 0; i < 8; i++) await Promise.resolve()
+        expect(api.state.error).toBeNull()
+        if (change === 'new-seek') expect(api.state.currentTime).toBe(60)
+      } finally {
+        controller.dispose()
+      }
+    },
+  )
+
   it.each(['plain', 'frozen-array'] as const)(
     'exposes deeply readonly state for a %s queue, including its tracks',
     async (kind) => {

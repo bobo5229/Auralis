@@ -37,18 +37,57 @@ function fixture() {
     })
   const scope = effectScope()
   scopes.push(scope)
+  const isOpen = ref(true)
   const session = scope.run(() =>
     useFullscreenPlaybackControls({
-      isOpen: ref(false),
+      isOpen,
       playback: { state, seekTo, seekByRatio, setVolume, setPlaybackMode },
     }),
   )!
-  return { session, state, seekTo, seekByRatio, setVolume, setPlaybackMode }
+  return { session, state, isOpen, seekTo, seekByRatio, setVolume, setPlaybackMode }
 }
 afterEach(() => {
   for (const scope of scopes.splice(0)) scope.stop()
 })
 describe('useFullscreenPlaybackControls', () => {
+  it.each(['track', 'close', 'unseekable'] as const)(
+    'cancels a drag on %s and accepts a fresh pointer afterwards',
+    async (change) => {
+      const f = fixture()
+      f.state.currentTrackId = 1
+      const captures = new Set<number>()
+      const target = {
+        getBoundingClientRect: () => ({ left: 0, width: 100 }),
+        setPointerCapture: vi.fn((id: number) => captures.add(id)),
+        hasPointerCapture: (id: number) => captures.has(id),
+        releasePointerCapture: vi.fn((id: number) => captures.delete(id)),
+      }
+      const pointer = (clientX: number, pointerId: number) =>
+        ({
+          currentTarget: target,
+          clientX,
+          pointerId,
+          button: 0,
+          preventDefault: vi.fn(),
+        }) as unknown as PointerEvent
+      f.session.handleProgressPointerDown(pointer(25, 7))
+      expect(f.session.progressRatio.value).toBe(0.25)
+      if (change === 'track') f.state.currentTrackId = 2
+      if (change === 'close') f.isOpen.value = false
+      if (change === 'unseekable') f.state.duration = 0
+      // Cancellation must be synchronous: the old pointer can end before the next paint.
+      f.session.handleProgressPointerUp(pointer(75, 7))
+      expect(f.seekByRatio).not.toHaveBeenCalled()
+      expect(captures.size).toBe(0)
+      f.isOpen.value = true
+      f.state.duration = 180
+      await nextTick()
+      f.session.handleProgressPointerDown(pointer(80, 8))
+      f.session.handleProgressPointerUp(pointer(90, 8))
+      expect(f.seekByRatio).toHaveBeenCalledExactlyOnceWith(0.9)
+    },
+  )
+
   it('keeps metadata, progress and clock presentation in sync with the shared player', async () => {
     const f = fixture()
     expect(f.session.title.value).toBe('player.unknownTrack')

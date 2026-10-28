@@ -230,6 +230,7 @@ onBeforeUnmount(() => {
               @pointermove="handleProgressPointerMove"
               @pointerup="handleProgressPointerUp"
               @pointercancel="handleProgressPointerCancel"
+              @lostpointercapture="handleProgressPointerCancel"
               @keydown="handleProgressKeydown"
             >
               <div class="fullscreen-player-progress-track">

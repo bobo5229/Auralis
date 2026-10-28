@@ -3,6 +3,17 @@ import type { AuralisApi } from '@shared/ipc/api'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { createNativePlaybackRuntime } from './nativePlaybackRuntime'
 import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from './playbackAudioRuntime'
+import { EffectivePlayTracker } from '../core/effectivePlayTracker'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: Error) => void
+  const promise = new Promise<T>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
+  return { promise, resolve, reject }
+}
 
 function setup(available = true) {
   const callbacks: PlaybackAudioCallbacks = {
@@ -11,6 +22,8 @@ function setup(available = true) {
     onTimeUpdate: vi.fn(),
     onPlayingChange: vi.fn(),
     onDurationChange: vi.fn(),
+    onSeeking: vi.fn(),
+    onSeeked: vi.fn(),
   }
   const fallback: PlaybackAudioRuntime = {
     start: vi.fn(),
@@ -60,6 +73,102 @@ function setup(available = true) {
 }
 
 describe('native playback renderer adapter', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'ignores an older seek %s while the latest seek remains pending',
+    async (completion) => {
+      const t = setup()
+      const first = deferred<{ accepted: boolean }>()
+      const second = deferred<{ accepted: boolean }>()
+      await t.runtime.start(1, 'audio://1', { preferGapless: true })
+      vi.mocked(t.api.nativeCommand)
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise)
+      const older = t.runtime.seek(10).catch(() => undefined)
+      const latest = t.runtime.seek(20)
+      if (completion === 'resolve') first.resolve({ accepted: true })
+      else first.reject(new Error('Old seek failed'))
+      await older
+      expect(t.callbacks.onSeeked).not.toHaveBeenCalled()
+      second.resolve({ accepted: true })
+      await latest
+      expect(t.callbacks.onSeeked).toHaveBeenCalledOnce()
+      t.runtime.dispose()
+    },
+  )
+
+  it.each(['clear', 'replace', 'boundary', 'dispose'] as const)(
+    'does not publish a seek completion after %s',
+    async (action) => {
+      const t = setup()
+      const pending = deferred<{ accepted: boolean }>()
+      await t.runtime.start(1, 'audio://1', { preferGapless: true })
+      vi.mocked(t.api.nativeCommand).mockReturnValueOnce(pending.promise)
+      const seek = t.runtime.seek(10)
+      if (action === 'clear') t.runtime.clear()
+      if (action === 'replace') await t.runtime.start(3, 'audio://3', { preferGapless: true })
+      if (action === 'boundary') t.emit(t.lastSession(), 'boundary')
+      if (action === 'dispose') t.runtime.dispose()
+      pending.resolve({ accepted: false })
+      await seek
+      expect(t.callbacks.onSeeked).not.toHaveBeenCalled()
+      t.runtime.dispose()
+    },
+  )
+
+  it('reports a rejected current seek and settles its seeking callback', async () => {
+    const t = setup()
+    await t.runtime.start(1, 'audio://1', { preferGapless: true })
+    vi.mocked(t.api.nativeCommand).mockResolvedValueOnce({ accepted: false })
+    await expect(t.runtime.seek(10)).rejects.toThrow('seek was rejected')
+    expect(t.callbacks.onSeeked).toHaveBeenCalledOnce()
+    t.runtime.dispose()
+  })
+
+  it('keeps play counting suppressed until the latest native seek settles', async () => {
+    const t = setup()
+    const first = deferred<{ accepted: boolean }>(),
+      second = deferred<{ accepted: boolean }>()
+    let now = 0
+    const record = vi.fn(async () => ({ ok: true }))
+    const tracker = new EffectivePlayTracker({
+      isPlaybackCountable: () => true,
+      getDurationSeconds: () => 5.4,
+      recordEffectivePlay: record,
+      monotonicNow: () => now,
+    })
+    t.callbacks.onSeeking = () => tracker.beginSeekingWithFallback()
+    t.callbacks.onSeeked = () => tracker.endSeeking()
+    try {
+      await t.runtime.start(1, 'audio://1', { preferGapless: true })
+      tracker.start(1)
+      now = 1000
+      tracker.sample()
+      now = 2000
+      tracker.sample()
+      vi.mocked(t.api.nativeCommand)
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise)
+      now = 2900
+      const older = t.runtime.seek(1)
+      now = 2910
+      const latest = t.runtime.seek(2)
+      now = 2920
+      first.resolve({ accepted: true })
+      await older
+      now = 3000
+      tracker.sample()
+      expect(record).not.toHaveBeenCalled()
+      second.resolve({ accepted: true })
+      await latest
+      now = 3200
+      tracker.sample()
+      expect(record).toHaveBeenCalledOnce()
+    } finally {
+      tracker.dispose()
+      t.runtime.dispose()
+    }
+  })
+
   it('passes the explicit soft transition opt-in through the typed native command', async () => {
     const test = setup()
     await test.runtime.start(1, 'audio://1', { preferGapless: true })
