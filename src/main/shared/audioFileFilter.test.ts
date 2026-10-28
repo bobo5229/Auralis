@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isSupportedAudioFile, supportedAudioExtensions } from './audioFileFilter'
 
-describe('audioFileFilter', () => {
+describe('shared audioFileFilter', () => {
   it.each(supportedAudioExtensions)('accepts %s files', (extension) => {
     expect(isSupportedAudioFile(`C:\\Music\\track${extension}`)).toBe(true)
   })

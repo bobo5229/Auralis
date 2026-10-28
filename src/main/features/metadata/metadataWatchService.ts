@@ -1,5 +1,5 @@
-import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
-import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
+import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
+import { isSupportedAudioFile } from '@main/shared/audioFileFilter'
 import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'

@@ -79,6 +79,52 @@ function setup() {
 }
 
 describe('gapless playback session', () => {
+  it.each([
+    { label: 'same album', current: {}, next: {}, trim: true },
+    {
+      label: 'case and whitespace',
+      current: {},
+      next: { album: ' ALBUM ', albumArtist: ' artist ' },
+      trim: true,
+    },
+    { label: 'performer fallback', current: {}, next: { albumArtist: null }, trim: true },
+    {
+      label: 'missing artist and display fallback',
+      current: { artist: null, albumArtist: null },
+      next: { artist: 'Unknown Artist', albumArtist: 'Unknown Artist' },
+      trim: true,
+    },
+    {
+      label: 'empty artist and display fallback',
+      current: { artist: '', albumArtist: '' },
+      next: { artist: 'Unknown Artist', albumArtist: 'Unknown Artist' },
+      trim: true,
+    },
+    { label: 'different album', current: {}, next: { album: 'Other' }, trim: false },
+    { label: 'different artist', current: {}, next: { albumArtist: 'Other' }, trim: false },
+    { label: 'missing album', current: { album: null }, next: { album: null }, trim: false },
+    { label: 'empty album', current: { album: '' }, next: { album: '' }, trim: false },
+    { label: 'whitespace album', current: { album: ' ' }, next: { album: '  ' }, trim: false },
+  ])(
+    'uses the album identity rule for digital silence: $label',
+    async ({ current, next, trim }) => {
+      const t = setup()
+      Object.assign(t.tracks[0], current)
+      Object.assign(t.tracks[1], next)
+      t.settings.skipDigitalSilence = true
+      try {
+        await t.session.refresh(1)
+        expect(t.audio.scheduleNext).toHaveBeenLastCalledWith(
+          2,
+          'audio://2',
+          expect.objectContaining({ trimBoundarySilence: trim }),
+        )
+      } finally {
+        t.session.dispose()
+      }
+    },
+  )
+
   it('passes the selected duration to the next-track request', async () => {
     const t = setup()
     t.settings.softTransition = true

@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import type { Dirent } from 'node:fs'
 import { readdir } from 'node:fs/promises'
-import { isSupportedAudioFile } from './audioFileFilter'
+import { isSupportedAudioFile } from '@main/shared/audioFileFilter'
 
 export async function collectAudioFiles(
   directoryPath: string,

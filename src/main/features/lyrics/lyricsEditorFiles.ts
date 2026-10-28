@@ -3,7 +3,7 @@ import { lstat, open, realpath, link, rename, unlink, mkdtemp, rmdir } from 'nod
 import { basename, dirname, join, resolve } from 'node:path'
 import type { Stats } from 'node:fs'
 import { isPathUnderAnyRoot } from '../audio/audioPathGuard'
-import { isSupportedAudioFile } from '../libraryScan/audioFileFilter'
+import { isSupportedAudioFile } from '@main/shared/audioFileFilter'
 import { lyricSidecarCandidates } from '../metadata/lyricSidecarPaths'
 const MAX_LYRICS_CHARACTERS = 8 * 1024 * 1024
 import { LyricsEditorError } from './lyricsEditorError'

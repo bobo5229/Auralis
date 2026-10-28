@@ -1,5 +1,4 @@
-import { realpathSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
 import { ipcChannels } from '@shared/ipc/channels'
 import type {
@@ -7,16 +6,6 @@ import type {
   TrackEditStateResult,
   UpdateTrackMetadataResult,
 } from '@shared/ipc/contracts'
-
-export function normalizeAudioFilePath(filePath: string): string {
-  let normalized = resolve(filePath)
-  try {
-    normalized = realpathSync.native(normalized)
-  } catch {
-    // If realpath fails (e.g. file does not exist yet), keep the resolved path.
-  }
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
-}
 
 interface WriteWaiter {
   sourceId: string

@@ -1,6 +1,7 @@
 import type { AudioResource } from '@shared/types/audioDecode'
 import type { PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
 import type { PlaybackTransitionPlan } from '../core/playbackTransitionPlanner'
+import { getAlbumIdentity } from '../core/playbackAlbumIdentity'
 import type { PlaybackTrack } from '../types'
 
 interface GaplessPlaybackDependencies {
@@ -32,13 +33,8 @@ export type GaplessBoundaryResult =
     }
 
 function isSameAlbumBoundary(current: PlaybackTrack | null, next: PlaybackTrack): boolean {
-  if (!current?.album || !next.album) return false
-  const currentAlbumArtist = current.albumArtist || current.artist || ''
-  const nextAlbumArtist = next.albumArtist || next.artist || ''
-  return (
-    current.album.trim().toLocaleLowerCase() === next.album.trim().toLocaleLowerCase() &&
-    currentAlbumArtist.trim().toLocaleLowerCase() === nextAlbumArtist.trim().toLocaleLowerCase()
-  )
+  const currentIdentity = current ? getAlbumIdentity(current) : null
+  return currentIdentity !== null && currentIdentity === getAlbumIdentity(next)
 }
 
 export function createGaplessPlaybackSession(deps: GaplessPlaybackDependencies) {

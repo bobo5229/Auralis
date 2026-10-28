@@ -1,6 +1,6 @@
 import { extname } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { supportedAudioExtensions } from '@main/features/libraryScan/audioFileFilter'
+import { supportedAudioExtensions } from '@main/shared/audioFileFilter'
 import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 
 const expectedCandidatesForBase = (basePath: string): string[] =>

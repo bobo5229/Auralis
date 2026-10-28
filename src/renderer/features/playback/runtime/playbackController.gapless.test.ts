@@ -227,8 +227,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
           await test.api.playNext()
           expect(test.api.state.currentTrack?.title).toBe(`Edited ${test.api.state.currentTrackId}`)
         }
-        if (source === 'frozen')
-          expect(tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
+        expect(tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
       } finally {
         test.dispose()
       }

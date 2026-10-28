@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack } from '../types'
 import {
   buildAlbumShuffleContexts,
-  getAlbumIdentity,
   getAlbumKey,
   resolvePlaybackAdvance,
   resolvePlaybackTransition,
   type PlaybackTransitionSource,
   type PlaybackTransitionState,
 } from './playbackTransitionPlanner'
+import { getAlbumIdentity } from './playbackAlbumIdentity'
 
 function track(id: number, album = 'Album', albumArtist = 'Artist'): PlaybackTrack {
   return {

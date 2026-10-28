@@ -7,7 +7,7 @@ import { assertMetadataFingerprint, readStableMetadata } from './readStableMetad
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '@main/logging/logger'
 import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
-import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
+import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
 import { MetadataSaveError } from './metadataSaveError'
 
 export interface MetadataWriteCoordinator {

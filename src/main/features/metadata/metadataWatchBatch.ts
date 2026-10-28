@@ -1,7 +1,7 @@
 import type { Stats } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { scanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
-import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
+import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'

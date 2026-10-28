@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { computed, effectScope, isReadonly, reactive, ref, watch, type DeepReadonly } from 'vue'
+import {
+  computed,
+  effectScope,
+  isReadonly,
+  reactive,
+  readonly,
+  ref,
+  watch,
+  type DeepReadonly,
+} from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { useAlbumDetailPlayback } from '@renderer/features/albums/composables/useAlbumDetailPlayback'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
@@ -104,6 +113,99 @@ describe('playbackController unit tests with injected dependencies', () => {
       }
     },
   )
+
+  it.each(['plain', 'reactive', 'readonly'] as const)(
+    'isolates a caller-owned %s queue and its tracks until another playback command',
+    async (kind) => {
+      const tracks = frozenTracks().map((track) => ({ ...track }))
+      const source = kind === 'plain' ? tracks : reactive(tracks)
+      const input = kind === 'readonly' ? readonly(source) : source
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      try {
+        await api.playTrackFromQueue(input, 1, { playbackMode: 'sequential' })
+        const queue = api.state.queue
+        const revision = api.commandRevision.value
+        source[0].title = 'Caller edit'
+        source[0].durationSeconds = 999
+        source.splice(0, 1)
+        expect(api.state.queue).toBe(queue)
+        expect(queue.map(({ id }) => id)).toEqual([1, 2, 3])
+        expect(api.state.currentTrack).toMatchObject({
+          id: 1,
+          title: 'Track 1',
+          durationSeconds: 180,
+        })
+        expect(queue[api.state.currentIndex]).toBe(api.state.currentTrack)
+        expect(api.commandRevision.value).toBe(revision)
+        await api.playNext()
+        expect(api.state.currentTrackId).toBe(2)
+      } finally {
+        controller.dispose()
+      }
+    },
+  )
+
+  it.each(['replace', 'insert', 'insert-many', 'shuffle-pool'] as const)(
+    'isolates caller-owned tracks entering through %s',
+    async (command) => {
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const incoming = frozenTracks([2, 3]).map((track) => ({ ...track }))
+      const second = incoming[0]
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+      try {
+        await api.playTrackFromQueue(frozenTracks([1]), 1, { playbackMode: 'sequential' })
+        if (command === 'replace') {
+          incoming.unshift({ ...frozenTracks([1])[0] })
+          expect(
+            api.replaceCurrentPlaybackQueue({
+              expectedSessionId: api.queueSession.value!.id,
+              expectedTrackId: 1,
+              expectedQueueTrackIds: [1],
+              queue: incoming,
+              playbackMode: 'sequential',
+            }),
+          ).toBe(true)
+        }
+        if (command === 'insert') api.insertTrackAfterCurrent(second)
+        if (command === 'insert-many') api.insertTracksAfterCurrent(incoming)
+        if (command === 'shuffle-pool') {
+          await api.playTrackFromQueue(api.state.queue, 1, {
+            playbackMode: 'shuffle',
+            shufflePool: incoming,
+          })
+        }
+        second.id = 99
+        second.title = 'Caller edit'
+        incoming.splice(0, incoming.length)
+        await api.playNext()
+        expect(api.state.currentTrack).toMatchObject({ id: 2, title: 'Track 2' })
+      } finally {
+        random.mockRestore()
+        controller.dispose()
+      }
+    },
+  )
+
+  it('adopts explicit mutable metadata changes on a new command while preserving history', async () => {
+    const tracks = frozenTracks().map((track) => ({ ...track }))
+    const controller = createPlaybackController(deps)
+    const { api } = controller
+    try {
+      await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+      const previous = api.state.queue
+      tracks[1].title = 'New title'
+      await api.playTrackFromQueue(tracks, 2)
+      expect(api.state.currentTrack?.title).toBe('New title')
+      expect(previous[1].title).toBe('Track 2')
+      await api.playPrevious()
+      expect(api.state.queue).toBe(previous)
+      expect(api.state.currentTrack?.title).toBe('Track 1')
+    } finally {
+      controller.dispose()
+    }
+  })
 
   it('updates retained readonly views through commands and audio events', async () => {
     const controller = createPlaybackController(deps)

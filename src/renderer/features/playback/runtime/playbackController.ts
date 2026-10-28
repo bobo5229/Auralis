@@ -1,5 +1,5 @@
 import { ListeningProgressTracker } from '../core/listeningProgressTracker'
-import { isReadonly, reactive, readonly, ref, toRaw, type DeepReadonly, type Ref } from 'vue'
+import { reactive, readonly, ref, toRaw, type DeepReadonly, type Ref } from 'vue'
 import {
   isSoftTransitionDuration,
   SOFT_TRANSITION_DEFAULT_SECONDS,
@@ -20,6 +20,7 @@ import type {
 import type { PlaybackRequestToken } from '../utils/playbackRequestGate'
 import { createPlaybackRequestLifecycle } from './playbackRequestLifecycle'
 import { createGaplessPlaybackSession } from './gaplessPlaybackSession'
+import { createPlaybackDataOwner } from './playbackDataOwner'
 import type { PlaybackDependencies } from './playbackDependencies'
 
 const VOLUME_KEY = 'auralis-volume'
@@ -120,57 +121,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
   const playbackRequests = createPlaybackRequestLifecycle()
   const navigationSession = new PlaybackNavigationSession()
-  // Catalog snapshots are immutable. Keep one mutable playback copy per frozen
-  // object so queues, history and preloaded plans share metadata without editing it.
-  const mutableTracks = new WeakMap<PlaybackTrack, PlaybackTrack>()
-  const mutableQueues = new WeakMap<PlaybackTrack[], PlaybackTrack[]>()
-  function playbackTrack(track: PlaybackTrack): PlaybackTrack {
-    // Public readonly views may return through queue commands. Keep internal
-    // metadata writes on the original reactive track, without retaining its readonly proxy.
-    if (isReadonly(track)) track = reactive(toRaw(track))
-    if (!Object.isFrozen(track)) return track
-    let copy = mutableTracks.get(track)
-    if (!copy) {
-      copy = reactive({ ...track })
-      mutableTracks.set(track, copy)
-    }
-    return copy
-  }
-  function playbackQueue(input: readonly PlaybackTrack[]): PlaybackTrack[] {
-    // Restore the controller's writable handle when a public queue is played again.
-    // Preserve the queue identity used by history and the frozen-catalog cache.
-    const queue = isReadonly(input)
-      ? reactive(toRaw(input) as PlaybackTrack[])
-      : (input as PlaybackTrack[])
-    const source = toRaw(queue)
-    const cached = mutableQueues.get(source)
-    // The catalog's objects are frozen, but its consumer's array may be reordered
-    // or edited. Reuse only while every entry still maps to the same playback object.
-    if (
-      cached &&
-      cached.length === source.length &&
-      source.every((track, index) => playbackTrack(track) === cached[index])
-    ) {
-      return cached
-    }
-    // Vue cannot proxy a frozen array; copy its container so mutable entries
-    // remain reactive internally and readonly through the public state view.
-    let copy = Object.isFrozen(source) ? source.slice() : source
-    for (let index = 0; index < source.length; index += 1) {
-      const track = playbackTrack(source[index])
-      if (track !== source[index]) {
-        if (copy === source) copy = source.slice()
-        copy[index] = track
-      }
-    }
-    if (copy === source) {
-      mutableQueues.delete(source)
-      return queue
-    }
-    // Keep previous copies intact for history, and let discarded catalogs be collected.
-    mutableQueues.set(source, copy)
-    return copy
-  }
+  const { track: playbackTrack, queue: playbackQueue } = createPlaybackDataOwner()
   function preparePlaybackPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan {
     plan.track = playbackTrack(plan.track)
     plan.queue = playbackQueue(plan.queue)

@@ -4,7 +4,7 @@ import { stat } from 'node:fs/promises'
 import { extname, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import { logger } from '@main/logging/logger'
-import { supportedAudioExtensions } from '@main/features/libraryScan/audioFileFilter'
+import { isSupportedAudioFile as isPlayableAudioExtension } from '@main/shared/audioFileFilter'
 import { isPathUnderAnyRoot } from './audioPathGuard'
 import { AUDIO_FILE_SIZE_HEADER, AUDIO_FILE_MTIME_HEADER } from '@shared/types/audioDecode'
 
@@ -21,7 +21,7 @@ const EXT_TO_MIME: Record<string, string> = {
   '.opus': 'audio/ogg',
 }
 
-const playableExtensions = new Set<string>(supportedAudioExtensions)
+export { isPlayableAudioExtension }
 
 export type AudioProtocolResolver = {
   getFilePathByTrackId: (trackId: number) => string | null
@@ -36,10 +36,6 @@ function isMissingFileError(error: unknown): boolean {
 
 export function buildAudioTrackUrl(trackId: number): string {
   return `auralis-audio://track/${trackId}`
-}
-
-export function isPlayableAudioExtension(filePath: string): boolean {
-  return playableExtensions.has(extname(filePath).toLowerCase())
 }
 
 export function createAudioProtocolHandler(

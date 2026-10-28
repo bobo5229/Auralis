@@ -1,5 +1,5 @@
 import { extname } from 'node:path'
-import { supportedAudioExtensions } from '@main/features/libraryScan/audioFileFilter'
+import { supportedAudioExtensions } from '@main/shared/audioFileFilter'
 
 export function isLyricSidecar(filePath: string): boolean {
   return extname(filePath).toLowerCase() === '.lrc'

@@ -1,5 +1,6 @@
 import type { AlbumShuffleContext, PlaybackMode, PlaybackTrack, ShuffleCycle } from '../types'
 import { resolveAlbumArtist } from '@shared/utils/albumIdentity'
+import { getAlbumIdentity } from './playbackAlbumIdentity'
 
 export type PlaybackAdvanceTrigger = 'manual-next' | 'natural-ended' | 'gapless-prefetch'
 
@@ -40,13 +41,6 @@ export interface PlaybackTransitionSource {
     albumArtist: string
     album: string
   }) => Promise<AlbumShuffleContext | null | undefined>
-}
-
-export function getAlbumIdentity(track: PlaybackTrack): string | null {
-  const album = track.album?.trim()
-  if (!album) return null
-  const albumArtist = resolveAlbumArtist(track).trim()
-  return `${albumArtist.toLocaleLowerCase()}\u0000${album.toLocaleLowerCase()}`
 }
 
 export function getAlbumKey(

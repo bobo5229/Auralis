@@ -11,7 +11,7 @@ import {
   type SpectrumSubscription,
 } from '@shared/types/playbackSpectrum'
 import type { PlaybackCoordinator } from './nativePlaybackTypes'
-import { normalizeAudioFilePath } from './playbackFileCoordinator'
+import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
 
 export interface SpectrumSource {
   trackId: number

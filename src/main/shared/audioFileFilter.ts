@@ -1,5 +1,6 @@
 import { extname } from 'node:path'
 
+/** Local audio formats shared by scanning, playback and sidecar discovery. */
 export const supportedAudioExtensions = [
   '.mp3',
   '.flac',
