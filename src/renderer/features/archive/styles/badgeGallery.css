@@ -210,6 +210,7 @@
     border: 0;
     border-radius: 12px;
     background: none;
+    cursor: zoom-in;
   }
   .badge-image {
     position: absolute;
@@ -227,8 +228,10 @@
       opacity 160ms ease-out,
       filter 280ms ease-out;
   }
-  .badge-button:hover .badge-image {
-    filter: brightness(1.025) drop-shadow(0 1px 0.6px rgb(0 0 0 / 62%));
+  .badge-button:is(:hover, :focus-visible):not([aria-pressed='true']):not([data-inspected='true'])
+    .badge-image {
+    transform: translateY(-2px) scale(1);
+    filter: brightness(1.05) drop-shadow(0 5px 4px rgb(0 0 0 / 42%));
   }
   .badge-button[aria-pressed='true'] .badge-image {
     transform: translateY(-25px) scale(1.025);
@@ -396,6 +399,17 @@
   .scroll-arrow:hover {
     background: #373d39;
   }
+  .case-toolbar,
+  .scroll-arrow {
+    transition:
+      opacity 160ms ease-out,
+      visibility 0s;
+  }
+  .is-inspecting :is(.case-toolbar, .scroll-arrow) {
+    opacity: 0;
+    visibility: hidden;
+    transition-delay: 0s, 160ms;
+  }
   svg {
     fill: none;
     stroke: currentColor;
@@ -539,8 +553,14 @@ html[data-reduced-motion='true'] .archive-badge-dialog {
   .badge-image {
     transition: none;
   }
+  .badge-button:is(:hover, :focus-visible):not([aria-pressed='true']):not([data-inspected='true'])
+    .badge-image {
+    transform: translateY(2px) scale(0.995);
+  }
   .badge-inspector,
-  .inspect-caption {
+  .inspect-caption,
+  .case-toolbar,
+  .scroll-arrow {
     transition: none;
   }
 }
