@@ -5,7 +5,10 @@ import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { WINDOW_CLOSE_BEHAVIORS } from '@shared/types/windowBehavior'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
 import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
-import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
+import {
+  SMART_PLAYLIST_MAX_OPERANDS,
+  SMART_PLAYLIST_NAME_MAX_LENGTH,
+} from '@shared/smartPlaylists/ruleLimits'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
 import { MAX_LRC_EDITOR_CHARACTERS } from '@shared/types/lyricsEditor'
@@ -436,7 +439,7 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.smartPlaylists.getDetail]: required(idPayload('id')),
   [ipcChannels.smartPlaylists.create]: required(
     objectShape({
-      name: field(stringValue({ min: 1, max: 512 })),
+      name: field(stringValue({ min: 1, max: SMART_PLAYLIST_NAME_MAX_LENGTH })),
       rule: field(smartPlaylistRule),
     }),
   ),

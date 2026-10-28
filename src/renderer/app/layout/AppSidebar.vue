@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
+import type { AlbumDetailRequest } from '@shared/types/albumDetail'
 import { MAX_RECENT_ADDED_LIBRARY_DAYS } from '@renderer/features/library/utils/recentAddedLibrary'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
@@ -254,6 +255,13 @@ watch(
 function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
   void loadSidebarPlaylists()
   void router.push(`/smart-playlists/${playlist.id}`)
+}
+
+function onFacetAlbumOpened(album: AlbumDetailRequest): void {
+  void router.push({
+    name: 'album-detail',
+    query: { artist: album.albumArtist, title: album.albumTitle },
+  })
 }
 </script>
 
@@ -600,6 +608,7 @@ function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
       :open="isFacetsDialogOpen"
       @close="isFacetsDialogOpen = false"
       @created="onSmartPlaylistCreated"
+      @open-album="onFacetAlbumOpened"
     />
     <SmartPlaylistBuilderDialog
       :open="isBuilderOpen"

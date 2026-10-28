@@ -95,9 +95,27 @@ vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
     clearError: fixture.clearPlaybackError,
   }),
 }))
-vi.mock('@renderer/features/facets/components/FacetsDialog.vue', () => ({
-  default: { render: () => null },
-}))
+vi.mock('@renderer/features/facets/components/FacetsDialog.vue', async () => {
+  const { defineComponent, h } = await import('vue')
+  return {
+    default: defineComponent({
+      props: { open: Boolean },
+      emits: ['openAlbum', 'close'],
+      setup:
+        (props, { emit }) =>
+        () =>
+          props.open
+            ? h('button', {
+                class: 'facet-album-stub',
+                onClick: () => {
+                  emit('openAlbum', { albumArtist: 'A; B', albumTitle: 'Shared' })
+                  emit('close')
+                },
+              })
+            : null,
+    }),
+  }
+})
 vi.mock('@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue', async () => {
   const { h } = await import('vue')
   return {
@@ -827,6 +845,22 @@ describe('AppSidebar playlist operations', () => {
     expect(find('.builder-stub').props.trigger).toBe(find('.smart-playlist-add-button'))
     expect(doc.body.querySelector('#sidebar-create-menu')).toBeNull()
     expect(find('.sidebar-resize-handle').props['aria-disabled']).toBe(true)
+  })
+
+  it('routes the facet album event with its exact identity and closes the panel', async () => {
+    await mount()
+    const trigger = doc.body
+      .querySelectorAll('.sidebar-tool-button')
+      .find((button) => button.props['aria-label'] === 'sidebar.tool.facetsPanel')!
+    dispatch(trigger, 'click')
+    await settle()
+    dispatch(find('.facet-album-stub'), 'click')
+    await settle()
+    expect(fixture.push).toHaveBeenCalledExactlyOnceWith({
+      name: 'album-detail',
+      query: { artist: 'A; B', title: 'Shared' },
+    })
+    expect(doc.body.querySelector('.facet-album-stub')).toBeNull()
   })
 })
 

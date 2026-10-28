@@ -4,9 +4,12 @@ import type { SmartPlaylistRuleCondition } from '@shared/types/smartPlaylist'
 import { SmartPlaylistService } from './smartPlaylistService'
 import {
   buildFacetOptions,
+  buildFacetPlaylistName,
   matchesFacet,
   type RuleFacetKind,
 } from '../../renderer/features/facets/utils/facetOptions'
+import { parseDomainIpcPayload } from '../ipc/ipcPayloadValidation'
+import { ipcChannels } from '@shared/ipc/channels'
 
 function track(
   id: number,
@@ -38,6 +41,21 @@ function playlistIds(conditions: SmartPlaylistRuleCondition[]): number[] {
 }
 
 describe('facet preview and smart playlist membership', () => {
+  it('accepts generated names for long labels without truncating their rule values', () => {
+    const genre = '流派'.repeat(260)
+    const artist = '艺人'.repeat(260)
+    const payload = {
+      name: buildFacetPlaylistName([genre, artist]),
+      rule: {
+        conditions: [
+          { field: 'genre', value: genre },
+          { field: 'albumArtist', value: artist },
+        ],
+      },
+    }
+    expect(() => parseDomainIpcPayload(ipcChannels.smartPlaylists.create, [payload])).not.toThrow()
+    expect(payload.rule.conditions.map((condition) => condition.value)).toEqual([genre, artist])
+  })
   it.each<RuleFacetKind>(['genre', 'albumArtist'])(
     'keeps %s option counts and filters equal to playlist membership',
     (kind) => {
