@@ -131,6 +131,18 @@ function onKeyDown(event: KeyboardEvent): void {
 <style scoped src="../../../shared/styles/trackRowDivider.css"></style>
 
 <style scoped>
+@container (max-width: 400px) {
+  .cover-track-row {
+    grid-template-columns: 32px minmax(0, 1fr) 64px;
+    column-gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .cover-track-genre {
+    display: none;
+  }
+}
+
 .cover-track-number {
   font-weight: var(--auralis-song-cover-track-number-weight, 400);
   font-size: var(--auralis-song-cover-track-number-size, 12px);

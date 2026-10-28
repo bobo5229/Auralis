@@ -67,6 +67,14 @@ describe('song font size preferences', () => {
     expect(state.songFontSize('list', 'title')).toBe(14)
   })
 
+  it('uses the larger album artist default while preserving an explicitly saved size', async () => {
+    const state = await load()
+    expect(state.songFontSize('cover', 'albumArtist')).toBe(14)
+    state.setSongFontSize('cover', 'albumArtist', 12)
+    vi.resetModules()
+    expect((await load()).songFontSize('cover', 'albumArtist')).toBe(12)
+  })
+
   it('persists cover bitrate size, restores it, and resets it with the cover view', async () => {
     storage.set(
       SONG_FONT_SIZE_STORAGE_KEY,

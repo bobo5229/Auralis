@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useElementSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
@@ -46,6 +47,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  measureColumn: [albumKey: string, height: number]
   select: [trackId: number]
   play: [trackId: number]
   focusTrack: [trackId: number]
@@ -63,12 +65,23 @@ const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
 // 分组虚拟化仍会挂载整张专辑；大型合集额外按曲目虚拟化。
 const LONG_ALBUM_TRACK_COUNT = 100
 const imgError = ref(false)
+const aside = ref<HTMLElement | null>(null)
+const { height: columnHeight } = useElementSize(aside)
+watch(
+  [columnHeight, () => props.metadataLayout, () => props.group],
+  () => {
+    const height = aside.value?.getBoundingClientRect().height ?? 0
+    if (height > 0) emit('measureColumn', props.group.key, height)
+  },
+  { flush: 'post' },
+)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 // 可用高度已扣除播放栏安全区；低窗口中恢复正常滚动，确保说明可见。
 const canStickAside = computed(
   () =>
     props.viewportHeight >=
-    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate), props.metadataLayout) +
+    (columnHeight.value ||
+      getAlbumCoverColumnHeight(Boolean(props.group.releaseDate), props.metadataLayout)) +
       LIBRARY_LAYOUT_METRICS.coverStickyTopInset,
 )
 
@@ -110,7 +123,11 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
 <template>
   <div class="album-cover-group relative" :data-album-key="group.key">
-    <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
+    <div
+      ref="aside"
+      class="album-cover-aside"
+      :class="{ 'album-cover-aside--sticky': canStickAside }"
+    >
       <div
         class="album-cover-artwork select-none"
         :class="{ 'album-cover-artwork--context-selected': artworkContextSelected }"
@@ -146,7 +163,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
       <div class="album-cover-meta min-w-0">
         <p
           v-tooltip.overflow="songText(group.album) || t('library.unknownAlbum')"
-          class="album-cover-meta-title truncate"
+          class="album-cover-meta-title"
         >
           {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
@@ -223,6 +240,12 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 }
 
 .album-cover-meta-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
   font-weight: var(--auralis-song-cover-album-weight, 700);
   font-size: var(--auralis-song-cover-album-size, 16px);
   line-height: var(--library-cover-meta-album-line-height, var(--library-cover-meta-line-height));
@@ -230,7 +253,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
 .album-cover-meta-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
-  font-size: var(--auralis-song-cover-album-artist-size, 12px);
+  font-size: var(--auralis-song-cover-album-artist-size, 14px);
   line-height: var(--library-cover-meta-artist-line-height, var(--library-cover-meta-line-height));
 }
 
@@ -301,6 +324,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
  * padding / border-width 消费 libraryLayoutMetrics 注入的 --library-*，
  * 与 getAlbumGroupEstimatedHeight 同一事实源（Phase 6 REVIEW Finding 1）。 */
 .album-cover-tracks {
+  container-type: inline-size;
   position: relative;
   box-sizing: border-box;
   align-self: start;

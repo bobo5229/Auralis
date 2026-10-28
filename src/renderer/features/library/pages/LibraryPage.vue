@@ -114,6 +114,29 @@ const isFlatColumnResizeTarget = ref(false)
 const { height: coverViewportHeight, width: measuredFlatContainerWidth } = useElementSize(scrollRef)
 const flatContainerWidth = ref(0)
 let flatContainerWidthFrame = 0
+const coverLayout = computed<CoverMetadataLayout>(() => ({
+  ...coverInfo.metadataLayout.value,
+  artworkSize:
+    measuredFlatContainerWidth.value > 0 &&
+    measuredFlatContainerWidth.value < LIBRARY_LAYOUT_METRICS.coverCompactWidth
+      ? LIBRARY_LAYOUT_METRICS.coverCompactArtworkSize
+      : LIBRARY_LAYOUT_METRICS.coverArtworkSize,
+}))
+type MeasuredCoverColumn = { layoutKey: string; height: number }
+const measuredCoverColumns = shallowRef<ReadonlyMap<string, MeasuredCoverColumn>>(new Map())
+
+function onCoverColumnMeasure(albumKey: string, height: number): void {
+  const layoutKey = JSON.stringify(coverLayout.value)
+  const previous = measuredCoverColumns.value.get(albumKey)
+  if (previous?.layoutKey === layoutKey && Math.abs(previous.height - height) < 0.1) return
+  const next = new Map(measuredCoverColumns.value)
+  next.set(albumKey, { layoutKey, height })
+  measuredCoverColumns.value = next
+}
+
+watch(tracks, () => {
+  measuredCoverColumns.value = new Map()
+})
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const RECENT_ADDED_VIEW_MODE_KEY = 'auralis-recent-added-view-mode'
@@ -192,6 +215,7 @@ const libraryPageStyle = computed(() => ({
   ...LIBRARY_LAYOUT_CSS_VARS,
   ...flatLayoutCssVars.value,
   ...coverInfo.style.value,
+  '--library-cover-artwork-size': `${coverLayout.value.artworkSize}px`,
   ...songFontWeightStyle.value,
   ...songFontSizeStyle.value,
 }))
@@ -221,19 +245,27 @@ const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
 function getAlbumGroupSize(
   group: LibraryAlbumGroup,
-  metadataLayout: Readonly<CoverMetadataLayout> = coverInfo.metadataLayout.value,
+  metadataLayout: Readonly<CoverMetadataLayout> = coverLayout.value,
+  columns: ReadonlyMap<string, MeasuredCoverColumn> = measuredCoverColumns.value,
 ): number {
+  const measured = columns.get(group.key)
   return getAlbumGroupEstimatedHeight(
     group.tracks.length,
     Boolean(group.releaseDate),
     getAlbumCoverDiscHeadingCount(group.tracks),
     metadataLayout,
+    measured?.layoutKey === JSON.stringify(metadataLayout) ? measured.height : undefined,
   )
 }
 
 const libraryCatalogViewIndex = computed(() =>
   createLibraryCatalogViewIndex(tracks.value, (group) =>
-    getAlbumGroupSize(group, DEFAULT_COVER_METADATA_LAYOUT),
+    getAlbumGroupEstimatedHeight(
+      group.tracks.length,
+      Boolean(group.releaseDate),
+      getAlbumCoverDiscHeadingCount(group.tracks),
+      DEFAULT_COVER_METADATA_LAYOUT,
+    ),
   ),
 )
 const albumGroups = computed(() => libraryCatalogViewIndex.value.albumGroups)
@@ -386,55 +418,50 @@ watch(
 )
 
 let coverLayoutRevision = 0
-watch(coverInfo.metadataLayout, async (layout, previousLayout) => {
-  if (
-    Object.keys(layout).every(
-      (key) =>
-        layout[key as keyof CoverMetadataLayout] ===
-        previousLayout[key as keyof CoverMetadataLayout],
-    )
-  )
-    return
-  const revision = ++coverLayoutRevision
-  const container = scrollRef.value
-  const trackSnapshot = tracks.value
-  const generation = viewport.captureScrollGeneration()
-  let targetScrollTop = container?.scrollTop ?? 0
-  // Keep the same album and offset visible when preceding cover columns change height.
-  let previousOffset = COVER_TOP_INSET
-  let nextOffset = COVER_TOP_INSET
-  for (const group of albumGroups.value) {
-    const previousHeight = getAlbumGroupSize(group, previousLayout)
-    const nextHeight = getAlbumGroupSize(group, layout)
-    if (targetScrollTop < previousOffset + previousHeight) {
-      targetScrollTop =
-        nextOffset + Math.max(0, Math.min(targetScrollTop - previousOffset, nextHeight - 1))
-      break
+watch(
+  [coverLayout, measuredCoverColumns],
+  async ([layout, columns], [previousLayout, previousColumns]) => {
+    const revision = ++coverLayoutRevision
+    const container = scrollRef.value
+    const trackSnapshot = tracks.value
+    const generation = viewport.captureScrollGeneration()
+    let targetScrollTop = container?.scrollTop ?? 0
+    // Keep the same album and offset visible when preceding cover columns change height.
+    let previousOffset = COVER_TOP_INSET
+    let nextOffset = COVER_TOP_INSET
+    for (const group of albumGroups.value) {
+      const previousHeight = getAlbumGroupSize(group, previousLayout, previousColumns)
+      const nextHeight = getAlbumGroupSize(group, layout, columns)
+      if (targetScrollTop < previousOffset + previousHeight) {
+        targetScrollTop =
+          nextOffset + Math.max(0, Math.min(targetScrollTop - previousOffset, nextHeight - 1))
+        break
+      }
+      previousOffset += previousHeight
+      nextOffset += nextHeight
     }
-    previousOffset += previousHeight
-    nextOffset += nextHeight
-  }
-  if ((container?.scrollTop ?? 0) <= COVER_TOP_INSET) targetScrollTop = container?.scrollTop ?? 0
-  albumVirtualizer.value.measure()
-  await nextTick()
-  if (
-    !container ||
-    !isCoverView.value ||
-    isPageUnmounted ||
-    hasLeftInstanceRoute ||
-    isLoading.value ||
-    isPositioningForegroundViewport.value ||
-    tracks.value !== trackSnapshot ||
-    revision !== coverLayoutRevision ||
-    viewport.isScrollInputCancelled(generation)
-  )
-    return
-  container.scrollTop = Math.min(
-    targetScrollTop,
-    Math.max(0, container.scrollHeight - container.clientHeight),
-  )
-  viewport.scheduleFirstVisibleTrackIndexUpdate()
-})
+    if ((container?.scrollTop ?? 0) <= COVER_TOP_INSET) targetScrollTop = container?.scrollTop ?? 0
+    albumVirtualizer.value.measure()
+    await nextTick()
+    if (
+      !container ||
+      !isCoverView.value ||
+      isPageUnmounted ||
+      hasLeftInstanceRoute ||
+      isLoading.value ||
+      isPositioningForegroundViewport.value ||
+      tracks.value !== trackSnapshot ||
+      revision !== coverLayoutRevision ||
+      viewport.isScrollInputCancelled(generation)
+    )
+      return
+    container.scrollTop = Math.min(
+      targetScrollTop,
+      Math.max(0, container.scrollHeight - container.clientHeight),
+    )
+    viewport.scheduleFirstVisibleTrackIndexUpdate()
+  },
+)
 
 function onSelect(trackId: number) {
   keyboardFocusTrackId.value = trackId
@@ -1165,7 +1192,7 @@ onBeforeUnmount(() => {
                       :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
                       :group="albumGroups[virtualGroup.index]"
                       :viewport-height="coverViewportHeight"
-                      :metadata-layout="coverInfo.metadataLayout.value"
+                      :metadata-layout="coverLayout"
                       :scroll-element="scrollRef"
                       :start-offset="virtualGroup.start + COVER_TOP_INSET"
                       :now-playing-track-id="playback.state.currentTrackId"
@@ -1180,6 +1207,7 @@ onBeforeUnmount(() => {
                         height: `${virtualGroup.size}px`,
                       }"
                       class="w-full"
+                      @measure-column="onCoverColumnMeasure"
                       @select="onSelect"
                       @play="onPlay"
                       @focus-track="onRowFocus"

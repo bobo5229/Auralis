@@ -64,20 +64,15 @@ export function useSongCoverInfoLayout(enabled: MaybeRefOrGetter<boolean> = true
     toValue(enabled) ? preference.value : DEFAULT_SONG_COVER_INFO_LAYOUT,
   )
   const metadataLayout = computed(() => {
-    const lineHeight = (field: string) =>
-      toValue(enabled)
-        ? Math.max(
-            DEFAULT_COVER_METADATA_LAYOUT.albumLineHeight,
-            Math.ceil(songFontSize('cover', field) * 1.25),
-          )
-        : DEFAULT_COVER_METADATA_LAYOUT.albumLineHeight
+    const lineHeight = (field: string, minimum: number) =>
+      toValue(enabled) ? Math.max(minimum, Math.ceil(songFontSize('cover', field) * 1.25)) : minimum
     return {
       artworkGap: applied.value.artworkGap,
       albumArtistGap: applied.value.albumArtistGap,
       artistDateGap: applied.value.artistDateGap,
-      albumLineHeight: lineHeight('album'),
-      artistLineHeight: lineHeight('albumArtist'),
-      dateLineHeight: lineHeight('releaseDate'),
+      albumLineHeight: lineHeight('album', DEFAULT_COVER_METADATA_LAYOUT.albumLineHeight),
+      artistLineHeight: lineHeight('albumArtist', DEFAULT_COVER_METADATA_LAYOUT.artistLineHeight),
+      dateLineHeight: lineHeight('releaseDate', DEFAULT_COVER_METADATA_LAYOUT.dateLineHeight),
     }
   })
   const style = computed(() => ({

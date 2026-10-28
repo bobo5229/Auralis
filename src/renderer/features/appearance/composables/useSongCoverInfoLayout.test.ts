@@ -63,7 +63,7 @@ describe('cover info layout preferences', () => {
       parseSongCoverInfoLayout(
         '{"version":2,"artworkGap":40,"albumArtistGap":21,"artistDateGap":6,"alignment":"right"}',
       ),
-    ).toEqual({ artworkGap: 40, albumArtistGap: 0, artistDateGap: 6, alignment: 'right' })
+    ).toEqual({ artworkGap: 40, albumArtistGap: 4, artistDateGap: 6, alignment: 'right' })
     for (const raw of ['{', 'null', '[]', '{"version":3,"lineGap":8}'])
       expect(parseSongCoverInfoLayout(raw)).toEqual(DEFAULT_SONG_COVER_INFO_LAYOUT)
   })
@@ -131,16 +131,16 @@ describe('cover info layout preferences', () => {
     expect(state.metadataLayout.value).toMatchObject({
       albumLineHeight: 25,
       artistLineHeight: 23,
-      dateLineHeight: 20,
+      dateLineHeight: 18,
       albumArtistGap: 8,
       artistDateGap: 12,
     })
     const { useSongCoverInfoLayout } = await import('./useSongCoverInfoLayout')
     expect(useSongCoverInfoLayout(false).metadataLayout.value).toMatchObject({
-      albumLineHeight: 20,
+      albumLineHeight: 22,
       artistLineHeight: 20,
-      albumArtistGap: 0,
-      artistDateGap: 0,
+      albumArtistGap: 4,
+      artistDateGap: 4,
       artworkGap: 12,
     })
     expect(useSongCoverInfoLayout(false).style.value['--library-cover-meta-align']).toBe('left')

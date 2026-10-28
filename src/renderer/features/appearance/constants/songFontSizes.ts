@@ -21,7 +21,7 @@ export const SONG_FONT_SIZE_DEFAULTS = {
     title: 14,
     artist: 12,
     album: 16,
-    albumArtist: 12,
+    albumArtist: 14,
     releaseDate: 12,
     trackNumber: 12,
     genre: 12,
