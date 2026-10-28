@@ -120,6 +120,9 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           <div v-else class="flex h-full w-full items-center justify-center">
             <span class="i-lucide-music text-[var(--auralis-text-disabled)]"></span>
           </div>
+          <span class="track-cover-fullscreen" aria-hidden="true">
+            <span class="i-lucide-maximize-2 h-4 w-4"></span>
+          </span>
         </div>
         <div class="track-text">
           <div class="track-title">
@@ -155,6 +158,36 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 .track-info-with-split-clocks > .player-bar-progress-row {
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
+}
+
+.track-cover-fullscreen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 42%);
+  color: white;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.track-cover:hover .track-cover-fullscreen,
+.track-cover:focus-visible:not([data-fullscreen-focus-restored='pointer']) .track-cover-fullscreen,
+.track-cover[data-fullscreen-focus-restored='keyboard']:focus .track-cover-fullscreen {
+  opacity: 1;
+}
+
+:global([data-reduced-motion='true'] .track-cover-fullscreen) {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-cover-fullscreen {
+    transition: none;
+  }
 }
 
 .track-cover[data-fullscreen-focus-restored='pointer']:focus-visible {
