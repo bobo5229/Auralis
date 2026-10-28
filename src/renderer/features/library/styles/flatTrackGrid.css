@@ -38,6 +38,10 @@
   min-width: 0;
 }
 
+.library-flat-search .page-parameter-trigger {
+  font-size: 14px;
+}
+
 .library-flat-track-grid {
   display: grid;
   grid-template-columns: var(--library-flat-grid-template);
