@@ -1924,6 +1924,10 @@ input[type='range'].volume-overlay-slider {
     background 0.3s ease;
 }
 
+:where([data-theme='light']) .app-sidebar {
+  --auralis-sidebar-bg: #f3f4f5;
+}
+
 .app-sidebar.app-sidebar--full-height {
   width: 100%;
   height: 100%;
