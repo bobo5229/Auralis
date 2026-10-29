@@ -6,15 +6,15 @@ import {
 } from './librarySearchHover'
 
 describe('library search hover target', () => {
-  it('includes the external parameter button and gap before mounting, and shrinks the input first', () => {
+  it('uses the compact toolbar bounds before mounting', () => {
     const container = { left: 0, top: 0, width: 800 }
-    const tools = resolveHiddenLibrarySearchBarRect(container, true)
-    expect(tools).toEqual({ left: 197, right: 603, top: 8, bottom: 46 })
-    expect(isLibrarySearchBarHovered(565, 20, container, null, true)).toBe(true)
-    expect(isLibrarySearchBarHovered(600, 20, container, null, true)).toBe(true)
-    expect(isLibrarySearchBarHovered(604, 20, container, null, true)).toBe(false)
-    expect(librarySearchBarWidth(300, true)).toBe(252)
+    const tools = resolveHiddenLibrarySearchBarRect(container)
+    expect(tools).toEqual({ left: 220, right: 580, top: 8, bottom: 46 })
+    expect(isLibrarySearchBarHovered(580, 20, container, null)).toBe(true)
+    expect(isLibrarySearchBarHovered(581, 20, container, null)).toBe(false)
+    expect(librarySearchBarWidth(300)).toBe(252)
     expect(librarySearchBarWidth(800)).toBe(360)
+    expect(librarySearchBarWidth(800, true)).toBe(406)
   })
   it('ignores the top corners and hits the centered resting bar', () => {
     const container = { left: 0, top: 100, width: 800 }

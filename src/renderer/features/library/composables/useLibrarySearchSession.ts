@@ -14,7 +14,6 @@ import { normalizeSearchText } from '../utils/normalizeSearchText'
 export function useLibrarySearchSession(options: {
   isDisposed: () => boolean
   isLibrarySurface: () => boolean
-  hasPageParameters?: () => boolean
   isInteractiveTarget: (target: EventTarget | null) => boolean
   scrollToTrackIndex: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
 }): {
@@ -181,7 +180,6 @@ export function useLibrarySearchSession(options: {
       event.clientY,
       zone.getBoundingClientRect(),
       bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
-      options.hasPageParameters?.(),
     )
     if (!hovered) isSearchHoverDismissed = false
     isSearchZoneHovered.value = hovered && !isSearchHoverDismissed

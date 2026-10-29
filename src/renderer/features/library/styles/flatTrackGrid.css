@@ -21,25 +21,12 @@
   position: relative;
   inset: auto;
   z-index: auto;
-  width: 360px;
   max-width: 100%;
   height: auto;
   min-width: 0;
-  flex: 0 1 360px;
+  flex: 0 1 auto;
   transform: none;
   pointer-events: auto;
-}
-
-.library-flat-search .library-search-bar {
-  box-sizing: border-box;
-  flex: 0 1 360px;
-  width: 360px;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.library-flat-search .page-parameter-trigger {
-  font-size: 14px;
 }
 
 .library-flat-track-grid {

@@ -3033,6 +3033,19 @@ input[type='range'].volume-overlay-slider {
   --page-search-tools-width: 406px;
 }
 
+/* Both song views share the compact search and parameter controls. */
+.page-search-tools.library-song-search-tools {
+  --page-search-tools-width: 360px;
+}
+
+.library-song-search-tools .library-search-bar {
+  box-sizing: border-box;
+}
+
+.library-song-search-tools .page-parameter-trigger {
+  font-size: 14px;
+}
+
 .library-search-bar {
   display: flex;
   flex: 1 1 0;
@@ -3121,8 +3134,12 @@ input[type='range'].volume-overlay-slider {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 13px;
+  /* Search uses the compact 12px caption scale for input and placeholder text. */
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   color: var(--auralis-text);
+  /* Align the text's visual center with the search icon. */
+  transform: translateY(1px);
 }
 
 .library-search-input::placeholder {

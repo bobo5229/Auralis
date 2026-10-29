@@ -593,7 +593,6 @@ const {
 } = useLibrarySearchSession({
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   isLibrarySurface: () => isSearchEnabled.value && !isLoading.value && tracks.value.length > 0,
-  hasPageParameters: () => hasPageParameters.value,
   isInteractiveTarget,
   scrollToTrackIndex,
 })
@@ -940,7 +939,7 @@ onBeforeUnmount(() => {
         <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
           <div
             ref="searchRootRef"
-            class="page-search-tools"
+            class="page-search-tools library-song-search-tools"
             :class="{ 'page-search-tools--parameters': hasPageParameters }"
             @focusin="onSearchToolsFocusIn"
             @focusout="onSearchToolsFocusOut"
@@ -1001,7 +1000,7 @@ onBeforeUnmount(() => {
     <div class="library-list-frame relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div v-if="isSearchEnabled && !isCoverView" ref="searchRootRef" class="library-flat-search">
         <div
-          class="page-search-tools library-flat-search-tools"
+          class="page-search-tools library-song-search-tools"
           :class="{ 'page-search-tools--parameters': hasPageParameters }"
           @focusin="onSearchToolsFocusIn"
           @focusout="onSearchToolsFocusOut"
