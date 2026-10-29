@@ -27,7 +27,6 @@ interface UseAlbumDetailTracksOptions {
   albumArtist: Readonly<Ref<string>>
   albumTitle: Readonly<Ref<string>>
   library: AlbumDetailLibraryClient
-  playStatsReloadDebounceMs?: number
 }
 
 interface UseAlbumDetailTracksResult {
@@ -46,8 +45,6 @@ interface UseAlbumDetailTracksResult {
   syncLoadStateFromTracks: () => void
   dispose: () => void
 }
-
-const DEFAULT_PLAY_STATS_RELOAD_DEBOUNCE_MS = 400
 
 function toAlbumSummary(summary: AlbumDetailSummary): AlbumSummary {
   return {
@@ -70,7 +67,6 @@ export function useAlbumDetailTracks({
   albumArtist,
   albumTitle,
   library,
-  playStatsReloadDebounceMs = DEFAULT_PLAY_STATS_RELOAD_DEBOUNCE_MS,
 }: UseAlbumDetailTracksOptions): UseAlbumDetailTracksResult {
   const initialSnapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
   const tracks = shallowRef<TrackListItem[]>(snapshotWorkingTracks(initialSnapshot))
@@ -139,7 +135,6 @@ export function useAlbumDetailTracks({
 
   let loadGeneration = 0
   let currentAlbumKey = albumIdentityKey(albumArtist.value, albumTitle.value)
-  let playStatsReloadTimer: ReturnType<typeof setTimeout> | null = null
   let unsubscribeChanged: (() => void) | null = null
 
   function invalidateChangedAlbumRequests(): void {
@@ -310,22 +305,12 @@ export function useAlbumDetailTracks({
     await reloadTracks()
   }
 
-  function schedulePlayStatsReload(): void {
-    if (playStatsReloadTimer) clearTimeout(playStatsReloadTimer)
-    playStatsReloadTimer = setTimeout(() => {
-      playStatsReloadTimer = null
-      void reloadTracks({ background: true })
-    }, playStatsReloadDebounceMs)
-  }
-
   async function initialize(): Promise<void> {
     if (disposed) return
     unsubscribeChanged?.()
     unsubscribeChanged = library.onChanged((event) => {
-      if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
-        schedulePlayStatsReload()
-        return
-      }
+      // Detail presentation and playback order do not consume play statistics.
+      if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
       hasCatalogSnapshot = false
       playbackCatalogRevision.value += 1
       playbackCatalogRequest = null
@@ -342,11 +327,6 @@ export function useAlbumDetailTracks({
     disposed = true
     playbackCatalogRevision.value += 1
     loadGeneration += 1
-
-    if (playStatsReloadTimer) {
-      clearTimeout(playStatsReloadTimer)
-      playStatsReloadTimer = null
-    }
 
     unsubscribeChanged?.()
     unsubscribeChanged = null

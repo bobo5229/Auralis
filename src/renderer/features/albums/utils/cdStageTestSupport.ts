@@ -61,6 +61,9 @@ export class TestElement extends EventTarget {
   setAttribute(name: string, value: string): void {
     this.attributes.set(name, value)
   }
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null
+  }
   focus(): void {}
   getBoundingClientRect(): DOMRect {
     return { left: 0, top: 0, width: 400, height: 400 } as DOMRect

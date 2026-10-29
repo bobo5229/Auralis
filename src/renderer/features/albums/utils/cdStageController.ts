@@ -169,11 +169,16 @@ export function createCdStage(
     for (const node of resources.values()) {
       if (!node.waveRing || !node.waveProgress || !node.waveTrack) continue
       const visible = node === activeNode
-      node.waveRing.style.opacity = visible ? '1' : '0'
-      node.waveProgress.style.stroke = playback.accent
-      node.waveProgress.setAttribute('stroke-dashoffset', String(1 - playback.progress))
-      if (!visible) {
-        node.waveTrack?.setAttribute('stroke-dashoffset', '1')
+      const opacity = visible ? '1' : '0'
+      if (node.waveRing.style.opacity !== opacity) node.waveRing.style.opacity = opacity
+      if (visible) {
+        if (node.waveProgress.style.stroke !== playback.accent)
+          node.waveProgress.style.stroke = playback.accent
+        const progress = String(1 - playback.progress)
+        if (node.waveProgress.getAttribute('stroke-dashoffset') !== progress)
+          node.waveProgress.setAttribute('stroke-dashoffset', progress)
+      } else if (node.waveTrack.getAttribute('stroke-dashoffset') !== '1') {
+        node.waveTrack.setAttribute('stroke-dashoffset', '1')
       }
     }
     if (!activeNode) {

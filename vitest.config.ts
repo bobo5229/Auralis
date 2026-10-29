@@ -46,6 +46,7 @@ export default defineConfig({
         '**/AppearanceSettings.englishFont.test.ts',
         '**/AppearanceSettings.chineseFont.test.ts',
         '**/AlbumDetailPage.controlStyle.test.ts',
+        '**/AlbumDetailTrackList.test.ts',
         '**/AppearanceSettings.playingIcon.test.ts',
         '**/SettingsDialog.test.ts',
         '**/PlaybackSettings.test.ts',

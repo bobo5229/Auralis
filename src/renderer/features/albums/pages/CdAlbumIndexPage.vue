@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { indexedAlbums } from '../utils/indexedAlbums'
+import ArtistLetterIndex from '@renderer/shared/components/ArtistLetterIndex.vue'
+import { currentArtistLetter, visibleIndex } from '@renderer/shared/artistIndexPosition'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
@@ -16,7 +19,6 @@ import {
   groupCdAlbumIndexArtists,
   layoutCdAlbumIndex,
   type CdIndexArtistBlock,
-  type CdIndexLetterAnchor,
 } from '../utils/cdAlbumIndex'
 import {
   consumeCdIndexReturn,
@@ -48,6 +50,7 @@ const isLoading = ref(true)
 const error = shallowRef<unknown>(null)
 
 const scrollRef = ref<HTMLElement | null>(null)
+const indexScrollTop = ref(0)
 const columnCount = ref(MIN_COLUMNS)
 const albumRowHeight = ref(TARGET_CARD_WIDTH + CARD_META_HEIGHT + ROW_GAP)
 const sharedRowHeight = computed(() => albumRowHeight.value + SHARED_HEADING_HEIGHT)
@@ -91,6 +94,9 @@ const rowVirtualizer = useVirtualizer(
   })),
 )
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
+const currentLetter = computed(() =>
+  currentArtistLetter(anchors.value, visibleIndex(virtualRows.value, indexScrollTop.value - 8)),
+)
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
 function updateGrid(): void {
@@ -204,9 +210,8 @@ function openAlbum(album: AlbumSummary): void {
   void router.push({ name: 'cd-albums', query: cdAlbumFocusQuery(album) })
 }
 
-function jumpToLetter(anchor: CdIndexLetterAnchor): void {
-  if (anchor.rowIndex === null) return
-  rowVirtualizer.value.scrollToIndex(anchor.rowIndex, { align: 'start' })
+function jumpToLetter(index: number): void {
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start' })
 }
 
 function toggleTheme(): void {
@@ -229,7 +234,7 @@ async function loadAlbums(): Promise<void> {
   if (albums.value.length === 0) isLoading.value = true
   error.value = null
   try {
-    const nextAlbums = await cdAlbumCatalogSession.load()
+    const nextAlbums = indexedAlbums(await cdAlbumCatalogSession.load())
     if (disposed || requestRevision !== loadRevision) return
     albums.value = nextAlbums
   } catch (cause) {
@@ -293,7 +298,11 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="cd-index-body">
-      <div ref="scrollRef" class="cd-index-scroll">
+      <div
+        ref="scrollRef"
+        class="cd-index-scroll"
+        @scroll="indexScrollTop = ($event.target as HTMLElement).scrollTop"
+      >
         <div class="cd-index-canvas" :style="{ height: `${totalHeight}px` }">
           <div
             v-for="virtualRow in virtualRows"
@@ -409,17 +418,13 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      <nav class="cd-index-letters" :aria-label="t('albums.cd.indexPage.letters')">
-        <button
-          v-for="anchor in anchors"
-          :key="anchor.letter"
-          :class="{ 'cd-index-letter--other': anchor.letter === '#' }"
-          type="button"
-          :disabled="anchor.rowIndex === null"
-          @click="jumpToLetter(anchor)"
-        >
-          {{ anchor.letter }}
-        </button>
+      <ArtistLetterIndex
+        class="cd-index-letters"
+        :anchors="anchors"
+        :current="currentLetter"
+        :label="t('albums.cd.indexPage.letters')"
+        @select="jumpToLetter"
+      >
         <button
           v-tooltip.feedback="themeTooltip"
           type="button"
@@ -434,7 +439,7 @@ onBeforeUnmount(() => {
           ></span>
           <span v-else class="i-lucide-moon cd-index-theme-icon" aria-hidden="true"></span>
         </button>
-      </nav>
+      </ArtistLetterIndex>
     </div>
   </section>
 </template>
@@ -508,7 +513,7 @@ onBeforeUnmount(() => {
 }
 
 .cd-index-back:hover,
-.cd-index-letters button:hover:not(:disabled) {
+.cd-index-letters :deep(button):hover:not(:disabled) {
   color: var(--cd-text);
   background: transparent;
 }
@@ -516,7 +521,7 @@ onBeforeUnmount(() => {
 .cd-index-back:focus-visible,
 .cd-index-theme:focus-visible,
 .cd-index-card:focus-visible,
-.cd-index-letters button:focus-visible,
+.cd-index-letters :deep(button):focus-visible,
 .cd-index-status button:focus-visible {
   outline: 2px solid var(--cd-focus-ring);
   outline-offset: 3px;
@@ -692,7 +697,7 @@ onBeforeUnmount(() => {
   -webkit-app-region: no-drag;
 }
 
-.cd-index-letters button {
+.cd-index-letters :deep(button) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -713,11 +718,16 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.cd-index-letters .cd-index-letter--other {
+.cd-index-letters :deep(.artist-index-letter--other) {
   font-size: 13px;
 }
 
-.cd-index-letters button:disabled {
+.cd-index-letters :deep(.artist-index-letter--current:not(:disabled)) {
+  color: var(--cd-text);
+  font-weight: 700;
+}
+
+.cd-index-letters :deep(button):disabled {
   opacity: 0.35;
   cursor: default;
 }

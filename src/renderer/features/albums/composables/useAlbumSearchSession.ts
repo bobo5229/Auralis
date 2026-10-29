@@ -136,6 +136,13 @@ export function useAlbumSearchSession({
     )
   }
 
+  const searchMatches = computed(() => {
+    const query = normalizeSearchText(searchQuery.value.trim())
+    return albums.value.flatMap((album, index) =>
+      doesAlbumMatchSearch(album, query) ? [index] : [],
+    )
+  })
+
   function locateNextSearchResult(): void {
     const query = searchQuery.value.trim()
     if (!query) {
@@ -149,10 +156,7 @@ export function useAlbumSearchSession({
       lastMatchedAlbumIndex = -1
     }
 
-    const normalizedQuery = normalizeSearchText(query)
-    const matchingIndices = albums.value.flatMap((album, index) =>
-      doesAlbumMatchSearch(album, normalizedQuery) ? [index] : [],
-    )
+    const matchingIndices = searchMatches.value
     const match = resolveNextAlbumSearchMatch(matchingIndices, lastMatchedAlbumIndex, isNewQuery)
     searchMatchTotal.value = match.totalMatches
     if (match.targetIndex === null || match.matchPosition === null) {

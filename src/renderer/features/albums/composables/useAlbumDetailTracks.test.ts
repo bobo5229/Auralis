@@ -580,7 +580,7 @@ describe('useAlbumDetailTracks', () => {
     }
   })
 
-  it('debounces play-stat changes but reloads other library changes immediately', async () => {
+  it('keeps the detail snapshot on play-stat changes and reloads metadata changes', async () => {
     vi.useFakeTimers()
     const library = createLibraryClient()
     library.getAlbumDetail.mockResolvedValue({
@@ -592,10 +592,11 @@ describe('useAlbumDetailTracks', () => {
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
       library: library.client,
-      playStatsReloadDebounceMs: 400,
     })
     await detail.initialize()
 
+    const previousTracks = detail.tracks.value
+    const previousAlbums = detail.moreAlbums.value
     const baseEvent = { trackIds: [1], filePaths: [] }
     library.emit({ ...baseEvent, reason: 'play-stats-updated' })
     library.emit({ ...baseEvent, reason: 'play-stats-reset' })
@@ -603,10 +604,12 @@ describe('useAlbumDetailTracks', () => {
     expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(1)
-    expect(library.getAlbumDetail).toHaveBeenCalledTimes(2)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
+    expect(detail.tracks.value).toBe(previousTracks)
+    expect(detail.moreAlbums.value).toBe(previousAlbums)
 
     library.emit({ ...baseEvent, reason: 'metadata-refresh' })
-    expect(library.getAlbumDetail).toHaveBeenCalledTimes(3)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(2)
 
     detail.dispose()
     expect(library.unsubscribe).toHaveBeenCalledOnce()
@@ -640,7 +643,6 @@ describe('useAlbumDetailTracks', () => {
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
       library: library.client,
-      playStatsReloadDebounceMs: 400,
     })
 
     await detail.initialize()

@@ -1,17 +1,21 @@
-import { pinyin } from 'pinyin-pro'
+import {
+  ARTIST_INDEX_LETTERS,
+  createArtistIndex,
+  resolveIndexArtist,
+  type ArtistIndexLetter,
+} from '@shared/utils/artistIndex'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
 import {
   albumIdentityKey,
   resolveAlbumArtist,
   resolveAlbumTitle,
-  UNKNOWN_ALBUM_ARTIST,
 } from '@shared/utils/albumIdentity'
 
 export const CD_ALBUM_INDEX_SOURCE = 'index'
-export const CD_INDEX_LETTERS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'] as const
+export const CD_INDEX_LETTERS = ARTIST_INDEX_LETTERS
 
-export type CdIndexLetter = (typeof CD_INDEX_LETTERS)[number]
+export type CdIndexLetter = ArtistIndexLetter
 
 export interface CdIndexHeadingRow {
   type: 'heading'
@@ -101,24 +105,10 @@ export function shouldShowCdFocusedPlayback(
   return !isSameAlbumTrack(track, album)
 }
 
+const artistIndex = createArtistIndex()
+
 export function cdIndexArtistLetter(name: string): CdIndexLetter {
-  const trimmed = name.trim()
-  if (!trimmed || name === UNKNOWN_ALBUM_ARTIST) {
-    return '#'
-  }
-  const transcribed = pinyin(trimmed, {
-    toneType: 'none',
-    type: 'string',
-    nonZh: 'consecutive',
-  })
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim()
-  const first = transcribed[0]
-  if (!first || first < 'a' || first > 'z') {
-    return '#'
-  }
-  return first.toUpperCase() as CdIndexLetter
+  return artistIndex.classify(name).letter
 }
 
 /** Comparable YYYY-MM-DD. Partial dates fill missing month and day with 01. */
@@ -141,14 +131,17 @@ export function cdIndexReleaseLabel(value: string | null): string | null {
 export function groupCdAlbumIndexArtists(albums: readonly AlbumSummary[]): CdIndexArtistGroup[] {
   const grouped = new Map<string, CdIndexArtistGroup>()
   for (const album of albums) {
-    const existing = grouped.get(album.albumArtist)
+    const name =
+      album.indexArtist ??
+      (resolveIndexArtist(album.albumArtist, album.tracks[0]?.artist) || 'Unknown Artist')
+    const existing = grouped.get(name)
     if (existing) {
       existing.albums.push(album)
       continue
     }
-    grouped.set(album.albumArtist, {
-      name: album.albumArtist,
-      letter: cdIndexArtistLetter(album.albumArtist),
+    grouped.set(name, {
+      name,
+      letter: cdIndexArtistLetter(name),
       albums: [album],
     })
   }
