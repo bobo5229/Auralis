@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <filter id="tooth" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".94" numOctaves="3" seed="21" stitchTiles="stitch"/>
+      <feDiffuseLighting surfaceScale=".9" diffuseConstant=".95" lighting-color="#fffaf0">
+        <feDistantLight azimuth="225" elevation="65"/>
+      </feDiffuseLighting>
+    </filter>
+    <filter id="pulp" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".045 .26" numOctaves="3" seed="8" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 .36 0 0 0 0 .31 0 0 0 0 .23 .22 .22 .22 0 -.22"/>
+    </filter>
+  </defs>
+  <path d="M0 0h256v256H0z" filter="url(#tooth)" opacity=".2"/>
+  <path d="M0 0h256v256H0z" filter="url(#pulp)" opacity=".25"/>
+  <g fill="none" stroke="#857554" stroke-width=".45" stroke-linecap="round" opacity=".18">
+    <path d="m13 29 4.2 1.1m37 43 2.7-.7m87-54 3.6 1.5m61 20 5.4-.6M26 118l3.6-1m44 28 5.2 1.8m39-39 3 .8m59 25 4.1-1.2m45 44 2.9.5M10 197l4.7 1.8m51 24 3.3-.8m46-42 4.8.9m61 48 4.2-1.2m49-12 3 1.1M92 16l3.1 1.3m85 68 4.6-.7m-150 3 3.7 1m116 99 5.1-1.2"/>
+  </g>
+  <g fill="none" stroke="#fffef6" stroke-width=".6" stroke-linecap="round" opacity=".6">
+    <path d="m22 58 6.3-1.2m41-23 4.4 1m43 28 6.1 1.4m58-50 4.1-.7m39 84 6 .6M45 169l5.9 1.1m40 30 5.5-1.2m52-43 6.1 1.2m51 30 6.2-.8M16 236l6.8-1.1m109-8 5.9 1.5m76 13 5.2-1.2"/>
+  </g>
+</svg>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hans" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Auralis 每日票夹</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="runtime.js" defer></script>
+  </head>
+  <body>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M7 17 17 7M7 7h10v10" />
+      </symbol>
+      <symbol id="i-ticket" viewBox="0 0 24 24">
+        <path d="M4 5h16v4a3 3 0 0 0 0 6v4H4v-4a3 3 0 0 0 0-6Z" />
+        <path d="M15 5v2m0 3v2m0 3v2m0 1v1" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z" />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" /></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
+    </svg>
+
+    <header class="app-header">
+      <a class="brand" href="#" aria-label="Auralis 每日票夹">Auralis<span>Music</span></a>
+      <span class="breadcrumb">聆听档案 <span aria-hidden="true">/</span> 每日票夹</span>
+      <div class="header-actions">
+        <span class="prototype-label">DEMO</span>
+        <button id="theme-button" class="icon-button" aria-label="切换至深色主题">
+          <svg><use href="#i-moon" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div class="page-heading">
+        <div>
+          <h1>每日票夹</h1>
+        </div>
+        <div class="collection-total">
+          <strong id="total-count">03</strong><span>张聆听纪念票</span>
+        </div>
+      </div>
+
+      <div class="view-tabs" role="tablist" aria-label="票夹视图">
+        <button
+          id="tab-daily"
+          role="tab"
+          aria-selected="true"
+          aria-controls="daily-view"
+          tabindex="0"
+          data-view="daily"
+        >
+          昨日票面
+        </button>
+        <button
+          id="tab-wallet"
+          role="tab"
+          aria-selected="false"
+          aria-controls="wallet-view"
+          tabindex="-1"
+          data-view="wallet"
+        >
+          我的票夹 <span id="wallet-count">3</span>
+        </button>
+      </div>
+
+      <section id="daily-view" role="tabpanel" aria-labelledby="tab-daily">
+        <div class="section-heading">
+          <div><span class="status-dot"></span><span id="daily-status">待领取</span></div>
+          <span class="date-caption">2026 年 10 月 29 日 <span>星期四</span></span>
+        </div>
+        <div class="ticket-stage">
+          <div id="daily-ticket" class="ticket-shell"></div>
+        </div>
+        <div class="claim-bar">
+          <button id="today-preview" class="text-button">
+            今日预览 <svg><use href="#i-arrow" /></svg>
+          </button>
+          <button id="claim-button" class="primary-button">
+            <svg><use href="#i-ticket" /></svg><span>领取昨日票面</span>
+          </button>
+        </div>
+        <section class="date-browse" aria-labelledby="browse-title">
+          <div class="browse-heading">
+            <h2 id="browse-title">2026 年 10 月</h2>
+          </div>
+          <div id="date-strip" class="date-strip"></div>
+        </section>
+      </section>
+
+      <section id="wallet-view" role="tabpanel" aria-labelledby="tab-wallet" hidden>
+        <div class="wallet-heading">
+          <h2>2026 年 10 月</h2>
+          <span id="month-count">3 张纪念票</span>
+        </div>
+        <div id="wallet-grid" class="wallet-grid"></div>
+      </section>
+
+      <footer class="demo-footer">
+        <button id="restart-button" class="text-button">重新体验领取</button>
+      </footer>
+    </main>
+
+    <dialog id="ticket-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-heading">
+        <div>
+          <h2 id="dialog-title">聆听纪念票</h2>
+        </div>
+        <button id="close-dialog" class="icon-button" aria-label="关闭票面">
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div id="dialog-ticket" class="ticket-shell"></div>
+      <div class="dialog-footer">
+        <button id="dialog-claim" class="primary-button" hidden>
+          <svg><use href="#i-ticket" /></svg><span>领取这张票</span>
+        </button>
+        <div id="dialog-navigation" class="dialog-navigation">
+          <button id="previous-ticket" class="icon-button" aria-label="上一张票">
+            <svg class="reverse"><use href="#i-chevron" /></svg></button
+          ><span id="ticket-position"></span
+          ><button id="next-ticket" class="icon-button" aria-label="下一张票">
+            <svg><use href="#i-chevron" /></svg>
+          </button>
+        </div>
+      </div>
+    </dialog>
+    <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+  </body>
+</html>

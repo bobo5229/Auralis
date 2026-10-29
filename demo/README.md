@@ -1,5 +1,7 @@
 # 界面原型
 
+每日票夹：[演唱会纸质票形式的每日 Top1 专辑纪念票](archive/concert-ticket/README.md)。运行 `node demo/archive/concert-ticket/preview.cjs --show`；支持领取盖章、票夹历史浏览、日期回看与补领、今日预览和深浅主题。附 Beatles、Michael Jackson、Taylor Swift 纸票调研与通用模板建议，使用本地示例素材，未接入真实聆听档案。
+
 歌词强调：[普通 LRC 整行 / 增强 LRC 计时片段](lyrics/emphasis/README.md)。运行 `node demo/lyrics/emphasis/serve.mjs` 后打开 <http://127.0.0.1:4196/demo/lyrics/emphasis/>；支持点选、试听本行、浮起/缩放/光晕、撤销与本地标记保存，可加载自己的歌曲和 LRC。附原创合成伴奏，未接入正式曲库。
 
 徽章收藏盒：[铝盒外框、海绵内胆与徽章检视](archive/badge-case-material/README.md)。运行 `node demo/archive/badge-case-material/serve.mjs` 后打开 <http://127.0.0.1:4198/>；单击徽章移动放大并绕竖轴翻转，悬停观察 GLSL 反光，空白或 Esc 放回；支持分类、横向浏览、残留压痕与深浅展示环境。
