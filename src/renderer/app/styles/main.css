@@ -1288,7 +1288,8 @@ body.is-column-resizing * {
   --auralis-parameter-surface-filter: blur(14px) saturate(1.15);
 }
 
-:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
+:where([data-theme='light'])
+  :is(.page-parameter-panel, .player-bar, .frosted-surface, .background-controls-panel) {
   --auralis-parameter-surface-alpha: 0.64;
 }
 
@@ -3433,8 +3434,6 @@ input[type='range'].volume-overlay-slider {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(8px);
 }
 
 .smart-playlist-dialog {

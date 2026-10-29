@@ -33,6 +33,7 @@ import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 import SidebarAlbumEntry from './SidebarAlbumEntry.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
+import '@renderer/shared/dialog/dialogBackdrop.css'
 
 const props = defineProps<{ maxWidth: number; resizeDisabled: boolean }>()
 const emit = defineEmits<{ 'resize-active-change': [active: boolean] }>()
@@ -891,7 +892,10 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
         </div>
       </div>
 
-      <div v-if="renamingPlaylist" class="sidebar-overlay smart-playlist-dialog-backdrop">
+      <div
+        v-if="renamingPlaylist"
+        class="sidebar-overlay auralis-modal-backdrop smart-playlist-dialog-backdrop"
+      >
         <form
           ref="renameDialogRef"
           class="smart-playlist-dialog"

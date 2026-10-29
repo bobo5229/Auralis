@@ -6,9 +6,6 @@
   display: grid;
   place-items: center;
   padding: 40px 24px;
-  background: rgba(0, 0, 0, 0.18);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
   -webkit-app-region: no-drag;
 }
 
@@ -155,12 +152,6 @@
 :where([data-reduced-motion='true']) .auralis-dialog-enter-active .auralis-dialog-panel,
 :where([data-reduced-motion='true']) .auralis-dialog-leave-active {
   transition: none;
-}
-@media (prefers-reduced-transparency: reduce) {
-  .auralis-dialog-backdrop {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
 }
 
 .auralis-dialog-close:focus-visible {

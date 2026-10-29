@@ -1,0 +1,27 @@
+/* Shared backdrop material for centered dialogs, including small input dialogs. */
+:root {
+  --auralis-dialog-backdrop-bg: rgb(0 0 0 / 18%);
+  --auralis-dialog-backdrop-filter: blur(10px);
+  --auralis-dialog-backdrop-fallback-bg: rgb(0 0 0 / 32%);
+}
+
+.auralis-modal-backdrop {
+  background: var(--auralis-dialog-backdrop-bg);
+  -webkit-backdrop-filter: var(--auralis-dialog-backdrop-filter);
+  backdrop-filter: var(--auralis-dialog-backdrop-filter);
+}
+
+/* Preserve separation from the page when background blur is unavailable. */
+@media (prefers-reduced-transparency: reduce) {
+  .auralis-modal-backdrop {
+    background: var(--auralis-dialog-backdrop-fallback-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .auralis-modal-backdrop {
+    background: var(--auralis-dialog-backdrop-fallback-bg);
+  }
+}

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { acquireModalBackground } from '@renderer/shared/focus/modalBackground'
 import { prepareDialogEnter } from './prepareDialogEnter'
+import './dialogBackdrop.css'
 import './dialogSurface.css'
 
 defineOptions({ inheritAttrs: false })
@@ -163,7 +164,7 @@ onBeforeUnmount(cancelEntry)
     >
       <div
         v-if="open"
-        class="sidebar-overlay auralis-dialog-backdrop"
+        class="sidebar-overlay auralis-modal-backdrop auralis-dialog-backdrop"
         :class="backdropClass"
         @click.self="close('backdrop')"
       >
