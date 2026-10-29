@@ -14,4 +14,6 @@ export interface LibraryChangedEvent {
   filePaths: string[]
   /** Public catalog version after a verified metadata commit; not a write transaction token. */
   libraryRevision?: string
+  /** Local day written to listening history for a newly recorded effective play. */
+  playDate?: string
 }

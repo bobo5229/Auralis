@@ -71,8 +71,8 @@ export function createPressurePainter({
             compression[i] += amount
             slopeX[i] += field.gx[local] * pressure
             slopeY[i] += field.gy[local] * pressure
-            offsetX[i] += (x - cx) * 0.045 * amount
-            offsetY[i] += (y - cy) * 0.045 * amount
+            offsetX[i] += (x - cx) * 0.025 * amount
+            offsetY[i] += (y - cy) * 0.025 * amount
           }
       }
       for (let y = top; y < bottom; y++)
@@ -82,14 +82,21 @@ export function createPressurePainter({
           if (amount < 0.0001) continue
           const nx = -slopeX[i],
             ny = -slopeY[i]
-          const diffuse = (-0.45 * nx - 0.55 * ny + 0.9) / Math.sqrt(nx * nx + ny * ny + 1)
-          const depthAttenuation = 1 - amount * 0.3
-          const shade = Math.max(0.25, (0.48 + (0.52 * diffuse) / 0.9) * depthAttenuation)
+          const slope = nx * nx + ny * ny
+          const diffuse = (-0.45 * nx - 0.55 * ny + 0.9) / Math.sqrt(slope + 1)
+          // Broad matte fill keeps the floor readable; occlusion belongs to the
+          // compressed wall, where the lower lip catches the light from above.
+          const wallOcclusion = 1 - Math.min(1, slope * 4) * amount * 0.14
+          const depthAttenuation = 1 - amount * 0.22
+          const shade = Math.max(
+            0.3,
+            (0.56 + (0.44 * diffuse) / 0.9) * depthAttenuation * wallOcclusion,
+          )
           const sampleX = clamp(Math.round(x + offsetX[i] + slopeX[i] * scale * 0.5), 0, width - 1)
           const sampleY = clamp(Math.round(y + offsetY[i] + slopeY[i] * scale * 0.5), 0, height - 1)
           const sample = (sampleY * width + sampleX) * 4
           for (let channel = 0; channel < 3; channel++) {
-            const packed = 33 + (base[sample + channel] - 33) * (1 - amount * 0.28)
+            const packed = 33 + (base[sample + channel] - 33) * (1 - amount * 0.16)
             target[i * 4 + channel] = base[i * 4 + channel] * (1 - amount) + packed * shade * amount
           }
         }

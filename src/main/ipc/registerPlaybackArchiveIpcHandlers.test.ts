@@ -1,3 +1,4 @@
+import { localListeningArchiveDate } from '@shared/listeningArchiveDate'
 import type { IpcMainInvokeEvent } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import { ipcChannels } from '@shared/ipc/channels'
@@ -185,6 +186,7 @@ describe('playback statistics and annual archive IPC', () => {
     expect(recordEffectivePlay).toHaveBeenCalledExactlyOnceWith(payload)
     expect(notifyLibraryChanged).toHaveBeenCalledExactlyOnceWith({
       reason: 'play-stats-updated',
+      playDate: localListeningArchiveDate(payload.playedAtIso),
       trackIds: [42],
       filePaths: [],
     })

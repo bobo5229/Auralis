@@ -96,13 +96,37 @@ export function preparePressure(
   const context = contextFor(makeCanvas(width, height))
   context.setTransform(scale, 0, 0, scale, 0, 0)
   const pattern = context.createPattern(texture, 'repeat')!
-  pattern.setTransform(new DOMMatrix().scale(0.5))
+  // Dense open-cell foam: small pores with a quieter, finer grain between them.
+  // Both passes are baked into the cached base, never added to animation frames.
+  pattern.setTransform(new DOMMatrix().scale(0.375))
   context.fillStyle = pattern
   context.fillRect(0, 0, width / scale, height / scale)
+  const fineGrain = context.createPattern(texture, 'repeat')!
+  fineGrain.setTransform(new DOMMatrix().translate(97, 53).scale(0.125))
+  context.save()
+  context.globalCompositeOperation = 'soft-light'
+  context.globalAlpha = 0.18
+  context.filter = 'brightness(3.8)'
+  context.fillStyle = fineGrain
+  context.fillRect(0, 0, width / scale, height / scale)
+  context.restore()
   const gradient = context.createLinearGradient(0, 0, width / scale, height / scale)
-  gradient.addColorStop(0, 'rgb(255 255 255 / 2%)')
-  gradient.addColorStop(1, 'rgb(0 0 0 / 20%)')
+  gradient.addColorStop(0, 'rgb(255 255 255 / 1%)')
+  gradient.addColorStop(1, 'rgb(0 0 0 / 16%)')
   context.fillStyle = gradient
+  context.fillRect(0, 0, width / scale, height / scale)
+  const lightX = (width / scale) * 0.2
+  const diffuse = context.createRadialGradient(
+    lightX,
+    0,
+    0,
+    lightX,
+    0,
+    (Math.hypot(width, height) / scale) * 0.78,
+  )
+  diffuse.addColorStop(0, 'rgb(255 255 255 / 4%)')
+  diffuse.addColorStop(0.7, 'rgb(255 255 255 / 0%)')
+  context.fillStyle = diffuse
   context.fillRect(0, 0, width / scale, height / scale)
   context.resetTransform()
   const shapes: PreparedShape[] = []
@@ -124,7 +148,14 @@ export function preparePressure(
         for (let i = 0; i < alpha.length; i++) alpha[i] = pixels[i * 4 + 3]
         const distance = signedDistance(alpha, g.width, g.height, scale)
         const envelope = new Float32Array(distance.length)
-        for (let i = 0; i < distance.length; i++) envelope[i] = 1 - smooth((distance[i] + 7) / 37)
+        // Let the compressed wall extend just beyond the badge footprint so
+        // its weight remains visible while displayed. The shallow shoulder
+        // then relaxes into the sheet without a wide dark halo.
+        for (let i = 0; i < distance.length; i++) {
+          const wall = 1 - smooth((distance[i] + 5) / 19)
+          const shoulder = 1 - smooth((distance[i] - 1) / 18)
+          envelope[i] = wall * 0.86 + shoulder * 0.14
+        }
         const gx = new Float32Array(envelope.length),
           gy = new Float32Array(envelope.length)
         for (let y = 1; y < g.height - 1; y++)

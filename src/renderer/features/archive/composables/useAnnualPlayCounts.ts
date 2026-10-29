@@ -1,3 +1,4 @@
+import { affectsArchiveYear } from '../utils/affectsArchiveYear'
 import { onScopeDispose, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { DailyPlayCount } from '@shared/types/listeningArchive'
@@ -11,16 +12,18 @@ export function useAnnualPlayCounts(
   const days = shallowRef<DailyPlayCount[]>([])
   const isLoading = ref(true)
   const hasError = ref(false)
+  const settledYear = ref<number | null>(null)
   let revision = 0
   let disposed = false
 
   async function refresh(): Promise<void> {
     if (disposed) return
     const requestRevision = ++revision
+    const targetYear = toValue(year)
     isLoading.value = true
     hasError.value = false
     try {
-      const result = await archive.getAnnualPlayCounts(toValue(year))
+      const result = await archive.getAnnualPlayCounts(targetYear)
       if (!disposed && revision === requestRevision) {
         const unchanged =
           result.length === days.value.length &&
@@ -44,11 +47,15 @@ export function useAnnualPlayCounts(
         })
       }
     } finally {
-      if (!disposed && revision === requestRevision) isLoading.value = false
+      if (!disposed && revision === requestRevision) {
+        isLoading.value = false
+        settledYear.value = targetYear
+      }
     }
   }
 
   const unsubscribe = library.onChanged((event) => {
+    if (!affectsArchiveYear(event, toValue(year))) return
     if (disposed || (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset'))
       return
     if (event.reason === 'play-stats-reset') days.value = []
@@ -62,11 +69,12 @@ export function useAnnualPlayCounts(
   watch(
     () => toValue(year),
     () => {
+      settledYear.value = null
       days.value = []
       void refresh()
     },
     { immediate: true, flush: 'sync' },
   )
 
-  return { days, isLoading, hasError }
+  return { days, isLoading, hasError, settledYear }
 }

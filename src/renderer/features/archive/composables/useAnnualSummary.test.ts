@@ -31,8 +31,8 @@ function fixture() {
     state,
     getAnnualSummary,
     unsubscribe,
-    notify: (reason: LibraryChangedEvent['reason']) =>
-      changed({ reason, trackIds: [], filePaths: [] }),
+    notify: (reason: LibraryChangedEvent['reason'], playDate?: string) =>
+      changed({ reason, trackIds: [], filePaths: [], playDate }),
   }
 }
 afterEach(() => vi.useRealTimers())
@@ -75,4 +75,28 @@ describe('annual summary requests', () => {
     expect(f.state.summary.value?.year).toBe(2026)
     f.scope.stop()
   })
+})
+
+it('ignores another year without cancelling pending metadata refresh; unknown dates still refresh', async () => {
+  vi.useFakeTimers()
+  const f = fixture()
+  await nextTick()
+  f.notify('play-stats-updated', '2024-12-31')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(f.getAnnualSummary).toHaveBeenCalledOnce()
+  f.notify('metadata-refresh')
+  await vi.advanceTimersByTimeAsync(200)
+  f.notify('play-stats-updated', '2024-12-31')
+  await vi.advanceTimersByTimeAsync(50)
+  expect(f.getAnnualSummary).toHaveBeenCalledTimes(2)
+  f.notify('play-stats-updated', '2026-01-01')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(f.getAnnualSummary).toHaveBeenCalledTimes(3)
+  f.notify('play-stats-updated', '2024-13-01')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(f.getAnnualSummary).toHaveBeenCalledTimes(4)
+  f.notify('play-stats-updated')
+  await vi.advanceTimersByTimeAsync(250)
+  expect(f.getAnnualSummary).toHaveBeenCalledTimes(5)
+  f.scope.stop()
 })

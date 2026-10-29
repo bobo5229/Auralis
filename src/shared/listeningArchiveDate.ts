@@ -5,3 +5,13 @@ export function isListeningArchiveDate(value: string): boolean {
   if (year < 1900 || year > 9999) return false
   return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) === value
 }
+
+/** The same local calendar day used when writing listening history. */
+export function localListeningArchiveDate(playedAtIso: string): string {
+  const date = new Date(playedAtIso)
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}

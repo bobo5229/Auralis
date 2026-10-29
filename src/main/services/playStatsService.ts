@@ -1,7 +1,7 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
 import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import { buildAnnualSummary } from './annualSummary'
-import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
+import { isListeningArchiveDate, localListeningArchiveDate } from '@shared/listeningArchiveDate'
 
 /** In-memory idempotency window for sessionIds (insertion-order FIFO eviction). */
 const MAX_SESSION_CACHE = 5000
@@ -42,12 +42,7 @@ export class PlayStatsService {
       return { ok: false, recorded: false }
     }
 
-    const playedAt = new Date(playedAtIso)
-    const localPlayDate = [
-      playedAt.getFullYear(),
-      String(playedAt.getMonth() + 1).padStart(2, '0'),
-      String(playedAt.getDate()).padStart(2, '0'),
-    ].join('-')
+    const localPlayDate = localListeningArchiveDate(playedAtIso)
 
     this.playStatsRepo.incrementPlayCount(trackId, playedAtIso, localPlayDate)
     this.rememberSession(sessionId)

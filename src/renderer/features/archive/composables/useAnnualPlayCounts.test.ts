@@ -37,8 +37,8 @@ function fixture(getAnnualPlayCounts = vi.fn(async (): Promise<DailyPlayCount[]>
       },
     ),
   )!
-  const notify = (reason: LibraryChangedEvent['reason']) =>
-    changed({ reason, trackIds: [], filePaths: [] })
+  const notify = (reason: LibraryChangedEvent['reason'], playDate?: string) =>
+    changed({ reason, trackIds: [], filePaths: [], playDate })
   return { scope, state, year, getAnnualPlayCounts, notify, unsubscribe }
 }
 
@@ -194,4 +194,27 @@ describe('annual listening counts', () => {
     await flush()
     expect(state.days.value).toEqual([])
   })
+})
+
+it('settles once per year even on failure and ignores plays in other years', async () => {
+  const f = fixture()
+  expect(f.state.settledYear.value).toBeNull()
+  await flush()
+  expect(f.state.settledYear.value).toBe(2026)
+  f.notify('play-stats-updated', '2024-12-31')
+  expect(f.getAnnualPlayCounts).toHaveBeenCalledOnce()
+  const pending = deferred()
+  f.getAnnualPlayCounts.mockImplementationOnce(() => pending.promise)
+  f.notify('play-stats-updated', '2026-01-01')
+  expect(f.state.settledYear.value).toBe(2026)
+  f.getAnnualPlayCounts.mockRejectedValueOnce(new Error('failure'))
+  f.year.value = 2025
+  expect(f.state.settledYear.value).toBeNull()
+  await flush()
+  expect(f.state.hasError.value).toBe(true)
+  expect(f.state.settledYear.value).toBe(2025)
+  pending.resolve(counts)
+  await flush()
+  expect(f.state.settledYear.value).toBe(2025)
+  f.scope.stop()
 })

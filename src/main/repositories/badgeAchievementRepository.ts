@@ -7,7 +7,26 @@ import {
   type ListeningInterval,
 } from './listeningEvidence'
 
+type AlbumAchievements = Pick<
+  BadgeAchievements,
+  'completeAlbums' | 'completeLiveAlbums' | 'albumProgress' | 'liveAlbumProgress'
+>
+
+function isTrackComplete(
+  duration: number | null,
+  intervals: ListeningInterval[],
+  covered: number,
+): boolean {
+  if (!duration || duration <= 0 || covered + 0.000001 < duration * 0.9) return false
+  const withinDuration = intervals.reduce(
+    (sum, [start, end]) => sum + Math.max(0, Math.min(end, duration) - start),
+    0,
+  )
+  return withinDuration + 0.000001 >= duration * 0.9
+}
+
 export class BadgeAchievementRepository {
+  private albumCache: { revision: number; epoch: number; value: AlbumAchievements } | null = null
   constructor(private readonly db: Database.Database) {}
   getEpoch(): number {
     return this.db
@@ -16,6 +35,7 @@ export class BadgeAchievementRepository {
       .get() as number
   }
   resetAll(): void {
+    this.albumCache = null
     this.db.prepare('UPDATE badge_listening_epoch SET epoch=epoch+1 WHERE id=1').run()
     for (const table of [
       'badge_legacy_daily',
@@ -55,17 +75,26 @@ export class BadgeAchievementRepository {
       )
         return { ok: false, epoch }
       const stored = this.db
-        .prepare('SELECT intervals_json FROM badge_track_coverage WHERE track_id=?')
-        .pluck()
-        .get(batch.trackId) as string | undefined
+        .prepare(
+          'SELECT intervals_json AS intervals, covered_seconds AS covered FROM badge_track_coverage WHERE track_id=?',
+        )
+        .get(batch.trackId) as { intervals: string; covered: number } | undefined
+      const previousIntervals = stored ? (JSON.parse(stored.intervals) as ListeningInterval[]) : []
       const intervals = mergeListeningIntervals([
-        ...(stored ? (JSON.parse(stored) as ListeningInterval[]) : []),
+        ...previousIntervals,
         ...samples.map(
           (s) =>
             [s.startSeconds, Math.min(s.endSeconds, duration ?? Infinity)] as ListeningInterval,
         ),
       ])
       const covered = intervals.reduce((n, [a, b]) => n + b - a, 0)
+      // Album counts depend on crossing the completion threshold, not every five-second sample.
+      // Invalidate before writing so a failed/outer transaction can only cause an extra read.
+      if (
+        isTrackComplete(duration, previousIntervals, stored?.covered ?? 0) !==
+        isTrackComplete(duration, intervals, covered)
+      )
+        this.albumCache = null
       this.db
         .prepare(
           'INSERT INTO badge_track_coverage VALUES(?,?,?) ON CONFLICT(track_id) DO UPDATE SET intervals_json=excluded.intervals_json,covered_seconds=excluded.covered_seconds',
@@ -85,6 +114,8 @@ export class BadgeAchievementRepository {
     })()
   }
   getAchievements(): BadgeAchievements {
+    // Do not retain a view of uncommitted data supplied by an enclosing transaction.
+    const canCache = !this.db.inTransaction
     return this.db.transaction(() => {
       const time = this.db
         .prepare(
@@ -95,42 +126,56 @@ export class BadgeAchievementRepository {
       ) SELECT COALESCE(SUM(seconds),0) AS seconds, COALESCE(SUM(seconds >= 3600),0) AS days FROM days`,
         )
         .get() as { seconds: number; days: number }
-      const albums = this.db
-        .prepare(
-          `SELECT COUNT(*) AS totalTracks,
-        SUM(CASE WHEN t.duration_seconds > 0 AND COALESCE(c.covered_seconds,0) + 0.000001 >= t.duration_seconds * 0.9
-          AND (SELECT COALESCE(SUM(MAX(0,MIN(json_extract(value,'$[1]'),t.duration_seconds)-json_extract(value,'$[0]'))),0)
-            FROM json_each(COALESCE(c.intervals_json,'[]'))) + 0.000001 >= t.duration_seconds * 0.9 THEN 1 ELSE 0 END) AS completedTracks,
-        MIN(instr(lower(COALESCE(t.genre,'')), 'live') > 0) AS live
-        FROM library_track_display t LEFT JOIN badge_track_coverage c ON c.track_id=t.id
-        WHERE NULLIF(TRIM(t.album),'') IS NOT NULL
-        GROUP BY t.album, COALESCE(NULLIF(TRIM(t.album_artist),''),NULLIF(TRIM(t.artist),''),'Unknown Artist')`,
-        )
-        .iterate() as Iterable<AlbumCompletionProgress & { live: number }>
-      let completeAlbums = 0,
-        completeLiveAlbums = 0
-      let albumProgress: AlbumCompletionProgress = { completedTracks: 0, totalTracks: 0 }
-      let liveAlbumProgress: AlbumCompletionProgress = { completedTracks: 0, totalTracks: 0 }
-      const better = (a: AlbumCompletionProgress, b: AlbumCompletionProgress) =>
-        !b.totalTracks || a.completedTracks / a.totalTracks > b.completedTracks / b.totalTracks
-      for (const album of albums) {
-        const progress = { completedTracks: album.completedTracks, totalTracks: album.totalTracks }
-        if (better(progress, albumProgress)) albumProgress = progress
-        if (album.live && better(progress, liveAlbumProgress)) liveAlbumProgress = progress
-        if (album.completedTracks === album.totalTracks) {
-          completeAlbums++
-          if (album.live) completeLiveAlbums++
-        }
+      const revision = this.db
+        .prepare('SELECT revision FROM library_catalog_revision WHERE id=1')
+        .pluck()
+        .get() as number
+      const epoch = this.getEpoch()
+      let cached = canCache ? this.albumCache : null
+      if (!cached || cached.revision !== revision || cached.epoch !== epoch) {
+        cached = { revision, epoch, value: this.readAlbumAchievements() }
+        if (canCache) this.albumCache = cached
       }
+      const albums = cached.value
       return {
-        epoch: this.getEpoch(),
+        epoch,
         listeningSeconds: time.seconds,
         listeningDays: time.days,
-        completeAlbums,
-        completeLiveAlbums,
-        albumProgress,
-        liveAlbumProgress,
+        completeAlbums: albums.completeAlbums,
+        completeLiveAlbums: albums.completeLiveAlbums,
+        albumProgress: { ...albums.albumProgress },
+        liveAlbumProgress: { ...albums.liveAlbumProgress },
       }
     })()
+  }
+  private readAlbumAchievements(): AlbumAchievements {
+    const albums = this.db
+      .prepare(
+        `SELECT COUNT(*) AS totalTracks,
+    SUM(CASE WHEN t.duration_seconds > 0 AND COALESCE(c.covered_seconds,0) + 0.000001 >= t.duration_seconds * 0.9
+      AND (SELECT COALESCE(SUM(MAX(0,MIN(json_extract(value,'$[1]'),t.duration_seconds)-json_extract(value,'$[0]'))),0)
+        FROM json_each(COALESCE(c.intervals_json,'[]'))) + 0.000001 >= t.duration_seconds * 0.9 THEN 1 ELSE 0 END) AS completedTracks,
+    MIN(instr(lower(COALESCE(t.genre,'')), 'live') > 0) AS live
+    FROM library_track_display t LEFT JOIN badge_track_coverage c ON c.track_id=t.id
+    WHERE NULLIF(TRIM(t.album),'') IS NOT NULL
+    GROUP BY t.album, COALESCE(NULLIF(TRIM(t.album_artist),''),NULLIF(TRIM(t.artist),''),'Unknown Artist')`,
+      )
+      .iterate() as Iterable<AlbumCompletionProgress & { live: number }>
+    let completeAlbums = 0,
+      completeLiveAlbums = 0
+    let albumProgress: AlbumCompletionProgress = { completedTracks: 0, totalTracks: 0 }
+    let liveAlbumProgress: AlbumCompletionProgress = { completedTracks: 0, totalTracks: 0 }
+    const better = (a: AlbumCompletionProgress, b: AlbumCompletionProgress) =>
+      !b.totalTracks || a.completedTracks / a.totalTracks > b.completedTracks / b.totalTracks
+    for (const album of albums) {
+      const progress = { completedTracks: album.completedTracks, totalTracks: album.totalTracks }
+      if (better(progress, albumProgress)) albumProgress = progress
+      if (album.live && better(progress, liveAlbumProgress)) liveAlbumProgress = progress
+      if (album.completedTracks === album.totalTracks) {
+        completeAlbums++
+        if (album.live) completeLiveAlbums++
+      }
+    }
+    return { completeAlbums, completeLiveAlbums, albumProgress, liveAlbumProgress }
   }
 }

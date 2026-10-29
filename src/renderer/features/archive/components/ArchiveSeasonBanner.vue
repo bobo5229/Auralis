@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSeasonMesh } from '../composables/useSeasonMesh'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { seasonBannerStyle } from '../utils/seasonArtwork'
 
 defineProps<{ year: number }>()
@@ -10,7 +11,13 @@ const { t } = useI18n()
 const root = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLElement | null>(null)
 const snapshotCanvas = ref<HTMLCanvasElement | null>(null)
-const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCanvas)
+const { displayMode } = usePlayerDisplayMode()
+const { ready: meshReady, hasSnapshot } = useSeasonMesh(
+  root,
+  canvas,
+  snapshotCanvas,
+  () => displayMode.value === 'normal',
+)
 </script>
 
 <template>

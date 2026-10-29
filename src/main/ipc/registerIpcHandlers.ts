@@ -108,6 +108,7 @@ export function registerIpcHandlers(
     reason: 'play-stats-updated' | 'play-stats-reset'
     trackIds: number[]
     filePaths: string[]
+    playDate?: string
   }) => sendToRenderer(ipcChannels.library.changed, data)
   const playbackResources = new PlaybackResourceService({
     tracks: trackRepository,

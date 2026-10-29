@@ -1,3 +1,4 @@
+import { affectsArchiveYear } from '../utils/affectsArchiveYear'
 import { onScopeDispose, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { AnnualSummary } from '@shared/types/listeningArchive'
@@ -37,6 +38,7 @@ export function useAnnualSummary(
     }
   }
   const unsubscribe = library.onChanged((event) => {
+    if (!affectsArchiveYear(event, toValue(year))) return
     if (disposed) return
     // Invalidate outstanding reads immediately, including during the refresh debounce.
     revision++

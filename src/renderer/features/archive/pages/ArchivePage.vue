@@ -21,14 +21,19 @@ watch(
     year.value = resolveArchiveYear(value)
   },
 )
-const { days, isLoading, hasError } = useAnnualPlayCounts(year, auralis.archive, auralis.library)
+const { days, isLoading, hasError, settledYear } = useAnnualPlayCounts(
+  year,
+  auralis.archive,
+  auralis.library,
+)
 const { date: pinnedDate, pin: pinDay } = usePinnedArchiveDay(days, year, () => route.query.date)
+const readyPinnedDate = computed(() => (settledYear.value === year.value ? pinnedDate.value : null))
 const {
   albums: pinnedAlbums,
   isLoading: pinnedAlbumsLoading,
   hasError: pinnedAlbumsError,
   refresh: refreshPinnedAlbums,
-} = useDayTopAlbums(pinnedDate, auralis.archive, auralis.library, () =>
+} = useDayTopAlbums(readyPinnedDate, auralis.archive, auralis.library, () =>
   days.value.find((day) => day.date === pinnedDate.value),
 )
 
@@ -61,8 +66,8 @@ const statusMessage = computed(() => {
         @pin-date="pinDay"
       />
       <ArchiveDayAlbums
-        v-if="pinnedDate"
-        :date="pinnedDate"
+        v-if="readyPinnedDate"
+        :date="readyPinnedDate"
         :albums="pinnedAlbums"
         :loading="pinnedAlbumsLoading"
         :failed="pinnedAlbumsError"

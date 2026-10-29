@@ -1,4 +1,12 @@
-import { onMounted, onScopeDispose, ref, watch, type Ref } from 'vue'
+import {
+  onMounted,
+  onScopeDispose,
+  ref,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibility'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -9,6 +17,7 @@ export function useSeasonMesh(
   host: Ref<HTMLElement | null>,
   canvas: Ref<HTMLElement | null>,
   snapshotCanvas: Ref<HTMLCanvasElement | null>,
+  active: MaybeRefOrGetter<boolean> = true,
 ) {
   const ready = ref(false)
   const hasSnapshot = ref(false)
@@ -28,7 +37,13 @@ export function useSeasonMesh(
 
   function canAnimate() {
     return (
-      !disposed && !failed && !restoring && !motion.matches && windowVisible.value && isIntersecting
+      !disposed &&
+      !failed &&
+      !restoring &&
+      !motion.matches &&
+      windowVisible.value &&
+      isIntersecting &&
+      toValue(active)
     )
   }
   function restoreSnapshot() {
@@ -131,7 +146,7 @@ export function useSeasonMesh(
     restoreSnapshot()
     sync()
   }
-  watch(windowVisible, sync, { flush: 'sync' })
+  watch([windowVisible, () => toValue(active)], sync, { flush: 'sync' })
   onMounted(() => {
     if (!host.value) return
     restoreSnapshot()

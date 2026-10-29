@@ -1,3 +1,4 @@
+import { localListeningArchiveDate } from '@shared/listeningArchiveDate'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { LibraryService } from '@main/services/libraryService'
@@ -27,6 +28,7 @@ export interface PlaybackArchiveIpcDependencies {
     reason: 'play-stats-updated' | 'play-stats-reset'
     trackIds: number[]
     filePaths: string[]
+    playDate?: string
   }): void
 }
 
@@ -64,6 +66,7 @@ export function registerPlaybackArchiveIpcHandlers(
       if (result.ok && result.recorded) {
         notifyLibraryChanged({
           reason: 'play-stats-updated',
+          playDate: localListeningArchiveDate(payload.playedAtIso),
           trackIds: [payload.trackId],
           filePaths: [],
         })

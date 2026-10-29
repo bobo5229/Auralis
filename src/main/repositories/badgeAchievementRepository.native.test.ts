@@ -1,7 +1,7 @@
 import type { ListeningSample } from '@shared/types/listeningEvidence'
 import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { migrateDatabase } from '../database/schema'
 import { migrations } from '../database/schemaMigrations'
 import { BadgeAchievementRepository } from './badgeAchievementRepository'
@@ -157,4 +157,69 @@ it('retains actual time when database duration is unknown without inventing albu
   expect(repo.getAchievements()).toMatchObject({ listeningSeconds: 1, completeAlbums: 0 })
   hear(repo, 1, 0, 0.9)
   expect(repo.getAchievements()).toMatchObject({ completeAlbums: 1, completeLiveAlbums: 1 })
+})
+
+it('reuses album completion during listening while time stays current and thresholds invalidate it', () => {
+  const { db, repo } = fixture()
+  db.exec(
+    "INSERT INTO tracks(id,file_path,album,genre,duration_seconds) VALUES(1,'cached.flac','Album','Rock',100)",
+  )
+  const prepares = vi.spyOn(db, 'prepare')
+  const albumReads = () =>
+    prepares.mock.calls.filter(([sql]) => sql.includes('GROUP BY t.album')).length
+  const first = repo.getAchievements()
+  expect(first.albumProgress).toEqual({ completedTracks: 0, totalTracks: 1 })
+  first.albumProgress.completedTracks = 99
+  hear(repo, 1, 0, 10)
+  expect(repo.getAchievements()).toMatchObject({
+    listeningSeconds: 10,
+    completeAlbums: 0,
+    albumProgress: { completedTracks: 0 },
+  })
+  expect(albumReads()).toBe(1)
+  hear(repo, 1, 10, 90)
+  expect(repo.getAchievements()).toMatchObject({ listeningSeconds: 90, completeAlbums: 1 })
+  expect(albumReads()).toBe(2)
+  hear(repo, 1, 90, 95)
+  expect(repo.getAchievements().listeningSeconds).toBe(95)
+  expect(albumReads()).toBe(2)
+  db.exec("UPDATE tracks SET genre='Live' WHERE id=1")
+  expect(repo.getAchievements().completeLiveAlbums).toBe(1)
+  expect(albumReads()).toBe(3)
+  db.exec('UPDATE tracks SET duration_seconds=200 WHERE id=1')
+  expect(repo.getAchievements().completeAlbums).toBe(0)
+  expect(albumReads()).toBe(4)
+  db.exec(
+    "INSERT INTO tracks(id,file_path,album,duration_seconds) VALUES(2,'new.flac','Album',100)",
+  )
+  expect(repo.getAchievements().albumProgress.totalTracks).toBe(2)
+  db.exec('DELETE FROM tracks WHERE id=2')
+  expect(repo.getAchievements().albumProgress.totalTracks).toBe(1)
+  repo.resetAll()
+  expect(repo.getAchievements()).toMatchObject({ epoch: 1, listeningSeconds: 0, completeAlbums: 0 })
+  prepares.mockRestore()
+})
+
+it('does not retain completion or catalog changes observed in a rolled-back transaction', () => {
+  const { db, repo } = fixture()
+  db.exec(
+    "INSERT INTO tracks(id,file_path,album,genre,duration_seconds) VALUES(1,'rollback.flac','Album','Live',100)",
+  )
+  expect(repo.getAchievements().completeAlbums).toBe(0)
+  expect(() =>
+    db.transaction(() => {
+      hear(repo, 1, 0, 90)
+      expect(repo.getAchievements().completeAlbums).toBe(1)
+      throw new Error('rollback')
+    })(),
+  ).toThrow('rollback')
+  expect(repo.getAchievements()).toMatchObject({ listeningSeconds: 0, completeAlbums: 0 })
+  expect(() =>
+    db.transaction(() => {
+      db.exec("UPDATE tracks SET album='Temporary album' WHERE id=1")
+      repo.getAchievements()
+      throw new Error('rollback')
+    })(),
+  ).toThrow('rollback')
+  expect(repo.getAchievements().albumProgress).toEqual({ totalTracks: 1, completedTracks: 0 })
 })
