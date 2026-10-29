@@ -3,6 +3,9 @@ import { createSeasonMesh } from './seasonMesh'
 import type { SeasonMeshResponse } from './seasonMeshProtocol'
 import { createSeasonMeshSession } from './seasonMeshSession'
 
+const warmup = vi.hoisted(() => ({ take: vi.fn() }))
+vi.mock('./seasonMeshWarmup', () => ({ takeSeasonMeshWarmup: warmup.take }))
+
 class MeshWorker {
   static instances: MeshWorker[] = []
   onmessage: ((event: MessageEvent<SeasonMeshResponse>) => void) | null = null
@@ -20,6 +23,7 @@ class MeshWorker {
 
 beforeEach(() => {
   MeshWorker.instances = []
+  warmup.take.mockReset()
   vi.stubGlobal('Worker', MeshWorker)
   vi.stubGlobal('devicePixelRatio', 1.5)
   vi.stubGlobal(
@@ -32,7 +36,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function setup(session = createSeasonMeshSession()) {
+function setup(session = createSeasonMeshSession(), prepared = false) {
   const host = {
     clientWidth: 900,
     clientHeight: 180,
@@ -42,11 +46,25 @@ function setup(session = createSeasonMeshSession()) {
   const canvas = {
     transferControlToOffscreen: vi.fn(() => offscreen),
     getContext,
+    remove: vi.fn(),
   } as unknown as HTMLCanvasElement
+  const surface = { append: vi.fn() } as unknown as HTMLElement
+  vi.stubGlobal('document', { createElement: vi.fn(() => canvas) })
+  if (prepared) warmup.take.mockReturnValue({ canvas, worker: new MeshWorker() })
   const ready = vi.fn()
   const error = vi.fn()
-  const runtime = createSeasonMesh(host, canvas, ready, error, session)
-  return { runtime, offscreen, getContext, ready, error, session, worker: MeshWorker.instances[0] }
+  const runtime = createSeasonMesh(host, surface, ready, error, session)
+  return {
+    runtime,
+    offscreen,
+    getContext,
+    ready,
+    error,
+    session,
+    surface,
+    canvas,
+    worker: MeshWorker.instances[0],
+  }
 }
 
 function frame(elapsed = 4.25) {
@@ -58,6 +76,28 @@ function frame(elapsed = 4.25) {
 }
 
 describe('season mesh worker ownership', () => {
+  it('adopts a paused surface and waits for its correctly sized first frame', () => {
+    const t = setup(createSeasonMeshSession(), true)
+    expect(MeshWorker.instances).toHaveLength(1)
+    expect(t.canvas.transferControlToOffscreen).not.toHaveBeenCalled()
+    expect(t.surface.append).not.toHaveBeenCalled()
+    expect(t.worker.postMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: 'attach',
+        layout: { width: 900, height: 180, pixelRatio: 1.25 },
+      }),
+    )
+    t.worker.reply({ type: 'warmed' })
+    expect(t.runtime.isReady()).toBe(false)
+    t.worker.reply({ type: 'ready' })
+    expect(t.surface.append).toHaveBeenCalledExactlyOnceWith(t.canvas)
+    expect(t.ready).toHaveBeenCalledOnce()
+    t.runtime.dispose()
+    t.worker.reply(frame())
+    expect(t.canvas.remove).toHaveBeenCalledOnce()
+    expect(t.worker.terminate).toHaveBeenCalledOnce()
+  })
+
   it('transfers the canvas and waits for the first frame without creating a main-thread context', () => {
     const t = setup()
     expect(t.getContext).not.toHaveBeenCalled()

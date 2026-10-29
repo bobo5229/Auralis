@@ -7,7 +7,7 @@ import { seasonMeshSession } from '../runtime/seasonMeshSession'
 
 export function useSeasonMesh(
   host: Ref<HTMLElement | null>,
-  canvas: Ref<HTMLCanvasElement | null>,
+  canvas: Ref<HTMLElement | null>,
   snapshotCanvas: Ref<HTMLCanvasElement | null>,
 ) {
   const ready = ref(false)

@@ -1,5 +1,6 @@
 import { modeRgb, useMode } from 'culori'
 import { seasonMeshSession } from './seasonMeshSession'
+import { takeSeasonMeshWarmup } from './seasonMeshWarmup'
 import type {
   SeasonMeshLayout,
   SeasonMeshRequest,
@@ -12,15 +13,19 @@ const toRgb = useMode(modeRgb)
 /** Keep DOM reads here; WebGL creation, shader compilation and drawing belong to the worker. */
 export function createSeasonMesh(
   host: HTMLElement,
-  canvas: HTMLCanvasElement,
+  surface: HTMLElement,
   onReady: () => void,
   onError: (cause: unknown) => void,
   session = seasonMeshSession,
 ) {
+  const prepared = takeSeasonMeshWarmup()
+  const canvas = prepared?.canvas ?? document.createElement('canvas')
   if (typeof Worker === 'undefined' || !canvas.transferControlToOffscreen) {
     throw new Error('Season mesh offscreen rendering is unavailable')
   }
-  const worker = new Worker(new URL('./seasonMesh.worker.ts', import.meta.url), { type: 'module' })
+  const worker =
+    prepared?.worker ??
+    new Worker(new URL('./seasonMesh.worker.ts', import.meta.url), { type: 'module' })
   const owner = session.begin()
   let disposed = false
   let ready = false
@@ -40,6 +45,7 @@ export function createSeasonMesh(
     worker.onerror = null
     worker.onmessageerror = null
     worker.terminate()
+    canvas.remove()
     finishCapture?.()
     finishCapture = undefined
   }
@@ -92,6 +98,8 @@ export function createSeasonMesh(
     return [wash?.r ?? 0, wash?.g ?? 0, wash?.b ?? 0, wash?.alpha ?? 0]
   }
   worker.onmessage = (event: MessageEvent<SeasonMeshResponse>) => {
+    // A claimed worker may still be finishing its background preparation.
+    if (event.data.type === 'warmed') return
     if (event.data.type === 'snapshot') {
       if (capturing)
         session.save(owner, {
@@ -109,6 +117,7 @@ export function createSeasonMesh(
     }
     if (disposed) return
     if (event.data.type === 'ready') {
+      if (!ready) surface.append(canvas)
       ready = true
       onReady()
     } else fail(new Error(event.data.message))
@@ -119,15 +128,23 @@ export function createSeasonMesh(
   }
   worker.onmessageerror = () => fail(new Error('Season mesh worker response could not be read'))
   try {
-    const offscreen = canvas.transferControlToOffscreen()
-    const message: SeasonMeshRequest = {
-      type: 'init',
-      canvas: offscreen,
-      layout: readLayout(),
-      wash: readAppearance(),
-      elapsed: session.read()?.elapsed ?? 0,
+    if (prepared) {
+      worker.postMessage({
+        type: 'attach',
+        layout: readLayout(),
+        wash: readAppearance(),
+      } satisfies SeasonMeshRequest)
+    } else {
+      const offscreen = canvas.transferControlToOffscreen()
+      const message: SeasonMeshRequest = {
+        type: 'init',
+        canvas: offscreen,
+        layout: readLayout(),
+        wash: readAppearance(),
+        elapsed: session.read()?.elapsed ?? 0,
+      }
+      worker.postMessage(message, [offscreen])
     }
-    worker.postMessage(message, [offscreen])
   } catch (cause) {
     disposed = true
     release()

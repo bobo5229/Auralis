@@ -75,6 +75,7 @@ export function createSeasonMeshRenderer(
   let playing = false
   let disposed = false
   let elapsed = initialElapsed
+  let layout: SeasonMeshLayout | undefined
   const clock = createSeasonMeshClock((time) => {
     elapsed = time
     try {
@@ -106,10 +107,17 @@ export function createSeasonMeshRenderer(
     material.uniforms.time.value = elapsed * 0.16
     renderer.render(scene, camera)
   }
-  function resize(layout: SeasonMeshLayout) {
+  function resize(next: SeasonMeshLayout) {
     if (disposed) return
-    renderer.setDrawingBufferSize(layout.width, layout.height, layout.pixelRatio)
-    material.uniforms.bannerSize.value.set(layout.width, layout.height)
+    if (
+      layout?.width === next.width &&
+      layout.height === next.height &&
+      layout.pixelRatio === next.pixelRatio
+    )
+      return
+    layout = next
+    renderer.setDrawingBufferSize(next.width, next.height, next.pixelRatio)
+    material.uniforms.bannerSize.value.set(next.width, next.height)
     if (playing) {
       try {
         draw()
@@ -127,6 +135,7 @@ export function createSeasonMeshRenderer(
     throw cause
   }
   return {
+    renderFrame: draw,
     snapshot() {
       playing = false
       clock.setPlaying(false)

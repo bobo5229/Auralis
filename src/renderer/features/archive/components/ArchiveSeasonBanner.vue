@@ -8,7 +8,7 @@ import { seasonBannerStyle } from '../utils/seasonArtwork'
 defineProps<{ year: number }>()
 const { t } = useI18n()
 const root = ref<HTMLElement | null>(null)
-const canvas = ref<HTMLCanvasElement | null>(null)
+const canvas = ref<HTMLElement | null>(null)
 const snapshotCanvas = ref<HTMLCanvasElement | null>(null)
 const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCanvas)
 </script>
@@ -23,7 +23,7 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
     <div class="season-placeholder" aria-hidden="true">
       <canvas ref="snapshotCanvas" class="season-snapshot"></canvas>
     </div>
-    <canvas ref="canvas" class="season-mesh" aria-hidden="true"></canvas>
+    <div ref="canvas" class="season-mesh" aria-hidden="true"></div>
     <RouterLink
       class="season-banner-link"
       :to="{ name: 'archive-annual-summary', params: { year: String(year) } }"
@@ -76,6 +76,12 @@ const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCa
 .season-mesh {
   opacity: 0;
   transition: opacity var(--season-reveal-duration) ease-out;
+}
+
+.season-mesh :deep(canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .has-season-mesh .season-mesh {

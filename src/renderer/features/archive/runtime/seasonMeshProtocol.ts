@@ -7,6 +7,8 @@ export interface SeasonMeshLayout {
 }
 
 export type SeasonMeshRequest =
+  | { type: 'warmup'; canvas: OffscreenCanvas }
+  | { type: 'attach'; layout: SeasonMeshLayout; wash: SeasonMeshWash }
   | {
       type: 'init'
       canvas: OffscreenCanvas
@@ -20,6 +22,7 @@ export type SeasonMeshRequest =
   | { type: 'snapshot' }
 
 export type SeasonMeshResponse =
+  | { type: 'warmed' }
   | { type: 'ready' }
   | { type: 'snapshot'; bitmap: ImageBitmap; elapsed: number }
   | { type: 'error'; message: string }

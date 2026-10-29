@@ -20,6 +20,24 @@ self.onmessage = (event: MessageEvent<SeasonMeshRequest>) => {
   const message = event.data
   try {
     switch (message.type) {
+      case 'warmup':
+        // A paused context can be adopted by the first visit; the owner bounds its lifetime.
+        runtime = createSeasonMeshRenderer(
+          message.canvas,
+          { width: 64, height: 64, pixelRatio: 1 },
+          [0, 0, 0, 0],
+          fail,
+        )
+        // Complete the first GPU draw before reporting preparation, including driver shader work.
+        message.canvas.getContext('webgl2')?.finish()
+        reply({ type: 'warmed' })
+        break
+      case 'attach':
+        runtime?.resize(message.layout)
+        runtime?.setAppearance(message.wash)
+        runtime?.renderFrame()
+        reply({ type: 'ready' })
+        break
       case 'init':
         runtime = createSeasonMeshRenderer(
           message.canvas,

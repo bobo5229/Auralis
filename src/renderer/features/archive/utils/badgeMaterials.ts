@@ -6,21 +6,13 @@ import type {
 } from '../runtime/badgeMaterialRenderer'
 
 const files = import.meta.glob<string>(
-  [
-    '../assets/milestones/materials/**/*-{base,material,normal,ao,finish}.png',
-    '../assets/milestones/materials/previews/*.png',
-  ],
+  '../assets/milestones/materials/**/*-{base,material,normal,ao,finish}.png',
   {
     eager: true,
     query: '?url',
     import: 'default',
   },
 )
-const originals = import.meta.glob<string>('../assets/milestones/*.svg', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-})
 const asset = (path: string) => {
   const value = files[`../assets/milestones/materials/${path}`]
   if (!value) throw new Error(`Missing badge material asset: ${path}`)
@@ -48,15 +40,6 @@ export const badgeMaterialDescriptors: Record<string, BadgeMaterialDescriptor> =
     },
   ]),
 )
-
-export function getBadgePreview(catalogId: string, state: BadgeState = 'lit'): string {
-  const entry = badgeMaterialDescriptors[catalogId]
-  if (!entry) throw new Error(`Unknown badge: ${catalogId}`)
-  return (
-    files[`../assets/milestones/materials/previews/${entry.id}-${state}.png`] ??
-    originals[`../assets/milestones/${entry.id}${state === 'unlit' ? '-unlit' : ''}.svg`]
-  )
-}
 
 export const badgeContours: Record<string, string> = Object.fromEntries(
   Object.values(manifest.badges).map((entry) => [entry.catalogId, entry.contour]),

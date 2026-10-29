@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { milestoneBadges, milestoneGroups } from '../constants/milestoneBadges'
 import { badgeAchievementStatus } from '../utils/badgeAchievementStatus'
 import { useBadgeAchievements } from '../composables/useBadgeAchievements'
-import { getBadgePreview } from '../utils/badgeMaterials'
+import { getBadgePreview } from '../utils/badgePreviews'
 import '../styles/milestoneCase.css'
 
 const ArchiveMilestoneGallery = defineAsyncComponent(() => import('./ArchiveMilestoneGallery.vue'))

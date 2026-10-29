@@ -1,4 +1,5 @@
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { scheduleSeasonMeshWarmup } from '@renderer/features/archive/runtime/seasonMeshWarmup'
 import {
   defaultRouteLoaderRegistry,
   PRIMARY_WARMABLE_ROUTES,
@@ -28,6 +29,7 @@ export interface RouteWarmupOptions {
   now?: () => number
   minIdleTimeRemainingMs?: number
   idleTimeoutMs?: number
+  onRouteWarmed?: (name: WarmableRouteName) => void
 }
 
 const defaultIdleScheduler: IdleScheduler = {
@@ -58,7 +60,9 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
   const scheduler = options.scheduler ?? defaultIdleScheduler
   const now =
     options.now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()))
-  const minIdleTimeRemainingMs = options.minIdleTimeRemainingMs ?? 5
+  // Starting an asynchronous import needs little idle time; high-refresh displays
+  // can offer less than 5 ms even when the main thread is otherwise idle.
+  const minIdleTimeRemainingMs = options.minIdleTimeRemainingMs ?? 1
   const idleTimeoutMs = options.idleTimeoutMs ?? 1500
 
   const completed = new Set<WarmableRouteName>()
@@ -101,6 +105,7 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
     try {
       const result = await loadRoute(name)
       completed.add(name)
+      if (!isDisposed) options.onRouteWarmed?.(name)
       const durationMs = now() - startTime
       logDiagnostic(name, trigger, durationMs)
       return result
@@ -124,7 +129,7 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
       })
   }
 
-  const scheduleNextIdleItem = () => {
+  const scheduleNextIdleItem = (expiresAt = now() + idleTimeoutMs) => {
     if (isDisposed || idleQueue.length === 0) {
       currentIdleHandle = null
       return
@@ -135,9 +140,14 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
         currentIdleHandle = null
         if (isDisposed || idleQueue.length === 0) return
 
-        // If time remaining is already insufficient and not timed out, yield to next frame
-        if (deadline.timeRemaining() < minIdleTimeRemainingMs && !deadline.didTimeout) {
-          scheduleNextIdleItem()
+        // Keep the original deadline across deferrals so repeated short idle
+        // callbacks cannot reset the timeout and starve this route indefinitely.
+        if (
+          deadline.timeRemaining() < minIdleTimeRemainingMs &&
+          !deadline.didTimeout &&
+          now() < expiresAt
+        ) {
+          scheduleNextIdleItem(expiresAt)
           return
         }
 
@@ -160,7 +170,7 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
           scheduleNextIdleItem()
         }
       },
-      { timeout: idleTimeoutMs },
+      { timeout: Math.max(1, Math.ceil(expiresAt - now())) },
     )
   }
 
@@ -194,6 +204,10 @@ export function createRouteWarmupCoordinator(options: RouteWarmupOptions = {}) {
   }
 }
 
-export const defaultRouteWarmupCoordinator = createRouteWarmupCoordinator()
+export const defaultRouteWarmupCoordinator = createRouteWarmupCoordinator({
+  onRouteWarmed: (name) => {
+    if (name === 'archive') scheduleSeasonMeshWarmup()
+  },
+})
 
 export const { prefetchRouteOnIntent, schedulePrimaryRouteWarmup } = defaultRouteWarmupCoordinator

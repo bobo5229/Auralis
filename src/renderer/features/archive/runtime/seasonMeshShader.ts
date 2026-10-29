@@ -46,8 +46,9 @@ vec3 seasonField(int season, vec2 uv) {
   vec3 color = vec3(0.0);
   float totalWeight = 0.0;
   for (int i = 0; i < 5; i++) {
-    float distanceToColor = length(position - colorPosition(i, t));
-    float weight = 1.0 / (pow(distanceToColor, 3.5) + 0.001);
+    vec2 offset = position - colorPosition(i, t);
+    // (sqrt(d))^3.5 = d^1.75: keep the falloff without a square root per color.
+    float weight = 1.0 / (pow(dot(offset, offset), 1.75) + 0.001);
     color += colors[season * 5 + i] * weight;
     totalWeight += weight;
   }
