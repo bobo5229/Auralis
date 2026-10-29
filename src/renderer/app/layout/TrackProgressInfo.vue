@@ -143,9 +143,6 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
       </div>
       <div v-if="props.showProgress && props.showSplitClocks" class="player-bar-progress-row">
         <PlayerBarProgress />
-        <span class="player-bar-progress-clock player-bar-clock-spacer" aria-hidden="true">{{
-          durationClockText
-        }}</span>
       </div>
       <PlayerBarProgress v-else-if="props.showProgress" />
     </div>
@@ -153,11 +150,10 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 </template>
 
 <style scoped>
-/* 右侧预留原有时间列宽，轨道左端与封面左端对齐。 */
+/* 轨道与悬停时间共用内容宽度，左端与封面对齐。 */
 .track-info-with-split-clocks {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .track-info-with-split-clocks > .track-info-row {
@@ -170,10 +166,6 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
   grid-row: 2;
   grid-template-columns: subgrid;
   margin-top: 2px;
-}
-
-.player-bar-clock-spacer {
-  visibility: hidden;
 }
 
 .player-bar-hover-clocks {
