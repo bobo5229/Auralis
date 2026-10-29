@@ -7,6 +7,7 @@ import {
   type ArtistIndexLetter,
 } from '@shared/utils/artistIndex'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
+import { useAlbumMetadataEditor } from '@renderer/shared/albumMetadataEditor'
 import { useAlbumGridViewport } from '../composables/useAlbumGridViewport'
 import { useAlbumSearchSession } from '../composables/useAlbumSearchSession'
 import { useAlbumContextMenu } from '../composables/useAlbumContextMenu'
@@ -78,6 +79,16 @@ const {
 const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)
 const indexScrollTop = ref(0)
+const albumMetadataEditor = useAlbumMetadataEditor()
+function editContextAlbum(): void {
+  const album = contextMenu.value?.album
+  if (!album) return
+  albumMetadataEditor?.open({
+    album: { title: album.title, artist: album.albumArtist },
+    returnFocusTo: document.activeElement as HTMLElement,
+  })
+  closeContextMenu()
+}
 const albumMenu = useAlbumContextMenu({
   hasCurrentTrack,
   revealInExplorer: (request) => auralis.library.revealInExplorer(request),
@@ -525,6 +536,15 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 
           <div class="library-context-menu-separator" role="separator"></div>
 
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            data-album-menu-action="edit-album"
+            @click="editContextAlbum"
+          >
+            <span class="i-lucide-pencil" /><span>{{ t('albumMetadataEditor.editAlbum') }}</span>
+          </button>
           <button
             class="library-context-menu-item"
             role="menuitem"

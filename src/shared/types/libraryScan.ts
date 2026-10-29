@@ -106,7 +106,17 @@ export interface EditableTrackMetadata {
   /** Editor-only transport state, never persisted as tag values. */
   editToken?: string
   legacyMetadata?: EditableTrackMetadata
-  legacyAction?: 'adopt-file' | 'write-legacy'
+  legacyAction?: 'adopt-file' | 'write-legacy' | 'apply-merged'
+  artworkChanges?: import('./metadataArtworkEdit').MetadataArtworkChange[]
+  fileSummary?: import('./trackMetadata').MetadataFileSummary
+  capabilities?: import('./trackMetadata').MetadataEditCapabilities
+  trackNo?: number | null
+  trackTotal?: number | null
+  discNo?: number | null
+  discTotal?: number | null
+  composer?: string | null
+  copyright?: string | null
+  isrc?: string | null
   trackId: number
   title: string | null
   artistDisplay: string | null

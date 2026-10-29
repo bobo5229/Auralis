@@ -903,6 +903,7 @@ describe('AlbumsPage context menu grouping', () => {
       'locate',
       'open-in-cd',
       '|',
+      'edit-album',
       'open-in-explorer',
     ])
     expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
@@ -913,11 +914,27 @@ describe('AlbumsPage context menu grouping', () => {
     fixture.playbackState!.currentTrackId = null
     await settle()
     expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
-    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
+    expect(rows(menu)).toEqual([
+      'play',
+      'insert',
+      '|',
+      'open-in-cd',
+      '|',
+      'edit-album',
+      'open-in-explorer',
+    ])
   })
   it('skips unavailable playback actions and preserves the play event', async () => {
     const menu = await openMenu()
-    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
+    expect(rows(menu)).toEqual([
+      'play',
+      'insert',
+      '|',
+      'open-in-cd',
+      '|',
+      'edit-album',
+      'open-in-explorer',
+    ])
     await key(menu, 'ArrowDown')
     expect(doc.activeElement.dataset.albumMenuAction).toBe('open-in-cd')
     await key(menu, 'End')

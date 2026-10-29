@@ -21,6 +21,13 @@ const artworkUrl = computed(() => getArtworkUrl(props.request?.artworkCacheKey ?
 const lyricsLoaded = ref(false)
 const metadataPage = ref<InstanceType<typeof MetadataEditPage> | null>(null)
 const lyricsPage = ref<InstanceType<typeof LyricsEditPage> | null>(null)
+const metadataArtworkBusy = ref(false)
+const metadataTokens = new Set<string>()
+function releaseMetadataResources(): void {
+  for (const token of metadataTokens)
+    void auralis.metadata.releaseMetadataEdit?.(token).catch(() => undefined)
+  metadataTokens.clear()
+}
 const lyricsDirty = ref(false),
   lyricsBusy = ref(false),
   lyricsComposing = ref(false)
@@ -30,7 +37,15 @@ const tabButtons = ref<HTMLButtonElement[]>([])
 let disposed = false
 let lastRequest: TrackEditorRequest | null = null
 const metadata = useLibraryMetadataEditor({
-  loadTrackMetadata: (id) => auralis.metadata.getTrackEditSnapshot(id),
+  loadTrackMetadata: async (id) => {
+    const snapshot = await auralis.metadata.getTrackEditSnapshot(id)
+    if (snapshot?.editToken) {
+      if (disposed || !props.request || props.request.trackId !== id)
+        void auralis.metadata.releaseMetadataEdit?.(snapshot.editToken).catch(() => undefined)
+      else metadataTokens.add(snapshot.editToken)
+    }
+    return snapshot
+  },
   updateTrackMetadata: (value, baseline) =>
     auralis.metadata.updateTrackMetadata(createMetadataEditRequest(value, baseline!)),
   retainAfterSave: true,
@@ -60,7 +75,13 @@ const {
   conflict,
 } = metadata
 const metadataDirty = computed(() => metadataPage.value?.dirty ?? false)
-const busy = computed(() => isLoadingMetadata.value || isSavingMetadata.value || lyricsBusy.value)
+const busy = computed(
+  () =>
+    isLoadingMetadata.value ||
+    isSavingMetadata.value ||
+    lyricsBusy.value ||
+    metadataArtworkBusy.value,
+)
 const composing = computed(() => lyricsComposing.value || !!metadataPage.value?.composing)
 const dirtyNames = computed(() =>
   [
@@ -85,7 +106,10 @@ watch(
       lastRequest = request
       active.value = request.initialTab
       void metadata.open(request.trackId)
-    } else metadata.close(false)
+    } else {
+      metadata.close(false)
+      releaseMetadataResources()
+    }
   },
   { immediate: true },
 )
@@ -167,6 +191,7 @@ onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onBeforeUnmount(() => {
   disposed = true
   metadata.dispose()
+  releaseMetadataResources()
   window.removeEventListener('beforeunload', beforeUnload)
 })
 defineExpose({ requestClose })
@@ -253,8 +278,15 @@ defineExpose({ requestClose })
             :active="active === 'metadata'"
             :disabled="busy || confirming"
             :read-only="conflict"
+            :conflict="conflict"
+            :refresh-pending="metadata.refreshPending.value"
             :error-message="conflict ? t('trackEditor.conflict') : metadataEditError"
             :edit-status="editStatus"
+            @reconcile="
+              metadata.reloadForReconcile((base, latest) => metadataPage?.reconcile(base, latest))
+            "
+            @retry-refresh="metadata.retryRefresh"
+            @busy-change="metadataArtworkBusy = $event"
             @save="metadata.save"
             @retry-status="metadata.retryCheckStatus"
             @retry-load="metadata.retryLoad"

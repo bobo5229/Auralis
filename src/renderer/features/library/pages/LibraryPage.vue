@@ -37,6 +37,7 @@ import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useAlbumMetadataEditor } from '@renderer/shared/albumMetadataEditor'
 import { useTrackEditor } from '@renderer/shared/trackEditor'
 import type { LibraryMetadataFocusTarget } from '../composables/useLibraryMetadataEditor'
 import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
@@ -59,6 +60,20 @@ const {
 } = usePageSearchTools('songs')
 
 const playback = usePlayback()
+const albumMetadataEditor = useAlbumMetadataEditor()
+function editWholeContextAlbum(): void {
+  const trackId = contextMenu.value?.trackId
+  const group = trackId ? getAlbumGroupByTrackId(trackId) : null
+  if (group)
+    albumMetadataEditor?.open({
+      album: {
+        title: group.album || 'Unknown Album',
+        artist: group.albumArtist || 'Unknown Artist',
+      },
+      returnFocusTo: document.activeElement as HTMLElement,
+    })
+  closeContextMenu()
+}
 const trackEditor = useTrackEditor()
 const isMetadataEditorOpen = computed(() => !!trackEditor?.request.value)
 let metadataReturnTarget: LibraryMetadataFocusTarget | null = null
@@ -1225,6 +1240,7 @@ onBeforeUnmount(() => {
       @create-playlist="onCreatePlaylistAndAddContextTracks"
       @open-in-explorer="onRevealInExplorer"
       @edit-metadata="onEditMetadataFromContextMenu"
+      @edit-album="editWholeContextAlbum"
       @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
     />
 

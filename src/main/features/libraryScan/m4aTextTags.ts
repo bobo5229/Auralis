@@ -349,7 +349,7 @@ async function readDataAtom(
   if (dataType !== 0 || valueLength > 64) return
   const value = valueLength === 0 ? Buffer.alloc(0) : await reader.readAt(valueStart, valueLength)
   if ((key === 'trkn' || key === 'disk') && value.length >= 6) {
-    tags.push({ id: key, value: `${value[3]}/${value[5]}` })
+    tags.push({ id: key, value: `${value.readUInt16BE(2)}/${value.readUInt16BE(4)}` })
     return
   }
   if (key === 'gnre' && value.length >= 2) {

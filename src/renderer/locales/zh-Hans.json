@@ -1227,5 +1227,123 @@
     "songsList": "曲目列表",
     "songsCover": "专辑封面",
     "albums": "专辑页参数"
+  },
+  "metadataEditorExtra": {
+    "targets": "{count} 首歌曲",
+    "conflict": "文件标签已变化，你的输入已保留。读取最新标签后核对差异。",
+    "reload": "读取最新标签并核对",
+    "savedRefreshPending": "标签已保存，曲库刷新尚未完成。",
+    "retryRefresh": "仅重试刷新",
+    "choose": "请选择来源",
+    "fileValue": "最新文件值",
+    "legacyValue": "历史保留值",
+    "myValue": "我的输入",
+    "mergeLegacy": "按所选值继续编辑",
+    "chooseConflicts": "以下字段在文件和草稿中均有修改，请逐项选择。",
+    "multiHint": "多个艺术家、专辑艺术家、流派或作曲者请使用分号加空格分隔，例如 Artist A; Artist B。AC/DC、R&B/Soul 保持单值。",
+    "dateHint": "日期格式：YYYY、YYYY-MM 或 YYYY-MM-DD。",
+    "monthUnsupported": "此文件不支持仅年月日期，请输入年份或完整日期。",
+    "numberInvalid": "编号与总数须为 1–65535 的整数，编号不能大于总数。",
+    "numbering": "曲目与碟片",
+    "moreTags": "更多标签",
+    "reset": "重置",
+    "resetConfirm": "放弃当前输入并恢复最近保存的标签？",
+    "fields": {
+      "title": "标题",
+      "artistDisplay": "艺术家",
+      "albumTitle": "专辑",
+      "albumArtistDisplay": "专辑艺术家",
+      "genreDisplay": "流派",
+      "releaseDate": "发行日期",
+      "trackNo": "曲目号",
+      "trackTotal": "曲目总数",
+      "discNo": "碟号",
+      "discTotal": "碟片总数",
+      "composer": "作曲者",
+      "copyright": "版权",
+      "isrc": "ISRC"
+    },
+    "previousDraft": "此前未保存的输入（可选中复制）"
+  },
+  "albumMetadataEditor": {
+    "title": "编辑整张专辑",
+    "editAlbum": "编辑整张专辑",
+    "editTrack": "编辑当前曲目",
+    "viewTask": "查看专辑编辑任务",
+    "mixed": "多个不同的值",
+    "background": "关闭此面板或切换页面后，任务继续运行。取消会等待当前歌曲安全完成。",
+    "skipBlocked": "跳过不可编辑的歌曲（{count} 首）",
+    "targets": "展开 / 收起完整目标与差异",
+    "previous": "上一页",
+    "next": "下一页",
+    "cancel": "取消任务",
+    "preview": "预览修改",
+    "save": "确认并保存",
+    "retryFailed": "仅重新准备失败歌曲",
+    "prepareRequested": "重新准备所选专辑",
+    "states": {
+      "preparing": "正在读取标签",
+      "ready": "准备完成",
+      "running": "正在保存",
+      "completed": "任务完成",
+      "cancelled": "任务已取消",
+      "failed": "任务失败"
+    },
+    "itemStates": {
+      "pending": "待读取",
+      "ready": "可编辑",
+      "blocked": "不可编辑",
+      "succeeded": "成功",
+      "failed": "失败",
+      "skipped": "已跳过",
+      "unexecuted": "未执行"
+    },
+    "modes": {
+      "keep": "保持原值",
+      "replace": "替换",
+      "clear": "清空",
+      "add": "添加值",
+      "remove": "移除值"
+    },
+    "errors": {
+      "busy": "已有编辑任务，请先完成或释放。",
+      "too-many-tracks": "超过 5000 首，请缩小专辑目标。",
+      "expired": "准备结果已过期，请重新准备。",
+      "not-found": "找不到目标歌曲或任务。",
+      "blocked": "请先处理不可编辑曲目，或明确选择跳过。",
+      "invalid": "操作未完成，请核对输入后重试。"
+    }
+  },
+  "metadataArtwork": {
+    "title": "内嵌封面",
+    "manage": "管理内嵌封面",
+    "loading": "正在读取图片…",
+    "fallback": "移除最后一张图片后的回退来源：",
+    "sources": {
+      "directory": "目录 cover.jpg",
+      "album": "同专辑的可用封面",
+      "none": "无封面"
+    },
+    "add": "添加图片",
+    "replace": "替换所选图片",
+    "remove": "移除所选图片",
+    "discard": "放弃图片修改并重读",
+    "unsupported": "此格式暂不支持内嵌图片编辑。",
+    "confirmRemove": "确认移除所选内嵌图片？其他图片将保留。",
+    "stale": "文件已变化。图片修改仍保留供核对，请重新导入图片后保存。",
+    "undo": "取消此操作",
+    "operations": {
+      "add": "将添加图片",
+      "replace": "将替换图片",
+      "remove": "将移除图片"
+    },
+    "errors": {
+      "metadata-conflict": "文件已变化，请重读最新标签。",
+      "unsupported-format": "此格式不支持图片编辑。",
+      "invalid-image": "请选择有效的 JPEG 或 PNG 图片。",
+      "image-too-large": "图片须不超过 20 MiB 和 4000 万像素。",
+      "limit-exceeded": "图片或未释放的导入数量超出限制，请关闭后重新打开编辑器。",
+      "unavailable": "图片操作未完成，请重试。"
+    }
   }
 }

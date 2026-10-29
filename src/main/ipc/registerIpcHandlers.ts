@@ -49,6 +49,8 @@ import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
 import type { WindowBehaviorController } from '@main/app/windowBehaviorController'
 import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
+import { registerAlbumMetadataEditIpcHandlers } from './registerAlbumMetadataEditIpcHandlers'
+import { registerMetadataArtworkIpcHandlers } from './registerMetadataArtworkIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import { registerLyricsEditorIpcHandlers } from './registerLyricsEditorIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
@@ -439,6 +441,8 @@ export function registerIpcHandlers(
     getAudioUrl,
     notifyLibraryChanged,
   })
+  registerMetadataArtworkIpcHandlers(electronIpcRegistrar, metadataRefreshService)
+  registerAlbumMetadataEditIpcHandlers(electronIpcRegistrar, metadataRefreshService.albumEdits)
   registerMetadataIpcHandlers(electronIpcRegistrar, {
     metadataRefreshService,
     playbackFileCoordinator,

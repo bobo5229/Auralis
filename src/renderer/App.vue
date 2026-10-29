@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import {
+  provideAlbumMetadataEditor,
+  type AlbumMetadataEditorRequest,
+} from './shared/albumMetadataEditor'
+import AlbumMetadataEditDialog from './features/library/components/AlbumMetadataEditDialog.vue'
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import './app/styles/cdCanvasTransition.css'
@@ -28,6 +33,12 @@ const {
   shown: startupAlbumShown,
   close: closeStartupAlbum,
 } = useStartupAlbum()
+const albumEditRequest = ref<AlbumMetadataEditorRequest | null>(null)
+provideAlbumMetadataEditor({
+  open: (request) => {
+    if (!isTrackEditorOpen.value) albumEditRequest.value = request
+  },
+})
 const route = useRoute()
 const { cdCanvasTheme } = useCdCanvasTheme()
 const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
@@ -44,7 +55,15 @@ const {
   closeTrackEditor,
   openLyricsEditPanel,
   pageParameters,
-} = useAppOverlays(route, displayMode, startupAlbumActive)
+} = useAppOverlays(route, displayMode, startupAlbumActive, () => {
+  albumEditRequest.value = null
+})
+watch(isSettingsOpen, (open) => {
+  if (open) albumEditRequest.value = null
+})
+watch(displayMode, (mode) => {
+  if (mode === 'fullscreen') albumEditRequest.value = null
+})
 const shellRef = ref<HTMLElement | null>(null)
 const mainRef = ref<HTMLElement | null>(null)
 const nowPlayingPanelRef = ref<InstanceType<typeof NowPlayingPanel> | null>(null)
@@ -223,6 +242,12 @@ const {
     <FullscreenPlayerOverlay />
   </div>
   <SettingsDialog />
+  <AlbumMetadataEditDialog
+    :request="albumEditRequest"
+    :show-return-button="!isTrackEditorOpen && !isSettingsOpen && displayMode === 'normal'"
+    @close="albumEditRequest = null"
+    @reopen="albumEditRequest = {}"
+  />
   <TrackEditorDialog ref="trackEditorRef" :request="trackEditorRequest" @close="closeTrackEditor" />
   <component
     :is="startupAlbumOverlay"

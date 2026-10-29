@@ -365,6 +365,13 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
       genreDisplay: joinDelimitedValues(genres),
       year: releaseDateYear(releaseDate),
       releaseDate,
+      trackNo: common.track.no || null,
+      trackTotal: common.track.of || null,
+      discNo: common.disk.no || null,
+      discTotal: common.disk.of || null,
+      composer: joinDelimitedValues(composers),
+      copyright: joinDelimitedValues(resolveCopyright(metadata)),
+      isrc: resolveIsrc(metadata),
     },
     title:
       common.title || (filePath ? parse(filePath).name || basename(filePath) : 'Unknown Title'),

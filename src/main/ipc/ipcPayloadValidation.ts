@@ -373,7 +373,35 @@ const smartPlaylistRule: Validator = (value, path, context) => {
 const editableMetadata = objectShape({
   trackId: field(positiveId),
   editToken: field(stringValue({ min: 1, max: 128 })),
-  legacyAction: field(enumValue(['adopt-file', 'write-legacy']), true),
+  artworkChanges: field(
+    arrayOf(
+      (value, path, context) => {
+        const kind =
+          value && typeof value === 'object'
+            ? Object.getOwnPropertyDescriptor(value, 'kind')?.value
+            : undefined
+        if (kind === 'add')
+          objectShape({
+            kind: field(enumValue(['add'])),
+            imageToken: field(stringValue({ min: 1, max: 128 })),
+          })(value, path, context)
+        else if (kind === 'replace')
+          objectShape({
+            kind: field(enumValue(['replace'])),
+            index: field(finiteNumber({ integer: true, min: 0, max: 63 })),
+            imageToken: field(stringValue({ min: 1, max: 128 })),
+          })(value, path, context)
+        else
+          objectShape({
+            kind: field(enumValue(['remove'])),
+            index: field(finiteNumber({ integer: true, min: 0, max: 63 })),
+          })(value, path, context)
+      },
+      { max: 16 },
+    ),
+    true,
+  ),
+  legacyAction: field(enumValue(['adopt-file', 'write-legacy', 'apply-merged']), true),
   changes: field(
     objectShape({
       title: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
@@ -382,11 +410,67 @@ const editableMetadata = objectShape({
       albumArtistDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
       genreDisplay: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
       releaseDate: field(nullable(partialDate), true),
+      trackNo: field(nullable(finiteNumber({ integer: true, min: 1, max: 65535 })), true),
+      trackTotal: field(nullable(finiteNumber({ integer: true, min: 1, max: 65535 })), true),
+      discNo: field(nullable(finiteNumber({ integer: true, min: 1, max: 65535 })), true),
+      discTotal: field(nullable(finiteNumber({ integer: true, min: 1, max: 65535 })), true),
+      composer: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      copyright: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+      isrc: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
     }),
   ),
 })
 
+const albumEditTaskId = objectShape({ taskId: field(stringValue({ min: 1, max: 128 })) })
+const albumEditOperation = objectShape({
+  mode: field(enumValue(['keep', 'replace', 'clear', 'add', 'remove'])),
+  value: field(nullable(stringValue({ max: MAX_TEXT_LENGTH })), true),
+})
+const albumEditOperations = objectShape({
+  albumTitle: field(albumEditOperation, true),
+  albumArtistDisplay: field(albumEditOperation, true),
+  genreDisplay: field(albumEditOperation, true),
+  releaseDate: field(albumEditOperation, true),
+})
 export const domainIpcPayloadPolicies = {
+  [ipcChannels.metadata.getMetadataArtwork]: required(
+    objectShape({
+      trackId: field(positiveId),
+      editToken: field(stringValue({ min: 1, max: 128 })),
+    }),
+  ),
+  [ipcChannels.metadata.importMetadataArtwork]: required(
+    objectShape({
+      trackId: field(positiveId),
+      editToken: field(stringValue({ min: 1, max: 128 })),
+    }),
+  ),
+  [ipcChannels.metadata.releaseMetadataEdit]: required(
+    objectShape({ editToken: field(stringValue({ min: 1, max: 128 })) }),
+  ),
+  [ipcChannels.metadata.prepareAlbumEdit]: required(
+    objectShape({
+      album: field(
+        objectShape({
+          title: field(stringValue({ max: MAX_TEXT_LENGTH })),
+          artist: field(stringValue({ max: MAX_TEXT_LENGTH })),
+        }),
+        true,
+      ),
+      retryTaskId: field(stringValue({ min: 1, max: 128 }), true),
+    }),
+  ),
+  [ipcChannels.metadata.previewAlbumEdit]: required(
+    objectShape({
+      taskId: field(stringValue({ min: 1, max: 128 })),
+      operations: field(albumEditOperations),
+      skipBlocked: field(booleanValue),
+    }),
+  ),
+  [ipcChannels.metadata.startAlbumEdit]: required(albumEditTaskId),
+  [ipcChannels.metadata.getAlbumEdit]: voidPayload(),
+  [ipcChannels.metadata.cancelAlbumEdit]: required(albumEditTaskId),
+  [ipcChannels.metadata.releaseAlbumEdit]: required(albumEditTaskId),
   [ipcChannels.database.exportBackup]: voidPayload(),
   [ipcChannels.database.restoreBackup]: voidPayload(),
   [ipcChannels.app.getInfo]: voidPayload(),

@@ -1227,5 +1227,123 @@
     "songsList": "Track list",
     "songsCover": "Album covers",
     "albums": "Album page parameters"
+  },
+  "metadataEditorExtra": {
+    "targets": "{count} tracks",
+    "conflict": "File tags changed. Your draft is preserved. Read the latest tags to compare.",
+    "reload": "Read latest tags and compare",
+    "savedRefreshPending": "Tags saved. Library refresh is still pending.",
+    "retryRefresh": "Retry refresh only",
+    "choose": "Choose a source",
+    "fileValue": "Latest file value",
+    "legacyValue": "Preserved value",
+    "myValue": "My input",
+    "mergeLegacy": "Continue with selected values",
+    "chooseConflicts": "Both the file and your draft changed these fields. Choose each value.",
+    "multiHint": "Separate artists, album artists, genres and composers with a semicolon and space, e.g. Artist A; Artist B. AC/DC and R&B/Soul remain single values.",
+    "dateHint": "Date formats: YYYY, YYYY-MM or YYYY-MM-DD.",
+    "monthUnsupported": "This file cannot store month-only dates. Enter a year or a full date.",
+    "numberInvalid": "Numbers and totals must be integers from 1 to 65535. Numbers cannot exceed totals.",
+    "numbering": "Track and disc numbers",
+    "moreTags": "More tags",
+    "reset": "Reset",
+    "resetConfirm": "Discard current input and restore the most recently saved tags?",
+    "fields": {
+      "title": "Title",
+      "artistDisplay": "Artists",
+      "albumTitle": "Album",
+      "albumArtistDisplay": "Album artists",
+      "genreDisplay": "Genres",
+      "releaseDate": "Release date",
+      "trackNo": "Track number",
+      "trackTotal": "Track total",
+      "discNo": "Disc number",
+      "discTotal": "Disc total",
+      "composer": "Composers",
+      "copyright": "Copyright",
+      "isrc": "ISRC"
+    },
+    "previousDraft": "Previous unsaved input (select to copy)"
+  },
+  "albumMetadataEditor": {
+    "title": "Edit entire album",
+    "editAlbum": "Edit entire album",
+    "editTrack": "Edit current track",
+    "viewTask": "View album edit task",
+    "mixed": "Mixed values",
+    "background": "The task continues when this panel closes or the page changes. Cancellation waits for the current track to finish safely.",
+    "skipBlocked": "Skip uneditable tracks ({count})",
+    "targets": "Show / hide all targets and differences",
+    "previous": "Previous",
+    "next": "Next",
+    "cancel": "Cancel task",
+    "preview": "Preview changes",
+    "save": "Confirm and save",
+    "retryFailed": "Prepare failed tracks only",
+    "prepareRequested": "Prepare selected album again",
+    "states": {
+      "preparing": "Reading tags",
+      "ready": "Ready",
+      "running": "Saving",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "itemStates": {
+      "pending": "Pending",
+      "ready": "Ready",
+      "blocked": "Uneditable",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "unexecuted": "Not executed"
+    },
+    "modes": {
+      "keep": "Keep original",
+      "replace": "Replace",
+      "clear": "Clear",
+      "add": "Add values",
+      "remove": "Remove values"
+    },
+    "errors": {
+      "busy": "An edit task exists. Finish or release it first.",
+      "too-many-tracks": "More than 5000 tracks. Narrow the album target.",
+      "expired": "Preparation expired. Prepare again.",
+      "not-found": "Tracks or task not found.",
+      "blocked": "Resolve uneditable tracks or explicitly choose to skip them.",
+      "invalid": "The operation did not complete. Check the input and retry."
+    }
+  },
+  "metadataArtwork": {
+    "title": "Embedded artwork",
+    "manage": "Manage embedded artwork",
+    "loading": "Reading images…",
+    "fallback": "Fallback after removing the final image: ",
+    "sources": {
+      "directory": "Directory cover.jpg",
+      "album": "Available artwork from the album",
+      "none": "No artwork"
+    },
+    "add": "Add image",
+    "replace": "Replace selected image",
+    "remove": "Remove selected image",
+    "discard": "Discard image edits and reload",
+    "unsupported": "Embedded image editing is unavailable for this format.",
+    "confirmRemove": "Remove the selected embedded image? Other images will be retained.",
+    "stale": "The file changed. Image edits remain visible for comparison. Import the images again before saving.",
+    "undo": "Undo this operation",
+    "operations": {
+      "add": "Add image",
+      "replace": "Replace image",
+      "remove": "Remove image"
+    },
+    "errors": {
+      "metadata-conflict": "The file changed. Read the latest tags.",
+      "unsupported-format": "This format does not support image editing.",
+      "invalid-image": "Choose a valid JPEG or PNG image.",
+      "image-too-large": "Images must be at most 20 MiB and 40 million pixels.",
+      "limit-exceeded": "Too many images or unreleased imports. Close and reopen the editor.",
+      "unavailable": "The image operation did not complete. Try again."
+    }
   }
 }

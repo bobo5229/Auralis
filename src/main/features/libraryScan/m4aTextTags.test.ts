@@ -59,6 +59,18 @@ function payloadRegion(file: Buffer, type: string): [number, number] {
 }
 
 describe('m4a text tag reader', () => {
+  it('retains the full unsigned 16-bit track and total values on the text fast path', async () => {
+    const file = sampleFile()
+    const typeAt = file.indexOf(Buffer.from('trkn'))
+    const fraction = typeAt + 4 + 8 + 8
+    file.writeUInt16BE(300, fraction + 2)
+    file.writeUInt16BE(65535, fraction + 4)
+    const metadata = await readM4aTextMetadataFromReader({
+      size: file.length,
+      readAt: async (position, length) => file.subarray(position, position + length),
+    })
+    expect(normalizeMetadata(metadata).fileTags).toMatchObject({ trackNo: 300, trackTotal: 65535 })
+  })
   it('reports malformed dates without losing other tags', async () => {
     const file = sampleFile('2023-02-29')
     const metadata = await readM4aTextMetadataFromReader({

@@ -58,7 +58,7 @@ describe('LibraryContextMenu insert visibility', () => {
     expect(html).not.toContain('data-context-main-index="1"')
     expect(html).toContain('data-context-main-index="3"')
     expect(html).toContain('data-context-main-index="4"')
-    expect(html).toContain('data-context-main-index="6"')
+    expect(html).toContain('data-context-main-index="7"')
     expect(html).toContain('library.contextMenu.openInExplorer')
   })
 
@@ -278,7 +278,7 @@ describe('LibraryContextMenu cover-view availability', () => {
     expect(harness.switchView).not.toHaveBeenCalled()
     expect(harness.menu.contextMenu.value).not.toBeNull()
     await harness.key('End')
-    expect(focused?.props['data-context-main-index']).toBe('6')
+    expect(focused?.props['data-context-main-index']).toBe('7')
     expect(textContent(focused!)).toContain('library.contextMenu.openInExplorer')
     await harness.key('ArrowDown')
     expect(focused?.props['data-context-main-index']).toBe('0')
@@ -295,7 +295,7 @@ describe('LibraryContextMenu cover-view availability', () => {
   ])('allows the view switch when applicable: %j', async (options) => {
     const harness = await mountInteractiveMenu(vi.fn(), options)
     await harness.key('End')
-    expect(focused?.props['data-context-main-index']).toBe('6')
+    expect(focused?.props['data-context-main-index']).toBe('7')
     await harness.key('ArrowUp')
     expect(focused?.props['data-context-main-index']).toBe('5')
     await harness.key('ArrowUp')
@@ -388,12 +388,27 @@ describe('LibraryContextMenu functional grouping', () => {
       const rows = [...html.matchAll(/data-context-main-index="(\d)"|role="separator"/g)].map(
         (match) => match[1] ?? '|',
       )
-      expect(rows).toEqual(['0', '1', '2', '|', '3', '4', '|', '5', '6'])
+      expect(rows).toEqual([
+        '0',
+        '1',
+        '2',
+        '|',
+        '3',
+        '4',
+        '|',
+        '5',
+        ...(source === 'album-artwork' ? ['6'] : []),
+        '7',
+      ])
       expect(html.indexOf('library.contextMenu.play')).toBeLessThan(
         html.indexOf('library.contextMenu.locateCurrent'),
       )
       expect(html.indexOf('library.contextMenu.switchToFlat')).toBeLessThan(
-        html.indexOf('library.contextMenu.editMetadata'),
+        html.indexOf(
+          source === 'album-artwork'
+            ? 'albumMetadataEditor.editTrack'
+            : 'library.contextMenu.editMetadata',
+        ),
       )
     },
   )
@@ -403,7 +418,7 @@ describe('LibraryContextMenu functional grouping', () => {
     const rows = [...html.matchAll(/data-context-main-index="(\d)"|role="separator"/g)].map(
       (match) => match[1] ?? '|',
     )
-    expect(rows).toEqual(['0', '2', '|', '3', '4', '|', '5', '6'])
+    expect(rows).toEqual(['0', '2', '|', '3', '4', '|', '5', '7'])
     const harness = await mountInteractiveMenu(vi.fn(), {
       hideInsert: true,
       canLocateCurrent: false,

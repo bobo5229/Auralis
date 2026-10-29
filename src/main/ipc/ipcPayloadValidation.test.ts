@@ -24,6 +24,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
   ipcChannels.metadata.refreshProgress,
+  ipcChannels.metadata.albumEditProgress,
   ipcChannels.metadata.trackEditStateChanged,
   ipcChannels.window.maximizedChanged,
   ipcChannels.window.visibilityChanged,
@@ -115,8 +116,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(76)
-    expect(kinds).toEqual({ void: 23, optional: 6, required: 47 })
+    expect(actualChannels).toHaveLength(85)
+    expect(kinds).toEqual({ void: 24, optional: 6, required: 55 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -267,6 +268,52 @@ describe('IPC schema security and resource compatibility', () => {
 })
 
 describe('domain IPC payload validation behavior', () => {
+  it('bounds editor numbering and artwork operations and never accepts caller-supplied paths or raw images', () => {
+    const valid = {
+      trackId: 1,
+      editToken: 'token',
+      changes: { trackNo: 65535, trackTotal: 65535, discNo: null, composer: 'A; B' },
+      artworkChanges: [{ kind: 'replace', index: 0, imageToken: 'image-token' }],
+      legacyAction: 'apply-merged',
+    }
+    expect(parse('metadata:update-track-metadata', valid)).toBe(valid)
+    for (const value of [0, -1, 65536, 1.5, '2'])
+      expect(() =>
+        parse('metadata:update-track-metadata', { ...valid, changes: { trackNo: value } }),
+      ).toThrow()
+    for (const artworkChanges of [
+      [{ kind: 'replace', index: -1, imageToken: 'token' }],
+      [{ kind: 'add', path: 'C:/private.png' }],
+      [{ kind: 'add', imageToken: 'token', data: new Uint8Array(4) }],
+      Array.from({ length: 17 }, () => ({ kind: 'add', imageToken: 'token' })),
+    ])
+      expect(() => parse('metadata:update-track-metadata', { ...valid, artworkChanges })).toThrow()
+    expect(() =>
+      parse('metadata:import-artwork-edit', {
+        trackId: 1,
+        editToken: 'token',
+        path: 'C:/private.png',
+      }),
+    ).toThrow()
+    expect(() =>
+      parse('metadata:prepare-album-edit', {
+        album: { title: 'Album', artist: 'Artist' },
+        trackIds: [1, 2],
+      }),
+    ).toThrow()
+    let calls = 0
+    const accessor = Object.defineProperty({ imageToken: 'token' }, 'kind', {
+      enumerable: true,
+      get() {
+        calls++
+        return 'add'
+      },
+    })
+    expect(() =>
+      parse('metadata:update-track-metadata', { ...valid, artworkChanges: [accessor] }),
+    ).toThrow()
+    expect(calls).toBe(0)
+  })
   it('requires an edit token and restricts patches to editable tag fields', () => {
     const request = {
       trackId: 1,

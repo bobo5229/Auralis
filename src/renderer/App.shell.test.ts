@@ -134,6 +134,9 @@ vi.mock('./app/layout/PlayerBar.vue', () => ({
   },
 }))
 vi.mock('./app/layout/FullscreenPlayerOverlay.vue', () => ({ default: { render: () => null } }))
+vi.mock('./features/library/components/AlbumMetadataEditDialog.vue', () => ({
+  default: { render: () => null },
+}))
 vi.mock('./features/settings/components/SettingsDialog.vue', () => ({
   default: { render: () => null },
 }))

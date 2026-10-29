@@ -1,3 +1,4 @@
+import { AlbumMetadataEditService } from './albumMetadataEditService'
 import type { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
@@ -17,10 +18,13 @@ export type { MetadataWriteCoordinator } from './metadataTagWriteCoordinator'
 export type { MetadataRefreshProgress } from './metadataRefreshWorkerHost'
 
 export class MetadataRefreshService {
+  readonly albumEdits: AlbumMetadataEditService
   private readonly editSessions: MetadataEditSessions
   private readonly editOperations = new Set<Promise<unknown>>()
   private readonly workerHost: MetadataRefreshWorkerHost
   private readonly tagWrites: MetadataTagWriteCoordinator
+  private readonly batchChanges = new Map<number, string>()
+  private batchChangeTimer: ReturnType<typeof setTimeout> | null = null
   private stopping = false
   private legacyRecoveryEnabled = false
   private legacyRecoveryPaused = false
@@ -53,6 +57,15 @@ export class MetadataRefreshService {
         })
         return libraryRevision
       },
+      artworkCacheDir,
+    )
+    this.albumEdits = new AlbumMetadataEditService(
+      this.editSessions,
+      (title, artist) => repository.getAlbumEditTrackIds(title, artist),
+      (progress) => {
+        events.albumEditProgress?.(progress)
+        if (progress.state !== 'running') this.flushBatchChanges(readLibraryRevision?.())
+      },
     )
     this.tagWrites = new MetadataTagWriteCoordinator(
       repository,
@@ -64,6 +77,16 @@ export class MetadataRefreshService {
         refreshTracksFromFileChanges: (ids) => this.refreshTracksFromFileChanges(ids),
         onUserEditCommitted: (trackId, filePath) => {
           const libraryRevision = readLibraryRevision?.()
+          if (this.albumEdits.isRunning()) {
+            this.batchChanges.set(trackId, filePath)
+            if (this.batchChanges.size >= 25) this.flushBatchChanges(libraryRevision)
+            else if (!this.batchChangeTimer)
+              this.batchChangeTimer = setTimeout(
+                () => this.flushBatchChanges(readLibraryRevision?.()),
+                250,
+              )
+            return libraryRevision
+          }
           events.libraryChanged({
             reason: 'metadata-refresh',
             trackIds: [trackId],
@@ -81,6 +104,19 @@ export class MetadataRefreshService {
       this.scheduleLegacyRecovery(0)
     })
     this.repository.markInterruptedJobs()
+  }
+
+  private flushBatchChanges(libraryRevision?: string): void {
+    if (this.batchChangeTimer) clearTimeout(this.batchChangeTimer)
+    this.batchChangeTimer = null
+    if (!this.batchChanges.size) return
+    this.events.libraryChanged({
+      reason: 'metadata-refresh',
+      trackIds: [...this.batchChanges.keys()],
+      filePaths: [...this.batchChanges.values()],
+      ...(libraryRevision ? { libraryRevision } : {}),
+    })
+    this.batchChanges.clear()
   }
 
   startLegacyLyricsRecovery(): void {
@@ -159,7 +195,11 @@ export class MetadataRefreshService {
   }
 
   hasActiveArtworkWrites(): boolean {
-    return this.hasActiveJob() || this.tagWrites.hasActiveWrites()
+    return (
+      this.hasActiveJob() ||
+      this.tagWrites.hasActiveWrites() ||
+      this.editSessions.hasArtworkResources()
+    )
   }
 
   isWritingFile(filePath: string): boolean {
@@ -178,8 +218,10 @@ export class MetadataRefreshService {
     if (this.legacyRecoveryTimer) clearTimeout(this.legacyRecoveryTimer)
     this.legacyRecoveryTimer = null
     try {
+      await this.albumEdits.shutdown()
+      this.flushBatchChanges()
       await Promise.allSettled([...this.editOperations])
-      this.editSessions.clear()
+      await this.editSessions.clear()
       if (this.preemption) await this.preemption
       await this.tagWrites.drain()
       await workerShutdown
@@ -318,6 +360,19 @@ export class MetadataRefreshService {
     return this.trackEditOperation(this.editSessions.load(trackId))
   }
 
+  getMetadataArtwork(trackId: number, editToken: string) {
+    this.assertRunning()
+    return this.trackEditOperation(this.editSessions.getArtwork(trackId, editToken))
+  }
+  importMetadataArtwork(trackId: number, editToken: string, select: () => Promise<string | null>) {
+    this.assertRunning()
+    return this.trackEditOperation(this.editSessions.importArtwork(trackId, editToken, select))
+  }
+  releaseMetadataEdit(editToken: string) {
+    return this.trackEditOperation(this.editSessions.release(editToken)).then(() => ({
+      ok: true as const,
+    }))
+  }
   saveTrackMetadata(request: UpdateTrackMetadataRequest): Promise<UpdateTrackMetadataResult> {
     this.assertRunning()
     return this.trackEditOperation(this.editSessions.save(request))
