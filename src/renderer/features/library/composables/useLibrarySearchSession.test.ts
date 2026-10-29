@@ -76,7 +76,11 @@ describe('library page Escape', () => {
     querySelector.mockReset().mockReturnValue(null)
     vi.stubGlobal('Node', TestElement)
     vi.stubGlobal('HTMLElement', TestElement)
-    vi.stubGlobal('document', { querySelector })
+    vi.stubGlobal('document', {
+      querySelector,
+      querySelectorAll: () => (querySelector() ? [{ getClientRects: () => [{}] }] : []),
+    })
+    vi.stubGlobal('getComputedStyle', () => ({ visibility: 'visible' }))
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -889,4 +893,31 @@ describe('useLibrarySearchSession', () => {
     })
     expect(scrollToTrackIndex).toHaveBeenCalledTimes(1)
   })
+})
+
+it('reuses a completed search index across sessions for the same snapshot', async () => {
+  let reads = 0
+  const source = [createTrack(1, 'Alpha')]
+  Object.defineProperty(source[0], 'title', {
+    get: () => {
+      reads++
+      return 'Alpha'
+    },
+  })
+  const first = createSession()
+  first.session.scheduleLibrarySearchIndex(source)
+  first.session.searchQuery.value = 'alp'
+  await first.session.jumpToNextSearchMatch()
+  const completedReads = reads
+  first.dispose()
+  const revisit = createSession()
+  revisit.session.scheduleLibrarySearchIndex(source)
+  revisit.session.searchQuery.value = 'alp'
+  await revisit.session.jumpToNextSearchMatch()
+  expect(reads).toBe(completedReads)
+  expect(revisit.scrollToTrackIndex).toHaveBeenCalledWith(0, expect.any(Function))
+  revisit.session.scheduleLibrarySearchIndex([createTrack(2, 'Beta')])
+  await revisit.session.jumpToNextSearchMatch()
+  expect(revisit.session.searchOutcome.value).toEqual({ kind: 'not-found' })
+  revisit.dispose()
 })

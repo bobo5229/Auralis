@@ -115,7 +115,7 @@ export function useLibraryCatalogLoader(options: {
   function flushImportRefresh(): void {
     clearImportRefresh()
     if (isDisposed()) return
-    catalogClient.invalidate('import')
+    if (!catalogClient.observesChanges) catalogClient.invalidate('import')
     void loadLibraryData('background')
   }
 
@@ -313,6 +313,7 @@ export function useLibraryCatalogLoader(options: {
       if (isDisposed()) return
       if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
         playStatsRevision += 1
+        if (!catalogClient.observesChanges) catalogClient.invalidate('import')
         const scope = options.captureRouteScope()
         const identity = options.pageIdentity.value
         if (
@@ -334,7 +335,7 @@ export function useLibraryCatalogLoader(options: {
         await loadLibraryData('background', event.libraryRevision)
         return
       }
-      catalogClient.invalidate()
+      if (!catalogClient.observesChanges) catalogClient.invalidate()
       await loadLibraryData('background')
     })
 
@@ -342,7 +343,7 @@ export function useLibraryCatalogLoader(options: {
       if (isDisposed()) return
       if (progress.status === 'completed') {
         clearImportRefresh()
-        catalogClient.invalidate()
+        if (!catalogClient.observesChanges) catalogClient.invalidate()
         await loadLibraryData('background')
       }
     })

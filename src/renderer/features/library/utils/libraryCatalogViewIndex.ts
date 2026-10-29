@@ -1,3 +1,4 @@
+import { resolveIndexArtist } from '@shared/utils/artistIndex'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import type { LibraryDerivedIndex } from './libraryDerivedIndex'
@@ -17,6 +18,7 @@ export interface LibraryCatalogViewIndex extends LibraryDerivedIndex {
 export function createLibraryCatalogViewIndex(
   tracks: readonly TrackListItem[],
   getAlbumGroupSize: (group: LibraryAlbumGroup) => number,
+  splitIndexArtists = false,
 ): LibraryCatalogViewIndex {
   const albumGroups: LibraryAlbumGroup[] = []
   const albumGroupIndexByKey = new Map<string, number>()
@@ -33,7 +35,11 @@ export function createLibraryCatalogViewIndex(
 
     const albumArtist = track.albumArtist || track.artist || ''
     const album = track.album || ''
-    const key = `${albumArtist}\u0000${album}`
+    const identity = `${albumArtist}\u0000${album}`
+    const key =
+      splitIndexArtists && track.albumArtist && !track.albumArtist.trim()
+        ? `${identity}\u0000index:${resolveIndexArtist(track.albumArtist, track.artist) || 'Unknown Artist'}`
+        : identity
     let groupIndex = albumGroupIndexByKey.get(key)
 
     if (groupIndex === undefined) {
@@ -76,4 +82,34 @@ export function createLibraryCatalogViewIndex(
     albumGroupIndexByTrackId,
     albumGroupStartOffsets: Object.freeze(albumGroupStartOffsets),
   }
+}
+
+const catalogStructures = new WeakMap<
+  readonly TrackListItem[],
+  Map<boolean, LibraryCatalogViewIndex>
+>()
+
+/** Reuse immutable snapshot lookups; each surface still derives its own layout offsets. */
+export function getLibraryCatalogViewIndex(
+  tracks: readonly TrackListItem[],
+  getAlbumGroupSize: (group: LibraryAlbumGroup) => number,
+  splitIndexArtists = false,
+): LibraryCatalogViewIndex {
+  let variants = catalogStructures.get(tracks)
+  if (!variants) {
+    variants = new Map()
+    catalogStructures.set(tracks, variants)
+  }
+  let structure = variants.get(splitIndexArtists)
+  if (!structure) {
+    structure = createLibraryCatalogViewIndex(tracks, () => 0, splitIndexArtists)
+    variants.set(splitIndexArtists, structure)
+  }
+  let offset = 0
+  const albumGroupStartOffsets = structure.albumGroups.map((group) => {
+    const start = offset
+    offset += getAlbumGroupSize(group)
+    return start
+  })
+  return { ...structure, albumGroupStartOffsets }
 }

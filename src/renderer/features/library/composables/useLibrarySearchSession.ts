@@ -6,10 +6,15 @@ import {
   createLibrarySearchIndexIncrementally,
   LibrarySearchIndexBuildStaleError,
 } from '../utils/librarySearchIndex'
-import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
+import { createLibrarySearchScanner, type LibrarySearchRecord } from '../utils/librarySearchScan'
 import { isLibrarySearchBarHovered } from '../utils/librarySearchHover'
 import { canDismissPageSearch } from '../utils/librarySearchKeyboard'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
+
+const completedSearchIndexes = new WeakMap<
+  readonly TrackListItem[],
+  readonly LibrarySearchRecord[]
+>()
 
 export function useLibrarySearchSession(options: {
   isDisposed: () => boolean
@@ -41,6 +46,7 @@ export function useLibrarySearchSession(options: {
   invalidate: () => void
 } {
   const searchQuery = ref('')
+  const scanLibrarySearchIndex = createLibrarySearchScanner()
   const isSearchFocused = ref(false)
   const isSearchZoneHovered = ref(false)
   const isSearchAwaitingDismiss = ref(false)
@@ -84,6 +90,11 @@ export function useLibrarySearchSession(options: {
 
   function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
     const generation = ++librarySearchIndexGeneration
+    const cached = completedSearchIndexes.get(sourceTracks)
+    if (cached) {
+      librarySearchIndexPromise = Promise.resolve(cached)
+      return
+    }
     const startedAt = performance.now()
     let chunkCount = 0
     let maxChunkMs = 0
@@ -93,15 +104,20 @@ export function useLibrarySearchSession(options: {
         chunkCount += 1
         maxChunkMs = Math.max(maxChunkMs, durationMs)
       },
-    }).catch((error: unknown) => {
-      if (error instanceof LibrarySearchIndexBuildStaleError) return null
-      rendererDiagnostics.error({
-        scope: 'library.search',
-        message: 'Failed to build library search index',
-        cause: error,
-      })
-      return null
     })
+      .then((index) => {
+        completedSearchIndexes.set(sourceTracks, index)
+        return index
+      })
+      .catch((error: unknown) => {
+        if (error instanceof LibrarySearchIndexBuildStaleError) return null
+        rendererDiagnostics.error({
+          scope: 'library.search',
+          message: 'Failed to build library search index',
+          cause: error,
+        })
+        return null
+      })
     if (import.meta.env.DEV) {
       void librarySearchIndexPromise.then((index) => {
         if (index === null || generation !== librarySearchIndexGeneration) return

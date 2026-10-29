@@ -46,7 +46,7 @@ function createMouseEvent(clientX = 12, clientY = 34): MouseEvent {
   return { clientX, clientY } as MouseEvent
 }
 
-function createMenu() {
+function createMenu(splitAlbum = false) {
   const tracks = [createTrack(1), createTrack(2), createTrack(3)]
   const group: LibraryAlbumGroup = {
     key: 'album',
@@ -105,6 +105,7 @@ function createMenu() {
     isScopedPlaylist: () => false,
     getTrackById: (id) => tracks.find((track) => track.id === id) ?? null,
     getAlbumGroupByTrackId: (id) => (id === 1 || id === 2 ? group : null),
+    getAlbumTracksByTrackId: splitAlbum ? (id) => (id === 1 ? tracks.slice(0, 2) : []) : undefined,
     currentTrackId: () => 2,
     selectedTrackId: () => selectedTrackId.value,
     onTrackActivated,
@@ -442,6 +443,23 @@ describe('useLibraryContextMenu', () => {
       openReason: 'keyboard',
     })
     expect(restoreFocus).not.toHaveBeenCalled()
+  })
+
+  it('uses the full album for actions on a split presentation group', async () => {
+    const { menu, group, tracks, playTrackFromQueue, insertTracksAfterCurrent, revealInExplorer } =
+      createMenu(true)
+    group.tracks = [tracks[0]]
+    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork')
+    menu.onContextMenuPlay()
+    expect(playTrackFromQueue).toHaveBeenCalledWith(tracks.slice(0, 2), 1, {
+      shufflePool: undefined,
+    })
+    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork')
+    menu.onContextMenuInsert()
+    expect(insertTracksAfterCurrent).toHaveBeenCalledWith(tracks.slice(0, 2))
+    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork')
+    await menu.onRevealInExplorer()
+    expect(revealInExplorer).toHaveBeenCalledWith([1, 2])
   })
 
   it('plays the album queue when the artwork menu is used', async () => {

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { getAlbumGroupEstimatedHeight } from '../constants/libraryLayoutMetrics'
 import { getAlbumCoverDiscHeadingCount } from './albumCoverDiscHeadings'
-import { createLibraryCatalogViewIndex } from './libraryCatalogViewIndex'
+import {
+  createLibraryCatalogViewIndex,
+  getLibraryCatalogViewIndex,
+} from './libraryCatalogViewIndex'
 
 function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
   return {
@@ -27,6 +30,19 @@ function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListI
     ...patch,
   }
 }
+
+describe('artist index presentation groups', () => {
+  it('splits whitespace album artists only for the songs index without changing track identity', () => {
+    const tracks = [
+      createTrack(1, { albumArtist: ' ', artist: 'Adele', album: 'Album' }),
+      createTrack(2, { albumArtist: ' ', artist: '周杰伦', album: 'Album' }),
+    ]
+    expect(createLibraryCatalogViewIndex(tracks, () => 20).albumGroups).toHaveLength(1)
+    const groups = createLibraryCatalogViewIndex(tracks, () => 20, true).albumGroups
+    expect(groups.map((group) => group.tracks[0].id)).toEqual([1, 2])
+    expect(groups.map((group) => group.albumArtist)).toEqual([' ', ' '])
+  })
+})
 
 describe('createLibraryCatalogViewIndex', () => {
   it('builds ordered album groups and every lookup from one track pass', () => {
@@ -98,4 +114,15 @@ describe('createLibraryCatalogViewIndex', () => {
     // 前 119 组包含 40 个双碟组和 79 个单碟组：40 × 481 + 79 × 441。
     expect(result.albumGroupStartOffsets[119]).toBe(54_079)
   })
+})
+
+it('reuses snapshot groups and lookups but recomputes each view geometry', () => {
+  const source = [createTrack(1, { album: 'A' }), createTrack(2, { album: 'B' })]
+  const first = getLibraryCatalogViewIndex(source, () => 50)
+  const second = getLibraryCatalogViewIndex(source, () => 80)
+  expect(second.albumGroups).toBe(first.albumGroups)
+  expect(second.trackIndexById).toBe(first.trackIndexById)
+  expect(first.albumGroupStartOffsets).toEqual([0, 50])
+  expect(second.albumGroupStartOffsets).toEqual([0, 80])
+  expect(getLibraryCatalogViewIndex([...source], () => 50).albumGroups).not.toBe(first.albumGroups)
 })

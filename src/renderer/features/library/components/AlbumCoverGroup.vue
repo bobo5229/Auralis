@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { resolveIndexArtist } from '@shared/utils/artistIndex'
 import { computed, ref, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
@@ -168,10 +169,12 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
           {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
         <p
-          v-tooltip.overflow="songValues(group.albumArtist)"
+          v-tooltip.overflow="
+            songValues(resolveIndexArtist(group.albumArtist, group.tracks[0]?.artist))
+          "
           class="album-cover-meta-line album-cover-meta-artist min-w-0 truncate"
         >
-          {{ songValues(group.albumArtist) }}
+          {{ songValues(resolveIndexArtist(group.albumArtist, group.tracks[0]?.artist)) }}
         </p>
         <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">
           {{ group.releaseDate }}

@@ -27,6 +27,22 @@ describe('sortLibraryTracks', () => {
     expect(sortLibraryTracks(tracks).map((item) => item.id)).toEqual([5, 6, 4, 2, 1, 3, 7])
   })
 
+  it('sorts by fallback artist and keeps nonletters together after Z', () => {
+    const fallback = { ...track(1, '  '), artist: '周杰伦' }
+    const tracks = [
+      track(2, '★Band'),
+      track(3, 'Adele'),
+      fallback,
+      track(4, '2PM'),
+      track(5, 'Unknown Artist'),
+      track(6, null),
+    ]
+    const sorted = sortLibraryTracks(tracks)
+    expect(sorted.slice(0, 2).map((item) => item.id)).toEqual([3, 1])
+    expect(new Set(sorted.slice(2).map((item) => item.id))).toEqual(new Set([2, 4, 5, 6]))
+    expect(sorted.at(-1)?.id).toBe(6)
+  })
+
   it('preserves date, disc, track and id priorities within one artist', () => {
     const tracks = [
       track(6, '陈奕迅', null),

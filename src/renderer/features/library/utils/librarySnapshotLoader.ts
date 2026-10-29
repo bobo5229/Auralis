@@ -1,3 +1,4 @@
+import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -12,6 +13,18 @@ import {
   createSmartPlaylistLibrarySnapshot,
   type LibraryDataSnapshot,
 } from './libraryDataSnapshot'
+
+// Preserve one presentation array per immutable catalog generation across page visits.
+const presentationTracks = new WeakMap<readonly TrackListItem[], TrackListItem[]>()
+function getPresentationTracks(tracks: readonly TrackListItem[]): TrackListItem[] {
+  let result = presentationTracks.get(tracks)
+  if (!result) {
+    result = [...tracks]
+    Object.freeze(result)
+    presentationTracks.set(tracks, result)
+  }
+  return result
+}
 
 export function dependsOnPlayStats(preset: string | undefined): boolean {
   return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
@@ -62,7 +75,7 @@ export function createLibrarySnapshotLoader(options: {
 
     const catalog = await options.catalogClient.load(
       isRequestCurrent,
-      mode === 'metadata-save' ? 'fresh' : 'snapshot',
+      mode === 'foreground' ? 'current' : 'fresh',
       libraryRevision,
     )
     if (import.meta.env.DEV) {
@@ -90,7 +103,10 @@ export function createLibrarySnapshotLoader(options: {
               scope.range,
               options.readPersistedViewMode(),
             )
-          : createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
+          : createAllSongsLibrarySnapshot(
+              getPresentationTracks(catalog.tracks),
+              options.readPersistedViewMode(),
+            ),
       isSnapshotCurrent: () => options.catalogClient.isSnapshotCurrent(catalog),
     }
   }

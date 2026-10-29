@@ -1,3 +1,4 @@
+import type { AuralisApi } from '@shared/ipc/api'
 import {
   LibraryCatalogLoadStaleError,
   loadLibraryCatalogSnapshot,
@@ -8,7 +9,7 @@ type SharedSnapshot = Omit<LoadedLibraryCatalogSnapshot, 'tracks'> & {
   readonly tracks: ReadonlyArray<Readonly<LoadedLibraryCatalogSnapshot['tracks'][number]>>
 }
 
-type CatalogFreshness = 'fresh' | 'snapshot'
+type CatalogFreshness = 'fresh' | 'snapshot' | 'current'
 
 interface SharedExecution {
   readonly revision: number
@@ -32,7 +33,40 @@ export class SharedLibraryCatalogLoad {
   private libraryRevision: string | null = null
   private readonly snapshotExecutions = new WeakMap<SharedSnapshot, SharedExecution>()
 
-  constructor(private readonly fetchPage: Parameters<typeof loadLibraryCatalogSnapshot>[0]) {}
+  readonly observesChanges: boolean
+  private stopObserving?: () => void
+
+  constructor(
+    private readonly fetchPage: Parameters<typeof loadLibraryCatalogSnapshot>[0],
+    changes?: Pick<AuralisApi['library'], 'onChanged' | 'onScanProgress'>,
+  ) {
+    this.observesChanges = Boolean(changes)
+    if (!changes) return
+    const stopChanged = changes.onChanged((event) => {
+      if (
+        event.reason === 'track-added' ||
+        event.reason === 'track-relocated' ||
+        event.reason === 'play-stats-updated' ||
+        event.reason === 'play-stats-reset'
+      ) {
+        this.invalidate('import')
+      } else if (event.libraryRevision) this.invalidateForLibraryRevision(event.libraryRevision)
+      else this.invalidate()
+    })
+    const stopScan = changes.onScanProgress((progress) => {
+      if (progress.status === 'completed') this.invalidate()
+    })
+    this.stopObserving = () => {
+      stopChanged()
+      stopScan()
+    }
+  }
+
+  dispose(): void {
+    this.stopObserving?.()
+    this.stopObserving = undefined
+    this.invalidate()
+  }
 
   get invalidationRevision(): number {
     return this.revision
@@ -69,7 +103,7 @@ export class SharedLibraryCatalogLoad {
     const requiredRevision = this.revision
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (!isCurrent()) throw new LibraryCatalogLoadStaleError()
-      const execution = this.getOrStart(libraryRevision)
+      const execution = this.getOrStart(freshness, libraryRevision)
       const result = await execution.promise
       if (!isCurrent()) throw new LibraryCatalogLoadStaleError()
       if (
@@ -83,13 +117,13 @@ export class SharedLibraryCatalogLoad {
     throw new LibraryCatalogLoadInvalidatedError()
   }
 
-  private getOrStart(libraryRevision?: string): SharedExecution {
-    // Completed results are reused only for an explicitly identified commit.
-    // Ordinary fresh loads retain their existing request semantics.
+  private getOrStart(freshness: CatalogFreshness, libraryRevision?: string): SharedExecution {
+    // Revisit consumers can reuse a completed generation. Unversioned explicit
+    // fresh reads still establish a new execution after save/create boundaries.
     if (
       !this.active &&
-      libraryRevision !== undefined &&
-      this.isLibraryRevisionCurrent(libraryRevision) &&
+      (freshness !== 'fresh' ||
+        (libraryRevision !== undefined && this.isLibraryRevisionCurrent(libraryRevision))) &&
       this.completed?.revision === this.revision
     )
       return this.completed
@@ -108,8 +142,7 @@ export class SharedLibraryCatalogLoad {
       void task.then(
         (snapshot) => {
           this.snapshotExecutions.set(snapshot, execution)
-          if (this.libraryRevision !== null && execution.revision === this.revision)
-            this.completed = execution
+          if (execution.revision === this.revision) this.completed = execution
           if (this.active === execution) this.active = null
         },
         () => {

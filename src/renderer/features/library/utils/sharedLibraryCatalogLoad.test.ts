@@ -213,3 +213,72 @@ describe('shared catalog execution', () => {
     expect((await client.load(() => true)).tracks).toEqual([])
   })
 })
+
+it('reuses current snapshots between visits and observes invalidation without a page', async () => {
+  let changed!: Parameters<import('@shared/ipc/api').AuralisApi['library']['onChanged']>[0]
+  let scanned!: Parameters<import('@shared/ipc/api').AuralisApi['library']['onScanProgress']>[0]
+  const stopChanged = vi.fn(),
+    stopScan = vi.fn()
+  const store = new LibraryCatalogSnapshotStore(() => tracks(3))
+  const fetch = vi.fn(async (request) => store.getPage(request))
+  const client = new SharedLibraryCatalogLoad(fetch, {
+    onChanged: (callback) => {
+      changed = callback
+      return stopChanged
+    },
+    onScanProgress: (callback) => {
+      scanned = callback
+      return stopScan
+    },
+  })
+  const first = await client.load(() => true, 'current')
+  expect(await client.load(() => true, 'current')).toBe(first)
+  expect(fetch).toHaveBeenCalledOnce()
+  for (const reason of [
+    'track-added',
+    'track-missing',
+    'metadata-refresh',
+    'play-stats-updated',
+    'play-stats-reset',
+  ] as const) {
+    const calls = fetch.mock.calls.length
+    changed({ reason, trackIds: [], filePaths: [] })
+    await client.load(() => true, 'current')
+    expect(fetch).toHaveBeenCalledTimes(calls + 1)
+  }
+  scanned({
+    status: 'completed',
+    jobId: 1,
+    totalFiles: 3,
+    scannedFiles: 3,
+    failedFiles: 0,
+    currentFile: null,
+    message: null,
+  })
+  const beforeScanRead = fetch.mock.calls.length
+  await client.load(() => true, 'current')
+  expect(fetch).toHaveBeenCalledTimes(beforeScanRead + 1)
+  await client.load(() => true, 'fresh')
+  expect(fetch).toHaveBeenCalledTimes(beforeScanRead + 2)
+  client.dispose()
+  expect(stopChanged).toHaveBeenCalledOnce()
+  expect(stopScan).toHaveBeenCalledOnce()
+})
+
+it('current revisit waits for a generation started after an in-flight import invalidation', async () => {
+  const wait = gate()
+  let source = tracks(1)
+  const store = new LibraryCatalogSnapshotStore(() => source)
+  const client = new SharedLibraryCatalogLoad(async (request) => {
+    const page = store.getPage(request)
+    await wait.promise
+    return page
+  })
+  const previous = client.load(() => true, 'snapshot')
+  source = tracks(2)
+  client.invalidate('import')
+  const revisit = client.load(() => true, 'current')
+  wait.release()
+  expect((await previous).tracks).toHaveLength(1)
+  expect((await revisit).tracks).toHaveLength(2)
+})

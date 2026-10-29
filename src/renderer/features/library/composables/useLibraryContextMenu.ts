@@ -18,6 +18,7 @@ export function useLibraryContextMenu(options: {
   isScopedPlaylist: () => boolean
   getTrackById: (trackId: number) => TrackListItem | null
   getAlbumGroupByTrackId: (trackId: number) => LibraryAlbumGroup | null
+  getAlbumTracksByTrackId?: (trackId: number) => readonly TrackListItem[]
   currentTrackId: () => number | null
   selectedTrackId: () => number | null
   onTrackActivated: (trackId: number) => void
@@ -208,12 +209,19 @@ export function useLibraryContextMenu(options: {
     onOpenContextMenu(anchorTrackId, event, 'album-artwork', openReason)
   }
 
+  function albumTracks(trackId: number): readonly TrackListItem[] {
+    return (
+      options.getAlbumTracksByTrackId?.(trackId) ??
+      options.getAlbumGroupByTrackId(trackId)?.tracks ??
+      []
+    )
+  }
+
   function getContextMenuTrackIds(): number[] {
     if (!contextMenu.value) return []
 
     if (contextMenu.value.source === 'album-artwork') {
-      const group = options.getAlbumGroupByTrackId(contextMenu.value.trackId)
-      return group?.tracks.map((track) => track.id) ?? []
+      return albumTracks(contextMenu.value.trackId).map((track) => track.id)
     }
 
     return [contextMenu.value.trackId]
@@ -239,16 +247,16 @@ export function useLibraryContextMenu(options: {
 
   function onInsertAlbumAfterCurrent(trackId: number): void {
     closeContextMenu()
-    const group = options.getAlbumGroupByTrackId(trackId)
-    if (!group) return
-    options.insertTracksAfterCurrent(group.tracks)
+    const tracks = albumTracks(trackId)
+    if (!tracks.length) return
+    options.insertTracksAfterCurrent([...tracks])
   }
 
   function onPlayAlbum(trackId: number): void {
     closeContextMenu()
-    const group = options.getAlbumGroupByTrackId(trackId)
-    if (!group || group.tracks.length === 0) return
-    void options.playTrackFromQueue(group.tracks, group.tracks[0].id, {
+    const tracks = albumTracks(trackId)
+    if (!tracks.length) return
+    void options.playTrackFromQueue([...tracks], tracks[0].id, {
       shufflePool: getShufflePool(),
     })
   }

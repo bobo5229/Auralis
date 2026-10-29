@@ -27,57 +27,52 @@ function matchesSearchRecord(record: LibrarySearchRecord, normalizedQuery: strin
   )
 }
 
-/**
- * Scan the ordered records once and resolve both the next target and its feedback metadata.
- * `fromIndex` is inclusive; a target before it means the search wrapped around.
- */
+/** One query cache per search session; new snapshots or queries replace it. */
+export function createLibrarySearchScanner() {
+  let previousRecords: readonly LibrarySearchRecord[] | undefined
+  let previousQuery = ''
+  let matches: number[] = []
+  return (
+    records: readonly LibrarySearchRecord[],
+    normalizedQuery: string,
+    fromIndex: number,
+  ): LibrarySearchScanResult => {
+    if (records !== previousRecords || normalizedQuery !== previousQuery) {
+      matches = []
+      if (normalizedQuery) {
+        for (let index = 0; index < records.length; index++) {
+          if (matchesSearchRecord(records[index], normalizedQuery)) matches.push(index)
+        }
+      }
+      previousRecords = records
+      previousQuery = normalizedQuery
+    }
+    if (!matches.length)
+      return { totalMatches: 0, targetIndex: null, matchPosition: null, wrapped: false }
+    const startIndex = Math.max(0, Math.min(records.length, fromIndex))
+    let low = 0
+    let high = matches.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if (matches[middle] < startIndex) low = middle + 1
+      else high = middle
+    }
+    const wrapped = low === matches.length
+    const position = wrapped ? 0 : low
+    return {
+      totalMatches: matches.length,
+      targetIndex: matches[position],
+      matchPosition: position + 1,
+      wrapped,
+    }
+  }
+}
+
+/** One-off scan for callers without a search session. */
 export function scanLibrarySearchIndex(
   records: readonly LibrarySearchRecord[],
   normalizedQuery: string,
   fromIndex: number,
 ): LibrarySearchScanResult {
-  if (!normalizedQuery) {
-    return { totalMatches: 0, targetIndex: null, matchPosition: null, wrapped: false }
-  }
-
-  const startIndex = Math.max(0, Math.min(records.length, fromIndex))
-  let totalMatches = 0
-  let nextIndex: number | null = null
-  let nextMatchPosition: number | null = null
-  let wrappedIndex: number | null = null
-  let wrappedMatchPosition: number | null = null
-
-  for (let index = 0; index < records.length; index += 1) {
-    if (!matchesSearchRecord(records[index], normalizedQuery)) continue
-
-    totalMatches += 1
-
-    if (index >= startIndex && nextIndex === null) {
-      nextIndex = index
-      nextMatchPosition = totalMatches
-    } else if (index < startIndex && wrappedIndex === null) {
-      wrappedIndex = index
-      wrappedMatchPosition = totalMatches
-    }
-  }
-
-  if (nextIndex !== null) {
-    return {
-      totalMatches,
-      targetIndex: nextIndex,
-      matchPosition: nextMatchPosition,
-      wrapped: false,
-    }
-  }
-
-  if (wrappedIndex !== null) {
-    return {
-      totalMatches,
-      targetIndex: wrappedIndex,
-      matchPosition: wrappedMatchPosition,
-      wrapped: true,
-    }
-  }
-
-  return { totalMatches, targetIndex: null, matchPosition: null, wrapped: false }
+  return createLibrarySearchScanner()(records, normalizedQuery, fromIndex)
 }

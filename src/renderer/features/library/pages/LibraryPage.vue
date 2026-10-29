@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import ArtistLetterIndex from '@renderer/shared/components/ArtistLetterIndex.vue'
+import { currentArtistLetter, visibleIndex } from '@renderer/shared/artistIndexPosition'
+import { buildArtistAnchors, resolveIndexArtist } from '@shared/utils/artistIndex'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
@@ -31,7 +34,7 @@ import {
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
+import { getLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
@@ -120,6 +123,7 @@ const emptyLibraryAction = computed(() => {
   return null
 })
 const scrollRef = ref<HTMLElement | null>(null)
+const indexScrollTop = ref(0)
 const flatHeaderRef = ref<{
   beginPointerResize: (handleId: string, event: PointerEvent) => void
   getResizeHandles: () => HTMLElement[]
@@ -139,12 +143,50 @@ const coverLayout = computed<CoverMetadataLayout>(() => ({
       : LIBRARY_LAYOUT_METRICS.coverArtworkSize,
 }))
 type MeasuredCoverColumn = { layoutKey: string; height: number }
-const measuredCoverColumns = shallowRef<ReadonlyMap<string, MeasuredCoverColumn>>(new Map())
+const measuredCoverColumns = shallowRef(new Map<string, MeasuredCoverColumn>())
+// Groups belong to one immutable catalog snapshot; scrolling must not rescan their tracks.
+const coverDiscHeadingCounts = new WeakMap<LibraryAlbumGroup, number>()
+const coverLayoutKeys = new WeakMap<Readonly<CoverMetadataLayout>, string>()
+function coverLayoutKey(layout: Readonly<CoverMetadataLayout>): string {
+  let key = coverLayoutKeys.get(layout)
+  if (key === undefined) {
+    key = JSON.stringify(layout)
+    coverLayoutKeys.set(layout, key)
+  }
+  return key
+}
+function coverDiscHeadingCount(group: LibraryAlbumGroup): number {
+  let count = coverDiscHeadingCounts.get(group)
+  if (count === undefined) {
+    count = getAlbumCoverDiscHeadingCount(group.tracks)
+    coverDiscHeadingCounts.set(group, count)
+  }
+  return count
+}
+const coverGroupByKey = computed(
+  () => new Map(albumGroups.value.map((group) => [group.key, group])),
+)
 
 function onCoverColumnMeasure(albumKey: string, height: number): void {
-  const layoutKey = JSON.stringify(coverLayout.value)
+  const layoutKey = coverLayoutKey(coverLayout.value)
   const previous = measuredCoverColumns.value.get(albumKey)
   if (previous?.layoutKey === layoutKey && Math.abs(previous.height - height) < 0.1) return
+  const group = coverGroupByKey.value.get(albumKey)
+  if (!group) return
+  const previousSize = getAlbumGroupSize(group)
+  const nextSize = getAlbumGroupEstimatedHeight(
+    group.tracks.length,
+    Boolean(group.releaseDate),
+    coverDiscHeadingCount(group),
+    coverLayout.value,
+    height,
+  )
+  if (Math.abs(previousSize - nextSize) < 0.1) {
+    // Most albums are taller than their cover column. Keep the measurement for future
+    // layout changes without invalidating every offset or resetting the virtualizer.
+    measuredCoverColumns.value.set(albumKey, { layoutKey, height })
+    return
+  }
   const next = new Map(measuredCoverColumns.value)
   next.set(albumKey, { layoutKey, height })
   measuredCoverColumns.value = next
@@ -268,23 +310,27 @@ function getAlbumGroupSize(
   return getAlbumGroupEstimatedHeight(
     group.tracks.length,
     Boolean(group.releaseDate),
-    getAlbumCoverDiscHeadingCount(group.tracks),
+    coverDiscHeadingCount(group),
     metadataLayout,
-    measured?.layoutKey === JSON.stringify(metadataLayout) ? measured.height : undefined,
+    measured?.layoutKey === coverLayoutKey(metadataLayout) ? measured.height : undefined,
   )
 }
 
 const libraryCatalogViewIndex = computed(() =>
-  createLibraryCatalogViewIndex(tracks.value, (group) =>
-    getAlbumGroupEstimatedHeight(
-      group.tracks.length,
-      Boolean(group.releaseDate),
-      getAlbumCoverDiscHeadingCount(group.tracks),
-      DEFAULT_COVER_METADATA_LAYOUT,
-    ),
+  getLibraryCatalogViewIndex(
+    tracks.value,
+    (group) =>
+      getAlbumGroupEstimatedHeight(
+        group.tracks.length,
+        Boolean(group.releaseDate),
+        coverDiscHeadingCount(group),
+        DEFAULT_COVER_METADATA_LAYOUT,
+      ),
+    librarySurfaceKind.value === 'library',
   ),
 )
 const albumGroups = computed(() => libraryCatalogViewIndex.value.albumGroups)
+const canonicalAlbumIndex = computed(() => getLibraryCatalogViewIndex(tracks.value, () => 0))
 // Layout changes only rebuild group offsets, rather than regrouping the entire track catalog.
 const libraryDerivedIndex = computed(() => {
   const index = libraryCatalogViewIndex.value
@@ -312,9 +358,32 @@ const albumVirtualizer = useVirtualizer(
   })),
 )
 
+const artistAnchors = computed(() =>
+  isCoverView.value
+    ? buildArtistAnchors(albumGroups.value, (group) =>
+        resolveIndexArtist(group.albumArtist, group.tracks[0]?.artist),
+      )
+    : buildArtistAnchors(tracks.value, (track) =>
+        resolveIndexArtist(track.albumArtist, track.artist),
+      ),
+)
+function jumpToArtist(index: number): void {
+  const track = isCoverView.value ? albumGroups.value[index]?.tracks[0] : tracks.value[index]
+  if (track) viewport.scrollRenderedTrackToTop(track.id)
+}
+
 const virtualAlbumGroups = computed(() => albumVirtualizer.value.getVirtualItems())
 const albumGroupsTotalSize = computed(() => albumVirtualizer.value.getTotalSize())
 const albumVirtualWindowStart = computed(() => virtualAlbumGroups.value[0]?.start ?? 0)
+const currentLetter = computed(() => {
+  const index = isCoverView.value
+    ? visibleIndex(virtualAlbumGroups.value, indexScrollTop.value - COVER_TOP_INSET)
+    : visibleIndex(
+        virtualRows.value,
+        indexScrollTop.value + LIBRARY_LAYOUT_METRICS.flatHeaderHeight,
+      )
+  return currentArtistLetter(artistAnchors.value, index)
+})
 
 const viewport = useLibraryViewport({
   scrollRef,
@@ -522,6 +591,11 @@ const {
   isScopedPlaylist: () => isScopedPlaylist.value,
   getTrackById: (trackId) => libraryDerivedIndex.value.trackById.get(trackId) ?? null,
   getAlbumGroupByTrackId,
+  getAlbumTracksByTrackId: (trackId) => {
+    const index = canonicalAlbumIndex.value
+    const group = index.albumGroupIndexByTrackId.get(trackId)
+    return group === undefined ? [] : index.albumGroups[group].tracks
+  },
   currentTrackId: () => playback.state.currentTrackId,
   selectedTrackId: () => playback.state.selectedTrackId,
   onTrackActivated: (trackId) => {
@@ -1099,7 +1173,7 @@ onBeforeUnmount(() => {
 
       <div
         v-else
-        class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
+        class="library-list-shell relative flex min-h-0 flex-1 flex-col overflow-hidden"
         :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
         :class="{ 'library-list-shell--play-count': showPlayCount }"
         @keydown="onListShellKeyDown"
@@ -1108,6 +1182,8 @@ onBeforeUnmount(() => {
           ref="scrollRef"
           tabindex="-1"
           class="library-list-scroll main-page-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
+          :class="{ 'artist-index-scroll': librarySurfaceKind === 'library' }"
+          @scroll="indexScrollTop = ($event.target as HTMLElement).scrollTop"
         >
           <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
             <div :key="libraryViewMode" class="min-h-full">
@@ -1207,6 +1283,14 @@ onBeforeUnmount(() => {
             </div>
           </Transition>
         </div>
+        <ArtistLetterIndex
+          v-if="librarySurfaceKind === 'library'"
+          class="main-artist-index"
+          :anchors="artistAnchors"
+          :current="currentLetter"
+          :label="t('albums.cd.indexPage.letters')"
+          @select="jumpToArtist"
+        />
       </div>
     </div>
 

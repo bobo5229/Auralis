@@ -1,4 +1,4 @@
-import { pinyin } from 'pinyin-pro'
+import { createArtistIndex, resolveIndexArtist } from '@shared/utils/artistIndex'
 import type { TrackListItem } from '@shared/types/libraryScan'
 
 const artistCollator = new Intl.Collator('zh-Hans-u-co-pinyin', {
@@ -21,37 +21,14 @@ function compareNullableNumber(left: number | null, right: number | null): numbe
 }
 
 export function sortLibraryTracks(tracks: TrackListItem[]): TrackListItem[] {
-  const artistSortKeys = new Map<string, string>()
-
-  function artistSortKey(name: string): string {
-    let key = artistSortKeys.get(name)
-    if (key === undefined) {
-      key = pinyin(name.trim(), { toneType: 'none', type: 'string', nonZh: 'consecutive' })
-        .toLowerCase()
-        .replace(/\s+/g, ' ')
-        .trim()
-      artistSortKeys.set(name, key)
-    }
-    return key
-  }
-
-  function compareAlbumArtists(left: string | null, right: string | null): number {
-    if (left !== null && right !== null) {
-      const leftStartsWithDigit = /^\p{Decimal_Number}/u.test(left.trimStart())
-      const rightStartsWithDigit = /^\p{Decimal_Number}/u.test(right.trimStart())
-      if (leftStartsWithDigit !== rightStartsWithDigit) return leftStartsWithDigit ? 1 : -1
-
-      return (
-        artistCollator.compare(artistSortKey(left), artistSortKey(right)) ||
-        artistCollator.compare(left, right)
-      )
-    }
-    return compareNullableText(left, right)
-  }
+  const artistIndex = createArtistIndex()
 
   return tracks.sort(
     (left, right) =>
-      compareAlbumArtists(left.albumArtist, right.albumArtist) ||
+      artistIndex.compare(
+        resolveIndexArtist(left.albumArtist, left.artist),
+        resolveIndexArtist(right.albumArtist, right.artist),
+      ) ||
       compareNullableText(left.releaseDate, right.releaseDate) ||
       compareNullableNumber(left.discNo, right.discNo) ||
       compareNullableNumber(left.trackNo, right.trackNo) ||

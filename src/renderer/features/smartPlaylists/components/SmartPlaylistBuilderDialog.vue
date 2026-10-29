@@ -250,13 +250,15 @@ onMounted(() => {
     )
       return
     if (event.reason === 'track-added' || event.reason === 'track-relocated') {
-      libraryCatalogClient.invalidate('import')
+      if (!libraryCatalogClient.observesChanges) libraryCatalogClient.invalidate('import')
       void load('snapshot', false)
       return
     }
-    if (event.libraryRevision)
-      libraryCatalogClient.invalidateForLibraryRevision(event.libraryRevision)
-    else libraryCatalogClient.invalidate()
+    if (!libraryCatalogClient.observesChanges) {
+      if (event.libraryRevision)
+        libraryCatalogClient.invalidateForLibraryRevision(event.libraryRevision)
+      else libraryCatalogClient.invalidate()
+    }
     void load('snapshot', true, event.libraryRevision)
   })
 })

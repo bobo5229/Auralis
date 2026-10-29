@@ -4,7 +4,11 @@ import {
   createLibrarySearchIndexIncrementally,
   LibrarySearchIndexBuildStaleError,
 } from './librarySearchIndex'
-import { scanLibrarySearchIndex, type LibrarySearchRecord } from './librarySearchScan'
+import {
+  createLibrarySearchScanner,
+  scanLibrarySearchIndex,
+  type LibrarySearchRecord,
+} from './librarySearchScan'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { normalizeSearchText } from './normalizeSearchText'
 import { convertChineseText } from '@renderer/features/appearance/utils/chineseText'
@@ -287,4 +291,27 @@ describe('createLibrarySearchIndex', () => {
       }),
     ).rejects.toBeInstanceOf(LibrarySearchIndexBuildStaleError)
   })
+})
+
+it('reuses matching positions until query or snapshot changes, including empty results', () => {
+  let reads = 0
+  const source = records.map((record) => ({
+    ...record,
+    get title() {
+      reads++
+      return record.title
+    },
+  }))
+  const scan = createLibrarySearchScanner()
+  expect(scan(source, 'alp', 0)).toMatchObject({ targetIndex: 0, totalMatches: 2 })
+  const firstReads = reads
+  expect(scan(source, 'alp', 1)).toMatchObject({ targetIndex: 1, matchPosition: 2 })
+  expect(scan(source, 'alp', 2)).toMatchObject({ targetIndex: 0, wrapped: true })
+  expect(reads).toBe(firstReads)
+  expect(scan(source, 'missing', 0).totalMatches).toBe(0)
+  const emptyReads = reads
+  expect(scan(source, 'missing', 2).totalMatches).toBe(0)
+  expect(reads).toBe(emptyReads)
+  expect(scan([...source, records[0]], 'alp', 3)).toMatchObject({ targetIndex: 3, totalMatches: 3 })
+  expect(reads).toBeGreaterThan(emptyReads)
 })

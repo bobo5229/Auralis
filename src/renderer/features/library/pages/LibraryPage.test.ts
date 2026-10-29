@@ -34,6 +34,8 @@ const fixture = vi.hoisted(() => ({
   },
   select: vi.fn(),
   play: vi.fn(),
+  measure: vi.fn(),
+  sizes: [] as Array<{ target: { value: unknown }; height: { value: number } }>,
   leave: null as null | (() => void),
   route: { name: 'library', fullPath: '/songs', params: {}, query: {} },
 }))
@@ -83,7 +85,13 @@ vi.mock('@renderer/shared/ipc/client', () => ({
 }))
 vi.mock('@vueuse/core', async () => {
   const { ref } = await import('vue')
-  return { useElementSize: () => ({ width: ref(900), height: ref(600) }) }
+  return {
+    useElementSize: (target: { value: unknown }) => {
+      const height = ref(600)
+      fixture.sizes.push({ target, height })
+      return { width: ref(900), height }
+    },
+  }
 })
 vi.mock('@tanstack/vue-virtual', async () => {
   const { computed } = await import('vue')
@@ -92,7 +100,7 @@ vi.mock('@tanstack/vue-virtual', async () => {
       value: { count: number; estimateSize: (index: number) => number }
     }) =>
       computed(() => ({
-        measure: vi.fn(),
+        measure: fixture.measure,
         getTotalSize: () =>
           Array.from({ length: options.value.count }, (_, i) =>
             options.value.estimateSize(i),
@@ -259,6 +267,8 @@ beforeEach(() => {
     fixture.state.selectedTrackId = id
   })
   fixture.play.mockReset()
+  fixture.measure.mockClear()
+  fixture.sizes = []
   fixture.leave = null
   storage.clear()
   frames.clear()
@@ -515,6 +525,37 @@ async function openFlatSearch(): Promise<void> {
   await settle()
 }
 
+describe('artist index', () => {
+  it('jumps to the selected row below the sticky header and disables missing letters', async () => {
+    fixture.tracks = [
+      { ...track(1), albumArtist: 'Adele' },
+      { ...track(2), albumArtist: 'Beyoncé', album: 'Second' },
+    ]
+    await mount()
+    const index = find('.main-artist-index')
+    const buttons = index.querySelectorAll('button')
+    expect(buttons[2].props.disabled).toBe(true)
+    expect(buttons[0].props['aria-current']).toBe('location')
+    fire(buttons[1], 'onClick')
+    const scroll = find('.library-list-scroll')
+    expect(scroll.scrollTop).toBeGreaterThan(0)
+    fire(scroll, 'onScroll', { target: scroll })
+    await settle()
+    expect(buttons[1].props['aria-current']).toBe('location')
+  })
+
+  it('jumps to an album group in cover view', async () => {
+    storage.set('auralis-library-view-mode', 'cover')
+    fixture.tracks = [
+      { ...track(1), albumArtist: 'Adele' },
+      { ...track(2), albumArtist: 'Beyoncé', album: 'Second' },
+    ]
+    await mount()
+    fire(find('.main-artist-index').querySelectorAll('button')[1], 'onClick')
+    expect(find('.library-list-scroll').scrollTop).toBeGreaterThan(0)
+  })
+})
+
 describe('LibraryPage flat search entry', () => {
   it('keeps the search bar visible without a corner launcher', async () => {
     await mount(true)
@@ -599,5 +640,54 @@ describe('LibraryPage page parameter entry', () => {
     fire(tools, 'onFocusout', { currentTarget: tools, relatedTarget: row(1) })
     await settle()
     expect(doc.body.querySelector('.page-search-tools')).toBeDefined()
+  })
+})
+
+describe('cover column measurements', () => {
+  function measureColumn(index: number, height: number) {
+    const observed = fixture.sizes.filter(({ target }) =>
+      (target.value as ShellTestElement | null)?.matches('.album-cover-aside'),
+    )[index]
+    const element = observed.target.value as ShellTestElement
+    element.rect.height = height
+    observed.height.value = height
+  }
+  it('does not rebuild list geometry or rescan disc numbers when tracks still determine the height', async () => {
+    storage.set('auralis-library-view-mode', 'cover')
+    let discReads = 0
+    fixture.tracks = Array.from({ length: 80 }, (_, index) => ({
+      ...track(index + 1),
+      album: index < 40 ? 'First' : 'Second',
+      get discNo() {
+        discReads++
+        return 1
+      },
+    }))
+    await mount()
+    fixture.measure.mockClear()
+    discReads = 0
+    measureColumn(0, 620)
+    measureColumn(1, 640)
+    await settle()
+    expect(fixture.measure).not.toHaveBeenCalled()
+    expect(discReads).toBe(0)
+    expect(row(80)).toBeTruthy()
+  })
+  it('preserves the scroll anchor when a preceding cover really grows', async () => {
+    storage.set('auralis-library-view-mode', 'cover')
+    fixture.tracks = [
+      { ...track(1), album: 'First' },
+      { ...track(2), album: 'Second' },
+    ]
+    await mount()
+    measureColumn(0, 610)
+    await settle()
+    const scroll = find('.library-list-scroll')
+    scroll.scrollTop = 800
+    fixture.measure.mockClear()
+    measureColumn(0, 710)
+    await settle()
+    expect(fixture.measure).toHaveBeenCalled()
+    expect(scroll.scrollTop).toBe(900)
   })
 })
