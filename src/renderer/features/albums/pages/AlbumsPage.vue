@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import ArtistLetterIndex from '@renderer/shared/components/ArtistLetterIndex.vue'
+import { currentArtistLetter, visibleIndex } from '@renderer/shared/artistIndexPosition'
+import {
+  buildArtistAnchors,
+  resolveIndexArtist,
+  type ArtistIndexLetter,
+} from '@shared/utils/artistIndex'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { useAlbumGridViewport } from '../composables/useAlbumGridViewport'
 import { useAlbumSearchSession } from '../composables/useAlbumSearchSession'
 import { useAlbumContextMenu } from '../composables/useAlbumContextMenu'
@@ -17,6 +25,7 @@ import AlbumCard from '../components/AlbumCard.vue'
 import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
 import AlbumDropTransitionLayer from '../components/AlbumDropTransitionLayer.vue'
 import type { AlbumSummary } from '../types'
+import { indexedAlbums } from '../utils/indexedAlbums'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
@@ -39,6 +48,7 @@ const route = useRoute()
 usePageParameterSource('albums')
 const router = useRouter()
 const { t } = useI18n()
+const { openSettings } = useSettingsDialog()
 const {
   hasParameters: hasPageParameters,
   keepVisible: keepSearchToolsVisible,
@@ -67,6 +77,7 @@ const {
 )
 const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)
+const indexScrollTop = ref(0)
 const albumMenu = useAlbumContextMenu({
   hasCurrentTrack,
   revealInExplorer: (request) => auralis.library.revealInExplorer(request),
@@ -83,7 +94,27 @@ const {
 } = albumMenu
 
 const catalogIndex = computed(() => getAlbumCatalogIndex(tracks.value))
-const albums = computed<AlbumSummary[]>(() => catalogIndex.value.albums)
+const albums = computed<AlbumSummary[]>(() => indexedAlbums(catalogIndex.value.albums))
+const artistAnchors = computed(() =>
+  buildArtistAnchors(
+    albums.value,
+    (album) => album.indexArtist ?? resolveIndexArtist(album.albumArtist, album.tracks[0]?.artist),
+  ),
+)
+// A letter can begin in the middle of a grid row. Keep the requested letter
+// until the viewport moves away, rather than selecting that row's first artist.
+const artistJump = ref<{ letter: ArtistIndexLetter; scrollTop: number } | null>(null)
+function jumpToArtist(index: number): void {
+  const letter = currentArtistLetter(artistAnchors.value, index)
+  rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'start' })
+  artistJump.value = letter ? { letter, scrollTop: scrollRef.value?.scrollTop ?? 0 } : null
+}
+function onAlbumScroll(event: Event): void {
+  const scrollTop = (event.target as HTMLElement).scrollTop
+  indexScrollTop.value = scrollTop
+  if (artistJump.value && Math.abs(scrollTop - artistJump.value.scrollTop) > 1)
+    artistJump.value = null
+}
 const albumSearch = useAlbumSearchSession({
   tracks,
   albums,
@@ -92,8 +123,10 @@ const albumSearch = useAlbumSearchSession({
   contextMenu,
   isLayoutTransitionActive: computed(() => isLayoutTransitionActive.value),
   hasPageParameters,
-  scrollToAlbum: (index) =>
-    rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' }),
+  scrollToAlbum: (index) => {
+    artistJump.value = null
+    rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
+  },
   t,
 })
 const {
@@ -130,6 +163,14 @@ const gridViewport = useAlbumGridViewport({
   updateAdaptiveGrid,
 })
 const { albumRows, rowVirtualizer, virtualRows, totalHeight, connectGrid } = gridViewport
+watch([albums, columnCount], () => {
+  artistJump.value = null
+})
+const currentLetter = computed(() => {
+  if (artistJump.value) return artistJump.value.letter
+  const row = visibleIndex(virtualRows.value, indexScrollTop.value - 16)
+  return currentArtistLetter(artistAnchors.value, row === null ? null : row * columnCount.value)
+})
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
 const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
@@ -174,7 +215,7 @@ function seedAlbumDetailSnapshot(album: AlbumSummary): void {
     albumTitle: album.title,
     artworkCacheKey: album.artworkCacheKey,
     releaseDate: album.releaseDate,
-    tracks: album.tracks,
+    tracks: catalogIndex.value.selectTracks(album.albumArtist, album.title),
     moreAlbums: catalogIndex.value.moreAlbums(album.albumArtist, album.title),
     catalogTracks: tracks.value,
   })
@@ -256,6 +297,7 @@ onBeforeRouteLeave(() => {
 })
 
 function disconnectPage(): void {
+  artistJump.value = null
   dropLayerRef.value?.cancel()
   albumMenu.deactivate()
   isPageActive.value = false
@@ -348,7 +390,12 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 
     <template v-else>
       <div class="albums-page-body">
-        <div v-if="albums.length > 0" ref="scrollRef" class="albums-scroll main-page-scroll">
+        <div
+          v-if="albums.length > 0"
+          ref="scrollRef"
+          class="albums-scroll main-page-scroll"
+          @scroll="onAlbumScroll"
+        >
           <div
             ref="gridContentRef"
             class="relative w-full"
@@ -389,7 +436,23 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
           </div>
         </div>
 
-        <MainPageStatus v-else kind="empty" :show-icon="false" :title="t('albums.status.empty')" />
+        <MainPageStatus
+          v-else
+          kind="empty"
+          :show-icon="false"
+          :title="t('albums.status.empty')"
+          :description="t('albums.status.emptyDescription')"
+          :action-label="t('albums.status.manageSources')"
+          @action="openSettings('library')"
+        />
+        <ArtistLetterIndex
+          v-if="albums.length > 0"
+          class="main-artist-index"
+          :anchors="artistAnchors"
+          :current="currentLetter"
+          :label="t('albums.cd.indexPage.letters')"
+          @select="jumpToArtist"
+        />
       </div>
     </template>
 
@@ -490,6 +553,11 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 </template>
 
 <style scoped>
+.albums-page {
+  /* The search tools remain above the scroll viewport, including after scrolling. */
+  padding-top: 48px;
+}
+
 .albums-page-body {
   display: flex;
   flex-direction: column;
@@ -498,6 +566,7 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 }
 
 .albums-scroll {
+  margin-right: 28px;
   min-height: 0;
   flex: 1;
   overflow-x: hidden;
@@ -505,6 +574,17 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   /* 首行与 Header 之间的呼吸区。 */
   padding-top: var(--main-page-inset-top);
   padding-bottom: var(--auralis-playbar-safe-area);
+}
+
+.albums-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.albums-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+  background-color: var(
+    --auralis-scrollbar-thumb,
+    color-mix(in srgb, var(--auralis-text) 22%, transparent)
+  );
 }
 
 .albums-grid-row {

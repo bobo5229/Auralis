@@ -12,7 +12,8 @@ const CARD_METADATA_HEIGHT = ALBUM_LIST_METADATA_GAP + ALBUM_LIST_METADATA_MIN_H
 const ROW_GAP = 28
 const TARGET_CARD_WIDTH = 190
 const MAX_CARD_WIDTH = 210
-const MIN_COLS = 3
+const MIN_CARD_WIDTH = 160
+const MIN_COLS = 1
 const MAX_COLS = 6
 
 export interface AlbumGridGeometry {
@@ -45,10 +46,14 @@ export function calculateAlbumGridGeometry(input: {
   metadataOccupancy?: number
 }): AlbumGridGeometryResult {
   const availableWidth = Math.max(0, input.width - GRID_PADDING_X)
+  const maxColumns = Math.max(
+    MIN_COLS,
+    Math.min(MAX_COLS, Math.floor((availableWidth + COLUMN_GAP) / (MIN_CARD_WIDTH + COLUMN_GAP))),
+  )
   let columnCount = Math.floor((availableWidth + COLUMN_GAP) / (TARGET_CARD_WIDTH + COLUMN_GAP))
-  columnCount = Math.min(MAX_COLS, Math.max(MIN_COLS, columnCount))
+  columnCount = Math.min(maxColumns, Math.max(MIN_COLS, columnCount))
   let cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (columnCount - 1)) / columnCount)
-  while (columnCount < MAX_COLS && cardWidth > MAX_CARD_WIDTH) {
+  while (columnCount < maxColumns && cardWidth > MAX_CARD_WIDTH) {
     columnCount += 1
     cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (columnCount - 1)) / columnCount)
   }

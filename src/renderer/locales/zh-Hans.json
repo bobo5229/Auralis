@@ -868,6 +868,8 @@
     "status": {
       "loading": "正在读取专辑目录…",
       "empty": "暂无专辑",
+      "emptyDescription": "添加本地音乐文件夹后，专辑会显示在这里。",
+      "manageSources": "管理音乐来源",
       "loadError": "读取专辑目录失败",
       "retry": "重试"
     },

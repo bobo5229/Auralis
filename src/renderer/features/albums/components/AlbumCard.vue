@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { resolveIndexArtist } from '@shared/utils/artistIndex'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
@@ -23,10 +24,16 @@ const { songText, songValues } = useChineseTextDisplay()
 const displayAlbumTitle = computed(() =>
   props.album.title === 'Unknown Album' ? t('library.unknownAlbum') : songText(props.album.title),
 )
+const indexArtist = computed(
+  () =>
+    props.album.indexArtist ??
+    (resolveIndexArtist(props.album.albumArtist, props.album.tracks[0]?.artist) ||
+      'Unknown Artist'),
+)
 const displayAlbumArtist = computed(() =>
-  props.album.albumArtist === 'Unknown Artist'
+  indexArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
-    : songValues(props.album.albumArtist),
+    : songValues(indexArtist.value),
 )
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
 const { palette } = useArtworkPalette(artworkCacheKey)
@@ -205,8 +212,12 @@ function onContextMenu(event: MouseEvent): void {
     </div>
 
     <div class="album-card-meta">
-      <h2 class="album-card-title">{{ displayAlbumTitle }}</h2>
-      <p class="album-card-artist">{{ displayAlbumArtist }}</p>
+      <h2 v-tooltip.overflow="displayAlbumTitle" class="album-card-title">
+        {{ displayAlbumTitle }}
+      </h2>
+      <p v-tooltip.overflow="displayAlbumArtist" class="album-card-artist">
+        {{ displayAlbumArtist }}
+      </p>
       <div class="album-card-index-line">
         <span class="album-card-year">
           <template v-if="album.releaseDate">

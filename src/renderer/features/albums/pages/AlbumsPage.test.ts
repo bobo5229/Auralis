@@ -10,6 +10,7 @@ import AlbumsPage from './AlbumsPage.vue'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 
 const fixture = vi.hoisted(() => ({
   tracks: [] as TrackListItem[],
@@ -80,9 +81,6 @@ vi.mock('../components/AlbumGridTransitionLayer.vue', () => ({
 }))
 vi.mock('../components/AlbumDropTransitionLayer.vue', () => ({
   default: { methods: { cancel: fixture.dropCancel }, render: () => null },
-}))
-vi.mock('@renderer/shared/components/MainPageStatus.vue', () => ({
-  default: { render: () => null },
 }))
 // The custom renderer exercises the page and real grid layout. DOM animation and
 // virtualizer observers are covered separately by the isolated Chrome probe.
@@ -196,6 +194,9 @@ class TestElement extends TestEventTarget {
   getBoundingClientRect() {
     return { left: 0, top: 0, width: 800, right: 800, bottom: 650 }
   }
+  getClientRects() {
+    return this.props.hidden ? [] : [this.getBoundingClientRect()]
+  }
   getRootNode() {
     return doc
   }
@@ -213,6 +214,7 @@ const doc = Object.assign(new TestEventTarget(), {
   activeElement: body,
   body,
   querySelector: () => null,
+  querySelectorAll: (): TestElement[] => [],
 })
 const observers: Array<{
   callback: () => void
@@ -323,6 +325,7 @@ afterEach(() => {
     unmount?.()
   } finally {
     unmount = null
+    useSettingsDialog().closeSettings()
     useAlbumListParameters().reset()
     frames.clear()
     useChineseTextDisplay().setSongInfoScript('simplified')
@@ -406,6 +409,49 @@ function setSearchQuery(input: TestElement, value: string): void {
 }
 
 describe('AlbumsPage grid connection', () => {
+  it('opens the existing music library settings from the empty state', async () => {
+    await mountPage()
+    const status = find('main-page-status')!
+    expect(status.children.find((child) => child.tagName === 'p')?.text).toBe(
+      'albums.status.emptyDescription',
+    )
+    const action = status.children.find((child) => child.tagName === 'button')!
+    expect(action.text).toBe('albums.status.manageSources')
+    ;(action.props.onClick as () => void)()
+    expect(useSettingsDialog().isSettingsOpen.value).toBe(true)
+    expect(useSettingsDialog().selectedSection.value).toBe('library')
+  })
+
+  it('keeps a clicked letter on a shared grid row until the viewport moves', async () => {
+    await mountPage()
+    fixture.tracks = Array.from(
+      { length: 40 },
+      (_, index) =>
+        ({
+          id: index + 1,
+          album: `Album ${index}`,
+          albumArtist: index === 0 ? 'A Artist' : 'B Artist',
+          artist: index === 0 ? 'A Artist' : 'B Artist',
+          title: 'Song',
+        }) as TrackListItem,
+    )
+    fixture.changed?.({ reason: 'metadata-refresh' })
+    await settle()
+    const nav = find('main-artist-index')!
+    const a = nav.children.find((child) => child.text.trim() === 'A')!
+    const b = nav.children.find((child) => child.text.trim() === 'B')!
+    expect(a.props['aria-current']).toBe('location')
+    ;(b.props.onClick as () => void)()
+    await settle()
+    expect(b.props['aria-current']).toBe('location')
+    const scroll = find('albums-scroll')!
+    scroll.scrollTop = 20
+    ;(scroll.props.onScroll as (event: object) => void)({ target: scroll })
+    await settle()
+    expect(a.props['aria-current']).toBe('location')
+    expect(b.props['aria-current']).toBeUndefined()
+  })
+
   it('measures an empty catalog import and observes each replacement container', async () => {
     await mountPage()
     expect(find('albums-scroll')).toBeUndefined()
@@ -452,6 +498,57 @@ describe('AlbumsPage grid connection', () => {
 })
 
 describe('AlbumsPage keyboard search', () => {
+  beforeEach(() => {
+    fixture.tracks = [
+      {
+        id: 1,
+        album: 'Album',
+        albumArtist: 'Artist',
+        artist: 'Artist',
+        title: 'Song',
+      } as TrackListItem,
+    ]
+  })
+  it('ignores hidden dialogs while yielding to visible dialogs', async () => {
+    await mountPage()
+    const panel = new TestElement('section')
+    panel.props.hidden = true
+    vi.spyOn(doc, 'querySelectorAll').mockReturnValue([panel])
+    expect(shortcut().defaultPrevented).toBe(true)
+    await settle()
+    expect(doc.activeElement).toBe(find('library-search-input'))
+    panel.props.hidden = false
+    expect(shortcut().defaultPrevented).toBe(false)
+  })
+
+  it('does not open a disabled search field for an empty catalog', async () => {
+    fixture.tracks = []
+    await mountPage()
+    expect(shortcut().defaultPrevented).toBe(false)
+    await settle()
+    expect(find('library-search-input')).toBeUndefined()
+  })
+
+  it('clears the previous album highlight when a new query has no match', async () => {
+    await mountPage()
+    await setAlbums(40)
+    shortcut()
+    await settle()
+    const input = find('library-search-input')!
+    setSearchQuery(input, 'Album')
+    await settle()
+    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
+    await settle()
+    expect(find('album-card')?.props.highlighted).toBe(true)
+    setSearchQuery(input, 'No Such Album')
+    await settle()
+    expect(find('album-card')?.props.highlighted).toBe(false)
+    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
+    await settle()
+    expect(find('library-search-outcome')?.text).toBe('albums.search.notFound')
+    expect(find('album-card')?.props.highlighted).toBe(false)
+  })
+
   it('locates original and displayed album prefixes without changing catalog identities', async () => {
     await mountPage()
     fixture.tracks = [
@@ -573,7 +670,9 @@ describe('AlbumsPage keyboard search', () => {
     const editorEscape = escape(editor)
     doc.dispatchEvent(editorEscape)
     expect(editorEscape.defaultPrevented).toBe(false)
-    const querySelector = vi.spyOn(doc, 'querySelector').mockReturnValue({} as never)
+    const querySelector = vi
+      .spyOn(doc, 'querySelectorAll')
+      .mockReturnValue([new TestElement('section')])
     const overlayEscape = escape(body)
     doc.dispatchEvent(overlayEscape)
     expect(overlayEscape.defaultPrevented).toBe(false)
@@ -628,7 +727,9 @@ describe('AlbumsPage keyboard search', () => {
     expect(shortcut().defaultPrevented).toBe(true)
     await settle()
     expect(doc.activeElement).toBe(find('library-search-input'))
-    const querySelector = vi.spyOn(doc, 'querySelector').mockReturnValue({} as never)
+    const querySelector = vi
+      .spyOn(doc, 'querySelectorAll')
+      .mockReturnValue([new TestElement('section')])
     expect(shortcut().defaultPrevented).toBe(false)
     querySelector.mockRestore()
     active.value = false

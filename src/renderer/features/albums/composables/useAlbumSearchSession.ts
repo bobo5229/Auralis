@@ -2,7 +2,10 @@ import { computed, nextTick, ref, watch, type Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
 import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
-import { canDismissPageSearch } from '@renderer/features/library/utils/librarySearchKeyboard'
+import {
+  canDismissPageSearch,
+  hasVisiblePageOverlay,
+} from '@renderer/features/library/utils/librarySearchKeyboard'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import { createDisplaySearchKeys } from '@renderer/features/library/utils/displaySearchKeys'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
@@ -87,7 +90,14 @@ export function useAlbumSearchSession({
     return ''
   })
 
+  function clearSearchHighlight(): void {
+    highlightedAlbumKey.value = null
+    if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
+    searchHighlightTimeout = null
+  }
+
   function resetSearchOutcome(): void {
+    clearSearchHighlight()
     searchOutcome.value = 'idle'
     searchMatchPosition.value = 0
     searchMatchTotal.value = 0
@@ -111,7 +121,7 @@ export function useAlbumSearchSession({
           [
             ...new Set([
               ...createDisplaySearchKeys(album.title),
-              ...createDisplaySearchKeys(album.albumArtist, true),
+              ...createDisplaySearchKeys(album.indexArtist ?? album.albumArtist, true),
             ]),
           ],
         ]),
@@ -146,6 +156,7 @@ export function useAlbumSearchSession({
     const match = resolveNextAlbumSearchMatch(matchingIndices, lastMatchedAlbumIndex, isNewQuery)
     searchMatchTotal.value = match.totalMatches
     if (match.targetIndex === null || match.matchPosition === null) {
+      clearSearchHighlight()
       searchOutcome.value = 'not-found'
       return
     }
@@ -165,7 +176,7 @@ export function useAlbumSearchSession({
   }
 
   async function openSearch(): Promise<void> {
-    if (!canRefresh.value || displayMode.value !== 'normal') return
+    if (!canRefresh.value || displayMode.value !== 'normal' || albums.value.length === 0) return
     const revision = ++searchFocusRevision
     const activeElement = document.activeElement
     if (activeElement !== searchInputRef.value) {
@@ -204,10 +215,11 @@ export function useAlbumSearchSession({
       !(event.ctrlKey || event.metaKey) ||
       event.key.toLowerCase() !== 'f' ||
       !canRefresh.value ||
+      albums.value.length === 0 ||
       displayMode.value !== 'normal' ||
       contextMenu.value ||
       isLayoutTransitionActive.value ||
-      document.querySelector('[role="menu"], [role="dialog"]')
+      hasVisiblePageOverlay()
     )
       return
     const target = event.target
@@ -229,9 +241,6 @@ export function useAlbumSearchSession({
   function clearSearch(): void {
     searchQuery.value = ''
     resetSearchOutcome()
-    highlightedAlbumKey.value = null
-    if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
-    searchHighlightTimeout = null
   }
 
   function dismissSearch(restoreFocus: boolean): void {

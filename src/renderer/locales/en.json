@@ -868,6 +868,8 @@
     "status": {
       "loading": "Loading albums…",
       "empty": "No albums",
+      "emptyDescription": "Add a local music folder to see your albums here.",
+      "manageSources": "Manage music sources",
       "loadError": "Could not load albums",
       "retry": "Try again"
     },

@@ -28,7 +28,7 @@ function node(): TestNode {
 }
 const renderer = createRenderer<TestNode, TestNode>({
   createElement: node,
-  createText: node,
+  createText: (text) => ({ ...node(), text }),
   createComment: node,
   insert: (child, parent) => {
     parent.children.push(child)
@@ -77,6 +77,10 @@ function findByClass(root: TestNode, className: string): TestNode | undefined {
   return undefined
 }
 
+function textContent(element: TestNode | undefined): string {
+  return element?.text ?? element?.children.map(textContent).join('') ?? ''
+}
+
 function mountCard(sourceAlbum = album) {
   const open = vi.fn()
   const play = vi.fn()
@@ -91,6 +95,7 @@ function mountCard(sourceAlbum = album) {
         onOpenContextMenu: openContextMenu,
       }),
   })
+  app.directive('tooltip', {})
   app.mount(container)
   cleanups.push(() => app.unmount())
   return { root: container, open, play, openContextMenu }
@@ -103,8 +108,8 @@ describe('AlbumCard play control', () => {
     const card = mountCard(source)
     useChineseTextDisplay().setSongInfoScript('traditional')
     await nextTick()
-    expect(findByClass(card.root, 'album-card-title')?.text).toBe('看著你')
-    expect(findByClass(card.root, 'album-card-artist')?.text).toBe('蕭敬騰 & 鬱可唯')
+    expect(textContent(findByClass(card.root, 'album-card-title'))).toBe('看著你')
+    expect(textContent(findByClass(card.root, 'album-card-artist'))).toBe('蕭敬騰 & 鬱可唯')
     ;(findByClass(card.root, 'album-card-play')?.props.onClick as () => void)()
     expect(card.play).toHaveBeenCalledWith(source)
     expect(source.title).toBe('看着你')

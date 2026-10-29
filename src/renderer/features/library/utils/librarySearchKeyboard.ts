@@ -1,3 +1,11 @@
+/** Hidden, mounted panels do not own page keyboard shortcuts. */
+export function hasVisiblePageOverlay(): boolean {
+  return Array.from(document.querySelectorAll<HTMLElement>('[role="menu"], [role="dialog"]')).some(
+    (element) =>
+      element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden',
+  )
+}
+
 /** Page-level Escape must yield to editors and overlays that own the key. */
 export function canDismissPageSearch(event: KeyboardEvent): boolean {
   if (
@@ -8,7 +16,7 @@ export function canDismissPageSearch(event: KeyboardEvent): boolean {
     event.ctrlKey ||
     event.metaKey ||
     event.altKey ||
-    document.querySelector('[role="menu"], [role="dialog"]')
+    hasVisiblePageOverlay()
   )
     return false
 

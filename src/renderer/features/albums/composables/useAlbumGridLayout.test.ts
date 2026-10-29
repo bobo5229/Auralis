@@ -53,7 +53,7 @@ function setup() {
 }
 
 describe('album grid geometry', () => {
-  it('preserves the 3–6 column rules and grid row spacing', () => {
+  it('preserves the existing medium and wide grid spacing', () => {
     const keys = Array.from({ length: 20 }, (_, index) => `album-${index}`)
     const calculate = (width: number) =>
       calculateAlbumGridGeometry({
@@ -71,6 +71,26 @@ describe('album grid geometry', () => {
     expect(calculate(970).columnCount).toBe(5)
     expect(calculate(1290).columnCount).toBe(6)
     expect(calculate(970).rowHeight).toBe(268)
+  })
+
+  it('keeps narrow cards readable without overflowing the available width', () => {
+    for (const width of [300, 400, 412, 480, 520, 560, 700, 970]) {
+      const { geometry } = calculateAlbumGridGeometry({
+        width,
+        viewportHeight: 572,
+        paddingTop: 16,
+        paddingBottom: 104,
+        albumKeys: Array.from({ length: 40 }, (_, index) => String(index)),
+        previous: null,
+        scrollTop: 0,
+        anchorAlbumKey: null,
+      })
+      expect(geometry.cardWidth).toBeGreaterThanOrEqual(160)
+      expect(
+        geometry.cardWidth * geometry.columnCount + (geometry.columnCount - 1) * 20 + 40,
+      ).toBeCloseTo(width)
+      if (width >= 400 && width <= 520) expect(geometry.columnCount).toBe(2)
+    }
   })
 
   it('clamps a remapped bottom anchor to the new legal scroll range', () => {
