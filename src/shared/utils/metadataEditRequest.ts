@@ -9,7 +9,35 @@ export const EDITABLE_TAG_FIELDS: readonly EditableTagField[] = [
   'albumArtistDisplay',
   'genreDisplay',
   'releaseDate',
+  'trackNo',
+  'trackTotal',
+  'discNo',
+  'discTotal',
+  'composer',
+  'copyright',
+  'isrc',
 ]
+export const LEGACY_TAG_FIELDS = [
+  'title',
+  'artistDisplay',
+  'albumTitle',
+  'albumArtistDisplay',
+  'genreDisplay',
+  'year',
+  'releaseDate',
+] as const
+export const NUMBER_TAG_FIELDS = ['trackNo', 'trackTotal', 'discNo', 'discTotal'] as const
+export function normalizeMetadataField(
+  field: EditableTagField,
+  value: unknown,
+): string | number | null {
+  if ((NUMBER_TAG_FIELDS as readonly string[]).includes(field))
+    return value == null || value === '' ? null : Number(value)
+  const text = typeof value === 'string' ? value : null
+  return ['artistDisplay', 'albumArtistDisplay', 'genreDisplay', 'composer'].includes(field)
+    ? canonicalizeDelimitedValues(text)
+    : text?.trim() || null
+}
 export function createMetadataEditRequest(
   value: EditableTrackMetadata,
   baseline: EditableTrackMetadata,
@@ -17,17 +45,15 @@ export function createMetadataEditRequest(
   if (!baseline.editToken) throw new Error('Metadata edit snapshot is missing')
   const changes: UpdateTrackMetadataRequest['changes'] = {}
   for (const field of EDITABLE_TAG_FIELDS) {
-    const normalize = (text: string | null) =>
-      ['artistDisplay', 'albumArtistDisplay', 'genreDisplay'].includes(field)
-        ? canonicalizeDelimitedValues(text)
-        : text?.trim() || null
-    if (normalize(value[field]) !== normalize(baseline[field]))
-      changes[field] = normalize(value[field])
+    const normalized = normalizeMetadataField(field, value[field])
+    if (normalized !== normalizeMetadataField(field, baseline[field]))
+      Object.assign(changes, { [field]: normalized })
   }
   return {
     trackId: value.trackId,
     editToken: baseline.editToken,
     changes,
     ...(value.legacyAction ? { legacyAction: value.legacyAction } : {}),
+    ...(value.artworkChanges?.length ? { artworkChanges: value.artworkChanges } : {}),
   }
 }

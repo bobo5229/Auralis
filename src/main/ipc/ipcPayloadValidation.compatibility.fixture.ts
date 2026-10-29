@@ -2,6 +2,18 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
+  'metadata:prepare-album-edit': { album: { title: 'Album', artist: 'Artist' } },
+  'metadata:preview-album-edit': {
+    taskId: 'task',
+    operations: { albumTitle: { mode: 'replace', value: 'Album' } },
+    skipBlocked: false,
+  },
+  'metadata:start-album-edit': { taskId: 'task' },
+  'metadata:cancel-album-edit': { taskId: 'task' },
+  'metadata:release-album-edit': { taskId: 'task' },
+  'metadata:get-artwork-edit': { trackId: 1, editToken: 'token' },
+  'metadata:import-artwork-edit': { trackId: 1, editToken: 'token' },
+  'metadata:release-edit': { editToken: 'token' },
   'playback:record-listening-progress': {
     epoch: 0,
     sessionId: 'session',

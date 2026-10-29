@@ -16,9 +16,13 @@ export function useAppOverlays(
   route: RouteLocationNormalizedLoaded,
   displayMode: Readonly<Ref<PlayerDisplayMode>>,
   startupAlbumActive: Readonly<Ref<boolean>>,
+  beforeTrackEditorOpen?: () => void,
 ) {
   const { isSettingsOpen, closeSettings } = useSettingsDialog()
-  const trackEditor = provideTrackEditor(() => closeSettings())
+  const trackEditor = provideTrackEditor(() => {
+    beforeTrackEditorOpen?.()
+    closeSettings()
+  })
   const isTrackEditorOpen = computed(() => trackEditor.request.value !== null)
   const trackEditorRef = ref<{ requestClose(): void } | null>(null)
 

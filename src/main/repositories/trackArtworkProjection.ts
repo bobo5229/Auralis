@@ -20,23 +20,39 @@ export function captureArtworkAlbum(
   return row
 }
 
-export function refreshArtworkAlbum(db: Database.Database, identity: ArtworkAlbumIdentity): void {
-  const members = `FROM tracks t
+const artworkAlbumMembers = `FROM tracks t
     WHERE t.effective_album_title=?
       AND t.effective_album_artist=?
       AND t.availability='available'`
+
+export function selectArtworkAlbumCandidate(
+  db: Database.Database,
+  identity: ArtworkAlbumIdentity,
+  excludeTrackId?: number,
+): string | null {
   const candidate = db
     .prepare(
-      `SELECT COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key) AS key ${members}
+      `SELECT COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key) AS key ${artworkAlbumMembers}
     AND COALESCE(t.embedded_artwork_cache_key,t.directory_artwork_cache_key) IS NOT NULL
+    ${excludeTrackId !== undefined ? 'AND t.id!=?' : ''}
     ORDER BY COALESCE(t.disc_no,1), t.track_no IS NULL, t.track_no, t.id LIMIT 1`,
     )
-    .get(identity.album, identity.artist) as { key: string } | undefined
-  if (candidate) {
+    .get(
+      identity.album,
+      identity.artist,
+      ...(excludeTrackId !== undefined ? [excludeTrackId] : []),
+    ) as { key: string } | undefined
+  return candidate?.key ?? null
+}
+
+export function refreshArtworkAlbum(db: Database.Database, identity: ArtworkAlbumIdentity): void {
+  const members = artworkAlbumMembers
+  const candidate = selectArtworkAlbumCandidate(db, identity)
+  if (candidate !== null) {
     db.prepare(
       `INSERT INTO albums(title,artist,artwork_cache_key) VALUES(?,?,?)
       ON CONFLICT(title,artist) DO UPDATE SET artwork_cache_key=excluded.artwork_cache_key`,
-    ).run(identity.album, identity.artist, candidate.key)
+    ).run(identity.album, identity.artist, candidate)
   } else {
     if (!db.prepare(`SELECT 1 ${members} LIMIT 1`).get(identity.album, identity.artist)) return
     const pending = db

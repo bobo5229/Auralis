@@ -3,6 +3,7 @@ import { createRenderer, defineComponent, h, nextTick } from 'vue'
 import MetadataEditPage from './MetadataEditPage.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 
+vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { metadata: {} } }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/shared/dialog/AppDialog.vue', () => ({
   default: defineComponent({

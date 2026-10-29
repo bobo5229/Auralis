@@ -10,7 +10,25 @@ export type FileTagValues = Pick<
   | 'genreDisplay'
   | 'year'
   | 'releaseDate'
+  | 'trackNo'
+  | 'trackTotal'
+  | 'discNo'
+  | 'discTotal'
+  | 'composer'
+  | 'copyright'
+  | 'isrc'
 >
+export interface MetadataFileSummary {
+  fileName: string
+  filePath: string
+  format: string
+  targetCount: number
+}
+export interface MetadataEditCapabilities {
+  fields: Record<EditableTagField, boolean>
+  datePrecisions: Array<'year' | 'month' | 'day'>
+  artwork: boolean
+}
 export type EditableTagField = Exclude<keyof FileTagValues, 'year'>
 export interface TrackMetadataEditSnapshot extends EditableTrackMetadata {
   editToken: string
@@ -20,7 +38,8 @@ export interface UpdateTrackMetadataRequest {
   trackId: number
   editToken: string
   changes: Partial<Pick<FileTagValues, EditableTagField>>
-  legacyAction?: 'adopt-file' | 'write-legacy'
+  artworkChanges?: import('./metadataArtworkEdit').MetadataArtworkChange[]
+  legacyAction?: 'adopt-file' | 'write-legacy' | 'apply-merged'
 }
 export type ArtworkReadResult =
   | { status: 'present'; cacheKey: string }

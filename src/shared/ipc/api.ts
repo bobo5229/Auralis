@@ -167,6 +167,26 @@ export interface AuralisApi {
     ) => Result<'archive:get-day-top-albums'>
   }
   metadata: {
+    getMetadataArtwork: (
+      request: Req<'metadata:get-artwork-edit'>,
+    ) => Result<'metadata:get-artwork-edit'>
+    importMetadataArtwork: (
+      request: Req<'metadata:import-artwork-edit'>,
+    ) => Result<'metadata:import-artwork-edit'>
+    releaseMetadataEdit: (editToken: string) => Result<'metadata:release-edit'>
+    prepareAlbumEdit: (
+      request: Req<'metadata:prepare-album-edit'>,
+    ) => Result<'metadata:prepare-album-edit'>
+    previewAlbumEdit: (
+      request: Req<'metadata:preview-album-edit'>,
+    ) => Result<'metadata:preview-album-edit'>
+    startAlbumEdit: (taskId: string) => Result<'metadata:start-album-edit'>
+    getAlbumEdit: () => Result<'metadata:get-album-edit'>
+    cancelAlbumEdit: (taskId: string) => Result<'metadata:cancel-album-edit'>
+    releaseAlbumEdit: (taskId: string) => Result<'metadata:release-album-edit'>
+    onAlbumEditProgress: (
+      callback: (event: IpcEventPayload<'metadata:album-edit-progress'>) => void,
+    ) => () => void
     refreshTrack: (
       trackId: Req<'metadata:refresh-track'>['trackId'],
     ) => Result<'metadata:refresh-track'>

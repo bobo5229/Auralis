@@ -1,3 +1,4 @@
+import { writeExtendedStagingTags, EXTENDED_TAG_FIELDS } from './extendedTagWriter'
 import { spawn } from 'node:child_process'
 import { copyFile, link, rename, rm, unlink, writeFile, stat } from 'node:fs/promises'
 import type { BigIntStats } from 'node:fs'
@@ -312,6 +313,15 @@ export async function prepareAudioTagWrite(
         )
       await copyFile(filePath, stagingPath)
       await writeLyricsStagingTag(stagingPath, extension.toLowerCase(), metadata.lyricsText)
+    } else if (extension.toLowerCase() === '.flac' && metadata.resolvedArtworkChanges?.length) {
+      await copyFile(filePath, stagingPath)
+    } else if (
+      (metadata.editedFields?.length || metadata.resolvedArtworkChanges?.length) &&
+      metadata.editedFields?.every((field) =>
+        (EXTENDED_TAG_FIELDS as readonly string[]).includes(field),
+      )
+    ) {
+      await copyFile(filePath, stagingPath)
     } else if (extension.toLowerCase() === '.m4a') {
       await copyFile(filePath, stagingPath)
       await writeM4aStagingTags(stagingPath, metadata)
@@ -340,6 +350,8 @@ export async function prepareAudioTagWrite(
       }
       await copyFile(taggedPath, stagingPath)
     }
+    if (metadata.lyricsText === undefined)
+      await writeExtendedStagingTags(stagingPath, extension.toLowerCase(), metadata)
     // An external replacement must be reported as a concurrent edit rather than
     // parsed as the source whose unedited tags we are trying to preserve.
     await assertUnchanged()
@@ -352,6 +364,7 @@ export async function prepareAudioTagWrite(
         stagingPath,
         metadata.lyricsText !== undefined,
         metadata.editedFields,
+        metadata.resolvedArtworkChanges,
       )
     } catch (error) {
       await assertUnchanged()

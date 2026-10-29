@@ -2,6 +2,17 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
+import {
+  EDITABLE_TAG_FIELDS,
+  NUMBER_TAG_FIELDS,
+  normalizeMetadataField,
+} from '@shared/utils/metadataEditRequest'
+import { mergeMetadataDraft } from '@shared/utils/metadataDraftMerge'
+import type { EditableTagField } from '@shared/types/trackMetadata'
+import MetadataArtworkEditor from './MetadataArtworkEditor.vue'
+import type { MetadataArtworkChange } from '@shared/types/metadataArtworkEdit'
+import { validateMetadataChanges } from '@shared/utils/metadataNumbers'
+import { createMetadataEditRequest } from '@shared/utils/metadataEditRequest'
 import SaveProgressIcon from './SaveProgressIcon.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
@@ -14,6 +25,8 @@ const props = withDefaults(
     readOnly?: boolean
     active?: boolean
     loading?: boolean
+    conflict?: boolean
+    refreshPending?: boolean
     saving: boolean
     errorMessage: string | null
     editStatus?: MetadataEditStatus
@@ -28,15 +41,29 @@ const emit = defineEmits<{
   save: [metadata: EditableTrackMetadata]
   retryStatus: []
   retryLoad: []
+  reconcile: []
+  retryRefresh: []
+  busyChange: [boolean]
 }>()
 
 const { t } = useI18n()
 
 const dialogRef = ref<HTMLFormElement | null>(null)
 const savedForm = ref('')
+const artworkEditor = ref<InstanceType<typeof MetadataArtworkEditor> | null>(null)
+const artworkChanges = ref<MetadataArtworkChange[]>([])
 const composing = ref(false)
-const dirty = computed(() => !!props.metadata && JSON.stringify(form) !== savedForm.value)
+const dirty = computed(
+  () =>
+    !!props.metadata &&
+    (JSON.stringify(form) !== savedForm.value ||
+      mergingLegacy.value ||
+      artworkChanges.value.length > 0),
+)
 function markCommitted(): void {
+  mergingLegacy.value = false
+  artworkEditor.value?.clearCommitted()
+  artworkChanges.value = []
   savedForm.value = JSON.stringify(form)
 }
 function focus(): void {
@@ -68,7 +95,76 @@ async function showSaveSuccess(signal: AbortSignal): Promise<void> {
   if (!signal.aborted) await saveProgress.value?.complete(signal)
 }
 
-defineExpose({ showSaveSuccess, dirty, composing, markCommitted, focus, save: onSave })
+const previousDraft = ref<EditableTrackMetadata | null>(null)
+const resetConfirm = ref(false)
+const fieldConflicts = ref<
+  Array<{ field: EditableTagField; file: string | number | null; mine: string | number | null }>
+>([])
+const legacyChoices = reactive<Record<string, 'file' | 'legacy'>>({})
+const mergingLegacy = ref(false)
+function draftMetadata(): EditableTrackMetadata {
+  const value = { ...props.metadata!, artworkChanges: artworkChanges.value }
+  for (const field of EDITABLE_TAG_FIELDS)
+    Object.assign(value, { [field]: normalizeMetadataField(field, form[field]) })
+  value.year = releaseDateYear(value.releaseDate)
+  return value
+}
+function setForm(value: EditableTrackMetadata): void {
+  for (const field of EDITABLE_TAG_FIELDS) form[field] = String(value[field] ?? '')
+}
+function reconcile(baseline: EditableTrackMetadata, latest: EditableTrackMetadata): void {
+  const draft = draftMetadata()
+  if (latest.legacyMetadata) previousDraft.value = draft
+  const result = mergeMetadataDraft(baseline, latest, draft)
+  setForm(latest)
+  savedForm.value = JSON.stringify(form)
+  setForm(result.value)
+  fieldConflicts.value = result.conflicts.map((field) => ({
+    field,
+    file: normalizeMetadataField(field, latest[field]),
+    mine: normalizeMetadataField(field, result.value[field]),
+  }))
+  mergingLegacy.value = false
+  resetConfirm.value = false
+}
+function chooseConflict(field: EditableTagField, source: 'file' | 'mine'): void {
+  const conflict = fieldConflicts.value.find((value) => value.field === field)
+  if (!conflict) return
+  form[field] = String(conflict[source] ?? '')
+  fieldConflicts.value = fieldConflicts.value.filter((value) => value.field !== field)
+}
+function resetForm(): void {
+  if (artworkChanges.value.length) artworkEditor.value?.discardQueued()
+  Object.assign(form, JSON.parse(savedForm.value))
+  fieldConflicts.value = []
+  resetConfirm.value = false
+  localError.value = null
+}
+function fieldDisabled(field: EditableTagField): boolean {
+  return (
+    !!areFieldsDisabled.value ||
+    (props.metadata?.capabilities ? !props.metadata.capabilities.fields[field] : false)
+  )
+}
+function startMergedLegacy(): void {
+  if (!props.metadata?.legacyMetadata) return
+  const value = { ...props.metadata }
+  for (const difference of legacyDifferences.value) {
+    if (legacyChoices[difference.key] === 'legacy')
+      Object.assign(value, {
+        [difference.key]:
+          difference.key === 'releaseDate'
+            ? (props.metadata.legacyMetadata.releaseDate ??
+              (props.metadata.legacyMetadata.year === null
+                ? null
+                : String(props.metadata.legacyMetadata.year).padStart(4, '0')))
+            : props.metadata.legacyMetadata[difference.key],
+      })
+  }
+  setForm(value)
+  mergingLegacy.value = true
+}
+defineExpose({ showSaveSuccess, dirty, composing, markCommitted, focus, reconcile, save: onSave })
 
 const legacyDifferences = computed(() => {
   const legacy = props.metadata?.legacyMetadata
@@ -80,18 +176,22 @@ const legacyDifferences = computed(() => {
     albumArtistDisplay: 'albumArtist',
     genreDisplay: 'genre',
     releaseDate: 'releaseDate',
-    year: 'year',
   } as const
   return (Object.keys(fields) as Array<keyof typeof fields>)
-    .filter((key) => legacy[key] !== props.metadata![key])
+    .filter((key) =>
+      key === 'releaseDate'
+        ? (legacy.releaseDate ?? legacy.year) !==
+          (props.metadata!.releaseDate ?? props.metadata!.year)
+        : legacy[key] !== props.metadata![key],
+    )
     .map((key) => ({
       key,
-      label:
-        key === 'year'
-          ? t('library.metadataEditor.legacy.year')
-          : t(`library.metadataEditor.fields.${fields[key]}`),
-      file: props.metadata![key] ?? '—',
-      legacy: legacy[key] ?? '—',
+      label: t(`library.metadataEditor.fields.${fields[key]}`),
+      file:
+        (key === 'releaseDate'
+          ? (props.metadata!.releaseDate ?? props.metadata!.year)
+          : props.metadata![key]) ?? '—',
+      legacy: (key === 'releaseDate' ? (legacy.releaseDate ?? legacy.year) : legacy[key]) ?? '—',
     }))
 })
 const areFieldsDisabled = computed(
@@ -142,13 +242,20 @@ const releaseDateHasError = computed(
   () => localError.value === 'library.metadataEditor.validation.dateInvalid',
 )
 
-const form = reactive({
+const form = reactive<Record<EditableTagField, string>>({
   title: '',
   artistDisplay: '',
   albumTitle: '',
   albumArtistDisplay: '',
   genreDisplay: '',
   releaseDate: '',
+  trackNo: '',
+  trackTotal: '',
+  discNo: '',
+  discTotal: '',
+  composer: '',
+  copyright: '',
+  isrc: '',
 })
 
 watch(
@@ -163,6 +270,12 @@ watch(
     )
       return
     localError.value = null
+    for (const key of Object.keys(legacyChoices)) delete legacyChoices[key]
+    fieldConflicts.value = []
+    mergingLegacy.value = false
+    resetConfirm.value = false
+    if (metadata) setForm(metadata)
+    else for (const field of EDITABLE_TAG_FIELDS) form[field] = ''
     form.title = metadata?.title ?? ''
     form.artistDisplay = metadata?.artistDisplay ?? ''
     form.albumTitle = metadata?.albumTitle ?? ''
@@ -211,7 +324,13 @@ function validateReleaseDate(value: string): string | null {
 }
 
 function onSave(): void {
-  if (!props.metadata || isEditingDisabled.value || composing.value) {
+  if (
+    !props.metadata ||
+    isEditingDisabled.value ||
+    composing.value ||
+    fieldConflicts.value.length ||
+    artworkEditor.value?.hasConflict
+  ) {
     return
   }
 
@@ -226,17 +345,39 @@ function onSave(): void {
     }
   }
 
+  if (
+    releaseDate?.length === 7 &&
+    releaseDate !== props.metadata.releaseDate &&
+    props.metadata.capabilities &&
+    !props.metadata.capabilities.datePrecisions.includes('month')
+  ) {
+    localError.value = 'metadataEditorExtra.monthUnsupported'
+    return
+  }
+  for (const field of NUMBER_TAG_FIELDS)
+    if (
+      normalizeMetadataField(field, form[field]) !==
+        normalizeMetadataField(field, props.metadata[field]) &&
+      form[field] &&
+      (!/^\d+$/.test(form[field]) || Number(form[field]) < 1 || Number(form[field]) > 65535)
+    ) {
+      localError.value = 'metadataEditorExtra.numberInvalid'
+      return
+    }
+  const value = draftMetadata()
+  try {
+    validateMetadataChanges(
+      props.metadata,
+      createMetadataEditRequest(value, props.metadata).changes,
+    )
+  } catch {
+    localError.value = 'metadataEditorExtra.numberInvalid'
+    return
+  }
   localError.value = null
-
   emit('save', {
-    trackId: props.metadata.trackId,
-    title: normalize(form.title),
-    artistDisplay: normalize(form.artistDisplay),
-    albumTitle: normalize(form.albumTitle),
-    albumArtistDisplay: normalize(form.albumArtistDisplay),
-    genreDisplay: normalize(form.genreDisplay),
-    year: releaseDateYear(releaseDate),
-    releaseDate,
+    ...value,
+    ...(mergingLegacy.value ? { legacyAction: 'apply-merged' as const } : {}),
   })
 }
 
@@ -295,8 +436,43 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         {{ t('library.metadataEditor.status.loading') }}
       </p>
 
+      <details v-if="metadata?.fileSummary" class="metadata-file-summary auralis-type-caption mb-3">
+        <summary>
+          {{ metadata.fileSummary.fileName }} · {{ metadata.fileSummary.format }} ·
+          {{ t('metadataEditorExtra.targets', { count: metadata.fileSummary.targetCount }) }}
+        </summary>
+        <p class="break-all">{{ metadata.fileSummary.filePath }}</p>
+      </details>
+      <div v-if="conflict" role="alert" class="mb-3 grid gap-2 auralis-type-caption">
+        <p>{{ t('metadataEditorExtra.conflict') }}</p>
+        <button
+          type="button"
+          class="auralis-dialog-action"
+          :disabled="disabled || loading || saving"
+          @click="emit('reconcile')"
+        >
+          {{ t('metadataEditorExtra.reload') }}
+        </button>
+      </div>
+      <div v-if="refreshPending" role="status" class="mb-3 grid gap-2 auralis-type-caption">
+        <p>{{ t('metadataEditorExtra.savedRefreshPending') }}</p>
+        <button
+          type="button"
+          class="auralis-dialog-action"
+          :disabled="saving"
+          @click="emit('retryRefresh')"
+        >
+          {{ t('metadataEditorExtra.retryRefresh') }}
+        </button>
+      </div>
+      <details v-if="previousDraft" class="mb-3 auralis-type-caption">
+        <summary>{{ t('metadataEditorExtra.previousDraft') }}</summary>
+        <p v-for="field in EDITABLE_TAG_FIELDS" :key="field" class="break-all">
+          {{ t(`metadataEditorExtra.fields.${field}`) }}: {{ previousDraft[field] ?? '—' }}
+        </p>
+      </details>
       <section
-        v-if="metadata?.legacyMetadata"
+        v-if="metadata?.legacyMetadata && !mergingLegacy"
         class="metadata-dialog-legacy metadata-dialog-status-banner metadata-dialog-status-banner--warning mb-3 grid gap-2"
         aria-labelledby="legacy-metadata-title"
       >
@@ -321,15 +497,70 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
               <tr v-for="difference in legacyDifferences" :key="difference.key">
                 <th scope="row" class="text-left align-top">{{ difference.label }}</th>
                 <td class="align-top break-words">{{ difference.file }}</td>
-                <td class="align-top break-words">{{ difference.legacy }}</td>
+                <td class="align-top break-words">
+                  {{ difference.legacy }}
+                  <select
+                    :value="legacyChoices[difference.key]"
+                    :disabled="isEditingDisabled"
+                    :aria-label="difference.label"
+                    class="metadata-dialog-input"
+                    @change="
+                      legacyChoices[difference.key] = ($event.target as HTMLSelectElement).value as
+                        | 'file'
+                        | 'legacy'
+                    "
+                  >
+                    <option disabled :value="undefined">
+                      {{ t('metadataEditorExtra.choose') }}
+                    </option>
+                    <option value="file">{{ t('metadataEditorExtra.fileValue') }}</option>
+                    <option value="legacy">{{ t('metadataEditorExtra.legacyValue') }}</option>
+                  </select>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <button
+          type="button"
+          class="auralis-dialog-action"
+          :disabled="
+            isEditingDisabled || legacyDifferences.some((item) => !legacyChoices[item.key])
+          "
+          @click="startMergedLegacy"
+        >
+          {{ t('metadataEditorExtra.mergeLegacy') }}
+        </button>
       </section>
 
+      <section
+        v-if="fieldConflicts.length"
+        class="mb-3 grid gap-2 auralis-type-caption"
+        role="alert"
+      >
+        <p>{{ t('metadataEditorExtra.chooseConflicts') }}</p>
+        <div v-for="item in fieldConflicts" :key="item.field" class="grid gap-2">
+          <strong>{{ t(`metadataEditorExtra.fields.${item.field}`) }}</strong>
+          <button
+            type="button"
+            class="auralis-dialog-action"
+            :disabled="disabled || saving"
+            @click="chooseConflict(item.field, 'file')"
+          >
+            {{ t('metadataEditorExtra.fileValue') }}: {{ item.file ?? '—' }}
+          </button>
+          <button
+            type="button"
+            class="auralis-dialog-action"
+            :disabled="disabled || saving"
+            @click="chooseConflict(item.field, 'mine')"
+          >
+            {{ t('metadataEditorExtra.myValue') }}: {{ item.mine ?? '—' }}
+          </button>
+        </div>
+      </section>
       <div
-        v-if="metadata && !metadata.legacyMetadata"
+        v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
         class="metadata-edit-fields"
         spellcheck="false"
       >
@@ -340,7 +571,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.title"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.title')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('title')"
             :readonly="readOnly"
           />
         </label>
@@ -350,7 +581,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.artistDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.artist')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('artistDisplay')"
             :readonly="readOnly"
           />
         </label>
@@ -360,7 +591,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.albumTitle"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.album')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('albumTitle')"
             :readonly="readOnly"
           />
         </label>
@@ -370,7 +601,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.albumArtistDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('albumArtistDisplay')"
             :readonly="readOnly"
           />
         </label>
@@ -380,7 +611,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.genreDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.genre')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('genreDisplay')"
             :readonly="readOnly"
           />
         </label>
@@ -390,7 +621,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.releaseDate"
             class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
-            :disabled="areFieldsDisabled"
+            :disabled="fieldDisabled('releaseDate')"
             :readonly="readOnly"
             :aria-invalid="releaseDateHasError ? 'true' : undefined"
             :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
@@ -398,6 +629,59 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         </label>
       </div>
 
+      <div v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)" class="grid gap-3 mt-3">
+        <p class="auralis-type-caption text-[var(--auralis-text-muted)]">
+          {{ t('metadataEditorExtra.multiHint') }}
+        </p>
+        <p class="auralis-type-caption text-[var(--auralis-text-muted)]">
+          {{ t('metadataEditorExtra.dateHint')
+          }}<span
+            v-if="metadata.capabilities && !metadata.capabilities.datePrecisions.includes('month')"
+          >
+            {{ t('metadataEditorExtra.monthUnsupported') }}</span
+          >
+        </p>
+        <details open class="metadata-extra-section">
+          <summary class="auralis-type-control">{{ t('metadataEditorExtra.numbering') }}</summary>
+          <div class="metadata-number-fields">
+            <label v-for="field in NUMBER_TAG_FIELDS" :key="field" class="metadata-dialog-label">
+              {{ t(`metadataEditorExtra.fields.${field}`) }}
+              <input
+                v-model="form[field]"
+                inputmode="numeric"
+                class="metadata-dialog-input metadata-input"
+                :disabled="fieldDisabled(field)"
+                :readonly="readOnly"
+                :aria-label="t(`metadataEditorExtra.fields.${field}`)"
+              />
+            </label>
+          </div>
+        </details>
+        <details class="metadata-extra-section">
+          <summary class="auralis-type-control">{{ t('metadataEditorExtra.moreTags') }}</summary>
+          <label
+            v-for="field in ['composer', 'copyright', 'isrc'] as const"
+            :key="field"
+            class="metadata-dialog-label mt-2"
+          >
+            {{ t(`metadataEditorExtra.fields.${field}`) }}
+            <input
+              v-model="form[field]"
+              class="metadata-dialog-input metadata-input"
+              :disabled="fieldDisabled(field)"
+              :readonly="readOnly"
+            />
+          </label>
+        </details>
+      </div>
+      <MetadataArtworkEditor
+        v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
+        ref="artworkEditor"
+        :metadata="metadata"
+        :disabled="!!isEditingDisabled"
+        @change="artworkChanges = $event"
+        @busy-change="emit('busyChange', $event)"
+      />
       <p
         v-if="localError || errorMessage"
         id="metadata-dialog-error"
@@ -411,9 +695,27 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
       <span class="sr-only" role="status" aria-live="polite">
         {{ saving ? saveButtonLabel : '' }}
       </span>
+      <div v-if="resetConfirm" class="mb-2 auralis-type-caption" role="alert">
+        <p>{{ t('metadataEditorExtra.resetConfirm') }}</p>
+        <button type="button" class="auralis-dialog-action" @click="resetConfirm = false">
+          {{ t('lyricsEditor.continue') }}
+        </button>
+        <button type="button" class="auralis-dialog-action" @click="resetForm">
+          {{ t('metadataEditorExtra.reset') }}
+        </button>
+      </div>
       <div class="flex flex-wrap justify-end gap-2">
+        <button
+          v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
+          type="button"
+          class="auralis-dialog-action"
+          :disabled="isEditingDisabled || !dirty"
+          @click="resetConfirm = true"
+        >
+          {{ t('metadataEditorExtra.reset') }}
+        </button>
         <slot name="footer-leading" />
-        <template v-if="metadata?.legacyMetadata">
+        <template v-if="metadata?.legacyMetadata && !mergingLegacy">
           <button
             type="button"
             class="metadata-dialog-btn-retry auralis-dialog-action"
@@ -440,11 +742,11 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           {{ t('library.metadataEditor.status.retry') }}
         </button>
         <button
-          v-if="metadata && !metadata.legacyMetadata"
+          v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
           class="metadata-dialog-btn-primary metadata-dialog-btn-save auralis-dialog-action auralis-dialog-action--primary"
           :class="{ 'metadata-dialog-btn-save--busy': saving }"
           type="submit"
-          :disabled="isEditingDisabled"
+          :disabled="isEditingDisabled || fieldConflicts.length > 0"
           :aria-busy="saving && !saveSucceeded"
           :aria-label="saveButtonLabel"
         >
@@ -469,6 +771,23 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 </template>
 
 <style scoped>
+.metadata-extra-section {
+  border-top: 1px solid var(--auralis-border-subtle);
+  padding-top: 12px;
+}
+.metadata-extra-section summary {
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+.metadata-number-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.metadata-file-summary {
+  color: var(--auralis-text-muted);
+}
+
 .metadata-edit-page {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;

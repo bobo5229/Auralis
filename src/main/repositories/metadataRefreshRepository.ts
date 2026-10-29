@@ -6,7 +6,12 @@ import { UserEditedMetadataWriter } from './userEditedMetadataWriter'
 import { MetadataTrackWriter } from './metadataTrackWriter'
 import type { FileTagValues } from '@shared/types/trackMetadata'
 import { prepareFileMetadataProjection } from './fileMetadataProjection'
-import { captureArtworkAlbum, refreshArtworkAlbum } from './trackArtworkProjection'
+import {
+  captureArtworkAlbum,
+  refreshArtworkAlbum,
+  selectArtworkAlbumCandidate,
+  type ArtworkAlbumIdentity,
+} from './trackArtworkProjection'
 import { decodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import type {
   MetadataRefreshJob,
@@ -337,6 +342,24 @@ export class MetadataRefreshRepository extends BaseRepository {
     return tracks
   }
 
+  getArtworkFallback(trackId: number): string | null {
+    const identity = this.db
+      .prepare(
+        'SELECT effective_album_title AS album,effective_album_artist AS artist FROM tracks WHERE id=?',
+      )
+      .get(trackId) as ArtworkAlbumIdentity | undefined
+    return identity ? selectArtworkAlbumCandidate(this.db, identity, trackId) : null
+  }
+  getAlbumEditTrackIds(title: string, artist: string): number[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT id FROM tracks WHERE effective_album_title=? AND effective_album_artist=? ORDER BY id LIMIT 5001`,
+        )
+        .all(title, artist) as Array<{ id: number }>
+    ).map((row) => row.id)
+  }
+
   getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
     return this.userEditWriter.getEditableTrackMetadata(trackId)
   }
@@ -345,7 +368,7 @@ export class MetadataRefreshRepository extends BaseRepository {
     return JSON.stringify(
       this.db
         .prepare(
-          `SELECT t.file_path,t.title,t.artist,t.album,t.album_artist,t.genre,t.year,t.release_date,
+          `SELECT t.file_path,t.title,t.artist,t.album,t.album_artist,t.genre,t.year,t.release_date,t.track_no,t.track_total,t.disc_no,t.disc_total,t.composer,t.copyright,t.isrc,
       tm.title AS override_title,tm.artist_display,tm.album_title,tm.album_artist_display,tm.genre_display,
       tm.year AS override_year,tm.release_date AS override_date,tm.source,tm.override_mask
       FROM tracks t LEFT JOIN track_metadata tm ON tm.track_id=t.id WHERE t.id=?`,

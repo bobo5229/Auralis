@@ -9,4 +9,6 @@ export type AudioTagEdit = EditableTrackMetadata & {
   commitFileTags?: boolean
   expectedFingerprint?: TrackFileFingerprint
   expectedEditRevision?: string
+  resolvedArtworkChanges?: import('./metadataArtworkEdits').ResolvedArtworkChange[]
+  expectedArtwork?: import('./metadataArtworkEdits').ExpectedArtworkPicture[]
 }

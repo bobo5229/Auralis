@@ -111,6 +111,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'metadata:album-edit-progress': import('../types/albumMetadataEdit').AlbumEditProgress
   'archive:badge-achievements-changed': void
   'playlists:changed': PlaylistChangedEvent
   'playback:spectrum-frame': PlaybackSpectrumFrame
@@ -487,6 +488,47 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: TrackEditStateResult
   }
+  'metadata:prepare-album-edit': {
+    request: import('../types/albumMetadataEdit').AlbumEditPrepareRequest
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:preview-album-edit': {
+    request: {
+      taskId: string
+      operations: import('../types/albumMetadataEdit').AlbumEditOperations
+      skipBlocked: boolean
+    }
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:start-album-edit': {
+    request: { taskId: string }
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:get-album-edit': {
+    request: void
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:cancel-album-edit': {
+    request: { taskId: string }
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:release-album-edit': {
+    request: { taskId: string }
+    response: import('../types/albumMetadataEdit').AlbumEditReply
+  }
+  'metadata:get-artwork-edit': {
+    request: { trackId: number; editToken: string }
+    response: import('../types/metadataArtworkEdit').ArtworkEditorReply<
+      import('../types/metadataArtworkEdit').MetadataArtworkSnapshot
+    >
+  }
+  'metadata:import-artwork-edit': {
+    request: { trackId: number; editToken: string }
+    response: import('../types/metadataArtworkEdit').ArtworkEditorReply<
+      import('../types/metadataArtworkEdit').ImportedMetadataArtwork | null
+    >
+  }
+  'metadata:release-edit': { request: { editToken: string }; response: { ok: true } }
   'metadata:update-track-metadata': {
     request: UpdateTrackMetadataRequest
     response: UpdateTrackMetadataResult

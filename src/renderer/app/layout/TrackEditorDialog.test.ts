@@ -695,6 +695,69 @@ function tab(name: 'metadata' | 'lyrics') {
 function titleInput() {
   return find((node) => node.props.placeholder === 'library.metadataEditor.placeholders.title')!
 }
+
+it.each([false, true])(
+  'reconciles a rejected metadata save without losing drafts (same-field conflict: %s)',
+  async (sameField) => {
+    const original = await api.getTrackEditSnapshot()
+    await mount(undefined, 'metadata')
+    changeTitle('My title')
+    api.updateTrackMetadata.mockResolvedValueOnce({ ok: false, reason: 'metadata-conflict' })
+    await saveMetadata()
+    expect(titleInput().value).toBe('My title')
+    api.getTrackEditSnapshot.mockResolvedValue({
+      ...original,
+      title: sameField ? 'External title' : original.title,
+      albumTitle: 'Latest album',
+      editToken: 'reconciled',
+    })
+    fire(button('metadataEditorExtra.reload'), 'onClick')
+    await flush()
+    expect(titleInput().value).toBe('My title')
+    if (sameField) {
+      expect(button('library.metadataEditor.actions.save').props.disabled).toBe(true)
+      const mine = find(
+        (node) =>
+          node.type === 'button' && textContent(node).includes('metadataEditorExtra.myValue'),
+      )!
+      fire(mine, 'onClick')
+      await flush()
+    }
+    api.updateTrackMetadata.mockResolvedValueOnce({ ok: true })
+    api.getTrackEditSnapshot.mockResolvedValue({
+      ...original,
+      title: 'My title',
+      albumTitle: 'Latest album',
+      editToken: 'saved',
+    })
+    await saveMetadata()
+    expect(api.updateTrackMetadata).toHaveBeenLastCalledWith({
+      trackId: 7,
+      editToken: 'reconciled',
+      changes: { title: 'My title' },
+    })
+  },
+)
+
+it('keeps the old draft on reconciliation read failure and confirms reset before discarding it', async () => {
+  await mount(undefined, 'metadata')
+  changeTitle('Draft')
+  fire(button('metadataEditorExtra.reset'), 'onClick')
+  await flush()
+  expect(titleInput().value).toBe('Draft')
+  fire(button('metadataEditorExtra.reset'), 'onClick')
+  await flush()
+  expect(titleInput().value).toBe('First track')
+  changeTitle('Retained draft')
+  api.updateTrackMetadata.mockResolvedValueOnce({ ok: false, reason: 'file-changed' })
+  await saveMetadata()
+  api.getTrackEditSnapshot.mockRejectedValueOnce(new Error('Read unavailable'))
+  fire(button('metadataEditorExtra.reload'), 'onClick')
+  await flush()
+  expect(titleInput().value).toBe('Retained draft')
+  expect(titleInput().props.readonly).toBe(true)
+  expect(api.updateTrackMetadata).toHaveBeenCalledTimes(1)
+})
 function changeTitle(value: string) {
   ;(titleInput().props['onUpdate:modelValue'] as (value: string) => void)(value)
 }

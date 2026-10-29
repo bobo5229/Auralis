@@ -9,6 +9,7 @@ export async function verifyPreservedAudioTags(
   staging: string,
   lyricsOnly = false,
   editedFields?: readonly EditableTagField[],
+  artworkChanges?: import('./metadataArtworkEdits').ResolvedArtworkChange[],
 ): Promise<void> {
   const [before, after] = await Promise.all([
     parseAudioMetadata(source),
@@ -36,10 +37,48 @@ export async function verifyPreservedAudioTags(
     albumArtistDisplay: ['albumartist', 'albumartists'],
     genreDisplay: ['genre'],
     releaseDate: ['date', 'year'],
+    trackNo: ['track'],
+    trackTotal: ['track'],
+    discNo: ['disk'],
+    discTotal: ['disk'],
+    composer: ['composer'],
+    copyright: ['copyright'],
+    isrc: ['isrc'],
   }
   if (editedFields && !lyricsOnly) {
     edited.clear()
     for (const field of editedFields) for (const key of commonGroups[field]) edited.add(key)
+  }
+  if (artworkChanges?.length) {
+    edited.add('picture')
+    const original = before.common.picture ?? [],
+      actual = after.common.picture ?? []
+    const selected = new Map(
+      artworkChanges
+        .filter((change) => change.kind !== 'add')
+        .map((change) => [change.index, change]),
+    )
+    const expected: Array<{
+      original?: (typeof original)[number]
+      data?: Buffer
+      mimeType?: string
+    }> = []
+    for (const [index, picture] of original.entries()) {
+      const change = selected.get(index)
+      if (!change) expected.push({ original: picture })
+      else if (change.kind === 'replace') expected.push(change)
+    }
+    expected.push(...artworkChanges.filter((change) => change.kind === 'add'))
+    if (
+      actual.length !== expected.length ||
+      expected.some((picture, index) =>
+        picture.original
+          ? !isDeepStrictEqual(picture.original, actual[index])
+          : !Buffer.from(actual[index]!.data).equals(picture.data!) ||
+            actual[index]!.format !== picture.mimeType,
+      )
+    )
+      throw new MetadataSaveError('tag-preservation-failed', 'Artwork selection was not preserved')
   }
   const artistsChanged = !isDeepStrictEqual(resolveArtists(before), resolveArtists(after))
   const albumArtistsChanged = !isDeepStrictEqual(
@@ -106,6 +145,7 @@ export async function verifyPreservedAudioTags(
     'apic',
     'pic',
     'metadata_block_picture',
+    'covr',
     'encoder',
     'tsse',
     'tss',
@@ -119,6 +159,13 @@ export async function verifyPreservedAudioTags(
   }
   if (editedFields && !lyricsOnly) {
     const nativeGroups: Record<EditableTagField, string[]> = {
+      trackNo: ['trck', 'trk', 'tracknumber', 'tracktotal', 'totaltracks', 'trkn'],
+      trackTotal: ['trck', 'trk', 'tracknumber', 'tracktotal', 'totaltracks', 'trkn'],
+      discNo: ['tpos', 'tpa', 'discnumber', 'disctotal', 'totaldiscs', 'disk'],
+      discTotal: ['tpos', 'tpa', 'discnumber', 'disctotal', 'totaldiscs', 'disk'],
+      composer: ['composer', 'tcom', 'tcm', '©wrt'],
+      copyright: ['copyright', 'tcop', 'tcr', 'cprt'],
+      isrc: ['isrc', 'tsrc', 'trc', '----:com.apple.itunes:isrc'],
       title: ['title', 'tit2', 'tt2', '©nam', 'inam'],
       artistDisplay: ['artist', 'artists', 'tpe1', 'tp1', '©art', 'iart'],
       albumTitle: ['album', 'talb', 'tal', '©alb', 'iprd'],
@@ -145,9 +192,20 @@ export async function verifyPreservedAudioTags(
         'icrd',
       ],
     }
-    for (const field of Object.keys(nativeGroups) as EditableTagField[])
-      if (!editedFields.includes(field))
-        for (const id of nativeGroups[field]) editedNative.delete(id)
+    editedNative.clear()
+    for (const field of editedFields) for (const id of nativeGroups[field]) editedNative.add(id)
+    for (const id of [
+      'apic',
+      'pic',
+      'metadata_block_picture',
+      'covr',
+      'encoder',
+      'tsse',
+      'tss',
+      'isft',
+      '©too',
+    ])
+      editedNative.add(id)
   }
   const nativeTags = (tags: typeof before.native) => {
     const values = new Map<string, unknown[]>()

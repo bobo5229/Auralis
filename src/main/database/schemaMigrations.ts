@@ -906,4 +906,10 @@ export const migrations = [
     `,
   },
   badgeAchievementMigration,
+  {
+    id: 33,
+    name: 'add_track_and_disc_totals',
+    sql: `ALTER TABLE tracks ADD COLUMN track_total INTEGER;
+      ALTER TABLE tracks ADD COLUMN disc_total INTEGER;`,
+  },
 ] as const

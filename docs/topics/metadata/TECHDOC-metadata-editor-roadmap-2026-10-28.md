@@ -2,7 +2,7 @@
 
 日期：2026-10-28
 
-状态：规划完成，E1 至 E6 待实施
+状态：E1 至 E6 已实现并通过独立验收（2026-10-29），验证范围见第 6 节
 
 源码基线：`d5affe3b`。本方案承接[元数据体系优化](TECHDOC-metadata-system-optimization-2026-10-28.md)，沿用已实现的文件真实值、历史覆盖、修改集、编辑 token、暂存写回和读回校验。
 
@@ -27,7 +27,7 @@
 
 ### 2.1 表单与编辑状态
 
-沿用现有 `MetadataEditDialog` 和 `AppDialog`。基础区域保持现有六类字段，编号放入“曲目与碟片”，作曲者等放入默认折叠的“更多标签”。封面使用独立区域。只读摘要显示文件名、格式及目标曲目数，文件路径可展开查看。
+沿用统一编辑宿主 `TrackEditorDialog` 内的 `MetadataEditPage` 和 `AppDialog`。基础区域保持现有六类字段，编号放入“曲目与碟片”，作曲者等放入默认折叠的“更多标签”。封面使用独立区域。只读摘要显示文件名、格式及目标曲目数，文件路径可展开查看。
 
 会话在 Renderer 中分别持有打开时基线、当前文件快照、用户草稿和已成功提交值。表单归一化与修改集使用共享规则；多值仍按 `; ` 编码，日期仍派生年份。修改状态以最近成功提交值为基线，防止写回成功但曲库刷新失败时再次写入文件。
 
@@ -139,3 +139,39 @@ Renderer 管理草稿、差异展示和用户选择；主进程管理文件身�
 E3 使用人工生成的 5000 曲目录验证实际准备、执行和取消路径，记录环境、峰值内存及界面响应，不以纯算法微基准代替任务运行。写入并发固定为 1；观察到性能瓶颈后另行评估调整。
 
 每阶段更新本节对应状态、实际检查命令和结果。开发与验证使用隔离数据；真实曲库批量操作由用户在产品预览中明确选择目标后执行。实施阶段分别提交，提交和远端操作仍以当次用户授权为准。
+
+## 6. 实施记录（2026-10-29）
+
+本轮在 `codex/metadata-editor-roadmap` 独立工作树实施，起点为 `49cf2b2b`。六阶段均已接入生产组件、类型化 IPC 和真实文件写回链路；歌词仍使用统一“编辑歌曲”宿主中的独立页面。
+
+| 阶段 | 实际落点与结果                                                                                                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1   | `MetadataEditPage`、`useLibraryMetadataEditor` 和共享三方合并器接入重置确认、冲突核对、草稿保护、输入能力反馈及已提交后仅刷新。                                                       |
+| E2   | 迁移 33 `add_track_and_disc_totals` 增加两列总数；解析器 common revision 升至 5；各格式按完整组合保存编号与总数。触碰组合时校验两分量，未触碰的旧非法值保留。                         |
+| E3   | `AlbumMetadataEditService` 固定主进程目标清单，独立于单曲 token 池；专辑菜单打开全局批量面板，支持预览、分页、显式跳过、串行写入、取消、失败重试和后台返回。                          |
+| E4   | `MetadataArtworkEdits` 管理会话绑定导入、受控预览与临时副本；按原会话期限主动释放，关闭和纯数据库采用分支同样释放。`extendedTagWriter` 修改指定内嵌图片，暂存与最终读回检查其余图片。 |
+| E5   | 作曲者、版权与 ISRC 接通真实标签、表单、修改集、格式写入和读回；清空为显式 `null`。                                                                                                   |
+| E6   | 历史面板按字段选择，日期/年份联动；`apply-merged` 以文件值为基线，纯采用文件只解除数据库覆盖，其他修改经文件校验后解除。                                                              |
+
+### 实际验证与边界
+
+- 扩展定向单测：78 文件、1190 测试通过，覆盖现有单曲写入事务、IPC、曲库菜单、真实编辑宿主、三方合并及批量任务。独立审查另行重跑其中 4 文件、97 测试通过。
+- 原生验证使用生成音频和内存数据库，覆盖 FLAC、MP3、AAC/ALAC M4A、OGG、Opus 的四编号与更多标签，以及已开放格式的多图片增删替换、媒体内容保留、目录封面回退和导入限制。未接触真实曲库。
+- 5000 首生成 FLAC 的生产任务准备耗时约 17.7 秒，测试进程峰值 RSS 约 185 MiB，采样事件循环最大间隔约 118 毫秒。实际完成 3 首写入后取消，4997 首未执行，单曲编辑凭据仍有效。该项验证有界准备和实际执行/取消路径，未执行 5000 首全量写入，也不代表完整界面帧率。
+- 真实 `TrackEditorDialog`、`MetadataEditPage`、`MetadataArtworkEditor`、`AlbumMetadataEditDialog` 与 `AppDialog` 在隔离 Electron 中检查中英文、深浅主题、1200×800 与 900×600、滚轮、图片预览、冲突草稿、目标分页及关闭返回；IPC、播放和图片数据为 fixture。属于组件运行和画面验证，未声明完整应用端到端验收。
+- 独立首轮发现封面过期清理、触碰编号组合时旧分量范围校验两处问题，已修复并补回归。另同步迁移末项名称断言。修复后新增 2 文件、8 项单测通过；多格式写回与迁移定向原生复验 2 文件、23 项全部通过。其余未受影响的原生证据继续适用。
+- `typecheck`、语言键（1107 对）、改动文件 ESLint 零警告、格式与 `git diff --check` 均通过。`electron-vite build` 成功，随后所有产物预算检查通过；字体为 108.89 MiB / 110 MiB。构建仍提示已有大 chunk，均在项目预算内。本轮未制作安装包。
+- 未参与施工的只读审查者 `metadata_plan_recheck` 完成独立复验，两项问题关闭，E1–E6 验收通过；独立运行首轮 97 项及修复后 8 项单测均通过。验收前后 66 文件 manifest 一致；验收后的文档状态及本记录更新不改变受验产品与测试代码。
+
+可复现命令：
+
+```powershell
+npm.cmd run typecheck
+npm.cmd run locales:check
+node_modules/.bin/vitest.cmd run src/main/features/metadata src/main/features/libraryScan/m4aTextTags.test.ts src/main/ipc/ipcPayloadValidation.test.ts src/shared/utils/metadataDraftMerge.test.ts src/shared/utils/metadataNumbers.test.ts src/renderer/features/library src/renderer/features/albums/pages/AlbumsPage.test.ts src/renderer/app/layout/TrackEditorDialog.test.ts src/renderer/App.shell.test.ts
+node_modules/.bin/electron.cmd scripts/run-electron-vitest.mjs src/main/features/metadata/metadataEditorRoadmap.native.test.ts src/main/features/metadata/albumMetadataEditScale.native.test.ts src/main/database/schema.native.test.ts
+node_modules/.bin/electron-vite.cmd build
+npm.cmd run check:budget
+```
+
+验证日志与截图位于工作树的忽略目录 `output/metadata-editor/`。最终交付以独立复验对应版本及实际命令结果为准；提交、合并与远端操作仍按用户当次授权执行。

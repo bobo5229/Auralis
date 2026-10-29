@@ -22,6 +22,33 @@ afterEach(() => {
 })
 
 describe('migrateDatabase', () => {
+  it('adds nullable totals to a version-32 library without changing any existing stored values or relationships', () => {
+    const db = createDatabase()
+    db.exec(
+      'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+    )
+    for (const migration of migrations.filter((item) => item.id <= 32)) {
+      db.exec(migration.sql)
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    db.exec(
+      "INSERT INTO tracks(id,file_path,title,track_no,disc_no) VALUES(1,'isolated.flac','Title',3,2)",
+    )
+    const before = db.prepare('SELECT * FROM tracks WHERE id=1').get() as Record<string, unknown>
+    migrateDatabase(db)
+    expect(db.prepare('SELECT * FROM tracks WHERE id=1').get()).toEqual({
+      ...before,
+      track_total: null,
+      disc_total: null,
+    })
+    expect(db.pragma('foreign_key_check')).toEqual([])
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations WHERE id=33').pluck().get()).toBe(1)
+    migrateDatabase(db)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations WHERE id=33').pluck().get()).toBe(1)
+  })
   it('materializes legacy display values and preserves an explicit null override', () => {
     const db = createDatabase()
     db.exec(
@@ -212,7 +239,7 @@ describe('migrateDatabase', () => {
 
     const migrationIds = migrations.map(({ id }) => id)
     expect(migrationIds).toEqual([...new Set(migrationIds)].sort((left, right) => left - right))
-    expect(migrations.at(-1)?.name).toBe('record_badge_listening_evidence')
+    expect(migrations.at(-1)?.name).toBe('add_track_and_disc_totals')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',

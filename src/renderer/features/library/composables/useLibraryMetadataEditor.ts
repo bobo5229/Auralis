@@ -61,6 +61,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   const metadataEditError = computed(() => errorMessageSource.value?.() ?? null)
   const editStatus = ref<MetadataEditStatus>('checking')
   const conflict = ref(false)
+  const refreshPending = ref(false)
 
   let currentTrackId: number | null = null
   let currentVersion = 0
@@ -125,6 +126,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
 
     currentTrackId = trackId
     conflict.value = false
+    refreshPending.value = false
     saveCommit.reset()
     isMetadataEditorOpen.value = true
     isLoadingMetadata.value = true
@@ -212,6 +214,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   function applySaveRejection(reason: string): void {
+    if (reason === 'metadata-conflict' || reason === 'file-changed') conflict.value = true
     if (reason === 'playback-in-use') {
       if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
       errorMessageSource.value = () =>
@@ -287,6 +290,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         }
 
         saveCommit.recordCommitted(metadata, saveResult)
+        refreshPending.value = true
         await options.onWriteCommitted?.()
       }
 
@@ -311,6 +315,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         if (!fresh) throw new Error('Saved metadata snapshot unavailable')
         editingMetadata.value = fresh
         saveCommit.reset()
+        refreshPending.value = false
         await showSaveSuccess(controller.signal)
         return
       }
@@ -335,7 +340,14 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     } catch (error) {
       options.logSaveError?.(error)
       if (isCurrentSave()) {
-        errorMessageSource.value = options.getSaveErrorMessage
+        if (
+          error &&
+          typeof error === 'object' &&
+          'reason' in error &&
+          typeof error.reason === 'string'
+        )
+          applySaveRejection(error.reason)
+        else errorMessageSource.value = options.getSaveErrorMessage
       }
     } finally {
       if (saveFeedbackController === controller) saveFeedbackController = null
@@ -376,10 +388,40 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       editingMetadata.value = fresh
       if (committed) errorMessageSource.value = null
       saveCommit.reset()
+      refreshPending.value = false
       conflict.value = false
     } catch {
       if (isCurrentLoad(previous.trackId, revision)) conflict.value = true
     }
+  }
+
+  async function reloadForReconcile(
+    apply: (baseline: EditableTrackMetadata, latest: EditableTrackMetadata) => void,
+  ): Promise<void> {
+    const previous = editingMetadata.value
+    if (!previous || isLoadingMetadata.value || isSavingMetadata.value) return
+    const revision = loadRevision
+    isLoadingMetadata.value = true
+    try {
+      const latest = await options.loadTrackMetadata(previous.trackId)
+      if (!isCurrentLoad(previous.trackId, revision)) return
+      if (!latest) throw new Error('Metadata unavailable')
+      apply(saveCommit.current?.metadata ?? previous, latest)
+      editingMetadata.value = latest
+      saveCommit.reset()
+      refreshPending.value = false
+      conflict.value = false
+      errorMessageSource.value = null
+    } catch (error) {
+      if (isCurrentLoad(previous.trackId, revision))
+        errorMessageSource.value = options.getLoadErrorMessage ?? options.getSaveErrorMessage
+      options.logLoadError?.(error)
+    } finally {
+      if (isCurrentLoad(previous.trackId, revision)) isLoadingMetadata.value = false
+    }
+  }
+  async function retryRefresh(): Promise<void> {
+    if (saveCommit.current) await save(saveCommit.current.metadata)
   }
 
   return {
@@ -398,5 +440,8 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     dispose,
     conflict,
     refreshCredentials,
+    reloadForReconcile,
+    refreshPending,
+    retryRefresh,
   }
 }

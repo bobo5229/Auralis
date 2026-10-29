@@ -1,3 +1,4 @@
+import { LEGACY_TAG_FIELDS } from '@shared/utils/metadataEditRequest'
 import type Database from 'better-sqlite3'
 import { parse } from 'node:path'
 import type { FileTagValues, FileMetadataSnapshot } from '@shared/types/trackMetadata'
@@ -53,11 +54,34 @@ export function prepareFileMetadataProjection(db: Database.Database) {
         parse(filePath).name,
         trackId,
       )
+      const extra = [
+        'trackNo',
+        'trackTotal',
+        'discNo',
+        'discTotal',
+        'composer',
+        'copyright',
+        'isrc',
+      ] as const
+      const columns = {
+        trackNo: 'track_no',
+        trackTotal: 'track_total',
+        discNo: 'disc_no',
+        discTotal: 'disc_total',
+        composer: 'composer',
+        copyright: 'copyright',
+        isrc: 'isrc',
+      }
+      const included = extra.filter((key) => Object.hasOwn(tags, key))
+      if (included.length)
+        db.prepare(
+          `UPDATE tracks SET ${included.map((key) => columns[key] + '=?').join(',')} WHERE id=?`,
+        ).run(...included.map((key) => tags[key] ?? null), trackId)
       const legacy = existing.get(trackId) as (FileTagValues & { mask: number }) | undefined
       // Old overrides have no field-level history. Release only a complete, exact semantic match.
       if (
         legacy &&
-        (Object.keys(tags) as Array<keyof FileTagValues>).every((key) => {
+        LEGACY_TAG_FIELDS.every((key) => {
           const left = legacy[key],
             right = tags[key]
           return ['artistDisplay', 'albumArtistDisplay', 'genreDisplay'].includes(key)
