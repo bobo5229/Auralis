@@ -143,23 +143,28 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   markTrackMissing(trackId: number): void {
-    this.db
-      .prepare(
-        `UPDATE tracks
-         SET availability = 'missing',
-             missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?
-           AND availability = 'available'`,
-      )
-      .run(trackId)
+    this.db.transaction(() => {
+      const album = captureArtworkAlbum(this.db, trackId)
+      const result = this.db
+        .prepare(
+          `UPDATE tracks
+           SET availability = 'missing',
+               missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?
+             AND availability = 'available'`,
+        )
+        .run(trackId)
 
-    this.db
-      .prepare(
-        `DELETE FROM metadata_refresh_failures
-         WHERE track_id = ?`,
-      )
-      .run(trackId)
+      if (result.changes > 0 && album) refreshArtworkAlbum(this.db, album)
+
+      this.db
+        .prepare(
+          `DELETE FROM metadata_refresh_failures
+           WHERE track_id = ?`,
+        )
+        .run(trackId)
+    })()
   }
 
   getTrackFilePath(trackId: number): string | null {

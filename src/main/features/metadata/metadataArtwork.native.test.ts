@@ -162,6 +162,65 @@ describe('artwork provenance from real MP4 covers', () => {
     expect(f.tracks.getKnownFiles()[0].artworkCheckedFingerprint).toBeTruthy()
   })
 
+  it('reselects and clears the album fallback when metadata refresh marks its representatives missing', async () => {
+    const f = await fixture()
+    await f.add(1, 'red', 1)
+    await f.add(2, 'blue', 2)
+    await f.add(3, null, 3)
+    const red = f.artwork(1),
+      blue = f.artwork(2)
+    expect(f.artwork(3)).toBe(red)
+    const jobId = f.metadata.createJob('all', 1)
+    f.metadata.addFailure(jobId, 1, 'missing.m4a', 'File missing')
+
+    f.metadata.markTrackMissing(1)
+    expect(f.artwork(3)).toBe(blue)
+    expect(f.db.prepare('SELECT COUNT(*) FROM metadata_refresh_failures').pluck().get()).toBe(0)
+    expect(
+      f.db
+        .prepare('SELECT artwork_cache_key FROM albums WHERE title=? AND artist=?')
+        .pluck()
+        .get('Album', 'Artist'),
+    ).toBe(blue)
+
+    f.metadata.markTrackMissing(2)
+    expect(f.artwork(3)).toBeNull()
+    expect(
+      f.db
+        .prepare('SELECT artwork_cache_key FROM albums WHERE title=? AND artist=?')
+        .pluck()
+        .get('Album', 'Artist'),
+    ).toBeNull()
+    expect(f.tracks.getAll().map((track) => track.id)).toEqual([3])
+  })
+
+  it('rolls back missing status and album artwork if clearing refresh failures fails', async () => {
+    const f = await fixture()
+    await f.add(1, 'red', 1)
+    await f.add(2, 'blue', 2)
+    await f.add(3, null, 3)
+    const red = f.artwork(3),
+      blue = f.artwork(2)
+    const trackState = () =>
+      f.db.prepare('SELECT availability,missing_since,updated_at FROM tracks WHERE id=1').get()
+    const before = trackState()
+    const jobId = f.metadata.createJob('all', 1)
+    f.metadata.addFailure(jobId, 1, 'missing.m4a', 'File missing')
+    f.db.exec(`CREATE TRIGGER reject_failure_cleanup BEFORE DELETE ON metadata_refresh_failures
+      BEGIN SELECT RAISE(ABORT, 'injected cleanup failure'); END`)
+
+    expect(() => f.metadata.markTrackMissing(1)).toThrow('injected cleanup failure')
+    expect(trackState()).toEqual(before)
+    expect(f.artwork(3)).toBe(red)
+    expect(f.db.prepare('SELECT COUNT(*) FROM metadata_refresh_failures').pluck().get()).toBe(1)
+
+    f.db.exec('DROP TRIGGER reject_failure_cleanup')
+    f.metadata.markTrackMissing(1)
+    expect(trackState()).toMatchObject({ availability: 'missing' })
+    expect(f.artwork(3)).toBe(blue)
+    expect(f.db.prepare('SELECT COUNT(*) FROM metadata_refresh_failures').pluck().get()).toBe(0)
+  })
+
   it('recomputes old and new album fallbacks when a covered track moves to another album', async () => {
     const f = await fixture()
     const { path } = await f.add(1, 'red', 1)
