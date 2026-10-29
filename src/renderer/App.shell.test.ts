@@ -140,7 +140,7 @@ vi.mock('./features/settings/components/SettingsDialog.vue', () => ({
 vi.mock('./app/layout/PageParameterPanel.vue', () => ({
   default: { render: () => h('div', { class: 'test-parameters' }) },
 }))
-vi.mock('./features/trackEditor/TrackEditorDialog.vue', () => ({
+vi.mock('./app/layout/TrackEditorDialog.vue', () => ({
   default: {
     setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
       expose({ requestClose: fixture.requestClose })

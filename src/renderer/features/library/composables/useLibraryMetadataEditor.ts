@@ -10,6 +10,7 @@ import type { LibraryContextMenuSource } from '../types/libraryInteraction'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
 import { createLibraryMetadataSaveCommit } from '../utils/libraryMetadataSaveCommit'
 import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
+import { releaseDateYear } from '@shared/utils/releaseDate'
 
 export type LibraryMetadataRefreshResult =
   | 'committed'
@@ -352,10 +353,20 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       const fresh = await options.loadTrackMetadata(previous.trackId)
       if (!isCurrentLoad(previous.trackId, revision)) return
       const committed = saveCommit.current?.metadata
-      const expected = committed ?? previous
+      // Writing legacy values uses the preserved snapshot as the tag base;
+      // the submitted form still contains the old file values. The writer
+      // derives the year from the release date when normalizing those tags.
+      const expected =
+        committed?.legacyAction === 'write-legacy'
+          ? committed.legacyMetadata && {
+              ...committed.legacyMetadata,
+              year: releaseDateYear(committed.legacyMetadata.releaseDate?.trim() || null),
+            }
+          : (committed ?? previous)
       const expectedLegacy = committed?.legacyAction ? undefined : previous.legacyMetadata
       if (
         !fresh ||
+        !expected ||
         !isSameEditableMetadata(fresh, expected) ||
         JSON.stringify(fresh.legacyMetadata) !== JSON.stringify(expectedLegacy)
       ) {
@@ -363,6 +374,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         return
       }
       editingMetadata.value = fresh
+      if (committed) errorMessageSource.value = null
       saveCommit.reset()
       conflict.value = false
     } catch {

@@ -10,7 +10,7 @@ import { useLibraryMetadataEditor } from '@renderer/features/library/composables
 import { metadataSaveFailureMessageKey } from '@renderer/features/library/utils/metadataSaveFailure'
 import { createMetadataEditRequest } from '@shared/utils/metadataEditRequest'
 import { auralis } from '@renderer/shared/ipc/client'
-import type { TrackEditorRequest, TrackEditorTab } from './trackEditor'
+import type { TrackEditorRequest, TrackEditorTab } from '@renderer/shared/trackEditor'
 
 const props = defineProps<{ request: TrackEditorRequest | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -251,7 +251,8 @@ defineExpose({ requestClose })
             :loading="isLoadingMetadata"
             :saving="isSavingMetadata"
             :active="active === 'metadata'"
-            :disabled="busy || confirming || conflict"
+            :disabled="busy || confirming"
+            :read-only="conflict"
             :error-message="conflict ? t('trackEditor.conflict') : metadataEditError"
             :edit-status="editStatus"
             @save="metadata.save"

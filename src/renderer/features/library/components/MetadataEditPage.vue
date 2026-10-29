@@ -11,6 +11,7 @@ const props = withDefaults(
   defineProps<{
     metadata: EditableTrackMetadata | null
     disabled?: boolean
+    readOnly?: boolean
     active?: boolean
     loading?: boolean
     saving: boolean
@@ -93,14 +94,15 @@ const legacyDifferences = computed(() => {
       legacy: legacy[key] ?? '—',
     }))
 })
-const isEditingDisabled = computed(
+const areFieldsDisabled = computed(
   () =>
     props.disabled ||
     !props.metadata ||
     props.loading ||
     props.saving ||
-    !['editable', 'playback-editable'].includes(props.editStatus),
+    (!props.readOnly && !['editable', 'playback-editable'].includes(props.editStatus)),
 )
+const isEditingDisabled = computed(() => areFieldsDisabled.value || props.readOnly)
 
 interface StatusBannerConfig {
   message: string
@@ -338,7 +340,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.title"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.title')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
           />
         </label>
         <label class="metadata-dialog-label">
@@ -347,7 +350,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.artistDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.artist')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
           />
         </label>
         <label class="metadata-dialog-label">
@@ -356,7 +360,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.albumTitle"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.album')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
           />
         </label>
         <label class="metadata-dialog-label">
@@ -365,7 +370,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.albumArtistDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
           />
         </label>
         <label class="metadata-dialog-label">
@@ -374,7 +380,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.genreDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.genre')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
           />
         </label>
         <label class="metadata-dialog-label">
@@ -383,7 +390,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             v-model="form.releaseDate"
             class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
-            :disabled="isEditingDisabled"
+            :disabled="areFieldsDisabled"
+            :readonly="readOnly"
             :aria-invalid="releaseDateHasError ? 'true' : undefined"
             :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
           />

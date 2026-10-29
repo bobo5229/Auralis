@@ -14,7 +14,7 @@ import {
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import LibraryPage from './LibraryPage.vue'
-import { provideTrackEditor } from '@renderer/features/trackEditor/trackEditor'
+import { provideTrackEditor } from '@renderer/shared/trackEditor'
 import zhHans from '../../../locales/zh-Hans.json'
 import en from '../../../locales/en.json'
 

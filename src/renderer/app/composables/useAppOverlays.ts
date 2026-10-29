@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import { provideTrackEditor } from '@renderer/features/trackEditor/trackEditor'
+import { provideTrackEditor } from '@renderer/shared/trackEditor'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {

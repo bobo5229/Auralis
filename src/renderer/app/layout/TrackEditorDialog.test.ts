@@ -813,6 +813,14 @@ it('preserves drafts and blocks metadata save when refreshed disk metadata confl
   await switchTo('metadata')
   expect(titleInput().value).toBe('Metadata draft')
   expect(textContent(body)).toContain('trackEditor.conflict')
+  expect(titleInput().props.disabled).toBe(false)
+  expect(titleInput().props.readonly).toBe(true)
+  expect(button('library.metadataEditor.actions.save').props.disabled).toBe(true)
+  const statusChanged = api.onTrackEditStateChanged.mock.calls.at(-1)![0]
+  statusChanged({ trackId: 7, status: 'playback-in-use', version: 2 })
+  await flush()
+  expect(titleInput().props.disabled).toBe(false)
+  expect(titleInput().props.readonly).toBe(true)
   await saveMetadata()
   expect(api.updateTrackMetadata).not.toHaveBeenCalled()
 })
@@ -913,6 +921,72 @@ it('retains draft C after committed B snapshot failure and a later lyrics save',
     changes: { title: 'New draft C' },
   })
 })
+
+it.each([
+  { action: 'write-legacy', externalChange: false },
+  { action: 'adopt-file', externalChange: false },
+  { action: 'write-legacy', externalChange: true },
+] as const)(
+  'refreshes credentials after $action and an unavailable post-save snapshot (external change: $externalChange)',
+  async ({ action, externalChange }) => {
+    const initial = await api.getTrackEditSnapshot()
+    const legacy = { ...initial, title: 'Retained title', year: 1998, releaseDate: null }
+    const snapshot = { ...initial, legacyMetadata: legacy }
+    const expectedTitle = action === 'write-legacy' ? 'Retained title' : initial.title
+    const refreshed = {
+      ...initial,
+      title: externalChange ? 'External title' : expectedTitle,
+      year: null,
+      editToken: 'after-lyrics',
+    }
+    api.getTrackEditSnapshot
+      .mockResolvedValueOnce(snapshot)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(refreshed)
+    api.updateTrackMetadata.mockResolvedValue({ ok: true })
+    await mount(undefined, 'metadata')
+    fire(
+      button(
+        action === 'write-legacy'
+          ? 'library.metadataEditor.legacy.write'
+          : 'library.metadataEditor.legacy.adopt',
+      ),
+      'onClick',
+    )
+    await flush()
+    expect(api.updateTrackMetadata).toHaveBeenCalledWith({
+      trackId: 7,
+      editToken: 'meta',
+      changes: {},
+      legacyAction: action,
+    })
+    expect(textContent(body)).toContain('library.metadataEditor.errors.saveFailed')
+
+    await switchTo('lyrics')
+    await edit('Saved lyrics')
+    fire(button('lyricsEditor.save'), 'onClick')
+    await flush()
+    fire(button('lyricsEditor.file'), 'onClick')
+    await flush()
+    await switchTo('metadata')
+
+    if (externalChange) {
+      expect(textContent(body)).toContain('trackEditor.conflict')
+      expect(api.updateTrackMetadata).toHaveBeenCalledTimes(1)
+      return
+    }
+    expect(textContent(body)).not.toContain('trackEditor.conflict')
+    expect(textContent(body)).not.toContain('library.metadataEditor.errors.saveFailed')
+    expect(titleInput().value).toBe(expectedTitle)
+    changeTitle('Next title')
+    await saveMetadata()
+    expect(api.updateTrackMetadata).toHaveBeenLastCalledWith({
+      trackId: 7,
+      editToken: 'after-lyrics',
+      changes: { title: 'Next title' },
+    })
+  },
+)
 
 it('falls back to the application focus target when the library callback cannot restore', async () => {
   const callback = vi.fn(async () => false)
