@@ -1,14 +1,11 @@
 import type Database from 'better-sqlite3'
-import type {
-  BadgeAchievements,
-  ListeningProgressBatch,
-  AlbumCompletionProgress,
-} from '@shared/types/badgeAchievements'
+import type { BadgeAchievements, AlbumCompletionProgress } from '@shared/types/badgeAchievements'
+import type { ListeningProgressBatch } from '@shared/types/listeningEvidence'
 import {
   mergeListeningIntervals,
   sampleDailySeconds,
   type ListeningInterval,
-} from '../features/archive/listeningEvidence'
+} from './listeningEvidence'
 
 export class BadgeAchievementRepository {
   constructor(private readonly db: Database.Database) {}
@@ -17,6 +14,16 @@ export class BadgeAchievementRepository {
       .prepare('SELECT epoch FROM badge_listening_epoch WHERE id=1')
       .pluck()
       .get() as number
+  }
+  resetAll(): void {
+    this.db.prepare('UPDATE badge_listening_epoch SET epoch=epoch+1 WHERE id=1').run()
+    for (const table of [
+      'badge_legacy_daily',
+      'badge_listening_daily',
+      'badge_track_coverage',
+      'badge_listening_sessions',
+    ])
+      this.db.prepare(`DELETE FROM ${table}`).run()
   }
   record(batch: ListeningProgressBatch): { ok: boolean; epoch: number } {
     return this.db.transaction(() => {

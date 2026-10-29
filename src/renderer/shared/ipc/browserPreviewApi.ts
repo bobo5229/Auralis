@@ -67,6 +67,8 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
       }
     case 'playback.recordListeningProgress':
       return { ok: false, epoch: 0 }
+    case 'playback.getListeningEpoch':
+      return 0
     case 'playback.recordEffectivePlay':
       return { ok: false, recorded: false }
     case 'archive.getAnnualPlayCounts':

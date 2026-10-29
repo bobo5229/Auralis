@@ -1,4 +1,5 @@
 import { BadgeAchievementRepository } from '@main/repositories/badgeAchievementRepository'
+import { resetListeningHistory } from '@main/services/resetListeningHistory'
 import { registerBadgeAchievementIpcHandlers } from './registerBadgeAchievementIpcHandlers'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { stat } from 'node:fs/promises'
@@ -187,7 +188,11 @@ export function registerIpcHandlers(
     },
   })
 
-  const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
+  const playStatsRepository = new PlayStatsRepository(db)
+  const badgeAchievementRepository = new BadgeAchievementRepository(db)
+  const playStatsService = new PlayStatsService(playStatsRepository, () =>
+    resetListeningHistory(db, playStatsRepository, badgeAchievementRepository),
+  )
   const playlistRepository = new PlaylistRepository(db)
   const smartPlaylistRepository = new SmartPlaylistRepository(db)
   const publishPlaylistChange = (event: PlaylistChangedEvent) =>
@@ -425,10 +430,8 @@ export function registerIpcHandlers(
     smartPlaylistService,
     getSmartTrackCounts,
   })
-  registerBadgeAchievementIpcHandlers(
-    electronIpcRegistrar,
-    new BadgeAchievementRepository(db),
-    () => notifyLibraryChanged({ reason: 'play-stats-updated', trackIds: [], filePaths: [] }),
+  registerBadgeAchievementIpcHandlers(electronIpcRegistrar, badgeAchievementRepository, () =>
+    sendToRenderer(ipcChannels.archive.badgeAchievementsChanged, undefined),
   )
   registerPlaybackArchiveIpcHandlers(electronIpcRegistrar, {
     libraryService,

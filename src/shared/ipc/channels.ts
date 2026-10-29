@@ -71,6 +71,7 @@ export const ipcChannels = {
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
     recordListeningProgress: 'playback:record-listening-progress',
+    getListeningEpoch: 'playback:get-listening-epoch',
     acquireReadLease: 'playback:acquire-read-lease',
     releaseReadLease: 'playback:release-read-lease',
   },
@@ -80,6 +81,7 @@ export const ipcChannels = {
   },
   archive: {
     getBadgeAchievements: 'archive:get-badge-achievements',
+    badgeAchievementsChanged: 'archive:badge-achievements-changed',
     getAnnualPlayCounts: 'archive:get-annual-play-counts',
     getAnnualSummary: 'archive:get-annual-summary',
     getDayTopTracks: 'archive:get-day-top-tracks',

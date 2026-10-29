@@ -1,4 +1,4 @@
-import type { ListeningProgressBatch } from '@shared/types/badgeAchievements'
+import type { ListeningProgressBatch } from '@shared/types/listeningEvidence'
 import type { AlbumShuffleContext, PlaybackTrack } from '../types'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { AudioResource } from '@shared/types/audioDecode'
@@ -53,7 +53,7 @@ export interface PlaybackDependencies {
 
 export function createBrowserPlaybackDependencies(): PlaybackDependencies {
   return {
-    getListeningEpoch: async () => (await auralis.archive.getBadgeAchievements()).epoch,
+    getListeningEpoch: () => auralis.playback.getListeningEpoch(),
     recordListeningProgress: (payload) => auralis.playback.recordListeningProgress(payload),
     getTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
     createAudioRuntime: (callbacks) =>

@@ -521,6 +521,7 @@ export const domainIpcPayloadPolicies = {
   ),
   [ipcChannels.playback.getAlbumTracks]: required(objectShape({ albumKey: field(albumKey) })),
   [ipcChannels.archive.getBadgeAchievements]: voidPayload(),
+  [ipcChannels.playback.getListeningEpoch]: voidPayload(),
   [ipcChannels.playback.recordListeningProgress]: required(
     objectShape({
       epoch: field(finiteNumber({ integer: true, min: 0, max: Number.MAX_SAFE_INTEGER })),

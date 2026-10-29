@@ -27,13 +27,18 @@ export function useBadgeAchievements() {
       }
     }
   }
+  function scheduleRefresh() {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => void refresh(), 250)
+  }
+  const unsubscribeBadge = auralis.archive.onBadgeAchievementsChanged(scheduleRefresh)
   const unsubscribe = auralis.library.onChanged((event) => {
     if (timer) clearTimeout(timer)
     if (event.reason === 'play-stats-reset') {
       revision++
       achievements.value = null
       void refresh()
-    } else timer = setTimeout(() => void refresh(), 250)
+    } else scheduleRefresh()
   })
   void refresh()
   onScopeDispose(() => {
@@ -41,6 +46,7 @@ export function useBadgeAchievements() {
     revision++
     if (timer) clearTimeout(timer)
     unsubscribe()
+    unsubscribeBadge()
   })
   return { achievements: readonly(achievements), hasError: readonly(hasError), refresh }
 }

@@ -57,12 +57,28 @@ describe('archive preload capabilities', () => {
   it('exposes annual counts and reset without reviving retired queries', () => {
     expect(exposeInMainWorld).toHaveBeenCalledExactlyOnceWith('auralis', auralisApi)
     expect(Object.keys(auralisApi.archive)).toEqual([
+      'getBadgeAchievements',
+      'onBadgeAchievementsChanged',
       'getAnnualPlayCounts',
       'getAnnualSummary',
       'getDayTopTracks',
       'getDayTopAlbums',
       'resetPlayStats',
     ])
+  })
+
+  it('exposes the lightweight listening epoch and forwards badge changes without Electron events', async () => {
+    invoke.mockResolvedValueOnce(9)
+    await expect(auralisApi.playback.getListeningEpoch()).resolves.toBe(9)
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('playback:get-listening-epoch')
+    const changed = vi.fn()
+    const unsubscribe = auralisApi.archive.onBadgeAchievementsChanged(changed)
+    const listener = on.mock.calls.at(-1)![1]
+    expect(on).toHaveBeenLastCalledWith('archive:badge-achievements-changed', listener)
+    listener({ sender: 'private Electron event' }, undefined)
+    expect(changed).toHaveBeenCalledOnce()
+    unsubscribe()
+    expect(removeListener).toHaveBeenLastCalledWith('archive:badge-achievements-changed', listener)
   })
 
   it('routes the requested year and returns counts through the explicit query channel', async () => {

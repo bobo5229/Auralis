@@ -10,7 +10,10 @@ export class PlayStatsService {
   /** Last N recorded sessionIds; Set preserves insertion order for FIFO eviction. */
   private readonly recordedSessions = new Set<string>()
 
-  constructor(private readonly playStatsRepo: PlayStatsRepository) {}
+  constructor(
+    private readonly playStatsRepo: PlayStatsRepository,
+    private readonly resetHistory: () => void,
+  ) {}
 
   recordEffectivePlay(payload: { trackId: number; sessionId: string; playedAtIso: string }): {
     ok: boolean
@@ -97,7 +100,7 @@ export class PlayStatsService {
   }
 
   resetAll(): { ok: true } {
-    this.playStatsRepo.resetAll()
+    this.resetHistory()
     this.recordedSessions.clear()
     return { ok: true }
   }

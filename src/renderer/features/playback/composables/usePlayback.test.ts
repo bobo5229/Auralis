@@ -244,6 +244,7 @@ function createApi(): AuralisApi {
       closeLrcEditor: vi.fn(),
     },
     playback: {
+      getListeningEpoch: vi.fn(async () => 0),
       recordListeningProgress: vi.fn(async () => ({ ok: true, epoch: 0 })),
       subscribeSpectrum: vi.fn(async () => ({ accepted: true })),
       onSpectrumFrame: vi.fn(() => () => undefined),
@@ -263,6 +264,7 @@ function createApi(): AuralisApi {
       onCommand: vi.fn(),
     },
     archive: {
+      onBadgeAchievementsChanged: vi.fn(() => () => undefined),
       getBadgeAchievements: vi.fn(async () => ({
         epoch: 0,
         listeningSeconds: 0,
@@ -312,6 +314,11 @@ function createApi(): AuralisApi {
 
 function installBrowserHarness(): void {
   api = createApi()
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn(() => 1),
+  )
+  vi.stubGlobal('cancelAnimationFrame', vi.fn())
   const listeners = new Map<string, Set<{ listener: () => void; once: boolean }>>()
   windowHarness = {
     auralis: api,
@@ -390,6 +397,7 @@ afterEach(() => {
   windowHarness?.dispatch('beforeunload')
   gaplessEnabled = false
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('usePlayback foreground request state', () => {
@@ -405,6 +413,8 @@ describe('usePlayback foreground request state', () => {
     const second = usePlayback()
 
     expect(second).toBe(first)
+    expect(api.playback.getListeningEpoch).toHaveBeenCalledOnce()
+    expect(api.archive.getBadgeAchievements).not.toHaveBeenCalled()
   })
 
   it('retains the CD queue session when a later view obtains the player', async () => {

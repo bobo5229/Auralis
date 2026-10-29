@@ -38,7 +38,8 @@ it('keeps the newest play when a delayed tracker request succeeds on retry', asy
     migrateDatabase(db)
     db.exec(`INSERT INTO tracks(id,file_path,title,duration_seconds) VALUES
       (1,'one.flac','One',5),(2,'two.flac','Two',5)`)
-    const service = new PlayStatsService(new PlayStatsRepository(db))
+    const repo = new PlayStatsRepository(db)
+    const service = new PlayStatsService(repo, () => repo.resetAll())
     let rejectOld!: (reason: unknown) => void
     let oldSession: string | undefined
     let token = 0
@@ -194,7 +195,8 @@ it('keeps effective-play recording and statistics-backed smart playlist ordering
     migrateDatabase(db)
     db.exec(`INSERT INTO tracks(id,file_path,title,duration_seconds) VALUES
       (1,'one.flac','One',180),(2,'two.flac','Two',240)`)
-    const service = new PlayStatsService(new PlayStatsRepository(db))
+    const repo = new PlayStatsRepository(db)
+    const service = new PlayStatsService(repo, () => repo.resetAll())
     const record = (trackId: number, sessionId: string, day: number) =>
       service.recordEffectivePlay({
         trackId,
@@ -253,7 +255,8 @@ it('reads the full year including leap day and boundaries without changing persi
       ('1900-01-01',2),('9999-12-31',3)`)
     const snapshot = () => db.prepare('SELECT * FROM daily_play_stats ORDER BY play_date').all()
     const before = snapshot()
-    const service = new PlayStatsService(new PlayStatsRepository(db))
+    const repo = new PlayStatsRepository(db)
+    const service = new PlayStatsService(repo, () => repo.resetAll())
     expect(service.getAnnualPlayCounts(2024)).toEqual([
       { date: '2024-01-01', playCount: 1, durationSeconds: 0 },
       { date: '2024-02-29', playCount: 5, durationSeconds: 0 },
@@ -299,7 +302,8 @@ it('ranks at most three daily tracks including removed history with stable ties 
         'removed_daily_track_play_stats',
       ].map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     const before = snapshot()
-    const service = new PlayStatsService(new PlayStatsRepository(db))
+    const repo = new PlayStatsRepository(db)
+    const service = new PlayStatsService(repo, () => repo.resetAll())
     expect(service.getDayTopTracks('2026-10-09')).toEqual([
       {
         artworkCacheKey: null,
@@ -349,7 +353,8 @@ it('ranks daily albums by duration, excludes unknown albums, and includes remove
         'removed_daily_track_play_stats',
       ].map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     const before = snapshot()
-    const service = new PlayStatsService(new PlayStatsRepository(db))
+    const repo = new PlayStatsRepository(db)
+    const service = new PlayStatsService(repo, () => repo.resetAll())
     expect(service.getDayTopAlbums('2026-10-09')).toEqual([
       {
         album: 'Alpha',

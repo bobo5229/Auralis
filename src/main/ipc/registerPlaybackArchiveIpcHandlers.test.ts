@@ -65,6 +65,7 @@ describe('playback statistics and annual archive IPC', () => {
     const { handlers } = createFixture()
     expect(Object.values(ipcChannels.archive)).toEqual([
       'archive:get-badge-achievements',
+      'archive:badge-achievements-changed',
       'archive:get-annual-play-counts',
       'archive:get-annual-summary',
       'archive:get-day-top-tracks',

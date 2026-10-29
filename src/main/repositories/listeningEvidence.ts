@@ -1,4 +1,4 @@
-import type { ListeningSample } from '@shared/types/badgeAchievements'
+import type { ListeningSample } from '@shared/types/listeningEvidence'
 export type ListeningInterval = [number, number]
 export function mergeListeningIntervals(intervals: ListeningInterval[]): ListeningInterval[] {
   const merged: ListeningInterval[] = []

@@ -108,6 +108,7 @@ export interface AuralisApi {
     closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
   }
   playback: {
+    getListeningEpoch: () => Result<'playback:get-listening-epoch'>
     recordListeningProgress: (
       payload: Req<'playback:record-listening-progress'>,
     ) => Result<'playback:record-listening-progress'>
@@ -150,6 +151,7 @@ export interface AuralisApi {
   }
   archive: {
     getBadgeAchievements: () => Result<'archive:get-badge-achievements'>
+    onBadgeAchievementsChanged: (callback: () => void) => () => void
     getAnnualSummary: (
       year: Req<'archive:get-annual-summary'>['year'],
     ) => Result<'archive:get-annual-summary'>

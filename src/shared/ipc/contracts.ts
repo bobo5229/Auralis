@@ -1,4 +1,5 @@
-import type { BadgeAchievements, ListeningProgressBatch } from '@shared/types/badgeAchievements'
+import type { BadgeAchievements } from '@shared/types/badgeAchievements'
+import type { ListeningProgressBatch } from '@shared/types/listeningEvidence'
 import type { AppInfo, LibraryStats } from '@shared/types/app'
 import type { UiLocale } from '@shared/uiLocale'
 import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
@@ -110,6 +111,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'archive:badge-achievements-changed': void
   'playlists:changed': PlaylistChangedEvent
   'playback:spectrum-frame': PlaybackSpectrumFrame
   'playback:native-event': NativePlaybackEvent
@@ -410,6 +412,10 @@ export interface IpcInvokeContract {
   'archive:get-badge-achievements': {
     request: void
     response: BadgeAchievements
+  }
+  'playback:get-listening-epoch': {
+    request: void
+    response: number
   }
   'playback:record-listening-progress': {
     request: ListeningProgressBatch

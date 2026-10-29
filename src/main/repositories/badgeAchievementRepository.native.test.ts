@@ -1,4 +1,4 @@
-import type { ListeningSample } from '@shared/types/badgeAchievements'
+import type { ListeningSample } from '@shared/types/listeningEvidence'
 import { createRequire } from 'node:module'
 import type Database from 'better-sqlite3'
 import { afterEach, expect, it } from 'vitest'
@@ -6,6 +6,7 @@ import { migrateDatabase } from '../database/schema'
 import { migrations } from '../database/schemaMigrations'
 import { BadgeAchievementRepository } from './badgeAchievementRepository'
 import { PlayStatsRepository } from './playStatsRepository'
+import { resetListeningHistory } from '../services/resetListeningHistory'
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as typeof Database
 const databases: Database.Database[] = []
 function fixture() {
@@ -113,7 +114,7 @@ it('deduplicates retries, rejects invalid segments and refuses delayed writes af
   expect(
     repo.record({ ...batch, sequence: 2, samples: [{ ...batch.samples[0], endSeconds: 50 }] }).ok,
   ).toBe(false)
-  new PlayStatsRepository(db).resetAll()
+  resetListeningHistory(db, new PlayStatsRepository(db), repo)
   expect(repo.getAchievements()).toMatchObject({
     epoch: 1,
     listeningSeconds: 0,
@@ -121,6 +122,28 @@ it('deduplicates retries, rejects invalid segments and refuses delayed writes af
     completeAlbums: 0,
   })
   expect(repo.record(batch)).toEqual({ ok: false, epoch: 1 })
+})
+
+it('rolls back both history resets and the epoch if badge cleanup fails', () => {
+  const { db, repo } = fixture()
+  db.exec("INSERT INTO tracks(id,file_path,duration_seconds) VALUES(1,'one.flac',100)")
+  db.exec(
+    "INSERT INTO daily_play_stats(play_date,play_count,duration_seconds) VALUES('2026-10-28',1,2)",
+  )
+  hear(repo, 1, 0, 2)
+  db.exec(`CREATE TRIGGER fail_badge_reset BEFORE DELETE ON badge_listening_daily
+    BEGIN SELECT RAISE(ABORT, 'badge reset failed'); END`)
+  const reset = () => resetListeningHistory(db, new PlayStatsRepository(db), repo)
+  expect(reset).toThrow('badge reset failed')
+  expect(repo.getEpoch()).toBe(0)
+  expect(repo.getAchievements().listeningSeconds).toBe(2)
+  expect(db.prepare('SELECT play_count FROM daily_play_stats').pluck().get()).toBe(1)
+
+  db.exec('DROP TRIGGER fail_badge_reset')
+  reset()
+  expect(repo.getEpoch()).toBe(1)
+  expect(repo.getAchievements().listeningSeconds).toBe(0)
+  expect(db.prepare('SELECT COUNT(*) FROM daily_play_stats').pluck().get()).toBe(0)
 })
 
 it('retains actual time when database duration is unknown without inventing album completion', () => {

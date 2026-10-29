@@ -12,7 +12,9 @@ function createService() {
     getDayTopAlbums: vi.fn(() => []),
   }
   return {
-    service: new PlayStatsService(playStatsRepo as unknown as PlayStatsRepository),
+    service: new PlayStatsService(playStatsRepo as unknown as PlayStatsRepository, () =>
+      playStatsRepo.resetAll(),
+    ),
     playStatsRepo,
   }
 }

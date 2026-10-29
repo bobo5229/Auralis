@@ -1,4 +1,4 @@
-import type { ListeningProgressBatch, ListeningSample } from '@shared/types/badgeAchievements'
+import type { ListeningProgressBatch, ListeningSample } from '@shared/types/listeningEvidence'
 
 interface Options {
   getEpoch: () => Promise<number>

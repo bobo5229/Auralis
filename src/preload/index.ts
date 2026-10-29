@@ -119,6 +119,7 @@ export const auralisApi: AuralisApi = {
     closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
   },
   playback: {
+    getListeningEpoch: () => invoke(ipcChannels.playback.getListeningEpoch),
     recordListeningProgress: (payload) =>
       invoke(ipcChannels.playback.recordListeningProgress, payload),
     subscribeSpectrum: (request) => invoke(ipcChannels.playback.spectrumSubscribe, request),
@@ -145,6 +146,8 @@ export const auralisApi: AuralisApi = {
   },
   archive: {
     getBadgeAchievements: () => invoke(ipcChannels.archive.getBadgeAchievements),
+    onBadgeAchievementsChanged: (callback) =>
+      on(ipcChannels.archive.badgeAchievementsChanged, callback),
     getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
     getAnnualSummary: (year) => invoke(ipcChannels.archive.getAnnualSummary, { year }),
     getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),

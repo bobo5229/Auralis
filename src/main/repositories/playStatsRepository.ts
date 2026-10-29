@@ -211,14 +211,6 @@ export class PlayStatsRepository extends BaseRepository {
 
   resetAll(): void {
     this.db.transaction(() => {
-      this.db.prepare('UPDATE badge_listening_epoch SET epoch=epoch+1 WHERE id=1').run()
-      for (const table of [
-        'badge_legacy_daily',
-        'badge_listening_daily',
-        'badge_track_coverage',
-        'badge_listening_sessions',
-      ])
-        this.db.prepare(`DELETE FROM ${table}`).run()
       this.db.prepare('DELETE FROM daily_track_play_stats').run()
       this.db.prepare('DELETE FROM daily_play_stats').run()
       this.db.prepare('DELETE FROM track_play_stats').run()

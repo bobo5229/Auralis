@@ -1,4 +1,4 @@
-import type { ListeningProgressBatch } from '@shared/types/badgeAchievements'
+import type { ListeningProgressBatch } from '@shared/types/listeningEvidence'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ListeningProgressTracker } from './listeningProgressTracker'
 let tracker: ListeningProgressTracker,

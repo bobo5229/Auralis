@@ -10,11 +10,13 @@ function fixture(trusted = true) {
     isTrustedSender: () => trusted,
   })
   const record = vi.fn(() => ({ ok: true, epoch: 0 })),
+    getEpoch = vi.fn(() => 17),
     getAchievements = vi.fn(),
     changed = vi.fn()
-  registerBadgeAchievementIpcHandlers(registrar, { record, getAchievements }, changed)
+  registerBadgeAchievementIpcHandlers(registrar, { record, getEpoch, getAchievements }, changed)
   return {
     record,
+    getEpoch,
     changed,
     getAchievements,
     invoke: (c: string, ...args: unknown[]) => handlers.get(c)!({} as IpcMainInvokeEvent, ...args),
@@ -61,4 +63,12 @@ it('accepts only a void read and never writes during achievement queries', () =>
   expect(() => f.invoke('archive:get-badge-achievements', {})).toThrow(IpcPayloadValidationError)
   expect(f.record).not.toHaveBeenCalled()
   expect(f.changed).not.toHaveBeenCalled()
+})
+it('reads the epoch without calculating achievements and enforces sender and void payload', () => {
+  const f = fixture()
+  expect(f.invoke('playback:get-listening-epoch')).toBe(17)
+  expect(f.getEpoch).toHaveBeenCalledOnce()
+  expect(f.getAchievements).not.toHaveBeenCalled()
+  expect(() => f.invoke('playback:get-listening-epoch', {})).toThrow(IpcPayloadValidationError)
+  expect(() => fixture(false).invoke('playback:get-listening-epoch')).toThrow(IpcInvokeSourceError)
 })
