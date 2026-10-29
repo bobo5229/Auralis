@@ -355,12 +355,11 @@
     },
     "appearance": {
       "groups": {
-        "themeColors": "Theme colors",
-        "interfaceStyles": "Interface styles",
-        "textDisplay": "Text display",
-        "lyricsAndMotion": "Lyrics and motion",
-        "generalPreferences": "General preferences",
-        "featureSwitches": "Feature switches"
+        "themeColors": "Theme and colors",
+        "interfaceStyles": "Interface layout and style",
+        "languageAndText": "Language and text",
+        "lyrics": "Lyrics",
+        "startupAndWindow": "Startup and window"
       },
       "startupAlbum": {
         "title": "Recommend an album at startup",

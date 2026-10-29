@@ -355,12 +355,11 @@
     },
     "appearance": {
       "groups": {
-        "themeColors": "主题颜色",
-        "interfaceStyles": "界面样式",
-        "textDisplay": "文字显示",
-        "lyricsAndMotion": "歌词与动效",
-        "generalPreferences": "通用偏好",
-        "featureSwitches": "功能开关"
+        "themeColors": "主题与颜色",
+        "interfaceStyles": "界面布局与样式",
+        "languageAndText": "语言与文字",
+        "lyrics": "歌词",
+        "startupAndWindow": "启动与窗口"
       },
       "startupAlbum": {
         "title": "启动时推荐一张专辑",

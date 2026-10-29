@@ -20,35 +20,28 @@ const rows = [
 </script>
 
 <template>
-  <div class="settings-group chinese-text-settings">
-    <div class="settings-group-header">
-      <h2 class="settings-group-title">{{ t('settings.appearance.groups.textDisplay') }}</h2>
+  <div v-for="row in rows" :key="row.id" class="settings-row settings-row--with-desc">
+    <div>
+      <strong>{{ t(`settings.appearance.textDisplay.${row.id}`) }}</strong>
+      <span :id="`text-display-${row.id}-description`">{{
+        t(`settings.appearance.textDisplay.${row.id}Description`)
+      }}</span>
+      <span v-if="row.failed.value" role="status">{{
+        t('settings.appearance.textDisplay.persistFailed')
+      }}</span>
     </div>
-    <div class="settings-group-card">
-      <div v-for="row in rows" :key="row.id" class="settings-row settings-row--with-desc">
-        <div>
-          <strong>{{ t(`settings.appearance.textDisplay.${row.id}`) }}</strong>
-          <span :id="`text-display-${row.id}-description`">{{
-            t(`settings.appearance.textDisplay.${row.id}Description`)
-          }}</span>
-          <span v-if="row.failed.value" role="status">{{
-            t('settings.appearance.textDisplay.persistFailed')
-          }}</span>
-        </div>
-        <SettingsSegmentedControl
-          :id="`text-display-${row.id}`"
-          :label="t(`settings.appearance.textDisplay.${row.id}`)"
-          :describedby="`text-display-${row.id}-description`"
-          :model-value="row.value.value"
-          :options="
-            options.map((value) => ({
-              value,
-              label: t(`settings.appearance.textDisplay.${value}`),
-            }))
-          "
-          @update:model-value="row.set($event as (typeof options)[number])"
-        />
-      </div>
-    </div>
+    <SettingsSegmentedControl
+      :id="`text-display-${row.id}`"
+      :label="t(`settings.appearance.textDisplay.${row.id}`)"
+      :describedby="`text-display-${row.id}-description`"
+      :model-value="row.value.value"
+      :options="
+        options.map((value) => ({
+          value,
+          label: t(`settings.appearance.textDisplay.${value}`),
+        }))
+      "
+      @update:model-value="row.set($event as (typeof options)[number])"
+    />
   </div>
 </template>

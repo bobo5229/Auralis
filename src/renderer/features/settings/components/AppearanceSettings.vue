@@ -263,15 +263,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
         <h2 class="settings-group-title">{{ t('settings.appearance.groups.themeColors') }}</h2>
       </div>
       <div class="settings-group-card">
-        <ThemeAccentSettings />
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.appearance.groups.interfaceStyles') }}</h2>
-      </div>
-      <div class="settings-group-card">
         <div class="settings-row">
           <div>
             <strong>{{ t('settings.appearance.theme') }}</strong>
@@ -284,6 +275,15 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectTheme($event as ThemeMode)"
           />
         </div>
+        <ThemeAccentSettings />
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.interfaceStyles') }}</h2>
+      </div>
+      <div class="settings-group-card">
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.sidebarLayout') }}</strong>
@@ -433,83 +433,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
           />
         </div>
-        <div class="settings-row settings-row--with-desc settings-row--english-font">
-          <div>
-            <strong id="appearance-english-font-label">{{
-              t('settings.appearance.englishFont.title')
-            }}</strong>
-            <span id="appearance-english-font-description">{{
-              t('settings.appearance.englishFont.description')
-            }}</span>
-            <span v-if="englishFontPersistFailed" role="status">{{
-              t('settings.appearance.englishFont.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSelect
-            id="appearance-english-font"
-            labelledby="appearance-english-font-label"
-            describedby="appearance-english-font-description"
-            :model-value="englishFont"
-            :options="englishFontOptions"
-            :show-value-title="false"
-            @update:model-value="setEnglishFont($event as EnglishFontChoice)"
-          />
-        </div>
-        <div class="settings-row settings-row--with-desc settings-row--chinese-font">
-          <div>
-            <strong id="appearance-chinese-font-label">{{
-              t('settings.appearance.chineseFont.title')
-            }}</strong>
-            <span id="appearance-chinese-font-description">{{
-              t('settings.appearance.chineseFont.description')
-            }}</span>
-            <span v-if="chineseFontPersistFailed" role="status">{{
-              t('settings.appearance.chineseFont.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSelect
-            id="appearance-chinese-font"
-            labelledby="appearance-chinese-font-label"
-            describedby="appearance-chinese-font-description"
-            :model-value="chineseFont"
-            :options="chineseFontOptions"
-            :show-value-title="false"
-            @update:model-value="setChineseFont($event as ChineseFontChoice)"
-          />
-        </div>
-      </div>
-    </div>
-
-    <ChineseTextSettings />
-
-    <div class="settings-group">
-      <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.appearance.groups.lyricsAndMotion') }}</h2>
-      </div>
-      <div class="settings-group-card">
-        <LyricsPanelLayoutSettings />
-        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
-          <div>
-            <strong id="appearance-lyrics-scroll-label">{{
-              t('settings.appearance.lyricsScroll.title')
-            }}</strong>
-            <span id="appearance-lyrics-scroll-description">{{
-              t('settings.appearance.lyricsScroll.description')
-            }}</span>
-            <span v-if="lyricsScrollPersistFailed" role="status">{{
-              t('settings.appearance.lyricsScroll.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSegmentedControl
-            id="appearance-lyrics-scroll"
-            labelledby="appearance-lyrics-scroll-label"
-            describedby="appearance-lyrics-scroll-description"
-            :model-value="lyricsScrollPreset"
-            :options="lyricsScrollOptions"
-            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
-          />
-        </div>
-        <LyricsCountdownSettings />
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
@@ -534,9 +457,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
 
     <div class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">
-          {{ t('settings.appearance.groups.generalPreferences') }}
-        </h2>
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.languageAndText') }}</h2>
       </div>
       <div class="settings-group-card">
         <div class="settings-row settings-row--with-desc">
@@ -562,58 +483,140 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectLocale($event as UiLocale)"
           />
         </div>
-        <WindowBehaviorSettings />
+        <div class="settings-row settings-row--with-desc settings-row--chinese-font">
+          <div>
+            <strong id="appearance-chinese-font-label">{{
+              t('settings.appearance.chineseFont.title')
+            }}</strong>
+            <span id="appearance-chinese-font-description">{{
+              t('settings.appearance.chineseFont.description')
+            }}</span>
+            <span v-if="chineseFontPersistFailed" role="status">{{
+              t('settings.appearance.chineseFont.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-chinese-font"
+            labelledby="appearance-chinese-font-label"
+            describedby="appearance-chinese-font-description"
+            :model-value="chineseFont"
+            :options="chineseFontOptions"
+            :show-value-title="false"
+            @update:model-value="setChineseFont($event as ChineseFontChoice)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--english-font">
+          <div>
+            <strong id="appearance-english-font-label">{{
+              t('settings.appearance.englishFont.title')
+            }}</strong>
+            <span id="appearance-english-font-description">{{
+              t('settings.appearance.englishFont.description')
+            }}</span>
+            <span v-if="englishFontPersistFailed" role="status">{{
+              t('settings.appearance.englishFont.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-english-font"
+            labelledby="appearance-english-font-label"
+            describedby="appearance-english-font-description"
+            :model-value="englishFont"
+            :options="englishFontOptions"
+            :show-value-title="false"
+            @update:model-value="setEnglishFont($event as EnglishFontChoice)"
+          />
+        </div>
+        <ChineseTextSettings />
       </div>
     </div>
 
-    <LyricsEffectsSettings>
-      <div class="settings-row settings-row--with-desc settings-row--startup-album">
-        <div>
-          <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
-          <span id="startup-album-description">{{
-            t('settings.appearance.startupAlbum.description')
-          }}</span>
-          <span v-if="startupAlbumPersistFailed" role="status">{{
-            t('settings.appearance.startupAlbum.persistFailed')
-          }}</span>
-          <span v-if="startupAlbumDrawError" role="status">{{
-            t(`settings.appearance.startupAlbum.${startupAlbumDrawError}`)
-          }}</span>
-        </div>
-        <div class="startup-album-actions">
-          <button
-            type="button"
-            class="settings-switch"
-            role="switch"
-            :aria-checked="startupAlbumEnabled"
-            :aria-label="t('settings.appearance.startupAlbum.title')"
-            aria-describedby="startup-album-description"
-            :class="{ 'is-enabled': startupAlbumEnabled }"
-            data-startup-setting
-            @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
-          >
-            <span class="settings-switch-thumb" aria-hidden="true" />
-          </button>
-          <button
-            ref="startupAlbumDrawButton"
-            type="button"
-            class="settings-text-button startup-album-draw"
-            :disabled="!startupAlbumActions || startupAlbumDrawing"
-            :aria-busy="startupAlbumDrawing"
-            data-startup-album-draw
-            @click="drawStartupAlbum"
-          >
-            {{
-              t(
-                startupAlbumDrawing
-                  ? 'settings.appearance.startupAlbum.drawing'
-                  : 'settings.appearance.startupAlbum.drawNow',
-              )
-            }}
-          </button>
-        </div>
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.lyrics') }}</h2>
       </div>
-    </LyricsEffectsSettings>
+      <div class="settings-group-card">
+        <LyricsPanelLayoutSettings />
+        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
+          <div>
+            <strong id="appearance-lyrics-scroll-label">{{
+              t('settings.appearance.lyricsScroll.title')
+            }}</strong>
+            <span id="appearance-lyrics-scroll-description">{{
+              t('settings.appearance.lyricsScroll.description')
+            }}</span>
+            <span v-if="lyricsScrollPersistFailed" role="status">{{
+              t('settings.appearance.lyricsScroll.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-lyrics-scroll"
+            labelledby="appearance-lyrics-scroll-label"
+            describedby="appearance-lyrics-scroll-description"
+            :model-value="lyricsScrollPreset"
+            :options="lyricsScrollOptions"
+            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
+          />
+        </div>
+        <LyricsCountdownSettings />
+        <LyricsEffectsSettings />
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.startupAndWindow') }}</h2>
+      </div>
+      <div class="settings-group-card">
+        <div class="settings-row settings-row--with-desc settings-row--startup-album">
+          <div>
+            <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
+            <span id="startup-album-description">{{
+              t('settings.appearance.startupAlbum.description')
+            }}</span>
+            <span v-if="startupAlbumPersistFailed" role="status">{{
+              t('settings.appearance.startupAlbum.persistFailed')
+            }}</span>
+            <span v-if="startupAlbumDrawError" role="status">{{
+              t(`settings.appearance.startupAlbum.${startupAlbumDrawError}`)
+            }}</span>
+          </div>
+          <div class="startup-album-actions">
+            <button
+              type="button"
+              class="settings-switch"
+              role="switch"
+              :aria-checked="startupAlbumEnabled"
+              :aria-label="t('settings.appearance.startupAlbum.title')"
+              aria-describedby="startup-album-description"
+              :class="{ 'is-enabled': startupAlbumEnabled }"
+              data-startup-setting
+              @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
+            >
+              <span class="settings-switch-thumb" aria-hidden="true" />
+            </button>
+            <button
+              ref="startupAlbumDrawButton"
+              type="button"
+              class="settings-text-button startup-album-draw"
+              :disabled="!startupAlbumActions || startupAlbumDrawing"
+              :aria-busy="startupAlbumDrawing"
+              data-startup-album-draw
+              @click="drawStartupAlbum"
+            >
+              {{
+                t(
+                  startupAlbumDrawing
+                    ? 'settings.appearance.startupAlbum.drawing'
+                    : 'settings.appearance.startupAlbum.drawNow',
+                )
+              }}
+            </button>
+          </div>
+        </div>
+        <WindowBehaviorSettings />
+      </div>
+    </div>
   </section>
 </template>
 
@@ -656,6 +659,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
   max-width: 760px;
 }
 
+.appearance-settings :deep(.settings-row + .dark-accent-settings),
 .liquid-glass-parameters,
 .liquid-glass-parameters + .settings-row {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
