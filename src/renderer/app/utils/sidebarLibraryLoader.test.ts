@@ -1,3 +1,4 @@
+import { createSidebarPlaylistCollection } from './sidebarPlaylistCollection'
 import { createRenderer, defineComponent, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
@@ -35,7 +36,8 @@ function item(
   return { ...smart(id, { preset: 'mostListened' }), kind, trackCount }
 }
 function fixture(initialSmart = [smart(1, { preset: 'mostListened' })]) {
-  const playlistItems = ref<SidebarPlaylistItem[]>([item(1)])
+  const playlists = createSidebarPlaylistCollection([item(1)]),
+    playlistItems = playlists.items
   const smartPlaylists = ref(initialSmart)
   const libraryStats = ref({ trackCount: 8, albumCount: 2 })
   const listSidebarItems = vi.fn(async () => [item(1)])
@@ -45,7 +47,7 @@ function fixture(initialSmart = [smart(1, { preset: 'mostListened' })]) {
   )
   const getStats = vi.fn(async () => ({ trackCount: 8, albumCount: 2 }))
   const loader = createSidebarLibraryLoader({
-    playlistItems,
+    playlists,
     smartPlaylists,
     libraryStats,
     listSidebarItems,
@@ -55,6 +57,7 @@ function fixture(initialSmart = [smart(1, { preset: 'mostListened' })]) {
   })
   return {
     loader,
+    playlists,
     playlistItems,
     smartPlaylists,
     libraryStats,
@@ -74,10 +77,10 @@ describe('sidebarLibraryLoader', () => {
       smart(4, { preset: 'recentAdded', days: 7 }),
       smart(5, { conditions: [{ field: 'genre', value: 'Rock' }] }),
     ])
-    f.playlistItems.value = [
-      item(6, 'playlist', 6),
-      ...[1, 2, 3, 4, 5].map((id) => item(id, 'smart', id)),
-    ]
+    f.playlists.applyLoadedItems(
+      [item(6, 'playlist', 6), ...[1, 2, 3, 4, 5].map((id) => item(id, 'smart', id))],
+      f.playlists.captureLoadVersion(),
+    )
     f.listSmartTrackCounts.mockResolvedValue(
       [1, 2, 3, 4, 5].map((playlistId) => ({ playlistId, trackCount: 0 })),
     )
@@ -132,14 +135,16 @@ describe('sidebarLibraryLoader', () => {
   it('merges an asynchronous count result into current order and preserves additions, deletion and metadata', async () => {
     const f = fixture([smart(1, { preset: 'mostListened' }), smart(2, { preset: 'mostListened' })])
     const gate = deferred<SmartPlaylistTrackCount[]>()
-    f.playlistItems.value = [item(1), item(2), item(3, 'playlist')]
+    f.playlists.applyLoadedItems(
+      [item(1), item(2), item(3, 'playlist')],
+      f.playlists.captureLoadVersion(),
+    )
     f.listSmartTrackCounts.mockImplementation(() => gate.promise)
     const pending = f.loader.refreshPlayStats()
-    f.playlistItems.value = [
-      item(3, 'playlist'),
-      { ...item(2), name: 'Renamed', sortOrder: 0 },
-      item(4, 'playlist'),
-    ]
+    f.playlists.applyLoadedItems(
+      [item(3, 'playlist'), { ...item(2), name: 'Renamed', sortOrder: 0 }, item(4, 'playlist')],
+      f.playlists.captureLoadVersion(),
+    )
     gate.resolve([
       { playlistId: 1, trackCount: 99 },
       { playlistId: 2, trackCount: 2 },
@@ -152,7 +157,7 @@ describe('sidebarLibraryLoader', () => {
 
   it('reconciles a statistics event while initial playlist rules are loading', async () => {
     const f = fixture([])
-    f.playlistItems.value = []
+    f.playlists.applyLoadedItems([], f.playlists.captureLoadVersion())
     const gate = deferred<SidebarPlaylistItem[]>()
     f.listSidebarItems.mockImplementation(() => gate.promise)
     f.listSmartPlaylists.mockResolvedValue([smart(1, { preset: 'mostListened' })])
@@ -184,7 +189,7 @@ describe('sidebarLibraryLoader', () => {
     const gate = deferred<SidebarPlaylistItem[]>()
     f.listSidebarItems.mockImplementation(() => gate.promise)
     const loading = f.loader.loadStats()
-    f.playlistItems.value = [item(3, 'playlist'), item(1)]
+    f.playlists.beginOrder([item(3, 'playlist'), item(1)])
     gate.resolve([item(1), item(2, 'playlist')])
     await loading
     expect(f.playlistItems.value.map((entry) => entry.id)).toEqual([3, 1])
@@ -194,7 +199,7 @@ describe('sidebarLibraryLoader', () => {
   it('reconciles counts updated during the real reorder save without restoring old counts or order', async () => {
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
     const f = fixture()
-    f.playlistItems.value = [item(1), item(2, 'playlist')]
+    f.playlists.applyLoadedItems([item(1), item(2, 'playlist')], f.playlists.captureLoadVersion())
     const counts = deferred<SmartPlaylistTrackCount[]>()
     const saved = deferred<SidebarPlaylistItem[]>()
     f.listSmartTrackCounts.mockImplementation(() => counts.promise)
@@ -216,7 +221,7 @@ describe('sidebarLibraryLoader', () => {
       defineComponent({
         setup() {
           reorder = useSidebarPlaylistReorder({
-            playlistItems: f.playlistItems,
+            playlists: f.playlists,
             persistOrder: () => saved.promise,
             reload: () => f.loader.loadPlaylists(),
           })

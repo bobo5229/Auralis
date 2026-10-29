@@ -3,7 +3,7 @@ import { unlinkSync, type Dirent } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
-import { isCacheFileName } from './artworkCachePolicy'
+import { isCacheFileName } from '@main/shared/artworkCachePolicy'
 import { AlbumMaintenanceRepository } from '@main/repositories/albumMaintenanceRepository'
 
 export interface ArtworkCacheGarbageCollectionSummary {

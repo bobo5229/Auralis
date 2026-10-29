@@ -1,5 +1,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import type { SidebarPlaylistOrder, SidebarOrderToken } from './sidebarPlaylistCollection'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import {
   createSidebarPlaylistDragMotion,
@@ -22,12 +23,12 @@ function findPlaylistElementAtPoint(clientX: number, clientY: number): HTMLEleme
 }
 
 export function useSidebarPlaylistReorder(options: {
-  playlistItems: Ref<SidebarPlaylistItem[]>
+  playlists: SidebarPlaylistOrder
   scrollContainer?: Ref<HTMLElement | null>
   playlistContainer?: Ref<HTMLElement | null>
   persistOrder: (
     items: Array<{ kind: SidebarPlaylistItem['kind']; id: number }>,
-  ) => Promise<SidebarPlaylistItem[]>
+  ) => Promise<readonly SidebarPlaylistItem[]>
   reload: () => Promise<void>
 }) {
   const pressedPlaylistKey = ref<string | null>(null)
@@ -54,26 +55,11 @@ export function useSidebarPlaylistReorder(options: {
   let motion: ReturnType<typeof createSidebarPlaylistDragMotion> | null = null
   let visualRevision = 0
   let focusRevision = 0
-  let dataRevision = 0
-  let assigning = false
   let disposed = false
-  let confirmedItems = options.playlistItems.value
-
-  function assignItems(items: SidebarPlaylistItem[]): void {
-    assigning = true
-    try {
-      options.playlistItems.value = items
-    } finally {
-      assigning = false
-    }
-  }
 
   watch(
-    options.playlistItems,
-    (items) => {
-      if (assigning) return
-      dataRevision += 1
-      confirmedItems = items
+    options.playlists.externalRevision,
+    () => {
       if (pending || isSettling.value) cancel(true)
     },
     { flush: 'sync' },
@@ -215,7 +201,7 @@ export function useSidebarPlaylistReorder(options: {
     target: SidebarPlaylistDropTarget | null,
   ): SidebarPlaylistItem[] | null {
     if (!target) return null
-    const current = options.playlistItems.value
+    const current = options.playlists.items.value
     const source = current.find((item) => playlistKey(item) === sourceKey)
     const next = current.filter((item) => playlistKey(item) !== sourceKey)
     const index = next.findIndex((item) => playlistKey(item) === target.key)
@@ -236,18 +222,20 @@ export function useSidebarPlaylistReorder(options: {
     row?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
   }
 
-  async function reloadConfirmed(error: 'save' | null): Promise<void> {
+  async function reloadConfirmed(
+    error: 'save' | null,
+    orderToken: SidebarOrderToken,
+  ): Promise<void> {
     releaseGesture()
     clearVisuals()
     try {
       await options.reload()
       if (!disposed) {
-        confirmedItems = options.playlistItems.value
         reorderError.value = error
       }
     } catch {
       if (!disposed) {
-        assignItems(confirmedItems)
+        options.playlists.rollbackOrder(orderToken)
         reorderError.value = 'reload'
       }
     }
@@ -257,34 +245,33 @@ export function useSidebarPlaylistReorder(options: {
     next: SidebarPlaylistItem[],
     sourceKey: string,
     keyboard: boolean,
+    orderToken: SidebarOrderToken,
   ): Promise<void> {
     isSaving.value = true
     reorderError.value = null
     announcement.value = null
-    const startedRevision = dataRevision
     const focusToken = focusRevision
     try {
-      let saved: SidebarPlaylistItem[]
+      let saved: readonly SidebarPlaylistItem[]
       try {
         saved = await options.persistOrder(next.map((item) => ({ kind: item.kind, id: item.id })))
       } catch {
-        if (!disposed) await reloadConfirmed('save')
+        if (!disposed) await reloadConfirmed('save', orderToken)
         return
       }
       if (disposed) return
-      if (dataRevision !== startedRevision) {
-        await reloadConfirmed(null)
+      if (!options.playlists.commitOrder(orderToken, saved)) {
+        await reloadConfirmed(null, orderToken)
         if (disposed || reorderError.value) return
-      } else {
-        assignItems(saved)
-        confirmedItems = saved
       }
-      const index = options.playlistItems.value.findIndex((item) => playlistKey(item) === sourceKey)
+      const index = options.playlists.items.value.findIndex(
+        (item) => playlistKey(item) === sourceKey,
+      )
       if (index >= 0)
         announcement.value = {
-          name: options.playlistItems.value[index].name,
+          name: options.playlists.items.value[index].name,
           position: index + 1,
-          total: options.playlistItems.value.length,
+          total: options.playlists.items.value.length,
         }
     } finally {
       if (!disposed) {
@@ -306,8 +293,8 @@ export function useSidebarPlaylistReorder(options: {
     releaseGesture()
     if (wasDragging) {
       if (next) {
-        assignItems(next)
-        void saveOrder(next, key, false)
+        const orderToken = options.playlists.beginOrder(next)
+        void saveOrder(next, key, false, orderToken)
       }
       settle(next !== null)
       clearClickSuppressionSoon()
@@ -326,7 +313,7 @@ export function useSidebarPlaylistReorder(options: {
   }
 
   function canMove(item: SidebarPlaylistItem, direction: -1 | 1): boolean {
-    const index = options.playlistItems.value.findIndex(
+    const index = options.playlists.items.value.findIndex(
       (candidate) => playlistKey(candidate) === playlistKey(item),
     )
     return (
@@ -334,7 +321,7 @@ export function useSidebarPlaylistReorder(options: {
       draggingPlaylistKey.value === null &&
       index >= 0 &&
       index + direction >= 0 &&
-      index + direction < options.playlistItems.value.length
+      index + direction < options.playlists.items.value.length
     )
   }
 
@@ -342,13 +329,16 @@ export function useSidebarPlaylistReorder(options: {
     if (!canMove(item, direction)) return
     cancel(true)
     const key = playlistKey(item)
-    const next = [...options.playlistItems.value]
+    const next = [...options.playlists.items.value]
     const index = next.findIndex((candidate) => playlistKey(candidate) === key)
     const neighbour = next[index + direction]
     next[index + direction] = next[index]
     next[index] = neighbour
     const token = ++visualRevision
-    const mutate = () => assignItems(next)
+    let orderToken!: SidebarOrderToken
+    const mutate = () => {
+      orderToken = options.playlists.beginOrder(next)
+    }
     isSettling.value = motion !== null
     let animation: Promise<void>
     if (motion) animation = motion.reorderWithKeyboard([key, playlistKey(neighbour)], mutate)
@@ -360,7 +350,7 @@ export function useSidebarPlaylistReorder(options: {
       if (token === visualRevision && !disposed) isSettling.value = false
     })
     void focusRow(key)
-    void saveOrder(next, key, true)
+    void saveOrder(next, key, true, orderToken)
   }
 
   function onEscape(event: KeyboardEvent): void {

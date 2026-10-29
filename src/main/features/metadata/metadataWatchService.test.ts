@@ -107,7 +107,7 @@ describe('metadata watcher shutdown', () => {
       } as unknown as TrackRepository,
       { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
       { importFiles } as unknown as LibraryIncrementalImportService,
-      send,
+      (event) => send('library:changed', event),
     )
     service.start()
     notify('rename', 'track.flac')
@@ -161,7 +161,7 @@ describe('metadata watcher shutdown', () => {
       } as unknown as TrackRepository,
       {} as MetadataRefreshService,
       { importFiles } as unknown as LibraryIncrementalImportService,
-      send,
+      (event) => send('library:changed', event),
     )
     service.start()
     notify('rename', 'new.flac')

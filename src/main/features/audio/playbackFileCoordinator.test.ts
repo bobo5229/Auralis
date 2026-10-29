@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { PlaybackFileCoordinator } from './playbackFileCoordinator'
-import { ipcChannels } from '@shared/ipc/channels'
 
 function setupCoordinator() {
   const trackFiles = new Map<number, string>([
@@ -9,7 +8,7 @@ function setupCoordinator() {
     [3, 'D:/music/song2.flac'],
   ])
 
-  const sendToRenderer = vi.fn()
+  const trackEditStateChanged = vi.fn()
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (trackId) => trackFiles.get(trackId) ?? null,
     getTrackIdsByFilePath: (filePath) => {
@@ -22,10 +21,10 @@ function setupCoordinator() {
       }
       return matching
     },
-    sendToRenderer,
+    trackEditStateChanged,
   })
 
-  return { coordinator, sendToRenderer, trackFiles }
+  return { coordinator, trackEditStateChanged, trackFiles }
 }
 
 describe('PlaybackFileCoordinator', () => {
@@ -105,11 +104,10 @@ describe('PlaybackFileCoordinator', () => {
     },
   )
   it('distinguishes preloaded files while preserving exclusive write protection', async () => {
-    const { coordinator, sendToRenderer } = setupCoordinator()
+    const { coordinator, trackEditStateChanged } = setupCoordinator()
     const next = await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-next')
     expect(coordinator.getTrackState(1).status).toBe('preload-in-use')
-    expect(sendToRenderer).toHaveBeenLastCalledWith(
-      ipcChannels.metadata.trackEditStateChanged,
+    expect(trackEditStateChanged).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: 'preload-in-use' }),
     )
     expect(coordinator.tryAcquireWriteLease('D:/music/song1.flac')).toEqual({
@@ -146,7 +144,7 @@ describe('PlaybackFileCoordinator', () => {
   })
 
   it('does not offer buffered writes when a renderer or another non-cooperating reader owns the file', async () => {
-    const { coordinator, sendToRenderer } = setupCoordinator()
+    const { coordinator, trackEditStateChanged } = setupCoordinator()
     coordinator.setBufferedWriteCapability(() => true)
     await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-current')
     const other = await coordinator.acquireReadLease('D:/music/song1.flac', 'html-audio')
@@ -154,8 +152,7 @@ describe('PlaybackFileCoordinator', () => {
     expect(coordinator.reserveWriteIntent('D:/music/song1.flac')).toBeNull()
     coordinator.releaseReadLease(other.leaseId)
     expect(coordinator.getTrackState(1).status).toBe('playback-editable')
-    expect(sendToRenderer).toHaveBeenLastCalledWith(
-      ipcChannels.metadata.trackEditStateChanged,
+    expect(trackEditStateChanged).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: 'playback-editable' }),
     )
   })
@@ -174,27 +171,27 @@ describe('PlaybackFileCoordinator', () => {
 
   it('looks up catalog events with the original path rather than the canonical lease key', async () => {
     const path = 'D:\\Music\\Review.flac'
-    const sendToRenderer = vi.fn()
+    const trackEditStateChanged = vi.fn()
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: () => path,
       getTrackIdsByFilePath: (candidate) => (candidate === path ? [1] : []),
-      sendToRenderer,
+      trackEditStateChanged,
     })
     const lease = await coordinator.acquireReadLease(path, 'player')
-    expect(sendToRenderer).toHaveBeenCalledWith(ipcChannels.metadata.trackEditStateChanged, {
+    expect(trackEditStateChanged).toHaveBeenCalledWith({
       trackId: 1,
       status: 'playback-in-use',
       version: lease.version,
     })
     coordinator.releaseReadLease(lease.leaseId)
-    expect(sendToRenderer).toHaveBeenLastCalledWith(ipcChannels.metadata.trackEditStateChanged, {
+    expect(trackEditStateChanged).toHaveBeenLastCalledWith({
       trackId: 1,
       status: 'editable',
       version: expect.any(Number),
     })
   })
   it('acquires read lease and broadcasts playback-in-use to all trackIds sharing the file', async () => {
-    const { coordinator, sendToRenderer } = setupCoordinator()
+    const { coordinator, trackEditStateChanged } = setupCoordinator()
 
     const { leaseId, version } = await coordinator.acquireReadLease(
       'D:/music/song1.flac',
@@ -204,12 +201,12 @@ describe('PlaybackFileCoordinator', () => {
     expect(version).toBe(1)
 
     // Broadcasts to both track 1 and track 2
-    expect(sendToRenderer).toHaveBeenCalledWith(ipcChannels.metadata.trackEditStateChanged, {
+    expect(trackEditStateChanged).toHaveBeenCalledWith({
       trackId: 1,
       status: 'playback-in-use',
       version: 1,
     })
-    expect(sendToRenderer).toHaveBeenCalledWith(ipcChannels.metadata.trackEditStateChanged, {
+    expect(trackEditStateChanged).toHaveBeenCalledWith({
       trackId: 2,
       status: 'playback-in-use',
       version: 1,
@@ -234,18 +231,17 @@ describe('PlaybackFileCoordinator', () => {
   })
 
   it('multiple readers keep playback-in-use until the last reader releases', async () => {
-    const { coordinator, sendToRenderer } = setupCoordinator()
+    const { coordinator, trackEditStateChanged } = setupCoordinator()
 
     const read1 = await coordinator.acquireReadLease('D:/music/song1.flac', 'reader-1')
     const read2 = await coordinator.acquireReadLease('D:/music/song1.flac', 'reader-2')
 
-    sendToRenderer.mockClear()
+    trackEditStateChanged.mockClear()
     coordinator.releaseReadLease(read1.leaseId)
 
     // Still in use because reader-2 is active
     expect(coordinator.getTrackState(1).status).toBe('playback-in-use')
-    expect(sendToRenderer).not.toHaveBeenCalledWith(
-      ipcChannels.metadata.trackEditStateChanged,
+    expect(trackEditStateChanged).not.toHaveBeenCalledWith(
       expect.objectContaining({ status: 'editable' }),
     )
 
@@ -253,7 +249,7 @@ describe('PlaybackFileCoordinator', () => {
 
     // Now released
     expect(coordinator.getTrackState(1).status).toBe('editable')
-    expect(sendToRenderer).toHaveBeenCalledWith(ipcChannels.metadata.trackEditStateChanged, {
+    expect(trackEditStateChanged).toHaveBeenCalledWith({
       trackId: 1,
       status: 'editable',
       version: expect.any(Number),

@@ -446,7 +446,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: () => path,
       getTrackIdsByFilePath: () => [1],
-      sendToRenderer: () => {},
+      trackEditStateChanged: () => {},
     })
     const service = new NativePlaybackService({
       mpvPath,

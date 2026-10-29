@@ -1,6 +1,6 @@
 import { stat } from 'node:fs/promises'
 import type { TrackRepository } from '@main/repositories/trackRepository'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
 import { logger } from '@main/logging/logger'
 import { isTransientStatError } from './metadataWatchStatErrors'
 
@@ -22,7 +22,7 @@ export class MetadataMissingConfirmation {
   constructor(
     private readonly trackRepository: TrackRepository,
     private readonly statRetries: Map<string, number>,
-    private readonly sendToRenderer: RendererEventSender,
+    private readonly libraryChanged: (event: LibraryChangedEvent) => void,
     private readonly lifecycle: ConfirmationLifecycle,
   ) {}
 
@@ -151,7 +151,7 @@ export class MetadataMissingConfirmation {
     trackIds: number[],
     filePaths: string[],
   ): void {
-    this.sendToRenderer('library:changed', {
+    this.libraryChanged({
       reason,
       trackIds,
       filePaths,

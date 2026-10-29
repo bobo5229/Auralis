@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import sharp from 'sharp'
-import { isArtworkTempFileName, isCurrentArtworkCacheKey } from './artworkCachePolicy'
+import { isArtworkTempFileName, isCurrentArtworkCacheKey } from '@main/shared/artworkCachePolicy'
 import { convertArtworkToWebp, writeArtworkToCache } from './artworkCache'
 import type { ArtworkSource } from './artworkTypes'
 

@@ -82,7 +82,7 @@ function setup(initialRoots = [oldRoot]) {
     } as unknown as TrackRepository,
     { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
     { importFiles } as unknown as LibraryIncrementalImportService,
-    send,
+    (event) => send('library:changed', event),
   )
   services.push(service)
   service.start()

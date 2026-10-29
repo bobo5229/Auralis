@@ -4,9 +4,9 @@ import type { LyricLine } from '../types'
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { warn: vi.fn() },
 }))
-vi.mock('./useTrackLyrics', async () => {
+const lyricsFixture = await vi.hoisted(async () => {
   const { ref } = await import('vue')
-  const state = {
+  return {
     status: ref('lrc'),
     rawLyrics: ref<string | null>('頭髮\n看著你'),
     parsedLines: ref<LyricLine[]>([
@@ -15,8 +15,8 @@ vi.mock('./useTrackLyrics', async () => {
     ]),
     activeIndex: ref(0),
   }
-  return { useTrackLyrics: () => state }
 })
+vi.mock('./useTrackLyrics', () => ({ useTrackLyrics: () => lyricsFixture }))
 import { useTrackLyrics } from './useTrackLyrics'
 import { useDisplayedTrackLyrics } from './useDisplayedTrackLyrics'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
@@ -32,7 +32,7 @@ describe('opt-in lyric display', () => {
   it('retains word timing when conversion agrees, and falls back for cross-boundary phrases', () => {
     vi.stubGlobal('localStorage', { setItem: vi.fn() })
     const source = useTrackLyrics()
-    source.parsedLines.value = [
+    lyricsFixture.parsedLines.value = [
       {
         id: 'enhanced',
         timeSeconds: 1,
@@ -53,7 +53,7 @@ describe('opt-in lyric display', () => {
     expect(source.parsedLines.value[0].segments).toHaveLength(2)
     useChineseTextDisplay().setLyricsScript('simplified')
     expect(display.parsedLines.value[0].segments).toHaveLength(2)
-    source.parsedLines.value = [
+    lyricsFixture.parsedLines.value = [
       { id: 'line-1', timeSeconds: 12.5, text: '頭髮' },
       { id: 'line-2', timeSeconds: 18, text: '看著你' },
     ]

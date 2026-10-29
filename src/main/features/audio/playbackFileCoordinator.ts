@@ -1,8 +1,7 @@
 import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
-import { ipcChannels } from '@shared/ipc/channels'
 import type {
   TrackEditStatus,
+  TrackEditStateChangedEvent,
   TrackEditStateResult,
   UpdateTrackMetadataResult,
 } from '@shared/ipc/contracts'
@@ -34,7 +33,7 @@ interface LeaseMetadata {
 export interface PlaybackFileCoordinatorDependencies {
   getTrackFilePath: (trackId: number) => string | null
   getTrackIdsByFilePath: (filePath: string) => number[]
-  sendToRenderer: RendererEventSender
+  trackEditStateChanged: (event: TrackEditStateChangedEvent) => void
 }
 
 export class PlaybackFileCoordinator {
@@ -226,7 +225,7 @@ export class PlaybackFileCoordinator {
       [...entry.filePaths].flatMap((path) => this.dependencies.getTrackIdsByFilePath(path)),
     )
     for (const trackId of trackIds) {
-      this.dependencies.sendToRenderer(ipcChannels.metadata.trackEditStateChanged, {
+      this.dependencies.trackEditStateChanged({
         trackId,
         status: currentStatus,
         version: entry.version,

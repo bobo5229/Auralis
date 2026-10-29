@@ -382,6 +382,10 @@ export interface IpcInvokeContract {
     request: { sessionId: string }
     response: LyricsEditorResult<null>
   }
+  'playback:get-track': {
+    request: { trackId: number }
+    response: PlaybackTrackDto | null
+  }
   'playback:get-audio-url': {
     request: { trackId: number }
     response: AudioResource | null

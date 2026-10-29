@@ -12,7 +12,7 @@ import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRep
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { normalizeMetadata } from './metadataNormalizer'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
-import { normalizeEditableMetadata } from './editableMetadataValidation'
+import { normalizeEditableMetadata } from '@main/shared/editableMetadataValidation'
 import { writeAudioTags } from './audioTagWriteService'
 import { formatDelimitedValues, splitDelimitedValues } from '@shared/utils/delimitedValues'
 

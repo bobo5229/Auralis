@@ -1,4 +1,4 @@
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { EditableTrackMetadata } from '@shared/types/trackMetadata'
 import { canonicalizeDelimitedValues } from '@shared/utils/delimitedValues'
 import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
 

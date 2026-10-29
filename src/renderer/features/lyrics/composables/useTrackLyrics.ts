@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, readonly, ref, watch } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { LyricLine } from '../types'
@@ -152,10 +152,10 @@ auralis.library.onChanged((event) => {
 
 export function useTrackLyrics() {
   return {
-    status,
-    loadFailed,
-    rawLyrics,
-    parsedLines,
+    status: readonly(status),
+    loadFailed: readonly(loadFailed),
+    rawLyrics: readonly(rawLyrics),
+    parsedLines: readonly(parsedLines),
     activeIndex,
     startedSegmentIndex,
     activeSegmentIndex,

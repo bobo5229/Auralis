@@ -333,6 +333,19 @@ export class TrackQueryRepository extends BaseRepository {
     }))
   }
 
+  getPlaybackTrack(trackId: number): PlaybackTrackDto | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, title, artist, album,
+                album_artist AS albumArtist,
+                duration_seconds AS durationSeconds,
+                artwork_cache_key AS artworkCacheKey
+         FROM library_track_display WHERE id = ?`,
+      )
+      .get(trackId) as PlaybackTrackDto | undefined
+    return row ?? null
+  }
+
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {
     const baseQuery = `
       SELECT id, title, artist, album,

@@ -99,7 +99,7 @@ async function setup() {
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: () => filePath,
     getTrackIdsByFilePath: () => [1],
-    sendToRenderer: () => {},
+    trackEditStateChanged: () => {},
   })
   const runtime = new NativePlaybackSession(coordinator)
   runtime.begin(1)

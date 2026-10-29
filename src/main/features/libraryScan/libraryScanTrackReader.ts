@@ -3,7 +3,7 @@ import type { Stats } from 'node:fs'
 import { extname } from 'node:path'
 import { parseAudioMetadata as parseFile } from '../metadata/parseAudioMetadata'
 import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
-import { isCurrentArtworkCacheKey } from '../artwork/artworkCachePolicy'
+import { isCurrentArtworkCacheKey } from '@main/shared/artworkCachePolicy'
 import {
   normalizeMetadata,
   normalizeIdentityText,

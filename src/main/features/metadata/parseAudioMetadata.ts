@@ -1,7 +1,7 @@
 import { open } from 'node:fs/promises'
 import { inflateSync } from 'node:zlib'
 import { parseFile, type IAudioMetadata, type IOptions } from 'music-metadata'
-import { normalizeEditableReleaseDate } from './editableMetadataValidation'
+import { normalizeEditableReleaseDate } from '@main/shared/editableMetadataValidation'
 
 const MAX_TAG_BYTES = 64 * 1024 * 1024
 const MAX_TEXT_BYTES = 1024 * 1024

@@ -6,7 +6,7 @@ import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import { isLyricSidecar, resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
-import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
 import { MetadataWatchImportQueue } from './metadataWatchImportQueue'
 import { MetadataRootWatchers } from './metadataRootWatchers'
 import { MetadataMissingConfirmation } from './metadataMissingConfirmation'
@@ -36,7 +36,7 @@ export class MetadataWatchService {
     private readonly trackRepository: TrackRepository,
     metadataRefreshService: MetadataRefreshService,
     incrementalImportService: LibraryIncrementalImportService,
-    sendToRenderer: RendererEventSender,
+    libraryChanged: (event: LibraryChangedEvent) => void,
   ) {
     this.importQueue = new MetadataWatchImportQueue(
       incrementalImportService,
@@ -55,7 +55,7 @@ export class MetadataWatchService {
     this.missingConfirmation = new MetadataMissingConfirmation(
       trackRepository,
       this.state.statRetries,
-      sendToRenderer,
+      libraryChanged,
       {
         isStopped: () => this.state.stopped,
         isPathBusy: (filePath) => metadataRefreshService.isWritingFile?.(filePath) ?? false,

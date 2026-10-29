@@ -6,7 +6,7 @@ import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type PlaybackQueries = Pick<
   LibraryService,
-  'getRandomTrack' | 'getRandomAlbumTracks' | 'getAlbumTracks'
+  'getPlaybackTrack' | 'getRandomTrack' | 'getRandomAlbumTracks' | 'getAlbumTracks'
 >
 
 type PlayStatsOperations = Pick<
@@ -36,6 +36,9 @@ export function registerPlaybackArchiveIpcHandlers(
 ): void {
   const { libraryService, playStatsService, getAudioUrl, notifyLibraryChanged } = dependencies
 
+  registrar.handle(ipcChannels.playback.getTrack, (_event, payload) =>
+    libraryService.getPlaybackTrack(payload.trackId),
+  )
   registrar.handle(ipcChannels.playback.getAudioUrl, (_event, payload: { trackId: number }) =>
     getAudioUrl(payload.trackId),
   )

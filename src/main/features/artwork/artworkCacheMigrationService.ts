@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { parseFile } from 'music-metadata'
 import { logger } from '@main/logging/logger'
 import { writeArtworkToCache } from './artworkCache'
-import { ARTWORK_CACHE_VERSION, isLegacyArtworkCacheKey } from './artworkCachePolicy'
+import { ARTWORK_CACHE_VERSION, isLegacyArtworkCacheKey } from '@main/shared/artworkCachePolicy'
 import type { ArtworkSource } from './artworkTypes'
 
 const LEGACY_EXT_TO_MIME: Record<string, string> = {

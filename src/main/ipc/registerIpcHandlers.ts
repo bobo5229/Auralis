@@ -87,7 +87,8 @@ export function registerIpcHandlers(
   const playbackFileCoordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (trackId) => trackRepository.getFilePathById(trackId),
     getTrackIdsByFilePath: (filePath) => trackRepository.getTrackIdsByPlaybackPath(filePath),
-    sendToRenderer,
+    trackEditStateChanged: (event) =>
+      sendToRenderer(ipcChannels.metadata.trackEditStateChanged, event),
   })
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
@@ -120,7 +121,7 @@ export function registerIpcHandlers(
     trackRepository,
     metadataRefreshService,
     incrementalImportService,
-    sendToRenderer,
+    (event) => sendToRenderer(ipcChannels.library.changed, event),
   )
 
   const lrcEditorMetadata = new LrcEditorMetadataService({

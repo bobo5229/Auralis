@@ -68,6 +68,39 @@ describe('UI locale preference and live state', () => {
     expect(state.persistFailed.value).toBe(false)
     expect(readUiLocale(memory)).toBe('en')
   })
+
+  it('only changes public locale state through the operation that synchronizes its side effects', async () => {
+    const memory = storage()
+    const sync = vi.fn<(locale: UiLocale) => Promise<void>>(async () => undefined)
+    initUiLocale(sync)
+    const state = useUiLocale()
+    const other = useUiLocale()
+    state.setUiLocale('zh-Hans')
+    sync.mockClear()
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      // @ts-expect-error Consumers cannot write the shared locale.
+      state.locale.value = 'en'
+      // @ts-expect-error Failure state is owned by the locale operation.
+      state.persistFailed.value = true
+      // @ts-expect-error Failure state is owned by the locale operation.
+      state.nativeSyncFailed.value = true
+      expect(other.locale.value).toBe('zh-Hans')
+      expect(other.persistFailed.value).toBe(false)
+      expect(other.nativeSyncFailed.value).toBe(false)
+      expect(document.documentElement.lang).toBe('zh-Hans')
+      expect(memory.getItem(UI_LOCALE_STORAGE_KEY)).toBe('zh-Hans')
+      expect(sync).not.toHaveBeenCalled()
+      state.setUiLocale('en')
+      await Promise.resolve()
+      expect(other.locale.value).toBe('en')
+      expect(document.documentElement.lang).toBe('en')
+      expect(memory.getItem(UI_LOCALE_STORAGE_KEY)).toBe('en')
+      expect(sync).toHaveBeenCalledExactlyOnceWith('en')
+    } finally {
+      warning.mockRestore()
+    }
+  })
   it('reports native synchronization separately and ignores stale failed requests after another switch', async () => {
     storage()
     let rejectOld!: (error: Error) => void

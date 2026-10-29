@@ -105,7 +105,7 @@ describe('M4A publication through native playback, metadata service and real Ele
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: (id) => paths.get(id) ?? null,
       getTrackIdsByFilePath: (path) => [...paths].filter(([, p]) => p === path).map(([id]) => id),
-      sendToRenderer: send,
+      trackEditStateChanged: (event) => send('metadata:track-edit-state-changed', event),
     })
     const player = new NativePlaybackService({
       mpvPath,

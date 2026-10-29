@@ -252,6 +252,7 @@ function createApi(): AuralisApi {
       nativeCommand: vi.fn(async () => ({ accepted: true })),
       onNativeEvent: vi.fn(() => () => undefined),
       getAudioUrl: vi.fn(async (trackId: number) => ({ url: `audio://${trackId}` })),
+      getTrack: vi.fn(),
       getRandomTrack: vi.fn(),
       getRandomAlbumTracks: vi.fn(),
       getAlbumTracks: vi.fn(),

@@ -2,7 +2,7 @@ import type { MetadataRefreshRepository } from '@main/repositories/metadataRefre
 import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import { writeAudioTags, prepareAudioTagWrite } from './audioTagWriteService'
-import { normalizeEditableMetadata } from './editableMetadataValidation'
+import { normalizeEditableMetadata } from '@main/shared/editableMetadataValidation'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '@main/logging/logger'

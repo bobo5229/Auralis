@@ -14,7 +14,8 @@ interface SidebarPlaylistActionsOptions {
   route: Pick<RouteLocationNormalizedLoaded, 'path'>
   router: Pick<Router, 'push'>
   t: (key: string) => string
-  playlistItems: Ref<SidebarPlaylistItem[]>
+  playlistItems: Readonly<Ref<readonly Readonly<SidebarPlaylistItem>[]>>
+  removePlaylist: (item: SidebarPlaylistItem) => void
   reloadPlaylists: () => Promise<void>
   cancelReorder: (immediate?: boolean) => void
   canMove: (item: SidebarPlaylistItem, direction: -1 | 1) => boolean
@@ -32,6 +33,7 @@ export function useSidebarPlaylistActions({
   router,
   t,
   playlistItems,
+  removePlaylist,
   reloadPlaylists: loadSidebarPlaylists,
   cancelReorder: cancelPlaylistReorder,
   canMove: canMovePlaylist,
@@ -304,9 +306,7 @@ export function useSidebarPlaylistActions({
           : await auralis.smartPlaylists.delete(deleting.id)
 
       if (result.deleted) {
-        playlistItems.value = playlistItems.value.filter(
-          (item) => getPlaylistKey(item) !== getPlaylistKey(deleting),
-        )
+        removePlaylist(deleting)
         if (route.path === getPlaylistPath(deleting)) {
           await router.push('/songs')
         }

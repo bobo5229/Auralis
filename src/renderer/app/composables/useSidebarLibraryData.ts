@@ -1,7 +1,11 @@
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, readonly, ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import {
+  createSidebarPlaylistCollection,
+  type SidebarPlaylistOrder,
+} from '../utils/sidebarPlaylistCollection'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
@@ -13,7 +17,8 @@ type SidebarLibraryApi = {
 }
 
 export function useSidebarLibraryData(auralis: SidebarLibraryApi) {
-  const playlistItems = ref<SidebarPlaylistItem[]>([])
+  const playlists = createSidebarPlaylistCollection()
+  const playlistOrder: SidebarPlaylistOrder = playlists
   const smartPlaylists = ref<SmartPlaylist[]>([])
   const smartPlaylistKinds = computed(
     () =>
@@ -26,7 +31,7 @@ export function useSidebarLibraryData(auralis: SidebarLibraryApi) {
   )
   const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
   const sidebarLibraryLoader = createSidebarLibraryLoader({
-    playlistItems,
+    playlists,
     smartPlaylists,
     libraryStats,
     getStats: () => auralis.library.getStats(),
@@ -73,10 +78,18 @@ export function useSidebarLibraryData(auralis: SidebarLibraryApi) {
   })
   onBeforeUnmount(() => {
     sidebarLibraryLoader.dispose()
+    playlists.dispose()
     unsubscribeLibraryChanged?.()
     unsubscribeLibraryChanged = null
     unsubscribePlaylistsChanged?.()
     unsubscribePlaylistsChanged = null
   })
-  return { playlistItems, libraryStats, loadSidebarPlaylists, getPlaylistIcon }
+  return {
+    playlistItems: playlists.items,
+    playlistOrder,
+    removePlaylist: playlists.remove,
+    libraryStats: readonly(libraryStats),
+    loadSidebarPlaylists,
+    getPlaylistIcon,
+  }
 }

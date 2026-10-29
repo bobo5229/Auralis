@@ -7,7 +7,7 @@ import {
   isCacheFileName,
   isCurrentArtworkCacheKey,
   isLegacyArtworkCacheKey,
-} from './artworkCachePolicy'
+} from '@main/shared/artworkCachePolicy'
 
 describe('computeArtworkCacheKey', () => {
   it('produces the same key for the same source bytes', () => {

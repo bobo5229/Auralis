@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, readonly, ref } from 'vue'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -70,7 +70,7 @@ function initTheme(): void {
 
 export function useTheme() {
   return {
-    theme,
+    theme: readonly(theme),
     isDark: computed(() => theme.value === 'dark'),
     nextThemeLabel: computed(() => (theme.value === 'dark' ? 'Light theme' : 'Dark theme')),
     initTheme,

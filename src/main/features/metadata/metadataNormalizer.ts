@@ -1,4 +1,5 @@
 import type { IAudioMetadata } from 'music-metadata'
+import type { NormalizedIdentity } from '@shared/types/trackFile'
 import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
 import type { LyricsFormat } from '@shared/types/libraryScan'
@@ -31,13 +32,6 @@ export interface NormalizedMetadata {
   genre: string | null
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
-  isrc: string | null
-}
-
-export interface NormalizedIdentity {
-  title: string
-  artist: string
-  album: string
   isrc: string | null
 }
 

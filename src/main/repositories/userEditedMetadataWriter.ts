@@ -5,7 +5,7 @@ import {
   normalizeEditableYear,
   normalizeEditableReleaseDate,
   normalizeEditableMetadata,
-} from '../features/metadata/editableMetadataValidation'
+} from '@main/shared/editableMetadataValidation'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
 import { ALL_METADATA_OVERRIDES } from '@shared/types/metadataOverrides'

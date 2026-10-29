@@ -1,5 +1,5 @@
 import type { ScannedTrack } from '@shared/types/libraryScan'
-import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
+import type { NormalizedIdentity } from '@shared/types/trackFile'
 import type { MissingTrackCandidate } from './trackRepositoryTypes'
 import { toRootPrefixes, toPathVariants, escapeLikePattern } from './trackRepositoryPaths'
 import { BaseRepository } from './baseRepository'

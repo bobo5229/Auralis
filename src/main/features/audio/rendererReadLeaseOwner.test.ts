@@ -8,7 +8,7 @@ function setup() {
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: () => 'D:/Music/Review.flac',
     getTrackIdsByFilePath: () => [1],
-    sendToRenderer: () => {},
+    trackEditStateChanged: () => {},
   })
   const sender = Object.assign(new EventEmitter(), { id: 1, isDestroyed: () => false })
   const owners = new RendererReadLeaseOwner(coordinator)

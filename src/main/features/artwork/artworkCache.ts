@@ -11,7 +11,7 @@ import {
   ARTWORK_WEBP_EFFORT,
   ARTWORK_WEBP_QUALITY,
   computeArtworkCacheKey,
-} from './artworkCachePolicy'
+} from '@main/shared/artworkCachePolicy'
 
 export function ensureArtworkCacheDir(userDataPath: string): string {
   const cacheDir = join(userDataPath, 'artwork-cache')

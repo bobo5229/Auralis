@@ -88,7 +88,7 @@ describe('buffered file and database commit with real Electron, mpv and isolated
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: (id) => repository.getTrackFilePath(id),
       getTrackIdsByFilePath: () => [1],
-      sendToRenderer: () => {},
+      trackEditStateChanged: () => {},
     })
     player = new NativePlaybackService({
       mpvPath: mpv,

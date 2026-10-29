@@ -69,7 +69,7 @@ beforeEach(async () => {
   const files = new PlaybackFileCoordinator({
     getTrackFilePath: (id) => tracks.getFilePathById(id),
     getTrackIdsByFilePath: (path) => tracks.getTrackIdsByPlaybackPath(path),
-    sendToRenderer: send,
+    trackEditStateChanged: (event) => send('metadata:track-edit-state-changed', event),
   })
   const events = createMetadataRefreshEvents(send)
   metadata = new MetadataRefreshService(

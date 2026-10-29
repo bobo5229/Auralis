@@ -1,6 +1,7 @@
-import { watch, type Ref } from 'vue'
-import type { LibraryStats } from '@shared/types/app'
+import type { Ref } from 'vue'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import type { LibraryStats } from '@shared/types/app'
+import type { SidebarPlaylistCatalog } from './sidebarPlaylistCollection'
 import type { SmartPlaylist, SmartPlaylistTrackCount } from '@shared/types/smartPlaylist'
 
 function usesPlayStats(playlist: SmartPlaylist): boolean {
@@ -9,7 +10,7 @@ function usesPlayStats(playlist: SmartPlaylist): boolean {
 }
 
 export function createSidebarLibraryLoader(options: {
-  playlistItems: Ref<SidebarPlaylistItem[]>
+  playlists: SidebarPlaylistCatalog
   smartPlaylists: Ref<SmartPlaylist[]>
   libraryStats: Ref<LibraryStats>
   getStats: () => Promise<LibraryStats>
@@ -18,30 +19,11 @@ export function createSidebarLibraryLoader(options: {
   listSmartTrackCounts: () => Promise<SmartPlaylistTrackCount[]>
 }) {
   let disposed = false
-  let assigning = false
-  let itemsRevision = 0
   let loadGeneration = 0
   let statsRevision = 0
   let appliedStatsRevision = -1
   let appliedCountsGeneration = -1
   let countsTask: Promise<void> | null = null
-  const stopWatching = watch(
-    options.playlistItems,
-    () => {
-      if (!assigning) itemsRevision += 1
-    },
-    { flush: 'sync' },
-  )
-
-  function assignItems(items: SidebarPlaylistItem[]): void {
-    assigning = true
-    try {
-      options.playlistItems.value = items
-    } finally {
-      assigning = false
-    }
-  }
-
   function statisticsPlaylistIds(): Set<number> {
     return new Set(
       options.smartPlaylists.value.filter(usesPlayStats).map((playlist) => playlist.id),
@@ -71,16 +53,8 @@ export function createSidebarLibraryLoader(options: {
         if (revision !== statsRevision || generation !== loadGeneration) continue
         const ids = statisticsPlaylistIds()
         const byId = new Map(counts.map((count) => [count.playlistId, count.trackCount]))
-        let changed = false
-        const items = options.playlistItems.value.map((item) => {
-          const count = item.kind === 'smart' && ids.has(item.id) ? byId.get(item.id) : undefined
-          if (count === undefined || count === item.trackCount) return item
-          changed = true
-          return { ...item, trackCount: count }
-        })
-        // Merge into the current order, including an optimistic reorder or a
-        // collection edit that happened while the query was in flight.
-        if (changed) assignItems(items)
+        // Merge counts through the owner so an in-flight order save sees the newer data.
+        options.playlists.refreshTrackCounts(new Map([...byId].filter(([id]) => ids.has(id))))
         appliedStatsRevision = revision
         appliedCountsGeneration = generation
         return
@@ -94,7 +68,7 @@ export function createSidebarLibraryLoader(options: {
   async function load(includeStats: boolean): Promise<void> {
     if (disposed) return
     const generation = ++loadGeneration
-    const revision = itemsRevision
+    const revision = options.playlists.captureLoadVersion()
     const statistics = statsRevision
     const [items, smart, stats] = await Promise.all([
       options.listSidebarItems(),
@@ -105,23 +79,24 @@ export function createSidebarLibraryLoader(options: {
     if (stats) options.libraryStats.value = stats
     // Reordering/deleting has its own authoritative result and reconciliation.
     // A list query started before that mutation must not restore its old order.
-    if (revision !== itemsRevision) return
+    if (!options.playlists.isLoadCurrent(revision)) return
     options.smartPlaylists.value = smart
     if (statistics === statsRevision) {
-      assignItems(items)
+      options.playlists.applyLoadedItems(items, revision)
     } else {
       const ids = statisticsPlaylistIds()
       const currentCounts = new Map(
-        options.playlistItems.value
+        options.playlists.items.value
           .filter((item) => item.kind === 'smart')
           .map((item) => [item.id, item.trackCount]),
       )
-      assignItems(
+      options.playlists.applyLoadedItems(
         items.map((item) =>
           item.kind === 'smart' && ids.has(item.id)
             ? { ...item, trackCount: currentCounts.get(item.id) ?? 0 }
             : item,
         ),
+        revision,
       )
       await refreshCounts()
     }
@@ -137,7 +112,6 @@ export function createSidebarLibraryLoader(options: {
     dispose: () => {
       disposed = true
       loadGeneration += 1
-      stopWatching()
     },
   }
 }

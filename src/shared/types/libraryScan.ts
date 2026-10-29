@@ -2,6 +2,7 @@ import type { TrackFileFingerprint } from './trackFile'
 import type { FileMetadataSnapshot } from './trackMetadata'
 
 export type { TrackFileFingerprint } from './trackFile'
+export type { EditableTrackMetadata } from './trackMetadata'
 
 export type TrackAvailability = 'available' | 'missing'
 
@@ -100,31 +101,6 @@ export interface MetadataRefreshFailure {
   filePath: string | null
   reason: string
   createdAt: string
-}
-
-export interface EditableTrackMetadata {
-  /** Editor-only transport state, never persisted as tag values. */
-  editToken?: string
-  legacyMetadata?: EditableTrackMetadata
-  legacyAction?: 'adopt-file' | 'write-legacy' | 'apply-merged'
-  artworkChanges?: import('./metadataArtworkEdit').MetadataArtworkChange[]
-  fileSummary?: import('./trackMetadata').MetadataFileSummary
-  capabilities?: import('./trackMetadata').MetadataEditCapabilities
-  trackNo?: number | null
-  trackTotal?: number | null
-  discNo?: number | null
-  discTotal?: number | null
-  composer?: string | null
-  copyright?: string | null
-  isrc?: string | null
-  trackId: number
-  title: string | null
-  artistDisplay: string | null
-  albumTitle: string | null
-  albumArtistDisplay: string | null
-  genreDisplay: string | null
-  year: number | null
-  releaseDate: string | null
 }
 
 export interface AlbumArtworkPatch extends FileMetadataSnapshot {

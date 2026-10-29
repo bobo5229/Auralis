@@ -39,6 +39,8 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'playback.subscribeSpectrum':
     case 'playback.nativeCommand':
       return { accepted: false }
+    case 'playback.getTrack':
+      return null
     case 'playback.getAudioUrl':
     case 'playback.getRandomTrack':
     case 'playback.getRandomAlbumTracks':

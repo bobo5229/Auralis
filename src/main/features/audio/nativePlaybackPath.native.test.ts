@@ -111,7 +111,7 @@ async function fixture(rootAlias = false) {
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (id) => tracks.getFilePathById(id),
     getTrackIdsByFilePath: (path) => tracks.getTrackIdsByPlaybackPath(path),
-    sendToRenderer: () => {},
+    trackEditStateChanged: () => {},
   })
   // Retain the production probe/lease sequence; only transport timing is controlled.
   const resolveTrack = async (id: number) => {

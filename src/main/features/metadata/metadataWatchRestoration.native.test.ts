@@ -94,7 +94,7 @@ it.each([false, true])(
         repo,
         { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
         { importFiles } as unknown as LibraryIncrementalImportService,
-        send,
+        (event) => send('library:changed', event),
       )
       const availability = () =>
         db!.prepare('SELECT availability FROM tracks WHERE id=1').pluck().get()

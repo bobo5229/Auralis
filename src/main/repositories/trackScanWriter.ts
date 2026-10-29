@@ -4,7 +4,10 @@ import type {
   TrackLyricsPatch,
   TrackTagPatch,
 } from '@shared/types/libraryScan'
-import { isCurrentArtworkCacheKey } from '@main/features/artwork/artworkCachePolicy'
+import {
+  isCurrentArtworkCacheKey,
+  CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN,
+} from '@main/shared/artworkCachePolicy'
 import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import { BaseRepository } from './baseRepository'
 import { captureArtworkAlbum, commitArtworkProjection } from './trackArtworkProjection'
@@ -92,10 +95,10 @@ export class TrackScanWriter extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+        WHERE excluded.artwork_cache_key LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           AND (
             albums.artwork_cache_key IS NULL
-            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+            OR albums.artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           )
     `)
 
@@ -154,10 +157,10 @@ export class TrackScanWriter extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+        WHERE excluded.artwork_cache_key LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           AND (
             albums.artwork_cache_key IS NULL
-            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+            OR albums.artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           )
     `)
 
@@ -252,10 +255,10 @@ export class TrackScanWriter extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+        WHERE excluded.artwork_cache_key LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           AND (
             albums.artwork_cache_key IS NULL
-            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+            OR albums.artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
           )
     `)
     const batch = this.db.transaction((patches: TrackTagPatch[]) => {

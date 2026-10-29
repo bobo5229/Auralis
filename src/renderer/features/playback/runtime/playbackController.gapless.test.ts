@@ -67,15 +67,14 @@ function setup(sourceTracks?: PlaybackTrack[]) {
     dispose: vi.fn(),
   }
   const deps: PlaybackDependencies = {
-    getTrackMetadata: vi.fn(async (id) => ({
-      trackId: id,
+    getPlaybackTrack: vi.fn(async (id) => ({
+      id,
       title: `Edited ${id}`,
-      artistDisplay: 'New artist',
-      albumTitle: 'New album',
-      albumArtistDisplay: 'New album artist',
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
+      artist: 'New artist',
+      album: 'New album',
+      albumArtist: 'New album artist',
+      artworkCacheKey: null,
+      durationSeconds: 10,
     })),
     getAudioUrl: vi.fn(async (trackId: number) => ({ url: `audio://${trackId}` })),
     getRandomTrack: vi.fn(async () => tracks[1]),
@@ -278,7 +277,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
       shufflePool: tracks.slice(0, 2),
     })
     test.changed('metadata-refresh', [2])
-    await vi.waitFor(() => expect(test.deps.getTrackMetadata).toHaveBeenCalledWith(2))
+    await vi.waitFor(() => expect(test.deps.getPlaybackTrack).toHaveBeenCalledWith(2))
     await test.api.playNext()
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 2'))
     expect(tracks[1].title).toBe('2')
@@ -294,7 +293,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     await test.api.playNext()
     expect(test.api.state.currentTrackId).toBe(2)
     test.changed('metadata-refresh', [1])
-    await vi.waitFor(() => expect(test.deps.getTrackMetadata).toHaveBeenCalledWith(1))
+    await vi.waitFor(() => expect(test.deps.getPlaybackTrack).toHaveBeenCalledWith(1))
     await test.api.playPrevious()
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
     test.dispose()
@@ -321,7 +320,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
     expect(test.api.state.queue[1].title).toBe('Edited 2')
     expect(test.api.state.queue).toBe(queue)
-    expect(test.deps.getTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(test.deps.getPlaybackTrack).toHaveBeenCalledTimes(2)
     expect(catalog.tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
     expect(Object.isFrozen(catalog.tracks[0])).toBe(true)
     expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
@@ -370,20 +369,19 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     const test = setup()
     await test.api.playTrackFromQueue(test.tracks, 1)
     const pending =
-      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
-    vi.mocked(test.deps.getTrackMetadata!).mockReturnValueOnce(pending.promise)
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getPlaybackTrack']>>>>()
+    vi.mocked(test.deps.getPlaybackTrack!).mockReturnValueOnce(pending.promise)
     test.changed('metadata-refresh', [1])
     const replacement = test.tracks.map((track) => Object.freeze({ ...track }))
     await test.api.playTrackFromQueue(replacement, 1)
     pending.resolve({
-      trackId: 1,
+      id: 1,
       title: 'After replacement',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
+      artist: null,
+      album: null,
+      albumArtist: null,
+      artworkCacheKey: null,
+      durationSeconds: 10,
     })
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('After replacement'))
     expect(test.api.state.queue[0].title).toBe('After replacement')
@@ -395,32 +393,30 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     const test = setup()
     await test.api.playTrackFromQueue(test.tracks, 1)
     const slow =
-      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
-    vi.mocked(test.deps.getTrackMetadata!).mockImplementation(async (id) =>
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getPlaybackTrack']>>>>()
+    vi.mocked(test.deps.getPlaybackTrack!).mockImplementation(async (id) =>
       id === 2
         ? slow.promise
         : {
-            trackId: id,
+            id,
             title: 'Old',
-            artistDisplay: null,
-            albumTitle: null,
-            albumArtistDisplay: null,
-            genreDisplay: null,
-            year: null,
-            releaseDate: null,
+            artist: null,
+            album: null,
+            albumArtist: null,
+            artworkCacheKey: null,
+            durationSeconds: 10,
           },
     )
     test.changed('metadata-refresh', [1, 2])
     await Promise.resolve()
-    vi.mocked(test.deps.getTrackMetadata!).mockResolvedValueOnce({
-      trackId: 1,
+    vi.mocked(test.deps.getPlaybackTrack!).mockResolvedValueOnce({
+      id: 1,
       title: 'Newest',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
+      artist: null,
+      album: null,
+      albumArtist: null,
+      artworkCacheKey: null,
+      durationSeconds: 10,
     })
     test.changed('metadata-refresh', [1])
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Newest'))
@@ -452,24 +448,87 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     test.dispose()
   })
 
+  it.each(['new-cover', null])(
+    'refreshes current and preloaded artwork to %s without restarting audio',
+    async (artworkCacheKey) => {
+      const fixture = setup()
+      const tracks = fixture.tracks.map((track) =>
+        Object.freeze({ ...track, artworkCacheKey: 'old-cover' }),
+      )
+      fixture.dispose()
+      const test = setup(tracks)
+      try {
+        await test.api.playTrackFromQueue(tracks, 1)
+        await vi.waitFor(() => expect(test.nextId()).toBe(2))
+        const starts = test.runtime.start.mock.calls.length
+        const scheduled = test.runtime.scheduleNext.mock.calls.length
+        const cancelled = test.runtime.cancelScheduledNext.mock.calls.length
+        const queue = test.api.state.queue
+        vi.mocked(test.deps.getPlaybackTrack!).mockImplementation(async (id) => ({
+          ...tracks.find((track) => track.id === id)!,
+          artworkCacheKey,
+        }))
+        test.changed('metadata-refresh', [1, 2])
+        await vi.waitFor(() =>
+          expect(test.api.state.currentTrack?.artworkCacheKey).toBe(artworkCacheKey),
+        )
+        expect(queue[1].artworkCacheKey).toBe(artworkCacheKey)
+        expect(test.api.state.queue).toBe(queue)
+        expect(test.runtime.start).toHaveBeenCalledTimes(starts)
+        expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
+        expect(test.runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancelled)
+        test.boundary(2)
+        await vi.waitFor(() => expect(test.api.state.currentTrackId).toBe(2))
+        expect(test.api.state.currentTrack?.artworkCacheKey).toBe(artworkCacheKey)
+        expect(tracks[0].artworkCacheKey).toBe('old-cover')
+        expect(tracks[1].artworkCacheKey).toBe('old-cover')
+      } finally {
+        test.dispose()
+      }
+    },
+  )
+
+  it('does not restore old artwork when a stale refresh arrives after artwork removal', async () => {
+    const test = setup()
+    const old = deferred<PlaybackTrack | null>()
+    try {
+      await test.api.playTrackFromQueue(test.tracks, 1)
+      vi.mocked(test.deps.getPlaybackTrack!).mockReturnValueOnce(old.promise)
+      test.changed('file-change', [1])
+      vi.mocked(test.deps.getPlaybackTrack!).mockResolvedValueOnce({
+        ...test.tracks[0],
+        title: 'Cover removed',
+        artworkCacheKey: null,
+      })
+      test.changed('metadata-refresh', [1])
+      await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Cover removed'))
+      old.resolve({ ...test.tracks[0], artworkCacheKey: 'stale-cover' })
+      for (let i = 0; i < 5; i++) await Promise.resolve()
+      expect(test.api.state.currentTrack?.artworkCacheKey).toBeNull()
+      expect(test.api.state.queue[0].artworkCacheKey).toBeNull()
+    } finally {
+      old.resolve(null)
+      test.dispose()
+    }
+  })
+
   it('ignores an older asynchronous metadata response', async () => {
     const test = setup()
     await test.api.playTrackFromQueue(test.tracks, 1)
     const old =
-      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
-    vi.mocked(test.deps.getTrackMetadata!).mockImplementationOnce(() => old.promise)
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getPlaybackTrack']>>>>()
+    vi.mocked(test.deps.getPlaybackTrack!).mockImplementationOnce(() => old.promise)
     test.changed('metadata-refresh', [1])
     test.changed('metadata-refresh', [1])
     await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
     old.resolve({
-      trackId: 1,
+      id: 1,
       title: 'Stale',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
+      artist: null,
+      album: null,
+      albumArtist: null,
+      artworkCacheKey: null,
+      durationSeconds: 10,
     })
     await Promise.resolve()
     expect(test.api.state.currentTrack?.title).toBe('Edited 1')

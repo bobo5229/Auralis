@@ -54,7 +54,7 @@ function setup() {
     } as unknown as TrackRepository,
     { refreshTracksFromFileChanges: refresh, isWritingFile } as unknown as MetadataRefreshService,
     { importFiles: vi.fn() } as unknown as LibraryIncrementalImportService,
-    send,
+    (event) => send('library:changed', event),
   )
   service.start()
   return {

@@ -8,7 +8,7 @@ function coordinatorFor(): PlaybackFileCoordinator {
   return new PlaybackFileCoordinator({
     getTrackFilePath: () => filePath,
     getTrackIdsByFilePath: () => [1],
-    sendToRenderer: () => {},
+    trackEditStateChanged: () => {},
   })
 }
 

@@ -9,7 +9,7 @@ import type {
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
-import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
+import type { NormalizedIdentity } from '@shared/types/trackFile'
 import type { KnownTrackFile, MissingTrackCandidate } from './trackRepositoryTypes'
 import { BaseRepository } from './baseRepository'
 import { TrackQueryRepository } from './trackQueryRepository'
@@ -160,6 +160,10 @@ export class TrackRepository extends BaseRepository {
    */
   relocateTrack(trackId: number, scannedTrack: ScannedTrack, expectedOldPath: string): boolean {
     return this.availability.relocateTrack(trackId, scannedTrack, expectedOldPath)
+  }
+
+  getPlaybackTrack(trackId: number): PlaybackTrackDto | null {
+    return this.queries.getPlaybackTrack(trackId)
   }
 
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {

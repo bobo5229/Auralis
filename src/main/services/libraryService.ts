@@ -63,6 +63,10 @@ export class LibraryService {
     return result
   }
 
+  getPlaybackTrack(trackId: number): PlaybackTrackDto | null {
+    return this.trackRepository.getPlaybackTrack(trackId)
+  }
+
   getRandomTrack(excludeTrackId?: number): PlaybackTrackDto | null {
     const track = this.trackRepository.getRandomPlayableTrack(excludeTrackId)
     if (track) return track

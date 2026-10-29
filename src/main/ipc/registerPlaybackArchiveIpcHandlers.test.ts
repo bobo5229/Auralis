@@ -9,6 +9,15 @@ import { buildAnnualSummary } from '../services/annualSummary'
 type RawInvokeHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
 
 function createFixture(trusted = true) {
+  const getPlaybackTrack = vi.fn(() => ({
+    id: 42,
+    title: 'Song',
+    artist: 'Artist',
+    album: 'Album',
+    albumArtist: 'Artist',
+    durationSeconds: 180,
+    artworkCacheKey: 'new-cover',
+  }))
   const recordEffectivePlay = vi.fn(() => ({ ok: true, recorded: true }))
   const resetAll = vi.fn(() => ({ ok: true as const }))
   const getAnnualPlayCounts = vi.fn(() => [
@@ -25,6 +34,7 @@ function createFixture(trusted = true) {
   })
   registerPlaybackArchiveIpcHandlers(registrar, {
     libraryService: {
+      getPlaybackTrack,
       getRandomTrack: vi.fn(),
       getRandomAlbumTracks: vi.fn(),
       getAlbumTracks: vi.fn(),
@@ -46,6 +56,7 @@ function createFixture(trusted = true) {
     return handler({} as IpcMainInvokeEvent, ...args)
   }
   return {
+    getPlaybackTrack,
     handlers,
     recordEffectivePlay,
     getAnnualPlayCounts,
@@ -61,6 +72,34 @@ function createFixture(trusted = true) {
 const payload = { trackId: 42, sessionId: 'session-42', playedAtIso: '2026-10-08T12:00:00Z' }
 
 describe('playback statistics and annual archive IPC', () => {
+  it('reads the playback snapshot and validates its ID and sender without publishing changes', () => {
+    const f = createFixture()
+    expect(f.invoke(ipcChannels.playback.getTrack, { trackId: 42 })).toMatchObject({
+      id: 42,
+      artworkCacheKey: 'new-cover',
+    })
+    expect(f.getPlaybackTrack).toHaveBeenCalledExactlyOnceWith(42)
+    for (const payload of [
+      undefined,
+      {},
+      { trackId: 0 },
+      { trackId: -1 },
+      { trackId: '42' },
+      { trackId: 1.5 },
+      { trackId: 42, filePath: 'unexpected' },
+    ]) {
+      expect(() => f.invoke(ipcChannels.playback.getTrack, payload)).toThrow(
+        IpcPayloadValidationError,
+      )
+    }
+    expect(f.getPlaybackTrack).toHaveBeenCalledTimes(1)
+    expect(f.notifyLibraryChanged).not.toHaveBeenCalled()
+    const untrusted = createFixture(false)
+    expect(() => untrusted.invoke(ipcChannels.playback.getTrack, { trackId: 42 })).toThrow(
+      IpcInvokeSourceError,
+    )
+    expect(untrusted.getPlaybackTrack).not.toHaveBeenCalled()
+  })
   it('keeps archive statistics registration separate from badge evidence', () => {
     const { handlers } = createFixture()
     expect(Object.values(ipcChannels.archive)).toEqual([

@@ -20,8 +20,8 @@ it('broadcasts playback and release for mixed-case catalog paths and slash alias
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: (id) => tracks.getFilePathById(id),
       getTrackIdsByFilePath: (candidate) => tracks.getTrackIdsByPlaybackPath(candidate),
-      sendToRenderer: (_channel, event) => {
-        events.push(event as { trackId: number; status: string })
+      trackEditStateChanged: (event) => {
+        events.push(event)
       },
     })
     const lease = await coordinator.acquireReadLease(path, 'player')

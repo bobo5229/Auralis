@@ -49,6 +49,34 @@ afterEach(() => {
 })
 
 describe('track repository component boundaries', () => {
+  it('reads current playback artwork with the same fallback as the catalog', () => {
+    const { db, repository } = setup()
+    repository.upsertMany([track('C:\\isolated\\cover.flac')])
+    const id = repository.getAll()[0].id
+    for (const [embedded, directory, album, expected] of [
+      ['new-cover', 'directory-cover', 'album-cover', 'new-cover'],
+      [null, 'directory-cover', 'album-cover', 'directory-cover'],
+      [null, null, 'album-cover', 'album-cover'],
+      [null, null, null, null],
+    ]) {
+      db.prepare(
+        'UPDATE tracks SET embedded_artwork_cache_key = ?, directory_artwork_cache_key = ? WHERE id = ?',
+      ).run(embedded, directory, id)
+      db.prepare('UPDATE albums SET artwork_cache_key = ?').run(album)
+      const current = repository.getPlaybackTrack(id)
+      expect(current).toEqual({
+        id,
+        title: 'Song',
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Artist',
+        durationSeconds: 180,
+        artworkCacheKey: expected,
+      })
+      expect(current?.artworkCacheKey).toBe(repository.getAll()[0].artworkCacheKey)
+    }
+    expect(repository.getPlaybackTrack(id + 100)).toBeNull()
+  })
   it('limits recovery reads to the exact root, including missing tracks and escaped path characters', () => {
     const { db, repository } = setup()
     const root = 'C:\\isolated%_~'

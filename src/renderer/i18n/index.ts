@@ -1,5 +1,5 @@
 import { createI18n } from 'vue-i18n'
-import { ref } from 'vue'
+import { readonly, ref } from 'vue'
 import type { UiLocale } from '@shared/uiLocale'
 import { UI_LOCALE_STORAGE_KEY } from '@shared/uiLocale'
 import { initialUiLocale } from './preference'
@@ -50,7 +50,12 @@ export function useUiLocale() {
     }
     syncLocale(locale)
   }
-  return { locale: i18n.global.locale, persistFailed, nativeSyncFailed, setUiLocale }
+  return {
+    locale: readonly(i18n.global.locale),
+    persistFailed: readonly(persistFailed),
+    nativeSyncFailed: readonly(nativeSyncFailed),
+    setUiLocale,
+  }
 }
 
 export function uiText(key: string, values: Record<string, unknown> = {}, plural?: number): string {

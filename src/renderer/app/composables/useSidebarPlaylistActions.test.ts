@@ -1,5 +1,6 @@
+import { createSidebarPlaylistCollection } from '../utils/sidebarPlaylistCollection'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { markRaw, reactive, ref } from 'vue'
+import { markRaw, reactive } from 'vue'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import { DEFAULT_RECENT_PLAYED_DAYS } from '@shared/smartPlaylists/recentFrequent'
 import { useSidebarPlaylistActions } from './useSidebarPlaylistActions'
@@ -106,7 +107,8 @@ function setup() {
     push = vi.fn<Options['router']['push']>(async (target) => {
       trace.push(`push:${String(target)}`)
     })
-  const playlistItems = ref([item(), item(1, 'smart'), item(2)]),
+  const playlists = createSidebarPlaylistCollection([item(), item(1, 'smart'), item(2)]),
+    playlistItems = playlists.items,
     reload = vi.fn(async () => {
       trace.push('reload')
     })
@@ -121,6 +123,7 @@ function setup() {
     router: { push },
     t: (key) => key,
     playlistItems,
+    removePlaylist: playlists.remove,
     reloadPlaylists: reload,
     cancelReorder: cancel,
     canMove,
@@ -149,6 +152,7 @@ function setup() {
     route,
     push,
     playlistItems,
+    playlists,
     reload,
     trace,
     cancel,
@@ -198,7 +202,7 @@ describe('sidebar playlist action sessions', () => {
     )
     expect(f.s.playlistContextHasPrevious.value).toBe(true)
     expect(f.s.playlistContextHasNext.value).toBe(true)
-    f.playlistItems.value = [item(1, 'smart'), item()]
+    f.playlists.applyLoadedItems([item(1, 'smart'), item()], f.playlists.captureLoadVersion())
     expect(f.s.playlistContextHasPrevious.value).toBe(false)
     f.canMove.mockReturnValue(false)
     f.s.movePlaylistFromMenu(1)

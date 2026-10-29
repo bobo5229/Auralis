@@ -1028,7 +1028,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function refreshPlaybackMetadata(trackIds: number[]): Promise<void> {
-    if (!deps.getTrackMetadata) return
+    if (!deps.getPlaybackTrack) return
     const requested = new Set(trackIds)
     const relevant = new Set<number>()
     visitPlaybackTracks((track) => {
@@ -1039,8 +1039,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         const revision = (metadataRevisions.get(id) ?? 0) + 1
         metadataRevisions.set(id, revision)
         try {
-          const metadata = await deps.getTrackMetadata!(id)
-          return metadata?.trackId === id ? { id, revision, metadata } : undefined
+          const metadata = await deps.getPlaybackTrack!(id)
+          return metadata?.id === id ? { id, revision, metadata } : undefined
         } catch (cause) {
           deps.diagnostics.warn({
             scope: 'playback.metadata',
@@ -1067,9 +1067,10 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       if (metadata)
         Object.assign(track, {
           title: metadata.title,
-          artist: metadata.artistDisplay,
-          album: metadata.albumTitle,
-          albumArtist: metadata.albumArtistDisplay,
+          artist: metadata.artist,
+          album: metadata.album,
+          albumArtist: metadata.albumArtist,
+          artworkCacheKey: metadata.artworkCacheKey,
         })
     })
   }

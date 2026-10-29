@@ -63,8 +63,14 @@ const libraryStatusLabel = computed(() =>
 watch(isSettingsOpen, (open, wasOpen) => {
   if (wasOpen && !open) void libraryStatus.reload()
 })
-const { playlistItems, libraryStats, loadSidebarPlaylists, getPlaylistIcon } =
-  useSidebarLibraryData(auralis)
+const {
+  playlistItems,
+  playlistOrder,
+  removePlaylist,
+  libraryStats,
+  loadSidebarPlaylists,
+  getPlaylistIcon,
+} = useSidebarLibraryData(auralis)
 const sidebarNavigation = ref<HTMLElement | null>(null)
 const sidebarPlaylistSection = ref<HTMLElement | null>(null)
 const albumMenuOpen = ref(false)
@@ -118,6 +124,7 @@ const playlistActions = useSidebarPlaylistActions({
   router,
   t,
   playlistItems,
+  removePlaylist,
   reloadPlaylists: loadSidebarPlaylists,
   cancelReorder: (immediate) => cancelPlaylistReorder(immediate),
   canMove: (item, direction) => canMovePlaylist(item, direction),
@@ -180,7 +187,7 @@ const {
   move: movePlaylist,
   cancel: cancelPlaylistReorder,
 } = useSidebarPlaylistReorder({
-  playlistItems,
+  playlists: playlistOrder,
   scrollContainer: sidebarNavigation,
   playlistContainer: sidebarPlaylistSection,
   persistOrder: (items) => auralis.playlists.reorderSidebarItems(items),

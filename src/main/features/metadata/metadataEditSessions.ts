@@ -23,7 +23,7 @@ import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import type { AudioTagEdit } from './audioTagEdit'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { normalizeMetadata } from './metadataNormalizer'
-import { normalizeEditableMetadata } from './editableMetadataValidation'
+import { normalizeEditableMetadata } from '@main/shared/editableMetadataValidation'
 import {
   scanFileFingerprint,
   hasSameScanFileFingerprint,

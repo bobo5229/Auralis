@@ -1,23 +1,32 @@
-import type { EditableTrackMetadata, TrackFileFingerprint } from './libraryScan'
+import type { TrackFileFingerprint } from './trackFile'
 
 /** Actual normalized tags. Missing tags stay null; display fallbacks never enter this object. */
-export type FileTagValues = Pick<
-  EditableTrackMetadata,
-  | 'title'
-  | 'artistDisplay'
-  | 'albumTitle'
-  | 'albumArtistDisplay'
-  | 'genreDisplay'
-  | 'year'
-  | 'releaseDate'
-  | 'trackNo'
-  | 'trackTotal'
-  | 'discNo'
-  | 'discTotal'
-  | 'composer'
-  | 'copyright'
-  | 'isrc'
->
+export type FileTagValues = {
+  trackNo?: number | null
+  trackTotal?: number | null
+  discNo?: number | null
+  discTotal?: number | null
+  composer?: string | null
+  copyright?: string | null
+  isrc?: string | null
+  title: string | null
+  artistDisplay: string | null
+  albumTitle: string | null
+  albumArtistDisplay: string | null
+  genreDisplay: string | null
+  year: number | null
+  releaseDate: string | null
+}
+export interface EditableTrackMetadata extends FileTagValues {
+  /** Editor-only transport state, never persisted as tag values. */
+  editToken?: string
+  legacyMetadata?: EditableTrackMetadata
+  legacyAction?: 'adopt-file' | 'write-legacy' | 'apply-merged'
+  artworkChanges?: import('./metadataArtworkEdit').MetadataArtworkChange[]
+  fileSummary?: MetadataFileSummary
+  capabilities?: MetadataEditCapabilities
+  trackId: number
+}
 export interface MetadataFileSummary {
   fileName: string
   filePath: string

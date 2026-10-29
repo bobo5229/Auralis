@@ -123,6 +123,7 @@ export interface AuralisApi {
     onNativeEvent: (
       callback: (event: IpcEventPayload<'playback:native-event'>) => void,
     ) => () => void
+    getTrack: (trackId: Req<'playback:get-track'>['trackId']) => Result<'playback:get-track'>
     getAudioUrl: (
       trackId: Req<'playback:get-audio-url'>['trackId'],
     ) => Result<'playback:get-audio-url'>

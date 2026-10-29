@@ -1,3 +1,10 @@
+export interface NormalizedIdentity {
+  title: string
+  artist: string
+  album: string
+  isrc: string | null
+}
+
 export interface TrackFileFingerprint {
   size: number
   mtimeMs: number

@@ -17,7 +17,7 @@ function setup() {
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: () => path,
     getTrackIdsByFilePath: () => [1],
-    sendToRenderer: () => {},
+    trackEditStateChanged: () => {},
   })
   const service = new NativePlaybackService({
     mpvPath: '',

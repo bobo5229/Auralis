@@ -108,7 +108,7 @@ describe.skipIf(!available)('buffered tag writes with real mpv and isolated musi
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: (id) => (id === 2 ? nextFile : file),
       getTrackIdsByFilePath: (path) => (path === file ? [1] : []),
-      sendToRenderer: () => {},
+      trackEditStateChanged: () => {},
     })
     const service = new NativePlaybackService({
       mpvPath,

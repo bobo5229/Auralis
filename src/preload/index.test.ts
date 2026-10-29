@@ -81,6 +81,13 @@ describe('archive preload capabilities', () => {
     expect(removeListener).toHaveBeenLastCalledWith('archive:badge-achievements-changed', listener)
   })
 
+  it('reads a playback snapshot through the explicit track query', async () => {
+    const track = { id: 42, artworkCacheKey: 'new-cover' }
+    invoke.mockResolvedValueOnce(track)
+    await expect(auralisApi.playback.getTrack(42)).resolves.toBe(track)
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('playback:get-track', { trackId: 42 })
+  })
+
   it('routes the requested year and returns counts through the explicit query channel', async () => {
     const counts = [{ date: '2026-01-01', playCount: 5, durationSeconds: 900 }]
     invoke.mockResolvedValueOnce(counts)

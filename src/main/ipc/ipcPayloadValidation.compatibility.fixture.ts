@@ -73,6 +73,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     target: 'file',
   },
   'lyrics:close-lrc-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
+  'playback:get-track': { trackId: 1 },
   'playback:get-audio-url': { trackId: 1 },
   'playback:spectrum-subscribe': {
     subscriptionId: 0,

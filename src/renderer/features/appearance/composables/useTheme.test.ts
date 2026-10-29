@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_THEME, isThemeMode, resolveTheme, THEME_STORAGE_KEY, useTheme } from './useTheme'
 
 class MemoryStorage implements Storage {
@@ -161,6 +161,26 @@ describe('useTheme', () => {
     expect(theme.value).toBe('dark')
     expect(mockStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
     expect(mockDoc.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('prevents consumers from bypassing theme side effects while keeping the view reactive', async () => {
+    const state = useTheme()
+    state.initTheme()
+    const other = useTheme()
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      // @ts-expect-error Public state is read-only, including at runtime.
+      state.theme.value = 'light'
+      expect(other.theme.value).toBe('dark')
+      expect(mockDoc.documentElement.dataset.theme).toBe('dark')
+      expect(mockStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
+      await state.setTheme('light')
+      expect(other.theme.value).toBe('light')
+      expect(mockDoc.documentElement.dataset.theme).toBe('light')
+      expect(mockStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+    } finally {
+      warning.mockRestore()
+    }
   })
 
   it('preserves the dark accent preference when switching themes', async () => {

@@ -7,15 +7,22 @@ import { createHash } from 'node:crypto'
  * own copy of the regex or profile (TechDoc §5).
  */
 export const ARTWORK_CACHE_VERSION = 'v2'
-export const ARTWORK_CACHE_PROFILE = 'v2-webp-1024-q82-effort4'
+const ARTWORK_CACHE_EXTENSION = 'webp'
+export const ARTWORK_CACHE_PROFILE = `${ARTWORK_CACHE_VERSION}-${ARTWORK_CACHE_EXTENSION}-1024-q82-effort4`
+/** SQL promotion checks intentionally preserve the existing permissive LIKE semantics. */
+export const CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN = `${ARTWORK_CACHE_VERSION}-%.${ARTWORK_CACHE_EXTENSION}`
 export const ARTWORK_MAX_EDGE = 1024
 export const ARTWORK_WEBP_QUALITY = 82
 export const ARTWORK_WEBP_EFFORT = 4
 export const ARTWORK_MAX_INPUT_PIXELS = 64 * 1024 * 1024
 
-const V2_KEY_PATTERN = /^v2-[a-f0-9]{64}\.webp$/
+const CURRENT_KEY_PATTERN = new RegExp(
+  `^${ARTWORK_CACHE_VERSION}-[a-f0-9]{64}\\.${ARTWORK_CACHE_EXTENSION}$`,
+)
 const LEGACY_KEY_PATTERN = /^[a-f0-9]{64}\.(jpg|png|webp)$/
-const TEMP_FILE_PATTERN = /^v2-[a-f0-9]{64}\.webp\.\d+\.\d+\.tmp$/
+const TEMP_FILE_PATTERN = new RegExp(
+  `^${ARTWORK_CACHE_VERSION}-[a-f0-9]{64}\\.${ARTWORK_CACHE_EXTENSION}\\.\\d+\\.\\d+\\.tmp$`,
+)
 
 /**
  * Hash input must include the conversion profile together with the source
@@ -28,11 +35,11 @@ export function computeArtworkCacheKey(sourceData: Buffer): string {
   hash.update(ARTWORK_CACHE_PROFILE)
   hash.update('\0')
   hash.update(sourceData)
-  return `${ARTWORK_CACHE_VERSION}-${hash.digest('hex')}.webp`
+  return `${ARTWORK_CACHE_VERSION}-${hash.digest('hex')}.${ARTWORK_CACHE_EXTENSION}`
 }
 
 export function isCurrentArtworkCacheKey(key: string | null): key is string {
-  return key !== null && V2_KEY_PATTERN.test(key)
+  return key !== null && CURRENT_KEY_PATTERN.test(key)
 }
 
 export function isLegacyArtworkCacheKey(key: string | null): boolean {
@@ -42,7 +49,7 @@ export function isLegacyArtworkCacheKey(key: string | null): boolean {
 /** True when the file name is a legacy, v2 or migration temp cache file. */
 export function isCacheFileName(fileName: string): boolean {
   return (
-    V2_KEY_PATTERN.test(fileName) ||
+    CURRENT_KEY_PATTERN.test(fileName) ||
     LEGACY_KEY_PATTERN.test(fileName) ||
     TEMP_FILE_PATTERN.test(fileName)
   )

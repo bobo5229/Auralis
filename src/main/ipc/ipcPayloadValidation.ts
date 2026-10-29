@@ -597,6 +597,7 @@ export const domainIpcPayloadPolicies = {
     }),
   ),
   [ipcChannels.playback.nativeCommand]: required(nativePlaybackCommand),
+  [ipcChannels.playback.getTrack]: required(idPayload('trackId')),
   [ipcChannels.playback.getRandomTrack]: optional(
     objectShape({ excludeTrackId: field(positiveId, true) }),
   ),

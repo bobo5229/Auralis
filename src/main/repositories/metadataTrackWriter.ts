@@ -1,3 +1,4 @@
+import { CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN } from '@main/shared/artworkCachePolicy'
 import type Database from 'better-sqlite3'
 import {
   canonicalizeDelimitedValues,
@@ -46,10 +47,10 @@ export class MetadataTrackWriter {
         lyrics_text = excluded.lyrics_text,
         lyrics_format = excluded.lyrics_format,
         artwork_cache_key = CASE
-          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
+          WHEN excluded.artwork_cache_key LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
             AND (
               track_metadata.artwork_cache_key IS NULL
-              OR track_metadata.artwork_cache_key NOT LIKE 'v2-%.webp'
+              OR track_metadata.artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
             )
           THEN excluded.artwork_cache_key
           ELSE track_metadata.artwork_cache_key
@@ -119,10 +120,10 @@ export class MetadataTrackWriter {
       SET lyrics_text = ?,
           lyrics_format = ?,
           artwork_cache_key = CASE
-            WHEN ? LIKE 'v2-%.webp'
+            WHEN ? LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
               AND (
                 artwork_cache_key IS NULL
-                OR artwork_cache_key NOT LIKE 'v2-%.webp'
+                OR artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
               )
             THEN ?
             ELSE artwork_cache_key
@@ -137,10 +138,10 @@ export class MetadataTrackWriter {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = CASE
-          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
+          WHEN excluded.artwork_cache_key LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
             AND (
               albums.artwork_cache_key IS NULL
-              OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+              OR albums.artwork_cache_key NOT LIKE '${CURRENT_ARTWORK_KEY_SQL_LIKE_PATTERN}'
             )
           THEN excluded.artwork_cache_key
           ELSE albums.artwork_cache_key
