@@ -473,6 +473,7 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.metadata.releaseAlbumEdit]: required(albumEditTaskId),
   [ipcChannels.database.exportBackup]: voidPayload(),
   [ipcChannels.database.restoreBackup]: voidPayload(),
+  [ipcChannels.app.shutdownReady]: required(objectShape({ ok: field(booleanValue) })),
   [ipcChannels.app.getInfo]: voidPayload(),
   [ipcChannels.app.setLocale]: required(
     objectShape({ locale: field(enumValue(['zh-Hans', 'en'])) }),

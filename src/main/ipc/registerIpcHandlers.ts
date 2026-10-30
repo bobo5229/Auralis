@@ -1,3 +1,4 @@
+import { createRendererShutdownBarrier } from '@main/app/rendererShutdown'
 import { BadgeAchievementRepository } from '@main/repositories/badgeAchievementRepository'
 import { resetListeningHistory } from '@main/services/resetListeningHistory'
 import { registerBadgeAchievementIpcHandlers } from './registerBadgeAchievementIpcHandlers'
@@ -231,6 +232,11 @@ export function registerIpcHandlers(
     }),
   })
 
+  const rendererShutdown = createRendererShutdownBarrier((message) => logger.warn(message))
+  electronIpcRegistrar.handle(ipcChannels.app.shutdownReady, (event, payload) => {
+    rendererShutdown.acknowledge(event.sender.id, payload.ok)
+  })
+
   metadataWatchService.start()
   metadataRefreshService.startLegacyLyricsRecovery()
   const resolvePlaybackTrack = (trackId: number) => playbackResources.resolveTrack(trackId)
@@ -452,6 +458,15 @@ export function registerIpcHandlers(
 
   return {
     async shutdown() {
+      await rendererShutdown.prepare(
+        BrowserWindow.getAllWindows()
+          .filter((window) => isRegisteredMainWindow(window))
+          .map((window) => ({
+            id: window.webContents.id,
+            isDestroyed: () => window.isDestroyed() || window.webContents.isDestroyed(),
+            send: () => window.webContents.send(ipcChannels.app.prepareShutdown),
+          })),
+      )
       rendererLeaseOwners.dispose()
       const early = await Promise.allSettled([
         electronIpcRegistrar.shutdown(),

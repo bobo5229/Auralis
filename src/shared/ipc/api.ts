@@ -15,6 +15,8 @@ export interface AuralisApi {
     restoreBackup: () => Result<'database:restore-backup'>
   }
   app: {
+    onPrepareShutdown: (callback: () => void) => () => void
+    shutdownReady: (payload: { ok: boolean }) => Result<'app:shutdown-ready'>
     getInfo: () => Result<'app:get-info'>
     setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
     claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>

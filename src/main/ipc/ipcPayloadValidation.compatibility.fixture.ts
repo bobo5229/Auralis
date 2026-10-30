@@ -2,6 +2,7 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
+  'app:shutdown-ready': { ok: true },
   'metadata:prepare-album-edit': { album: { title: 'Album', artist: 'Artist' } },
   'metadata:preview-album-edit': {
     taskId: 'task',

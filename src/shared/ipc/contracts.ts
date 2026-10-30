@@ -111,6 +111,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'app:prepare-shutdown': void
   'metadata:album-edit-progress': import('../types/albumMetadataEdit').AlbumEditProgress
   'archive:badge-achievements-changed': void
   'playlists:changed': PlaylistChangedEvent
@@ -215,6 +216,7 @@ export interface IpcInvokeContract {
     request: void
     response: DatabaseRestoreBackupResult
   }
+  'app:shutdown-ready': { request: { ok: boolean }; response: void }
   'app:get-info': {
     request: void
     response: AppInfo

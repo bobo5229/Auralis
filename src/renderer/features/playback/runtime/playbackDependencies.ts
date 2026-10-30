@@ -22,6 +22,7 @@ export interface PlaybackDiagnosticsLogger {
 }
 
 export interface PlaybackDependencies {
+  onPrepareShutdown?: (callback: () => Promise<void>) => () => void
   getListeningEpoch?: () => Promise<number>
   recordListeningProgress?: (
     payload: ListeningProgressBatch,
@@ -52,6 +53,21 @@ export interface PlaybackDependencies {
 
 export function createBrowserPlaybackDependencies(): PlaybackDependencies {
   return {
+    onPrepareShutdown: (callback) =>
+      auralis.app.onPrepareShutdown(() => {
+        void callback()
+          .then(
+            () => auralis.app.shutdownReady({ ok: true }),
+            () => auralis.app.shutdownReady({ ok: false }),
+          )
+          .catch((cause) =>
+            rendererDiagnostics.warn({
+              scope: 'playback.shutdown',
+              message: 'Unable to acknowledge shutdown',
+              cause,
+            }),
+          )
+      }),
     getListeningEpoch: () => auralis.playback.getListeningEpoch(),
     recordListeningProgress: (payload) => auralis.playback.recordListeningProgress(payload),
     getPlaybackTrack: (trackId) => auralis.playback.getTrack(trackId),

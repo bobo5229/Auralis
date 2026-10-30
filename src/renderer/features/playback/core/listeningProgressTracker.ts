@@ -32,6 +32,10 @@ export class ListeningProgressTracker {
   private seekTimer: ReturnType<typeof setTimeout> | undefined
   private sending = false
   private disposed = false
+  private closing = false
+  private persistenceFailed = false
+  private inFlight: Promise<void> = Promise.resolve()
+  private epochReady: Promise<void> = Promise.resolve()
   private readonly now: () => number
   private readonly epochNow: () => number
   constructor(private readonly options: Options) {
@@ -39,7 +43,11 @@ export class ListeningProgressTracker {
     this.epochNow = options.epochNow ?? (() => Date.now())
     void this.refreshEpoch()
   }
-  private async refreshEpoch() {
+  private refreshEpoch(): Promise<void> {
+    this.epochReady = this.loadEpoch()
+    return this.epochReady
+  }
+  private async loadEpoch() {
     const owner = ++this.revision
     this.epoch = null
     try {
@@ -51,11 +59,12 @@ export class ListeningProgressTracker {
       void this.persist()
     } catch (error) {
       this.options.onError(error)
-      if (!this.disposed && owner === this.revision)
+      if (!this.disposed && !this.closing && owner === this.revision)
         this.retry = setTimeout(() => void this.refreshEpoch(), 2000)
     }
   }
   start(trackId: number) {
+    if (this.closing || this.disposed) return
     this.end()
     this.trackId = trackId
     this.sessionId = crypto.randomUUID()
@@ -72,7 +81,7 @@ export class ListeningProgressTracker {
     }
   }
   sample(terminalPosition?: number) {
-    if (this.disposed || this.trackId === null) return
+    if (this.disposed || this.closing || this.trackId === null) return
     const snapshot =
         terminalPosition === undefined
           ? this.options.snapshot()
@@ -160,7 +169,12 @@ export class ListeningProgressTracker {
     }
     void this.persist()
   }
-  private async persist() {
+  private persist(): Promise<void> {
+    if (this.sending) return this.inFlight
+    this.inFlight = this.persistBatch()
+    return this.inFlight
+  }
+  private async persistBatch() {
     const pending = this.queue[0]
     if (this.sending || !pending || pending.epoch === null || this.disposed) return
     this.sending = true
@@ -173,11 +187,13 @@ export class ListeningProgressTracker {
         this.discardPendingRecords()
         return
       }
+      this.persistenceFailed = !result.ok
       this.queue.shift()
       if (!result.ok) this.options.onError(new Error('Listening evidence was rejected'))
     } catch (error) {
+      this.persistenceFailed = true
       this.options.onError(error)
-      if (!this.disposed && revision === this.revision)
+      if (!this.disposed && !this.closing && revision === this.revision)
         this.retry = setTimeout(() => {
           this.retry = undefined
           void this.persist()
@@ -207,12 +223,42 @@ export class ListeningProgressTracker {
     this.buffering = this.seeking = false
   }
   discardPendingRecords() {
+    if (this.closing) return
     this.queue = []
     this.samples = []
     if (this.retry) clearTimeout(this.retry)
     this.retry = undefined
     this.resetBaseline()
     void this.refreshEpoch()
+  }
+  async shutdown(): Promise<void> {
+    this.end()
+    this.closing = true
+    if (this.retry) clearTimeout(this.retry)
+    this.retry = undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await Promise.race([
+        this.drain(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('Listening progress shutdown timed out')), 2000)
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+      this.dispose()
+    }
+  }
+  private async drain() {
+    await this.epochReady
+    await this.inFlight
+    if (this.persistenceFailed) throw new Error('Unable to save final listening progress')
+    while (this.queue.length) {
+      const first = this.queue[0]
+      await this.persist()
+      if (this.disposed || this.persistenceFailed || this.queue[0] === first)
+        throw new Error('Unable to save final listening progress')
+    }
   }
   dispose() {
     this.end()

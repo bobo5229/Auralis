@@ -1089,6 +1089,10 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (event.reason === 'track-relocated') refreshRelocatedNext(event.trackIds)
   })
 
+  const unsubscribeShutdown = deps.onPrepareShutdown?.(async () => {
+    await listeningProgress?.shutdown()
+  })
+
   function dispose(): void {
     if (isDisposed) return
     isDisposed = true
@@ -1100,6 +1104,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     effectivePlayTracker.dispose()
     listeningProgress?.dispose()
     audioRuntime.dispose()
+    unsubscribeShutdown?.()
     unsubscribeLibraryChanged()
     navigationSession.clear()
   }

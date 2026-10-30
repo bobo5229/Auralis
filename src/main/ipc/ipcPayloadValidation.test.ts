@@ -16,6 +16,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.archive.badgeAchievementsChanged,
   ipcChannels.playback.spectrumFrame,
   ipcChannels.playback.nativeEvent,
+  ipcChannels.app.prepareShutdown,
   ipcChannels.app.rendererReady,
   ipcChannels.app.splashReady,
   ipcChannels.library.scanProgress,
@@ -116,8 +117,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(86)
-    expect(kinds).toEqual({ void: 24, optional: 6, required: 56 })
+    expect(actualChannels).toHaveLength(87)
+    expect(kinds).toEqual({ void: 24, optional: 6, required: 57 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {

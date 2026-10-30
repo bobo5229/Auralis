@@ -59,6 +59,8 @@ export const auralisApi: AuralisApi = {
     restoreBackup: () => invoke(ipcChannels.database.restoreBackup),
   },
   app: {
+    onPrepareShutdown: (callback) => on(ipcChannels.app.prepareShutdown, callback),
+    shutdownReady: (payload) => invoke(ipcChannels.app.shutdownReady, payload),
     setLocale: (locale) => invoke(ipcChannels.app.setLocale, { locale }),
     getInfo: () => invoke(ipcChannels.app.getInfo),
     claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),

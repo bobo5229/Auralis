@@ -4,6 +4,8 @@ export const ipcChannels = {
     restoreBackup: 'database:restore-backup',
   },
   app: {
+    prepareShutdown: 'app:prepare-shutdown',
+    shutdownReady: 'app:shutdown-ready',
     getInfo: 'app:get-info',
     setLocale: 'app:set-locale',
     claimCdStartupEntry: 'app:claim-cd-startup-entry',
