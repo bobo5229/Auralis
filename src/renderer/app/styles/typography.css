@@ -42,7 +42,7 @@
 
   /* 通用界面：根节点继承，覆盖设置、音乐来源路径与常规控件。 */
   --auralis-font-ui:
-    var(--auralis-font-latin), var(--auralis-font-cjk), 'Arial Unicode MS', 'Nirmala UI',
+    var(--auralis-font-latin), var(--auralis-font-cjk), 'Auralis Tibetan', 'Auralis Lao', 'Arial Unicode MS', 'Nirmala UI',
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 

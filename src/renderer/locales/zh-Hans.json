@@ -118,7 +118,6 @@
     "expand": "展开侧边栏",
     "enterCdRoom": "进入唱片室",
     "resize": "调整侧边栏宽度",
-    "resizeHint": "拖动调整宽度，双击恢复默认；方向键微调，Shift 加速，Home / End 调至最窄 / 最宽",
     "tool": {
       "facetsPanel": "筛选面板",
       "settings": "偏好设置",
@@ -684,7 +683,6 @@
     "unknownArtist": "未知艺人",
     "lyricsLoading": "歌词加载中",
     "resizeLyricsPanel": "调整歌词面板宽度",
-    "resizeLyricsPanelHint": "拖动调整宽度，双击恢复自动宽度；方向键微调，Shift 加速，Home / End 调至最窄 / 最宽",
     "lyricsEmpty": "暂无歌词",
     "lyricsNoTrack": "未选择曲目",
     "lyricsCollapse": "收起歌词",

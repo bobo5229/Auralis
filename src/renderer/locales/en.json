@@ -118,7 +118,6 @@
     "expand": "Expand sidebar",
     "enterCdRoom": "Enter the record room",
     "resize": "Resize sidebar",
-    "resizeHint": "Drag to resize, double-click to reset; use arrow keys to adjust, Shift for larger steps, Home / End for minimum / maximum width",
     "tool": {
       "facetsPanel": "Filter panel",
       "settings": "Preferences",
@@ -684,7 +683,6 @@
     "unknownArtist": "Unknown artist",
     "lyricsLoading": "Loading lyrics",
     "resizeLyricsPanel": "Resize lyrics panel",
-    "resizeLyricsPanelHint": "Drag to resize, double-click to restore automatic width; use arrow keys to adjust, Shift for larger steps, Home / End for minimum / maximum width",
     "lyricsEmpty": "No lyrics available",
     "lyricsNoTrack": "No track selected",
     "lyricsCollapse": "Collapse lyrics",

@@ -294,7 +294,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
       :aria-valuenow="resizeWidth"
       :aria-disabled="resizeDisabled || undefined"
       :tabindex="resizeDisabled ? -1 : 0"
-      :title="t('sidebar.resizeHint')"
       @pointerdown="onResizePointerDown"
       @keydown="onResizeKeyDown"
       @dblclick.prevent.stop="resetSidebarWidth"

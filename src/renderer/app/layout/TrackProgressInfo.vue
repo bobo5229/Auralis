@@ -165,7 +165,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
   grid-column: 1 / -1;
   grid-row: 2;
   grid-template-columns: subgrid;
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 .player-bar-hover-clocks {

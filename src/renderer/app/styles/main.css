@@ -3,6 +3,24 @@
 @import './misans-fonts.css';
 
 @font-face {
+  font-family: 'Auralis Tibetan';
+  src: url('../../assets/fonts/noto-scripts/NotoSerifTibetan.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0F00-0FFF;
+}
+
+@font-face {
+  font-family: 'Auralis Lao';
+  src: url('../../assets/fonts/noto-scripts/NotoSansLao.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0E80-0EFF;
+}
+
+@font-face {
   font-family: 'Plus Jakarta Sans';
   src: url('../../assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
     format('woff2');
@@ -218,6 +236,7 @@
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-hover-fg);
   --auralis-playbar-control-disabled-fg: rgba(183, 174, 162, 0.35);
   --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
+  --auralis-playbar-hover-time-fg: #c2c6cc;
   --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1;
@@ -225,10 +244,8 @@
   --auralis-playbar-reduced-transparency-bg: #1a1a1a;
 
   /* Song list tokens */
-  --auralis-track-selected-bg: var(--auralis-theme-accent);
-  --auralis-track-selected-text: var(--auralis-control-primary-text);
-  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
-  --auralis-track-context-text: var(--auralis-control-primary-text);
+  --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
@@ -330,6 +347,7 @@
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-control-disabled-fg: #a8adb2;
   --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
+  --auralis-playbar-hover-time-fg: #777c81;
   --auralis-playbar-highlight-soft: transparent;
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1.08;
@@ -337,10 +355,8 @@
   --auralis-playbar-reduced-transparency-bg: var(--auralis-playbar-bg);
 
   /* Song list tokens */
-  --auralis-track-selected-bg: var(--auralis-theme-accent);
-  --auralis-track-selected-text: var(--auralis-control-primary-text);
-  --auralis-track-context-bg: var(--auralis-theme-accent-soft);
-  --auralis-track-context-text: var(--auralis-text);
+  --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(41, 43, 45, 0.025);
   --auralis-song-row-border: rgba(41, 43, 45, 0.05);
@@ -410,10 +426,8 @@
   --auralis-progress-fill: var(--auralis-theme-accent);
   --auralis-volume-fill: var(--auralis-theme-accent);
   --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
-  --auralis-track-selected-bg: var(--auralis-theme-accent);
-  --auralis-track-selected-text: var(--auralis-control-primary-text);
-  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
-  --auralis-track-context-text: var(--auralis-control-primary-text);
+  --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
@@ -806,7 +820,7 @@ body.is-column-resizing * {
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
-  color: var(--auralis-text-muted);
+  color: var(--auralis-playbar-hover-time-fg);
   line-height: 1;
   white-space: nowrap;
 }
@@ -1311,28 +1325,20 @@ body.is-column-resizing * {
 }
 
 .player-bar .queue-item:hover {
-  background: var(--auralis-control-hover-bg);
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
 }
 
-.player-bar .queue-item-active,
+.player-bar .queue-item-active {
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+}
+
 .player-bar .queue-item-active:hover {
-  background: var(--auralis-theme-accent);
-  color: var(--auralis-control-primary-text);
-}
-
-.player-bar .queue-item-active .queue-item-title,
-.player-bar .queue-item-active .queue-item-subtitle,
-.player-bar .queue-item-active .queue-item-cover span {
-  color: var(--auralis-control-primary-text);
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
 }
 
 .player-bar .queue-item:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
-}
-
-.player-bar .queue-item-active:focus-visible {
-  outline-color: var(--auralis-control-primary-text);
 }
 
 .queue-popover-scroll::-webkit-scrollbar {
@@ -2942,31 +2948,14 @@ input[type='range'].volume-overlay-slider {
   background-color: var(--auralis-control-hover-bg);
 }
 
-/* 选中与播放沿用主题高亮；菜单目标通过局部语义色覆盖，hover 保持当前状态。 */
+/* 播放和持久选择使用轻量背景，保留各列原有文字颜色。 */
 .song-row:is(.song-row--selected, .song-row--playing),
 .song-row:is(.song-row--selected, .song-row--playing):hover,
 .cover-track-row:is([aria-pressed='true'], .cover-track-row--playing),
 .cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):hover {
   background-color: var(--auralis-track-selected-bg);
-  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
   border-radius: 12px;
   border-color: transparent;
-}
-
-.song-row:is(.song-row--selected, .song-row--playing)
-  :is(.song-title, .song-title-main, .song-artist, .song-album, .song-duration, .song-play-count),
-.song-row:is(.song-row--selected, .song-row--playing) .song-cover > span,
-.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing)
-  :is(
-    .cover-track-number,
-    .cover-track-title,
-    .cover-track-artist-line,
-    .cover-track-genre,
-    .cover-track-duration,
-    .cover-track-bitrate,
-    .cover-track-bars
-  ) {
-  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
 }
 
 .library-list-shell--play-count {
@@ -2979,16 +2968,12 @@ input[type='range'].volume-overlay-slider {
   outline-offset: -2px;
 }
 
-.song-row:is(.song-row--selected, .song-row--playing):focus-visible,
-.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):focus-visible {
-  outline-color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
-}
-
-/* 菜单目标沿用主题色相，深色主题压暗、浅色主题使用柔和底色；优先于播放与 hover 背景。 */
+/* 菜单目标优先于播放和悬停背景，内描边不改变行尺寸。 */
 :is(.song-row, .cover-track-row).library-track-context-selected,
 :is(.song-row, .cover-track-row).library-track-context-selected:hover {
-  --auralis-track-highlight-text: var(--auralis-track-context-text);
   background-color: var(--auralis-track-context-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--auralis-text) 25%, transparent);
+  border-radius: 12px;
 }
 
 /* Library search bar */

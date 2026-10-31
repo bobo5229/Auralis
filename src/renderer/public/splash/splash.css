@@ -10,7 +10,7 @@
   --auralis-font-latin: 'Plus Jakarta Sans';
   --auralis-font-cjk: 'HarmonyOS Sans SC';
   --splash-font-ui:
-    var(--auralis-font-latin), var(--auralis-font-cjk), 'Arial Unicode MS', 'Nirmala UI',
+    var(--auralis-font-latin), var(--auralis-font-cjk), 'Auralis Tibetan', 'Auralis Lao', 'Arial Unicode MS', 'Nirmala UI',
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --splash-bg: #121212;
@@ -52,7 +52,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 2.6vmin, 22px);
+  gap: clamp(6px, 1.6vmin, 14px);
 }
 
 #splash-mark {

@@ -62,7 +62,6 @@ const contentStyle = computed<CSSProperties>(() => ({
   >
     <div
       v-if="!isCollapsed && isInteractive"
-      v-tooltip.fast="t('player.resizeLyricsPanelHint')"
       class="lyrics-resize-handle"
       :class="{ 'is-resizing': isWidthDragging }"
       role="separator"

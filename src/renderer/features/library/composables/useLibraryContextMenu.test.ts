@@ -409,10 +409,11 @@ describe('useLibraryContextMenu', () => {
     for (let attempt = 0; attempt < 2; attempt++) {
       menu.onOpenContextMenu(2, createMouseEvent())
       expect(menu.contextMenu.value?.trackId).toBe(2)
-      expect(menu.contextSelectedTrackId.value).toBeNull()
+      expect(menu.contextSelectedTrackId.value).toBe(2)
       expect(menu.highlightedTrackId.value).toBe(2)
       expect(selectedTrackId.value).toBe(2)
       menu.closeContextMenu()
+      expect(menu.contextSelectedTrackId.value).toBeNull()
       expect(menu.highlightedTrackId.value).toBe(2)
     }
 
