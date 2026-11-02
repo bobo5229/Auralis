@@ -1,2 +1,0 @@
-Powered by Paper Shaders:
-https://shaders.paper.design

@@ -1,1 +1,0 @@
-const {spawnSync}=require('node:child_process');const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;const r=spawnSync(require('electron'),['output/normal-lyrics-context-menu-check/review.cjs'],{env,stdio:'inherit'});process.exit(r.status??1);
