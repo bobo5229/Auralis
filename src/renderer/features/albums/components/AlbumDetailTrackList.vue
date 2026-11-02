@@ -53,10 +53,11 @@ function formatDisplayArtist(artist: string | null | undefined): string {
           {{ t('albums.detail.disc', { number: String(group.discNo).padStart(2, '0') }) }}
         </div>
         <button
-          v-for="{ track, presentation } in group.tracks"
+          v-for="({ track, presentation }, index) in group.tracks"
           :key="track.id"
           class="album-detail-track auralis-track-row-divider"
           :class="{
+            'album-detail-track--disc-end': index === group.tracks.length - 1,
             'album-detail-track--selected': presentation.selected,
             'album-detail-track--playing': presentation.playing,
             'album-detail-track--search-highlight': presentation.highlighted,

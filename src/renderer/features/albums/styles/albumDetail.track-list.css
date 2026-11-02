@@ -1,4 +1,9 @@
 .album-tracklist-panel {
+  --auralis-cover-track-divider: color-mix(
+    in srgb,
+    var(--auralis-text) 20%,
+    var(--auralis-main-bg)
+  );
   min-width: 0;
 }
 
@@ -42,18 +47,17 @@
   transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.album-detail-track:not(:first-child)::before {
+.album-detail-track + .album-detail-track::before,
+.album-detail-track--disc-end::after {
   content: '';
+  transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.album-detail-track + .album-detail-track::before {
   top: 0;
 }
 
-.album-detail-disc-header + .album-detail-track::before {
-  display: none;
-}
-
-/* 仅一轨时补底部分隔，避免细行漂在空白里 */
-.album-detail-track:only-of-type::after {
-  content: '';
+.album-detail-track--disc-end::after {
   bottom: 0;
 }
 
@@ -104,22 +108,30 @@
 .album-detail-track:hover::before,
 .album-detail-track.album-detail-track--selected::before,
 .album-detail-track.album-detail-track--playing::before,
-.album-detail-track.album-detail-track--search-highlight::before {
-  display: none;
-}
-
+.album-detail-track.album-detail-track--search-highlight::before,
 .album-detail-track:hover + .album-detail-track::before,
 .album-detail-track--selected + .album-detail-track::before,
 .album-detail-track--playing + .album-detail-track::before,
-.album-detail-track--search-highlight + .album-detail-track::before {
-  display: none;
+.album-detail-track--search-highlight + .album-detail-track::before,
+.album-detail-track--disc-end:is(
+    :hover,
+    .album-detail-track--selected,
+    .album-detail-track--playing,
+    .album-detail-track--search-highlight
+  )::after {
+  opacity: 0;
 }
 
-.album-detail-track:hover::after,
-.album-detail-track.album-detail-track--selected::after,
-.album-detail-track.album-detail-track--playing::after,
-.album-detail-track.album-detail-track--search-highlight::after {
-  display: none;
+:where([data-reduced-motion='true']) .album-detail-track + .album-detail-track::before,
+:where([data-reduced-motion='true']) .album-detail-track--disc-end::after {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-detail-track + .album-detail-track::before,
+  .album-detail-track--disc-end::after {
+    transition: none;
+  }
 }
 
 .album-detail-track-number {

@@ -79,3 +79,31 @@ for (const count of [12, 200, 1000]) {
     console.log(JSON.stringify({ count, mountedRows: rows.length, mountCalls, updateCalls }))
   })
 }
+
+it('marks the last track of each disc, including a single-track disc', async () => {
+  const root = new ShellTestElement('div')
+  const tracks = makeTracks(3)
+  const app = shellTestRenderer.createApp({
+    render: () =>
+      h(AlbumDetailTrackList, {
+        groups: [
+          { discNo: 1, tracks: tracks.slice(0, 2) },
+          { discNo: 2, tracks: tracks.slice(2) },
+        ],
+        albumArtist: 'Artist',
+        selectedTrackId: null,
+        currentTrackId: null,
+        isPlaying: false,
+        highlightedTrackId: null,
+      }),
+  })
+  app.mount(root)
+  unmounts.push(() => app.unmount())
+  await nextTick()
+  const rows = root.querySelectorAll('button.album-detail-track')
+  expect(rows.map((row) => row.classList.contains('album-detail-track--disc-end'))).toEqual([
+    false,
+    true,
+    true,
+  ])
+})
