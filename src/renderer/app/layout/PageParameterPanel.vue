@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
   left: var(--page-parameter-inline-inset);
   right: var(--page-parameter-inline-inset);
   bottom: auto;
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 var(--auralis-panel-radius) var(--auralis-panel-radius);
   width: min(720px, calc(100% - 2 * var(--page-parameter-inline-inset)));
   height: auto;
   max-height: min(50vh, 100%);

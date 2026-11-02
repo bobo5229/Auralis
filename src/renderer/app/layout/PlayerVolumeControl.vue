@@ -122,7 +122,6 @@ defineExpose({
             :aria-valuenow="volumePercentText"
             @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
           />
-          <span class="volume-overlay-value" aria-hidden="true">{{ volumePercentText }}%</span>
         </div>
       </div>
     </div>

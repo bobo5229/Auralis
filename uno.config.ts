@@ -1,4 +1,5 @@
 import { defineConfig, presetIcons, presetUno } from 'unocss'
+import { ARTWORK_CORNER_RADII } from './src/renderer/shared/artwork/artworkCorners'
 import {
   PLAYER_DEFAULT_ACCENT_DARK,
   PLAYER_DEFAULT_ACCENT_LIGHT,
@@ -12,6 +13,10 @@ export default defineConfig({
   --auralis-player-default-accent-dark: rgb(${PLAYER_DEFAULT_ACCENT_DARK.r} ${PLAYER_DEFAULT_ACCENT_DARK.g} ${PLAYER_DEFAULT_ACCENT_DARK.b});
   --auralis-player-default-accent-light: rgb(${PLAYER_DEFAULT_ACCENT_LIGHT.r} ${PLAYER_DEFAULT_ACCENT_LIGHT.g} ${PLAYER_DEFAULT_ACCENT_LIGHT.b});
   --auralis-sidebar-rail-width: 72px;
+  --auralis-artwork-radius-thumbnail: ${ARTWORK_CORNER_RADII.thumbnail}px;
+  --auralis-artwork-radius-preview: ${ARTWORK_CORNER_RADII.preview}px;
+  --auralis-artwork-radius-card: ${ARTWORK_CORNER_RADII.card}px;
+  --auralis-artwork-radius-hero: ${ARTWORK_CORNER_RADII.hero}px;
 }`,
     },
   ],
@@ -45,7 +50,7 @@ export default defineConfig({
     'track-info-card': 'flex-1 min-w-0',
     'track-info-row': 'flex items-center gap-3',
     'track-cover':
-      'w-10 h-10 rounded-lg shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
+      'w-10 h-10 rounded-[var(--auralis-artwork-radius-thumbnail)] shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
     'track-text': 'flex flex-col justify-center min-w-0 h-10',
     'track-title': 'text-[13px] leading-[18px] font-semibold truncate',
     'track-subtitle': 'text-xs leading-4 text-[var(--auralis-text-muted)] truncate',
@@ -68,7 +73,7 @@ export default defineConfig({
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row': 'h-[var(--library-flat-row-height)] items-center cursor-pointer',
     'song-cover':
-      'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
+      'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-[var(--auralis-artwork-radius-thumbnail)] bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm truncate',
     'song-artist': 'text-xs text-[var(--auralis-text-muted)] truncate',
     'song-album': 'text-xs text-[var(--auralis-text-subtle)] truncate text-right',
@@ -78,27 +83,28 @@ export default defineConfig({
     'volume-slider':
       'w-20 h-1 accent-[var(--auralis-progress-fill)] cursor-pointer appearance-none rounded-full bg-[var(--auralis-progress-track)]',
     'queue-popover':
-      'absolute bottom-[calc(100%+32px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] overflow-hidden rounded-[24px] p-3',
+      'absolute bottom-[calc(100%+32px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] overflow-hidden rounded-[var(--auralis-menu-radius)] p-[var(--auralis-menu-padding)]',
     'queue-popover-header': 'flex items-baseline justify-between px-1 pb-2',
     'queue-popover-title': 'text-sm font-semibold text-[var(--auralis-text)]',
     'queue-popover-count': 'text-xs text-[var(--auralis-text-faint)]',
     'queue-popover-section-label':
       'px-1 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
     'queue-popover-scroll': 'max-h-[336px] overflow-y-auto overscroll-contain',
-    'queue-item': 'flex h-14 w-full items-center gap-3 rounded-xl px-2 text-left transition',
+    'queue-item':
+      'flex h-14 w-full items-center gap-3 rounded-[var(--auralis-menu-item-radius)] px-[var(--auralis-queue-item-padding)] text-left transition',
     'queue-item-active': '',
     'queue-item-cover':
-      'h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[var(--auralis-border-subtle)]',
+      'h-10 w-10 shrink-0 overflow-hidden rounded-[var(--auralis-queue-cover-radius)] bg-[var(--auralis-border-subtle)]',
     'queue-item-title': 'truncate text-sm font-semibold text-[var(--auralis-text)]',
     'queue-item-subtitle': 'truncate text-xs text-[var(--auralis-text-muted)]',
     'queue-empty': 'flex h-28 items-center justify-center text-sm text-[var(--auralis-text-faint)]',
     'playback-mode-menu':
-      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
+      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[var(--auralis-menu-radius)] border-[length:var(--auralis-menu-border-width)] border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'playback-mode-item':
       'flex h-9 w-full items-center gap-2 px-4 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] focus-visible:bg-[var(--auralis-control-hover-bg)] focus-visible:text-[var(--auralis-text)]',
-    'playback-mode-item-first': 'rounded-t-[24px]',
+    'playback-mode-item-first': 'rounded-t-[var(--auralis-menu-item-radius)]',
     'playback-mode-item-middle': 'rounded-none',
-    'playback-mode-item-last': 'rounded-b-[24px]',
+    'playback-mode-item-last': 'rounded-b-[var(--auralis-menu-item-radius)]',
     'playback-mode-divider': 'h-px w-full bg-[var(--auralis-playbar-border)]',
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
@@ -106,7 +112,7 @@ export default defineConfig({
       'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-4 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
     'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
     'album-cover-artwork':
-      'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
+      'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-[var(--auralis-artwork-radius-preview)] overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
     'album-cover-meta': 'mt-[var(--library-cover-meta-gap)]',
     'album-cover-meta-title':
       'truncate text-[16px] leading-[var(--library-cover-meta-line-height)] text-[var(--auralis-text)]',

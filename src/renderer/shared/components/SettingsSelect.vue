@@ -311,14 +311,16 @@ watch(
   cursor: default;
 }
 .settings-select-menu {
+  --auralis-menu-radius: 10px;
+  --auralis-menu-border-width: 1px;
   position: fixed;
   z-index: 1000;
   box-sizing: border-box;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 10px;
+  padding: var(--auralis-menu-padding);
+  border: var(--auralis-menu-border-width) solid var(--auralis-border-subtle);
+  border-radius: var(--auralis-menu-radius);
   color: var(--auralis-text);
   background: var(--auralis-context-menu-bg);
   box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
@@ -333,7 +335,7 @@ watch(
   gap: 8px;
   min-height: 32px;
   padding: 4px 6px;
-  border-radius: 6px;
+  border-radius: var(--auralis-menu-item-radius);
   cursor: pointer;
 }
 .settings-select-option > span:first-child {

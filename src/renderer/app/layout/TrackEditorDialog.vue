@@ -343,7 +343,6 @@ defineExpose({ requestClose })
 :global(.auralis-dialog-panel.track-editor-dialog) {
   overflow: visible;
   height: min(680px, calc(100dvh - 80px));
-  border-radius: 20px;
 }
 :global(.track-editor-dialog .auralis-dialog-header) {
   margin-inline: 24px;
@@ -361,7 +360,7 @@ defineExpose({ requestClose })
   flex: none;
   width: 60px;
   height: 60px;
-  border-radius: 14px;
+  border-radius: var(--auralis-artwork-radius-preview);
   background: color-mix(in srgb, var(--auralis-main-bg) 72%, #000);
   color: var(--auralis-text-muted);
 }
@@ -383,7 +382,6 @@ defineExpose({ requestClose })
 .track-editor-confirm .auralis-dialog-action {
   min-height: 36px;
   box-sizing: border-box;
-  border-radius: 12px;
   padding-inline: 18px;
 }
 .track-editor-cancel {

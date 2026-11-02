@@ -66,7 +66,7 @@
 }
 
 .album-detail-track:hover {
-  background-color: var(--auralis-control-hover-bg);
+  background-color: var(--auralis-track-hover-bg);
   transform: none;
   box-shadow: none;
 }
@@ -87,20 +87,18 @@
 
 .album-detail-track.album-detail-track--selected,
 .album-detail-track.album-detail-track--playing {
-  background: var(--auralis-theme-accent);
-  color: var(--auralis-control-primary-text);
+  background: var(--auralis-track-selected-bg);
   box-shadow: none;
   transform: none;
 }
 
-.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
-  :is(.album-detail-track-number, .album-detail-track-duration, .album-detail-track-artist) {
-  color: var(--auralis-control-primary-text);
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing):hover {
+  background: var(--auralis-track-hover-bg);
 }
 
-.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
-  .album-detail-track-play-icon {
-  color: var(--auralis-control-primary-text);
+.album-detail-track:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
 }
 
 .album-detail-track:hover::before,

@@ -1,0 +1,10 @@
+/* Large floating surfaces share a shell; independent controls retain their own radius. */
+:where(.auralis-dialog-panel, .parameter-panel-surface, .smart-playlist-dialog) {
+  --auralis-panel-radius: 20px;
+  --auralis-panel-control-radius: 8px;
+}
+
+/* The attached page panel meets the top edge and rounds only its exposed bottom. */
+.page-parameter-panel {
+  --auralis-panel-radius: 16px;
+}

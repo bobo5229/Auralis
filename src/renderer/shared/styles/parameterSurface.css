@@ -13,7 +13,7 @@
   width: min(400px, calc(100vw - 2 * var(--background-panel-gap)));
   overflow: hidden;
   border: 1px solid var(--auralis-fullscreen-controls-border);
-  border-radius: 16px;
+  border-radius: var(--auralis-panel-radius);
   background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 78%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(135%);
   backdrop-filter: blur(28px) saturate(135%);
@@ -50,7 +50,7 @@
   width: 36px;
   height: 36px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--auralis-panel-control-radius);
   color: var(--auralis-text-muted);
   background: transparent;
   cursor: pointer;

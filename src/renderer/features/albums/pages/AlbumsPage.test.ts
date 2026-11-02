@@ -521,12 +521,12 @@ describe('AlbumsPage keyboard search', () => {
     expect(shortcut().defaultPrevented).toBe(false)
   })
 
-  it('does not open a disabled search field for an empty catalog', async () => {
+  it('keeps empty-catalog search visible and disabled without taking shortcut focus', async () => {
     fixture.tracks = []
     await mountPage()
     expect(shortcut().defaultPrevented).toBe(false)
     await settle()
-    expect(find('library-search-input')).toBeUndefined()
+    expect(find('library-search-input')?.props.disabled).toBe(true)
   })
 
   it('clears the previous album highlight when a new query has no match', async () => {
@@ -586,7 +586,7 @@ describe('AlbumsPage keyboard search', () => {
     }
     expect(fixture.tracks).toEqual(original)
   })
-  it('clears and closes unfocused search on page Escape while preserving the outside focus and scroll', async () => {
+  it('clears unfocused search on page Escape while preserving the outside focus and scroll', async () => {
     await mountPage()
     await setAlbums(40)
     shortcut()
@@ -610,7 +610,7 @@ describe('AlbumsPage keyboard search', () => {
     doc.dispatchEvent(event)
     await settle()
     expect(event.defaultPrevented).toBe(true)
-    expect(find('library-search-input')).toBeUndefined()
+    expect(find('library-search-input')).toBeDefined()
     expect(doc.activeElement).toBe(scroll)
     expect(scroll.scrollTop).toBe(420)
     shortcut()
@@ -619,7 +619,7 @@ describe('AlbumsPage keyboard search', () => {
     expect(find('library-search-outcome')).toBeUndefined()
   })
 
-  it('keeps the first focused Escape in the editor and closes on the second', async () => {
+  it('keeps the first focused Escape in the editor and exits focus on the second', async () => {
     await mountPage()
     shortcut()
     await settle()
@@ -636,7 +636,7 @@ describe('AlbumsPage keyboard search', () => {
     ;(input.props.onKeydown as (event: object) => void)(second)
     doc.dispatchEvent(second)
     await settle()
-    expect(find('library-search-input')).toBeUndefined()
+    expect(find('library-search-input')).toBeDefined()
   })
 
   it.each([{ isComposing: true }, { keyCode: 229 }])(
@@ -685,32 +685,23 @@ describe('AlbumsPage keyboard search', () => {
     expect(inactiveEscape.defaultPrevented).toBe(false)
   })
 
-  it('dismisses hover search until the pointer leaves and reenters its zone', async () => {
+  it('keeps the toolbar visible after page Escape without pointer activation', async () => {
     await mountPage()
-    const page = find('albums-page')!
-    const move = (clientX: number, clientY: number) =>
-      (page.props.onMousemove as (event: object) => void)({ currentTarget: page, clientX, clientY })
-    move(400, 15)
+    const input = find('library-search-input')!
+    expect(input).toBeDefined()
+    const event = escape(body)
+    doc.dispatchEvent(event)
     await settle()
-    expect(find('library-search-input')).toBeDefined()
-    doc.dispatchEvent(escape(body))
-    await settle()
-    expect(find('library-search-input')).toBeUndefined()
-    move(401, 15)
-    await settle()
-    expect(find('library-search-input')).toBeUndefined()
-    move(50, 100)
-    move(400, 15)
-    await settle()
-    expect(find('library-search-input')).toBeDefined()
+    expect(event.defaultPrevented).toBe(false)
+    expect(find('library-search-input')).toBe(input)
   })
 
-  it('opens from the shortcut and returns focus on Escape without reopening', async () => {
+  it('focuses from the shortcut and returns focus on Escape while staying visible', async () => {
     await mountPage()
     const originalFocus = new TestElement('button')
     originalFocus.parent = body
     originalFocus.focus()
-    expect(find('library-search-input')).toBeUndefined()
+    expect(find('library-search-input')).toBeDefined()
     shortcut(originalFocus)
     await settle()
     const input = find('library-search-input')!
@@ -719,7 +710,7 @@ describe('AlbumsPage keyboard search', () => {
     ;(input.props.onKeydown as (event: object) => void)(event)
     await settle()
     expect(doc.activeElement).toBe(originalFocus)
-    expect(find('library-search-input')).toBeUndefined()
+    expect(find('library-search-input')).toBeDefined()
   })
   it('handles the active page shortcut but preserves other input and menu focus', async () => {
     const active = await mountPage()
@@ -841,14 +832,7 @@ describe('AlbumsPage page parameter entry', () => {
   it('opens parameters inside the search bar and restores the empty toolbar focus', async () => {
     await mountPage(true)
     await setAlbums(4)
-    expect(find('library-search-bar')).toBeUndefined()
-    const page = find('albums-page')!
-    ;(page.props.onMousemove as (event: object) => void)({
-      currentTarget: page,
-      clientX: 600,
-      clientY: 20,
-    })
-    await settle()
+    expect(find('library-search-bar')).toBeDefined()
     const tools = find('page-search-tools')!
     const bar = find('library-search-bar')!
     const trigger = find('page-parameter-trigger')!
@@ -856,7 +840,6 @@ describe('AlbumsPage page parameter entry', () => {
     expect(bar.contains(trigger)).toBe(true)
     ;(trigger.props.onClick as (event: object) => void)({ currentTarget: trigger })
     expect(parameters!.open.value).toBe(true)
-    ;(page.props.onMouseleave as () => void)()
     await settle()
     parameters!.close()
     await settle()

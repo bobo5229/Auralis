@@ -233,7 +233,7 @@ function onContextMenu(event: MouseEvent): void {
 <style scoped>
 :global(:root) {
   /* Album-list cover geometry; root scope also reaches inert layout-transition clones. */
-  --album-list-cover-radius: 12px;
+  --album-list-cover-radius: var(--auralis-artwork-radius-card);
   --album-list-cover-hold-outset: 3px;
 }
 

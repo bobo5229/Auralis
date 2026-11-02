@@ -330,7 +330,6 @@ function handleNext(): void {
     class="player-bar"
     :data-playbar-style="playbarMaterialStyle"
     :data-playbar-layout="playbarLayout"
-    :data-volume-expanded="volumeControlRef?.open ? 'true' : 'false'"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
     }"

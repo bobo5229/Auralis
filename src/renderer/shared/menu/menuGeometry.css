@@ -1,0 +1,44 @@
+/* Menu geometry follows the visible shell, including its border and content inset. */
+:where(
+  .frosted-context-menu,
+  .settings-select-menu,
+  .player-bar-overflow-panel,
+  .queue-popover,
+  .playback-mode-menu
+) {
+  --auralis-menu-radius: 16px;
+  --auralis-menu-padding: 4px;
+  --auralis-menu-border-width: 0px;
+  --auralis-menu-item-radius: max(
+    0px,
+    calc(
+      var(--auralis-menu-radius) - var(--auralis-menu-padding) - var(--auralis-menu-border-width)
+    )
+  );
+}
+
+/* Overflow retains its roomier inset; the shell remains the standard menu size. */
+.player-bar-overflow-panel {
+  --auralis-menu-padding: 8px;
+}
+
+/* Queue rows and artwork are evenly inset, so each layer reduces the radius. */
+.queue-popover {
+  --auralis-menu-radius: 24px;
+  --auralis-menu-padding: 12px;
+  --auralis-queue-item-padding: 8px;
+  --auralis-queue-cover-radius: max(
+    0px,
+    calc(var(--auralis-menu-item-radius) - var(--auralis-queue-item-padding))
+  );
+}
+
+/* Mode choices meet the shell edge; only their outermost corners are rounded. */
+.playback-mode-menu {
+  --auralis-menu-radius: 24px;
+  --auralis-menu-padding: 0px;
+  --auralis-menu-border-width: 1px;
+}
+.playback-mode-menu--playbar {
+  --auralis-menu-border-width: 0px;
+}

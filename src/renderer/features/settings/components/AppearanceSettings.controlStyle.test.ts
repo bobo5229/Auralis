@@ -126,40 +126,39 @@ it('lists component styles and stores the selected material', async () => {
   const root = new TestNode('root')
   const app = renderer.createApp({ render: () => h(AppearanceSettings) })
   app.mount(root)
-  const trigger = find(root, (node) => node.props.id === 'appearance-control-style')!
-  expect(trigger.props.role).toBe('combobox')
-  expect(trigger.props['aria-labelledby']).toBe(
-    'appearance-control-style-label appearance-control-style-value',
-  )
-  expect(trigger.props['aria-describedby']).toBe('appearance-control-style-description')
-  expect(textOf(find(trigger, (node) => node.props.id === 'appearance-control-style-value')!)).toBe(
-    'settings.appearance.controlStyle.brushed',
-  )
-  ;(trigger.props.onClick as () => void)()
-  await nextTick()
-  const options = [0, 1].map((index) =>
-    find(body, (node) => node.props.id === `appearance-control-style-option-${index}`),
-  )
-  expect(options.map((option) => textOf(option!))).toEqual([
+  const group = find(root, (node) => node.props.id === 'appearance-control-style')!
+  expect(group.props.role).toBe('radiogroup')
+  expect(group.props['aria-labelledby']).toBe('appearance-control-style-label')
+  expect(group.props['aria-describedby']).toBe('appearance-control-style-description')
+  const options = group.children.filter((node) => node.props.role === 'radio')
+  expect(options.map(textOf)).toEqual([
     'settings.appearance.controlStyle.brushed',
     'settings.appearance.controlStyle.anodized',
   ])
-  ;(options[1]!.props.onClick as () => void)()
+  expect(options.map((option) => option.props['aria-checked'])).toEqual([true, false])
+  expect(options.map((option) => option.props.tabindex)).toEqual([0, -1])
+  ;(options[1].props.onClick as () => void)()
   await nextTick()
   expect(getControlStyle()).toBe('anodized')
   expect(setItem).toHaveBeenCalledWith(CONTROL_STYLE_KEY, 'anodized')
-  expect(textOf(find(trigger, (node) => node.props.id === 'appearance-control-style-value')!)).toBe(
-    'settings.appearance.controlStyle.anodized',
-  )
-  expect(trigger.props['aria-expanded']).toBe(false)
+  expect(options.map((option) => option.props['aria-checked'])).toEqual([false, true])
+
+  const keydown = async (index: number, key: string, expected: string) => {
+    const preventDefault = vi.fn()
+    ;(options[index].props.onKeydown as (event: unknown) => void)({ key, preventDefault })
+    await nextTick()
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(getControlStyle()).toBe(expected)
+  }
+  await keydown(1, 'ArrowRight', 'brushed')
+  await keydown(0, 'End', 'anodized')
+  await keydown(1, 'Home', 'brushed')
+  await keydown(0, 'ArrowLeft', 'anodized')
 
   setItem.mockImplementation(() => {
     throw new Error('storage unavailable')
   })
-  ;(trigger.props.onClick as () => void)()
-  await nextTick()
-  const brushed = find(body, (node) => node.props.id === 'appearance-control-style-option-0')!
-  ;(brushed.props.onClick as () => void)()
+  ;(options[0].props.onClick as () => void)()
   await nextTick()
   expect(getControlStyle()).toBe('brushed')
   const row = find(root, (node) =>

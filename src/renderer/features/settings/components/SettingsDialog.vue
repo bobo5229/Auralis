@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
   min-height: 38px;
   padding: 8px 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--auralis-panel-control-radius);
   color: var(--auralis-text-muted);
   background: transparent;
   font: inherit;
@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
 .settings-dialog-status button {
   padding: 6px 12px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--auralis-panel-control-radius);
   color: var(--auralis-text);
   background: var(--auralis-sidebar-bg);
   font: inherit;

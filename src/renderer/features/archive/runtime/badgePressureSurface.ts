@@ -101,6 +101,8 @@ export async function createPressureSurface(
   let lastMainPaintMs = 0,
     totalMainPaintMs = 0,
     totalComputeMs = 0
+  let resolveLayout: (() => void) | undefined
+  let layoutPromise = Promise.resolve()
   let layoutKey = '',
     rebuilds = 0,
     cacheHits = 0
@@ -186,6 +188,10 @@ export async function createPressureSurface(
     // ResizeObserver sends an initial notification even when the measured layout is unchanged.
     if (nextKey === layoutKey) return
     layoutKey = nextKey
+    resolveLayout?.()
+    layoutPromise = new Promise<void>((resolve) => {
+      resolveLayout = resolve
+    })
     rebuilds++
     stop()
     canvas.width = width
@@ -245,6 +251,8 @@ export async function createPressureSurface(
     totalMainPaintMs += lastMainPaintMs
     frames++
     resolveReady()
+    resolveLayout?.()
+    resolveLayout = undefined
     lastDrawMs = computeMs + lastMainPaintMs
     maxDrawMs = Math.max(maxDrawMs, lastDrawMs)
     lastDrawPixels = patch.width * patch.height
@@ -351,8 +359,10 @@ export async function createPressureSurface(
     signal.removeEventListener('abort', dispose)
     canvas.remove()
     resolveReady()
+    resolveLayout?.()
   }
   return {
+    layoutReady: () => layoutPromise,
     ready,
     setBadges(next: PressureBadge[]) {
       entries = next

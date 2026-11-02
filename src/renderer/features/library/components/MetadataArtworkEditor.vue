@@ -257,16 +257,19 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
   margin-block: 10px;
 }
 .metadata-picture {
+  --metadata-picture-radius: var(--auralis-artwork-radius-card);
+  --metadata-picture-padding: 8px;
+  --metadata-picture-border: 1px;
   display: flex;
   gap: 10px;
-  padding: 8px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 12px;
+  padding: var(--metadata-picture-padding);
+  border: var(--metadata-picture-border) solid var(--auralis-border-subtle);
+  border-radius: var(--metadata-picture-radius);
   background: transparent;
   color: inherit;
   text-align: left;
   overflow-wrap: anywhere;
-  align-items: center;
+  align-items: flex-start;
 }
 .metadata-picture--selected {
   outline: 2px solid var(--auralis-control-primary-bg);
@@ -277,7 +280,16 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
   height: 60px;
   object-fit: cover;
   flex: none;
-  border-radius: 8px;
+  border-radius: var(--auralis-artwork-radius-preview);
+}
+.metadata-picture img {
+  border-radius: max(
+    0px,
+    calc(
+      var(--metadata-picture-radius) - var(--metadata-picture-padding) -
+        var(--metadata-picture-border)
+    )
+  );
 }
 .metadata-picture-change {
   display: flex;

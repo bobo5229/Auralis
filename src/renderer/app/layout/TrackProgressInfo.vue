@@ -113,7 +113,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           <img
             v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
             :src="getArtworkUrl(currentTrack.artworkCacheKey) ?? undefined"
-            class="h-full w-full rounded-[inherit] object-cover"
+            class="h-full w-full object-cover"
             decoding="async"
             @error="imgError = true"
           />
@@ -205,7 +205,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: inherit;
+  /* The parent clips this paint layer to its inner border curve. */
   background: rgb(0 0 0 / 42%);
   color: white;
   opacity: 0;

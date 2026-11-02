@@ -1,3 +1,5 @@
+import { ARTWORK_CORNER_RADII } from '@renderer/shared/artwork/artworkCorners'
+
 export const ALBUM_LIST_PARAMETER_STORAGE_KEY = 'auralis-album-list-parameters'
 export const ALBUM_LIST_FONT_FIELDS = ['title', 'artist', 'year'] as const
 export type AlbumListFontField = (typeof ALBUM_LIST_FONT_FIELDS)[number]
@@ -10,7 +12,7 @@ export const ALBUM_LIST_SIZE_RANGES = {
 } as const
 export const ALBUM_LIST_FONT_WEIGHTS = [400, 500, 600, 700, 800, 900] as const
 export type AlbumListFontWeight = (typeof ALBUM_LIST_FONT_WEIGHTS)[number]
-export const ALBUM_LIST_DEFAULT_RADIUS = 12
+export const ALBUM_LIST_DEFAULT_RADIUS = ARTWORK_CORNER_RADII.card
 export const ALBUM_LIST_METADATA_GAP = 12
 export const ALBUM_LIST_METADATA_MIN_HEIGHT = 58
 export const ALBUM_LIST_TEXT_GAP = 3

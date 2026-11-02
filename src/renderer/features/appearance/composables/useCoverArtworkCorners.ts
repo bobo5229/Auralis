@@ -1,9 +1,10 @@
 import { readonly, ref } from 'vue'
+import { ARTWORK_CORNER_RADII } from '@renderer/shared/artwork/artworkCorners'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 
 const STORAGE_KEY = 'auralis-cover-artwork-rounded'
 const RADIUS_STORAGE_KEY = 'auralis-cover-artwork-radius'
-export const DEFAULT_COVER_ARTWORK_RADIUS = 8
+export const DEFAULT_COVER_ARTWORK_RADIUS = ARTWORK_CORNER_RADII.preview
 
 function readPersisted(): boolean {
   try {

@@ -32,7 +32,7 @@ import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
-import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
+import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
 import PageParameterTrigger from '@renderer/features/appearance/components/PageParameterTrigger.vue'
 import { useAlbumLayoutTransition } from '../composables/useAlbumLayoutTransition'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
@@ -50,12 +50,8 @@ usePageParameterSource('albums')
 const router = useRouter()
 const { t } = useI18n()
 const { openSettings } = useSettingsDialog()
-const {
-  hasParameters: hasPageParameters,
-  keepVisible: keepSearchToolsVisible,
-  onFocusIn: onSearchToolsFocusIn,
-  onFocusOut: onSearchToolsFocusOut,
-} = usePageSearchTools('albums')
+const pageParameters = usePageParameters()
+const hasPageParameters = computed(() => pageParameters?.context.value?.kind === 'albums')
 const { songText } = useChineseTextDisplay()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
@@ -133,7 +129,6 @@ const albumSearch = useAlbumSearchSession({
   displayMode,
   contextMenu,
   isLayoutTransitionActive: computed(() => isLayoutTransitionActive.value),
-  hasPageParameters,
   scrollToAlbum: (index) => {
     artistJump.value = null
     rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
@@ -147,12 +142,9 @@ const {
   searchRootRef,
   highlightedAlbumKey,
   searchFeedback,
-  shouldRenderSearchBar,
   onSearchBlur,
   onSearchFocus,
   onSearchKeydown,
-  onAlbumsMouseMove,
-  onAlbumsMouseLeave,
 } = albumSearch
 const { metadataOccupancy } = useAlbumListParameters()
 const gridLayout = useAlbumGridLayout({
@@ -334,60 +326,50 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 </script>
 
 <template>
-  <section
-    class="albums-page main-page-frame relative"
-    @mousemove="onAlbumsMouseMove"
-    @mouseleave="onAlbumsMouseLeave"
-  >
-    <div class="library-search-zone">
-      <Transition name="search-overlay" :duration="160">
-        <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
-          <div
-            ref="searchRootRef"
-            class="page-search-tools"
-            :class="{ 'page-search-tools--parameters': hasPageParameters }"
-            @focusin="onSearchToolsFocusIn"
-            @focusout="onSearchToolsFocusOut"
+  <section class="albums-page main-page-frame relative">
+    <div class="albums-toolbar">
+      <div
+        ref="searchRootRef"
+        class="page-search-tools"
+        :class="{ 'page-search-tools--parameters': hasPageParameters }"
+      >
+        <div
+          class="library-search-bar"
+          :class="{ 'library-search-bar--parameters': hasPageParameters }"
+          @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
+        >
+          <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            class="library-search-input"
+            :disabled="isLoading || albums.length === 0"
+            :placeholder="t('albums.search.placeholder')"
+            :aria-label="t('albums.search.ariaLabel')"
+            spellcheck="false"
+            @focus="onSearchFocus"
+            @blur="onSearchBlur"
+            @keydown="onSearchKeydown"
+          />
+          <span
+            v-if="searchOutcome !== 'idle'"
+            class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
+            :class="
+              searchOutcome === 'not-found'
+                ? 'text-[var(--auralis-danger)] font-medium'
+                : 'text-[var(--auralis-text-muted)]'
+            "
+            role="status"
+            aria-live="polite"
           >
-            <div
-              class="library-search-bar"
-              :class="{ 'library-search-bar--parameters': hasPageParameters }"
-              @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
-            >
-              <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-              <input
-                ref="searchInputRef"
-                v-model="searchQuery"
-                type="text"
-                class="library-search-input"
-                :disabled="isLoading || albums.length === 0"
-                :placeholder="t('albums.search.placeholder')"
-                :aria-label="t('albums.search.ariaLabel')"
-                spellcheck="false"
-                @focus="onSearchFocus"
-                @blur="onSearchBlur"
-                @keydown="onSearchKeydown"
-              />
-              <span
-                v-if="searchOutcome !== 'idle'"
-                class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
-                :class="
-                  searchOutcome === 'not-found'
-                    ? 'text-[var(--auralis-danger)] font-medium'
-                    : 'text-[var(--auralis-text-muted)]'
-                "
-                role="status"
-                aria-live="polite"
-              >
-                {{ searchFeedback }}
-              </span>
-              <span v-if="hasPageParameters" class="page-search-parameters">
-                <PageParameterTrigger @pointerdown.stop />
-              </span>
-            </div>
-          </div>
+            {{ searchFeedback }}
+          </span>
+          <span v-if="hasPageParameters" class="page-search-parameters">
+            <PageParameterTrigger @pointerdown.stop />
+          </span>
         </div>
-      </Transition>
+      </div>
     </div>
 
     <MainPageStatus v-if="isLoading" kind="loading" :title="t('albums.status.loading')" />
@@ -574,8 +556,35 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 
 <style scoped>
 .albums-page {
-  /* The search tools remain above the scroll viewport, including after scrolling. */
-  padding-top: 48px;
+  padding-top: 0;
+}
+
+.albums-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  /* Align with the covers, excluding their shadow gutters and the letter index. */
+  padding: 8px calc(48px + var(--main-page-scrollbar-size, 12px)) 8px 20px;
+}
+
+.albums-toolbar .page-search-tools {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: 100%;
+}
+
+.albums-toolbar .library-search-bar {
+  box-sizing: border-box;
+  border-radius: 8px;
+  border-color: var(--auralis-border-subtle);
+  background: color-mix(in srgb, var(--auralis-text) 3%, var(--auralis-main-bg));
+  box-shadow: none;
+}
+
+.albums-toolbar :deep(.page-parameter-trigger) {
+  border-radius: 4px;
 }
 
 .albums-page-body {
@@ -591,8 +600,8 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  /* 首行与 Header 之间的呼吸区。 */
-  padding-top: var(--main-page-inset-top);
+  /* Separate the first covers from the persistent toolbar. */
+  padding-top: 12px;
   padding-bottom: var(--auralis-playbar-safe-area);
 }
 

@@ -575,7 +575,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: var(--auralis-artwork-radius-hero);
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: 0 30px 80px rgba(31, 35, 40, 0.18);
 }

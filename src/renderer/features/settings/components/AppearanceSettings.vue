@@ -406,7 +406,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               t('settings.appearance.controlStyle.persistFailed')
             }}</span>
           </div>
-          <SettingsSelect
+          <SettingsSegmentedControl
             id="appearance-control-style"
             labelledby="appearance-control-style-label"
             describedby="appearance-control-style-description"

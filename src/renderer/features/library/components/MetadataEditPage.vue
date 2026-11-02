@@ -425,7 +425,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         <button
           v-if="editStatus === 'query-failed'"
           type="button"
-          class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
+          class="metadata-dialog-btn-retry ml-auto shrink-0 px-2.5 py-1 auralis-type-control font-semibold"
           @click="emit('retryStatus')"
         >
           {{ t('library.metadataEditor.status.retry') }}
@@ -881,6 +881,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 }
 
 .metadata-dialog-btn-retry {
+  border-radius: var(--auralis-panel-control-radius);
   background: var(--auralis-control-hover-bg);
   border: 1px solid var(--auralis-border-subtle);
   color: var(--auralis-text);
@@ -911,7 +912,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
   width: 100%;
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--auralis-text) 24%, transparent);
-  border-radius: 999px;
+  border-radius: var(--auralis-panel-control-radius);
   padding: 7px 15px;
   color: var(--auralis-text);
   outline: none;

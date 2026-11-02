@@ -1,6 +1,8 @@
 @import './typography.css';
 @import './harmony-fonts.css';
 @import './misans-fonts.css';
+@import '../../shared/menu/menuGeometry.css';
+@import '../../shared/styles/panelGeometry.css';
 
 @font-face {
   font-family: 'Auralis Tibetan';
@@ -245,6 +247,7 @@
 
   /* Song list tokens */
   --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-hover-bg: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
@@ -356,6 +359,7 @@
 
   /* Song list tokens */
   --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-hover-bg: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(41, 43, 45, 0.025);
@@ -427,6 +431,7 @@
   --auralis-volume-fill: var(--auralis-theme-accent);
   --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
   --auralis-track-selected-bg: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  --auralis-track-hover-bg: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   --auralis-track-context-bg: color-mix(in srgb, var(--auralis-text) 10%, transparent);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
@@ -751,23 +756,16 @@ body.is-column-resizing * {
   content: none;
 }
 
-.player-bar .player-bar-island {
-  --volume-growth: min(
-    130px,
-    max(16px, calc((100% - var(--auralis-playbar-max-width) - 32px) / 2))
-  );
-  width: calc(
-    min(var(--auralis-playbar-max-width), calc(100% - 64px)) + var(--volume-growth) *
-      var(--volume-reveal, 0)
-  );
-  margin-right: calc(-1 * var(--volume-growth) * var(--volume-reveal, 0));
-}
-
 .player-bar .volume-inline-reveal {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  z-index: 1;
   width: calc(130px * var(--volume-reveal, 0));
+  height: 48px;
   opacity: var(--volume-reveal, 0);
   overflow: hidden;
-  flex-shrink: 0;
+  transform: translateY(-50%);
 }
 
 .player-bar .volume-inline-panel {
@@ -775,9 +773,9 @@ body.is-column-resizing * {
   align-items: center;
   width: 130px;
   height: 48px;
-  /* 分别为 0% / 100% 留出半个标签的空间，数值仍与填充末端居中对齐。 */
-  padding-inline: 6px 18px;
-  flex-shrink: 0;
+  padding-inline: 14px 6px;
+  position: absolute;
+  right: 0;
 }
 
 .player-bar .volume-slider-field {
@@ -788,6 +786,7 @@ body.is-column-resizing * {
 
 .player-bar .volume-slider-field .volume-slider {
   display: block;
+  width: 100%;
 }
 
 .player-bar .player-bar-album-tint {
@@ -879,7 +878,6 @@ body.is-column-resizing * {
 .player-bar .track-cover {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
 }
 
 .player-bar .track-text {
@@ -971,15 +969,15 @@ body.is-column-resizing * {
   flex-direction: column;
   gap: 4px;
   min-width: 176px;
-  padding: 8px;
-  border-radius: 16px;
+  padding: var(--auralis-menu-padding);
+  border-radius: var(--auralis-menu-radius);
 }
 
 .player-bar .player-bar-overflow-item {
   width: 100%;
   justify-content: flex-start;
   gap: 10px;
-  border-radius: 10px;
+  border-radius: var(--auralis-menu-item-radius);
   padding: 8px 10px;
 }
 
@@ -1031,7 +1029,6 @@ body.is-column-resizing * {
 }
 
 .player-bar .player-bar-island--full {
-  --volume-growth: 0px;
   width: 100%;
   height: 100%;
   margin-right: 0;
@@ -1110,7 +1107,6 @@ body.is-column-resizing * {
 .player-bar .player-bar-island--full .track-cover {
   width: 52px;
   height: 52px;
-  border-radius: 6px;
 }
 
 .player-bar .player-bar-island--full .track-text {
@@ -1132,54 +1128,6 @@ body.is-column-resizing * {
 .player-bar .player-bar-island--full .playback-actions {
   grid-area: actions;
   gap: 8px;
-}
-
-.player-bar .player-bar-island--full .volume-inline-reveal {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 72;
-  width: 180px;
-  height: 56px;
-  overflow: visible;
-}
-
-.player-bar
-  .player-bar-island--full
-  .volume-control-group[data-volume-open='false']
-  .volume-inline-reveal {
-  visibility: hidden;
-}
-
-.player-bar .player-bar-island--full .volume-inline-panel {
-  --auralis-volume-fill: var(--auralis-theme-accent);
-  width: 100%;
-  height: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--auralis-playbar-border);
-  border-radius: 10px;
-  background: var(--auralis-parameter-surface-bg);
-  box-shadow: var(--auralis-playbar-shadow);
-  -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
-  backdrop-filter: var(--auralis-parameter-surface-filter);
-}
-
-.player-bar .player-bar-island--full .volume-slider-field {
-  display: grid;
-  grid-template-rows: 14px 24px;
-}
-
-.player-bar .player-bar-island--full .volume-slider {
-  grid-area: 2 / 1;
-}
-
-.player-bar .player-bar-island--full .volume-overlay-value {
-  position: static;
-  grid-area: 1 / 1;
-  justify-self: end;
-  transform: none;
-  text-align: right;
-  color: var(--auralis-text-muted);
 }
 
 .player-bar .player-bar-island--full .player-bar-full-progress {
@@ -1262,23 +1210,6 @@ body.is-column-resizing * {
   }
 }
 
-.player-bar .volume-overlay-value {
-  position: absolute;
-  left: var(--volume-percent);
-  bottom: calc(50% + 6px);
-  transform: translateX(-50%);
-  /* 音量轨道上方的紧凑数值标注，使用独立于普通说明文字的规格。 */
-  font-size: 10px;
-  line-height: 14px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  width: max-content;
-  white-space: nowrap;
-  text-align: center;
-  color: var(--auralis-text);
-  pointer-events: none;
-}
-
 :where([data-reduced-motion='true']) .player-bar .transport-controls,
 :where([data-reduced-motion='true']) .player-bar .track-text,
 :where([data-reduced-motion='true']) .player-bar .playback-actions {
@@ -1325,15 +1256,15 @@ body.is-column-resizing * {
 }
 
 .player-bar .queue-item:hover {
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  background: var(--auralis-track-hover-bg);
 }
 
 .player-bar .queue-item-active {
-  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: var(--auralis-track-selected-bg);
 }
 
 .player-bar .queue-item-active:hover {
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  background: var(--auralis-track-hover-bg);
 }
 
 .player-bar .queue-item:focus-visible {
@@ -1524,7 +1455,7 @@ body.is-column-resizing * {
 }
 
 .track-cover {
-  border-radius: 10px;
+  border-radius: var(--auralis-artwork-radius-thumbnail);
   border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -1700,6 +1631,38 @@ body.is-column-resizing * {
 
 .volume-control-group {
   position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 48px;
+}
+
+.volume-control-group::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  height: 48px;
+  width: calc(36px + 130px * var(--volume-reveal, 0));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-surface-floating), var(--auralis-text) 8%);
+  opacity: var(--volume-reveal, 0);
+  pointer-events: none;
+}
+
+.volume-control-group > .player-bar-control {
+  position: relative;
+  z-index: 1;
+}
+
+.player-bar input[type='range'].volume-slider::-webkit-slider-runnable-track,
+.player-bar input[type='range'].volume-slider:hover::-webkit-slider-runnable-track {
+  height: 8px;
+}
+
+.player-bar input[type='range'].volume-slider::-moz-range-track,
+.player-bar input[type='range'].volume-slider:hover::-moz-range-track {
+  height: 8px;
 }
 
 input[type='range'].volume-slider {
@@ -3289,9 +3252,9 @@ input[type='range'].volume-overlay-slider {
 
 :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu {
-  padding: 4px;
+  padding: var(--auralis-menu-padding);
   border: none;
-  border-radius: 16px;
+  border-radius: var(--auralis-menu-radius);
   background: var(--auralis-frosted-surface-bg);
   box-shadow: none;
   -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
@@ -3303,7 +3266,7 @@ input[type='range'].volume-overlay-slider {
   .frosted-context-menu
   .library-context-menu-item {
   border: none;
-  border-radius: 8px;
+  border-radius: var(--auralis-menu-item-radius);
   box-shadow: none;
   font-weight: 400;
   color: var(--auralis-text-muted);
@@ -3425,7 +3388,7 @@ input[type='range'].volume-overlay-slider {
   width: min(360px, calc(100vw - 48px));
   padding: 18px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
+  border-radius: var(--auralis-panel-radius);
   background: var(--auralis-dialog-bg);
   box-shadow: var(--auralis-surface-shadow, 0 18px 55px rgba(0, 0, 0, 0.22));
 }
@@ -3442,7 +3405,7 @@ input[type='range'].volume-overlay-slider {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--auralis-panel-control-radius);
   outline: none;
   color: var(--auralis-text);
   background: var(--auralis-control-bg);
@@ -3478,7 +3441,7 @@ input[type='range'].volume-overlay-slider {
 .smart-playlist-dialog-actions button {
   padding: 7px 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--auralis-panel-control-radius);
   color: var(--auralis-text-muted);
   background: transparent;
   font-size: var(--auralis-type-control-size);

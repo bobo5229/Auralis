@@ -4,6 +4,8 @@
   display: block;
   width: min(1120px, calc(100vw - 48px));
   overflow: visible;
+  /* The panel keeps an invisible height anchor while the case contracts. */
+  pointer-events: none;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -275,6 +277,14 @@
       linear-gradient(145deg, rgb(255 255 255 / 1%), rgb(0 0 0 / 16%)),
       var(--foam-texture) 0 0 / 288px 288px;
   }
+  .foam-sheet {
+    transition: opacity 120ms ease-out;
+  }
+  .is-switching .foam-sheet {
+    opacity: 0;
+    pointer-events: none;
+    transition-duration: 80ms;
+  }
   .foam-surface {
     position: absolute;
     z-index: -1;
@@ -386,6 +396,7 @@
     transition: none;
   }
   .badge-inspector {
+    pointer-events: auto;
     position: fixed;
     inset: 0;
     width: 100vw;
@@ -786,4 +797,8 @@ html[data-reduced-motion='true'] .archive-badge-dialog {
   :is(.case-close, .inspect-close, .scroll-arrow, .inspect-switch):active:not(:disabled) {
     translate: none;
   }
+}
+
+html[data-reduced-motion='true'] .archive-badge-dialog .foam-sheet {
+  transition: none;
 }

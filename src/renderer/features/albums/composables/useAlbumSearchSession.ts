@@ -1,7 +1,6 @@
 import { computed, nextTick, ref, watch, type Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
-import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
 import {
   canDismissPageSearch,
   hasVisiblePageOverlay,
@@ -17,7 +16,6 @@ export function useAlbumSearchSession({
   displayMode,
   contextMenu,
   isLayoutTransitionActive,
-  hasPageParameters,
   scrollToAlbum,
   t,
 }: {
@@ -27,7 +25,6 @@ export function useAlbumSearchSession({
   displayMode: Readonly<Ref<string>>
   contextMenu: Readonly<Ref<unknown | null>>
   isLayoutTransitionActive: Readonly<Ref<boolean>>
-  hasPageParameters: Readonly<Ref<boolean>>
   scrollToAlbum: (index: number) => void
   t: (key: string, values?: Record<string, string>) => string
 }) {
@@ -35,15 +32,11 @@ export function useAlbumSearchSession({
 
   const isSearchFocused = ref(false)
 
-  const isSearchZoneHovered = ref(false)
-
   const isSearchOpen = ref(false)
 
   let searchReturnFocus: HTMLElement | null = null
 
   let searchFocusRevision = 0
-
-  let isSearchHoverDismissed = false
 
   const searchInputRef = ref<HTMLInputElement | null>(null)
 
@@ -62,16 +55,6 @@ export function useAlbumSearchSession({
   let lastMatchedAlbumIndex = -1
 
   let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
-
-  const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
-
-  const shouldRenderSearchBar = computed(
-    () =>
-      isSearchOpen.value ||
-      isSearchZoneHovered.value ||
-      isSearchFocused.value ||
-      hasSearchQuery.value,
-  )
 
   const searchFeedback = computed(() => {
     if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
@@ -190,7 +173,6 @@ export function useAlbumSearchSession({
           : null
     }
     isSearchOpen.value = true
-    isSearchHoverDismissed = false
     await nextTick()
     if (revision !== searchFocusRevision || !canRefresh.value || !isSearchOpen.value) return
     searchInputRef.value?.focus({ preventScroll: true })
@@ -203,7 +185,7 @@ export function useAlbumSearchSession({
       !contextMenu.value &&
       !isLayoutTransitionActive.value &&
       !isSearchFocused.value &&
-      (searchQuery.value !== '' || shouldRenderSearchBar.value) &&
+      (searchQuery.value !== '' || isSearchOpen.value) &&
       canDismissPageSearch(event)
     ) {
       event.preventDefault()
@@ -250,8 +232,6 @@ export function useAlbumSearchSession({
   function dismissSearch(restoreFocus: boolean): void {
     const revision = ++searchFocusRevision
     isSearchOpen.value = false
-    isSearchHoverDismissed ||= isSearchZoneHovered.value
-    isSearchZoneHovered.value = false
     isSearchFocused.value = false
     const returnFocus = searchReturnFocus
     searchReturnFocus = null
@@ -264,7 +244,6 @@ export function useAlbumSearchSession({
   }
 
   function onSearchFocus(): void {
-    isSearchHoverDismissed = false
     isSearchFocused.value = true
   }
 
@@ -284,27 +263,6 @@ export function useAlbumSearchSession({
     locateNextSearchResult()
   }
 
-  function onAlbumsMouseMove(event: MouseEvent): void {
-    const currentTarget = event.currentTarget as HTMLElement | null
-    if (!currentTarget) return
-
-    const bar = searchRootRef.value
-    const hovered = isLibrarySearchBarHovered(
-      event.clientX,
-      event.clientY,
-      currentTarget.getBoundingClientRect(),
-      bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
-      hasPageParameters.value,
-    )
-    if (!hovered) isSearchHoverDismissed = false
-    isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
-  }
-
-  function onAlbumsMouseLeave(): void {
-    isSearchHoverDismissed = false
-    isSearchZoneHovered.value = false
-  }
-
   function onDocumentPointerDown(event: PointerEvent): void {
     const target = event.target
     const bar = searchRootRef.value
@@ -313,9 +271,6 @@ export function useAlbumSearchSession({
     isSearchFocused.value = false
     isSearchOpen.value = false
     searchFocusRevision += 1
-    if (!hasSearchQuery.value) {
-      isSearchZoneHovered.value = false
-    }
   }
 
   function activate() {
@@ -325,7 +280,6 @@ export function useAlbumSearchSession({
   function deactivate() {
     isSearchFocused.value = false
     isSearchOpen.value = false
-    isSearchZoneHovered.value = false
     searchReturnFocus = null
     searchFocusRevision += 1
     document.removeEventListener('pointerdown', onDocumentPointerDown)
@@ -342,13 +296,10 @@ export function useAlbumSearchSession({
     searchRootRef,
     highlightedAlbumKey,
     searchFeedback,
-    shouldRenderSearchBar,
     onSearchBlur,
     clearSearch,
     onSearchFocus,
     onSearchKeydown,
-    onAlbumsMouseMove,
-    onAlbumsMouseLeave,
     activate,
     deactivate,
     dispose,

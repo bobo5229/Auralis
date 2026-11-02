@@ -28,9 +28,12 @@ const canvasRevision = ref(0)
 type MilestoneView = 'all' | MilestoneGroup
 const views: readonly MilestoneView[] = ['all', ...milestoneGroups]
 const group = ref<MilestoneView>('all')
+const displayedGroup = ref<MilestoneView>('all')
+const contentHidden = ref(false)
+const gallery = ref<HTMLElement | null>(null)
 const displayAchievements = ref(props.achievements)
 const sections = computed(() =>
-  (group.value === 'all' ? milestoneGroups : [group.value]).map((group) => ({
+  (displayedGroup.value === 'all' ? milestoneGroups : [displayedGroup.value]).map((group) => ({
     group,
     badges: milestoneBadges.filter((badge) => badge.group === group),
   })),
@@ -218,7 +221,7 @@ function scroll(delta: number) {
 }
 function wheel(event: WheelEvent) {
   if (
-    group.value === 'all' ||
+    displayedGroup.value === 'all' ||
     event.ctrlKey ||
     Math.abs(event.deltaX) >= Math.abs(event.deltaY) ||
     !viewport.value
@@ -237,11 +240,64 @@ function rebuild() {
   )
   updateArrows()
 }
-watch(group, async () => {
+let switchVersion = 0
+let switchTimer: ReturnType<typeof setTimeout> | undefined
+let resolveWait: (() => void) | undefined
+function cancelWait() {
+  clearTimeout(switchTimer)
+  resolveWait?.()
+  resolveWait = undefined
+}
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    resolveWait = resolve
+    switchTimer = setTimeout(() => {
+      resolveWait = undefined
+      resolve()
+    }, ms)
+  })
+}
+watch(group, async (target) => {
+  const version = ++switchVersion
+  cancelWait()
+  const element = viewport.value
+  if (!element || !casePresented.value) {
+    displayedGroup.value = target
+    return
+  }
+  const panel = gallery.value?.closest<HTMLElement>('.archive-badge-dialog')
+  if (panel && !panel.style.height) panel.style.height = `${panel.getBoundingClientRect().height}px`
+  contentHidden.value = true
+  if (!motion.matches) await wait(80)
+  if (version !== switchVersion || lifetime.signal.aborted) return
+  const start = element.getBoundingClientRect().height
+  element.style.transition = 'none'
+  element.style.height = `${start}px`
+  displayedGroup.value = target
   await nextTick()
-  if (lifetime.signal.aborted) return
-  viewport.value?.scrollTo({ left: 0, top: 0, behavior: 'instant' })
+  if (version !== switchVersion || lifetime.signal.aborted) return
+  element.scrollTo({ left: 0, top: 0, behavior: 'instant' })
+  element.style.height = 'auto'
+  const end = element.getBoundingClientRect().height
+  element.style.height = `${start}px`
+  void element.offsetHeight
+  element.style.transition = motion.matches ? 'none' : 'height 300ms cubic-bezier(0.22, 1, 0.36, 1)'
+  element.style.height = `${end}px`
   rebuild()
+  const ready = surface?.layoutReady() ?? Promise.resolve()
+  if (!motion.matches && Math.abs(end - start) > 0.5) await wait(180)
+  await ready
+  if (version !== switchVersion || lifetime.signal.aborted) return
+  // Decoding can outlast the geometry transition; never show partial content.
+  while (!previewsReady.value && !previewsFailed.value) {
+    await wait(20)
+    if (version !== switchVersion || lifetime.signal.aborted) return
+  }
+  contentHidden.value = false
+  if (!motion.matches) await wait(120)
+  if (version !== switchVersion || lifetime.signal.aborted) return
+  element.style.transition = ''
+  element.style.height = ''
 })
 onMounted(async () => {
   observer = new ResizeObserver(updateArrows)
@@ -267,6 +323,8 @@ onMounted(async () => {
   }
 })
 onBeforeUnmount(() => {
+  switchVersion++
+  cancelWait()
   lifetime.abort()
   observer?.disconnect()
 })
@@ -292,8 +350,14 @@ defineExpose({
       <h2 :id="titleId" class="sr-only">{{ t('archive.milestones.title') }}</h2>
     </template>
     <div
+      ref="gallery"
       class="archive-badge-gallery"
-      :class="{ 'is-ready': casePresented, 'is-inspecting': active, 'is-all': group === 'all' }"
+      :class="{
+        'is-ready': casePresented,
+        'is-inspecting': active,
+        'is-all': displayedGroup === 'all',
+        'is-switching': contentHidden,
+      }"
       :inert="active || !casePresented"
       :data-foam-failed="foamFailed || undefined"
     >
@@ -344,11 +408,15 @@ defineExpose({
               class="foam-viewport"
               tabindex="0"
               :aria-label="
-                t(group === 'all' ? 'archive.milestones.browseAll' : 'archive.milestones.browse')
+                t(
+                  displayedGroup === 'all'
+                    ? 'archive.milestones.browseAll'
+                    : 'archive.milestones.browse',
+                )
               "
               @scroll="updateArrows"
             >
-              <div ref="sheet" class="foam-sheet">
+              <div ref="sheet" class="foam-sheet" :inert="contentHidden">
                 <div
                   ref="row"
                   class="badge-layout"
@@ -365,7 +433,7 @@ defineExpose({
                     <h3
                       :id="`${titleId}-${section.group}`"
                       class="badge-group__title"
-                      :class="{ 'sr-only': group !== 'all' }"
+                      :class="{ 'sr-only': displayedGroup !== 'all' }"
                     >
                       {{ t(`archive.milestones.groups.${section.group}`) }}
                     </h3>
@@ -410,7 +478,7 @@ defineExpose({
             </div>
           </div>
           <button
-            v-if="group !== 'all'"
+            v-if="displayedGroup !== 'all'"
             class="scroll-arrow scroll-arrow--previous"
             type="button"
             :disabled="!canPrevious"
@@ -420,7 +488,7 @@ defineExpose({
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
           </button>
           <button
-            v-if="group !== 'all'"
+            v-if="displayedGroup !== 'all'"
             class="scroll-arrow scroll-arrow--next"
             type="button"
             :disabled="!canNext"

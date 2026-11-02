@@ -34,6 +34,7 @@ let animations: Animation[] = []
 let buttonWidth = 0
 let buttonHeight = 0
 let buttonBackground = ''
+let buttonRadius = '0px'
 
 function focusItem(index: number): void {
   activeIndex.value = index
@@ -93,6 +94,7 @@ function beforeEnter(element: Element): void {
     buttonWidth = rect.width
     buttonHeight = rect.height
     buttonBackground = style.backgroundColor
+    buttonRadius = style.borderRadius
   }
   target.inert = false
   target.removeAttribute('aria-hidden')
@@ -136,9 +138,9 @@ function transition(element: HTMLElement, opening: boolean, done: () => void): v
     Math.min(element.offsetHeight - buttonHeight, anchor ? anchor.top - bounds.top : 0),
   )
   const closed = {
-    clipPath: `inset(${top}px ${Math.max(0, element.offsetWidth - left - buttonWidth)}px ${Math.max(0, element.offsetHeight - top - buttonHeight)}px ${left}px round 6px)`,
+    clipPath: `inset(${top}px ${Math.max(0, element.offsetWidth - left - buttonWidth)}px ${Math.max(0, element.offsetHeight - top - buttonHeight)}px ${left}px round ${buttonRadius})`,
     backgroundColor: buttonBackground,
-    borderRadius: '6px',
+    borderRadius: buttonRadius,
   }
   const expanded = {
     clipPath: `inset(0px 0px 0px 0px round ${style.borderTopRightRadius})`,
@@ -299,7 +301,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 4px;
+  padding: var(--auralis-menu-padding);
 }
 .library-context-menu-item:disabled {
   opacity: 0.4;

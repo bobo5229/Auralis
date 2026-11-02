@@ -537,7 +537,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--auralis-artwork-radius-hero);
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
