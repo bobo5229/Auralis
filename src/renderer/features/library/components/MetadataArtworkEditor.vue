@@ -21,6 +21,12 @@ const snapshot = ref<MetadataArtworkSnapshot | null>(null),
 const changes = ref<MetadataArtworkChange[]>([])
 const imports = ref<Record<string, ImportedMetadataArtwork>>({})
 const loaded = ref(false)
+const sectionRef = ref<HTMLElement | null>(null)
+function focus(): void {
+  sectionRef.value?.scrollIntoView({ block: 'start', behavior: 'auto' })
+  sectionRef.value?.focus({ preventScroll: true })
+}
+
 let revision = 0
 const unavailable = computed(
   () => props.disabled || busy.value || !props.metadata.capabilities?.artwork || stale.value,
@@ -128,10 +134,12 @@ function discardQueued(): void {
 onBeforeUnmount(() => {
   revision++
 })
-defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
+defineExpose({ clearCommitted, discardQueued, hasConflict: stale, focus })
 </script>
 <template>
-  <section class="metadata-artwork-editor auralis-type-caption">
+  <section ref="sectionRef" tabindex="-1" class="metadata-artwork-editor auralis-type-caption">
+    <p class="auralis-type-control font-semibold">{{ t('metadataArtwork.title') }}</p>
+    <p class="metadata-artwork-hint">{{ t('metadataArtwork.currentHint') }}</p>
     <button
       v-if="!loaded"
       type="button"
@@ -142,7 +150,6 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
       {{ t('metadataArtwork.manage') }}
     </button>
     <template v-else>
-      <p class="auralis-type-control font-semibold">{{ t('metadataArtwork.title') }}</p>
       <p v-if="busy" role="status">{{ t('metadataArtwork.loading') }}</p>
       <p v-if="error" role="alert">{{ error }}</p>
       <div v-if="snapshot" class="metadata-picture-list">
@@ -220,6 +227,7 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
           {{ t('lyricsEditor.continue') }}
         </button>
       </div>
+      <p v-if="changes.length" class="mt-3" role="status">{{ t('metadataArtwork.pending') }}</p>
       <ul v-if="changes.length" class="grid gap-2 mt-3" aria-live="polite">
         <li v-for="(change, index) in changes" :key="index" class="metadata-picture-change">
           <img
@@ -249,6 +257,10 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
   border-top: 1px solid var(--auralis-border-subtle);
   padding-top: 12px;
   margin-top: 12px;
+}
+.metadata-artwork-hint {
+  color: var(--auralis-text-muted);
+  margin-block: 4px 8px;
 }
 .metadata-picture-list {
   display: grid;
@@ -297,6 +309,10 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale })
   gap: 10px;
 }
 @media (max-width: 600px) {
+  .metadata-artwork-hint {
+    color: var(--auralis-text-muted);
+    margin-block: 4px 8px;
+  }
   .metadata-picture-list {
     grid-template-columns: 1fr;
   }

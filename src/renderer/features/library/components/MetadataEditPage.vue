@@ -71,6 +71,34 @@ function focus(): void {
 }
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
+const invalidField = ref<EditableTagField | null>(null)
+function fieldUnsupported(field: EditableTagField): boolean {
+  return !!props.metadata?.capabilities && !props.metadata.capabilities.fields[field]
+}
+function showFieldError(field: EditableTagField, message: string): void {
+  invalidField.value = field
+  localError.value = message
+  void nextTick(() => {
+    const input = dialogRef.value?.querySelector<HTMLInputElement>(
+      `[data-metadata-field="${field}"]`,
+    )
+    const details = input?.closest('details')
+    if (details) details.open = true
+    const label = input?.closest('label')
+    ;(label ?? input)?.scrollIntoView?.({ block: 'nearest' })
+    input?.focus({ preventScroll: true })
+  })
+}
+function clearFieldError(field: EditableTagField): void {
+  if (invalidField.value === field) {
+    invalidField.value = null
+    localError.value = null
+  }
+}
+function openArtwork(): void {
+  artworkEditor.value?.focus()
+}
+
 const saveProgress = ref<InstanceType<typeof SaveProgressIcon> | null>(null)
 const saveSucceeded = ref(false)
 const saveButtonLabel = computed(() =>
@@ -139,6 +167,7 @@ function resetForm(): void {
   fieldConflicts.value = []
   resetConfirm.value = false
   localError.value = null
+  invalidField.value = null
 }
 function fieldDisabled(field: EditableTagField): boolean {
   return (
@@ -238,9 +267,7 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
   }
 })
 
-const releaseDateHasError = computed(
-  () => localError.value === 'library.metadataEditor.validation.dateInvalid',
-)
+const releaseDateHasError = computed(() => invalidField.value === 'releaseDate')
 
 const form = reactive<Record<EditableTagField, string>>({
   title: '',
@@ -270,6 +297,7 @@ watch(
     )
       return
     localError.value = null
+    invalidField.value = null
     for (const key of Object.keys(legacyChoices)) delete legacyChoices[key]
     fieldConflicts.value = []
     mergingLegacy.value = false
@@ -340,7 +368,7 @@ function onSave(): void {
     const releaseDateError = validateReleaseDate(releaseDate)
 
     if (releaseDateError) {
-      localError.value = releaseDateError
+      showFieldError('releaseDate', releaseDateError)
       return
     }
   }
@@ -351,7 +379,7 @@ function onSave(): void {
     props.metadata.capabilities &&
     !props.metadata.capabilities.datePrecisions.includes('month')
   ) {
-    localError.value = 'metadataEditorExtra.monthUnsupported'
+    showFieldError('releaseDate', 'metadataEditorExtra.monthUnsupported')
     return
   }
   for (const field of NUMBER_TAG_FIELDS)
@@ -361,7 +389,7 @@ function onSave(): void {
       form[field] &&
       (!/^\d+$/.test(form[field]) || Number(form[field]) < 1 || Number(form[field]) > 65535)
     ) {
-      localError.value = 'metadataEditorExtra.numberInvalid'
+      showFieldError(field, 'metadataEditorExtra.numberInvalid')
       return
     }
   const value = draftMetadata()
@@ -371,10 +399,31 @@ function onSave(): void {
       createMetadataEditRequest(value, props.metadata).changes,
     )
   } catch {
-    localError.value = 'metadataEditorExtra.numberInvalid'
+    const changes = createMetadataEditRequest(value, props.metadata).changes
+    for (const [number, total] of [
+      ['trackNo', 'trackTotal'],
+      ['discNo', 'discTotal'],
+    ] as const) {
+      const pairChanges = Object.fromEntries(
+        [number, total]
+          .filter((field) => Object.hasOwn(changes, field))
+          .map((field) => [field, changes[field]]),
+      )
+      try {
+        validateMetadataChanges(props.metadata, pairChanges)
+      } catch {
+        showFieldError(
+          Object.hasOwn(changes, number) ? number : total,
+          'metadataEditorExtra.numberInvalid',
+        )
+        return
+      }
+    }
+    showFieldError('trackNo', 'metadataEditorExtra.numberInvalid')
     return
   }
   localError.value = null
+  invalidField.value = null
   emit('save', {
     ...value,
     ...(mergingLegacy.value ? { legacyAction: 'apply-merged' as const } : {}),
@@ -559,6 +608,17 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           </button>
         </div>
       </section>
+      <button
+        v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
+        type="button"
+        class="metadata-artwork-shortcut auralis-dialog-action"
+        @click="openArtwork"
+      >
+        {{ t('metadataArtwork.manage') }}
+      </button>
+      <span v-if="artworkChanges.length" class="metadata-field-hint" role="status">{{
+        t('metadataArtwork.pending')
+      }}</span>
       <div
         v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
         class="metadata-edit-fields"
@@ -569,77 +629,112 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           <input
             ref="titleInputRef"
             v-model="form.title"
+            data-metadata-field="title"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.title')"
             :disabled="fieldDisabled('title')"
             :readonly="readOnly"
+            @input="clearFieldError('title')"
           />
-        </label>
-        <label class="metadata-dialog-label">
-          {{ t('library.metadataEditor.fields.artist') }}
-          <input
-            v-model="form.artistDisplay"
-            class="metadata-dialog-input metadata-input"
-            :placeholder="t('library.metadataEditor.placeholders.artist')"
-            :disabled="fieldDisabled('artistDisplay')"
-            :readonly="readOnly"
-          />
+          <span v-if="fieldUnsupported('title')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
         </label>
         <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.album') }}
           <input
             v-model="form.albumTitle"
+            data-metadata-field="albumTitle"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.album')"
             :disabled="fieldDisabled('albumTitle')"
             :readonly="readOnly"
+            @input="clearFieldError('albumTitle')"
           />
+          <span v-if="fieldUnsupported('albumTitle')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
+        </label>
+        <label class="metadata-dialog-label">
+          {{ t('library.metadataEditor.fields.artist') }}
+          <input
+            v-model="form.artistDisplay"
+            data-metadata-field="artistDisplay"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.artist')"
+            :disabled="fieldDisabled('artistDisplay')"
+            :readonly="readOnly"
+            @input="clearFieldError('artistDisplay')"
+          />
+          <span v-if="fieldUnsupported('artistDisplay')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
         </label>
         <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.albumArtist') }}
           <input
             v-model="form.albumArtistDisplay"
+            data-metadata-field="albumArtistDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
             :disabled="fieldDisabled('albumArtistDisplay')"
             :readonly="readOnly"
+            @input="clearFieldError('albumArtistDisplay')"
           />
+          <span v-if="fieldUnsupported('albumArtistDisplay')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
         </label>
         <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.genre') }}
           <input
             v-model="form.genreDisplay"
+            data-metadata-field="genreDisplay"
             class="metadata-dialog-input metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.genre')"
             :disabled="fieldDisabled('genreDisplay')"
             :readonly="readOnly"
+            @input="clearFieldError('genreDisplay')"
           />
+          <span v-if="fieldUnsupported('genreDisplay')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
         </label>
         <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.releaseDate') }}
           <input
             v-model="form.releaseDate"
+            data-metadata-field="releaseDate"
             class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
             :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
             :disabled="fieldDisabled('releaseDate')"
             :readonly="readOnly"
             :aria-invalid="releaseDateHasError ? 'true' : undefined"
             :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
+            @input="clearFieldError('releaseDate')"
           />
+          <span v-if="fieldUnsupported('releaseDate')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
+          <span
+            v-if="releaseDateHasError"
+            id="metadata-dialog-error"
+            class="metadata-field-error"
+            role="alert"
+            >{{ t(localError!) }}</span
+          >
+          <span class="metadata-field-hint">{{ t('metadataEditorExtra.dateHint') }}</span>
+          <span
+            v-if="metadata.capabilities && !metadata.capabilities.datePrecisions.includes('month')"
+            class="metadata-field-hint"
+            >{{ t('metadataEditorExtra.monthUnsupported') }}</span
+          >
         </label>
       </div>
 
       <div v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)" class="grid gap-3 mt-3">
         <p class="auralis-type-caption text-[var(--auralis-text-muted)]">
           {{ t('metadataEditorExtra.multiHint') }}
-        </p>
-        <p class="auralis-type-caption text-[var(--auralis-text-muted)]">
-          {{ t('metadataEditorExtra.dateHint')
-          }}<span
-            v-if="metadata.capabilities && !metadata.capabilities.datePrecisions.includes('month')"
-          >
-            {{ t('metadataEditorExtra.monthUnsupported') }}</span
-          >
         </p>
         <details open class="metadata-extra-section">
           <summary class="auralis-type-control">{{ t('metadataEditorExtra.numbering') }}</summary>
@@ -648,12 +743,26 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
               {{ t(`metadataEditorExtra.fields.${field}`) }}
               <input
                 v-model="form[field]"
+                :data-metadata-field="field"
+                :aria-invalid="invalidField === field ? 'true' : undefined"
+                :aria-describedby="invalidField === field ? 'metadata-dialog-error' : undefined"
                 inputmode="numeric"
                 class="metadata-dialog-input metadata-input"
                 :disabled="fieldDisabled(field)"
                 :readonly="readOnly"
                 :aria-label="t(`metadataEditorExtra.fields.${field}`)"
+                @input="clearFieldError(field)"
               />
+              <span v-if="fieldUnsupported(field)" class="metadata-field-hint">{{
+                t('metadataEditorExtra.fieldUnsupported')
+              }}</span>
+              <span
+                v-if="invalidField === field"
+                id="metadata-dialog-error"
+                class="metadata-field-error"
+                role="alert"
+                >{{ t(localError!) }}</span
+              >
             </label>
           </div>
         </details>
@@ -667,10 +776,14 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             {{ t(`metadataEditorExtra.fields.${field}`) }}
             <input
               v-model="form[field]"
+              :data-metadata-field="field"
               class="metadata-dialog-input metadata-input"
               :disabled="fieldDisabled(field)"
               :readonly="readOnly"
             />
+            <span v-if="fieldUnsupported(field)" class="metadata-field-hint">{{
+              t('metadataEditorExtra.fieldUnsupported')
+            }}</span>
           </label>
         </details>
       </div>
@@ -682,16 +795,11 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
         @change="artworkChanges = $event"
         @busy-change="emit('busyChange', $event)"
       />
-      <p
-        v-if="localError || errorMessage"
-        id="metadata-dialog-error"
-        class="mt-3 auralis-type-caption text-red-600 font-medium"
-        role="alert"
-      >
-        {{ localError ? t(localError) : errorMessage }}
-      </p>
     </div>
     <footer class="metadata-edit-footer">
+      <p v-if="errorMessage" class="mb-2 auralis-type-caption metadata-field-error" role="alert">
+        {{ errorMessage }}
+      </p>
       <span class="sr-only" role="status" aria-live="polite">
         {{ saving ? saveButtonLabel : '' }}
       </span>
@@ -771,6 +879,17 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 </template>
 
 <style scoped>
+.metadata-artwork-shortcut {
+  margin-bottom: 12px;
+}
+.metadata-field-hint,
+.metadata-field-error {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.metadata-field-error {
+  color: var(--auralis-danger);
+}
 .metadata-extra-section {
   border-top: 1px solid var(--auralis-border-subtle);
   padding-top: 12px;
@@ -804,7 +923,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 16px;
 }
-.metadata-edit-fields > label:nth-child(-n + 4) {
+.metadata-edit-fields > label:nth-child(-n + 2) {
   grid-column: 1 / -1;
 }
 .metadata-edit-footer {

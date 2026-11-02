@@ -955,7 +955,7 @@
         "saved": "已保存"
       },
       "validation": {
-        "dateInvalid": "日期格式必须为 YYYY-MM-DD"
+        "dateInvalid": "请输入有效日期，格式为 YYYY、YYYY-MM 或 YYYY-MM-DD。"
       },
       "status": {
         "checking": "正在检查编辑状态…",
@@ -1237,6 +1237,7 @@
     "myValue": "我的输入",
     "mergeLegacy": "按所选值继续编辑",
     "chooseConflicts": "以下字段在文件和草稿中均有修改，请逐项选择。",
+    "fieldUnsupported": "此文件格式不支持编辑此字段。",
     "multiHint": "多个艺术家、专辑艺术家、流派或作曲者请使用分号加空格分隔，例如 Artist A; Artist B。AC/DC、R&B/Soul 保持单值。",
     "dateHint": "日期格式：YYYY、YYYY-MM 或 YYYY-MM-DD。",
     "monthUnsupported": "此文件不支持仅年月日期，请输入年份或完整日期。",
@@ -1314,6 +1315,8 @@
   "metadataArtwork": {
     "title": "内嵌封面",
     "manage": "管理内嵌封面",
+    "currentHint": "此处管理文件中的内嵌图片；顶部显示当前封面。",
+    "pending": "以下图片修改将在保存歌曲信息时写入文件。",
     "loading": "正在读取图片…",
     "fallback": "移除最后一张图片后的回退来源：",
     "sources": {

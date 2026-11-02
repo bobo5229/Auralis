@@ -955,7 +955,7 @@
         "saved": "Saved"
       },
       "validation": {
-        "dateInvalid": "Use the date format YYYY-MM-DD"
+        "dateInvalid": "Enter a valid date in YYYY, YYYY-MM, or YYYY-MM-DD format."
       },
       "status": {
         "checking": "Checking editing status…",
@@ -1237,6 +1237,7 @@
     "myValue": "My input",
     "mergeLegacy": "Continue with selected values",
     "chooseConflicts": "Both the file and your draft changed these fields. Choose each value.",
+    "fieldUnsupported": "This file format does not support editing this field.",
     "multiHint": "Separate artists, album artists, genres and composers with a semicolon and space, e.g. Artist A; Artist B. AC/DC and R&B/Soul remain single values.",
     "dateHint": "Date formats: YYYY, YYYY-MM or YYYY-MM-DD.",
     "monthUnsupported": "This file cannot store month-only dates. Enter a year or a full date.",
@@ -1314,6 +1315,8 @@
   "metadataArtwork": {
     "title": "Embedded artwork",
     "manage": "Manage embedded artwork",
+    "currentHint": "Manage embedded images here. The header shows the current artwork.",
+    "pending": "These image changes will be written when song information is saved.",
     "loading": "Reading images…",
     "fallback": "Fallback after removing the final image: ",
     "sources": {
