@@ -17,6 +17,7 @@ import type { NativePlaybackEvent } from '../../../shared/ipc/contracts'
 
 const ffmpeg = resolve('resources/audio/ffmpeg.exe')
 const mpv = resolve('resources/audio/mpv.exe')
+const playbackOutput = process.env.AURALIS_TEST_HEADLESS_AUDIO === '1' ? 'null' : 'wasapi'
 const directories: string[] = []
 const services: NativePlaybackService[] = []
 afterEach(async () => {
@@ -327,7 +328,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
     )
 
     it.each([2, 6])(
-      'pauses and seeks within B during a %s-second fade on muted WASAPI output',
+      `pauses and seeks within B during a %s-second fade on muted ${playbackOutput} output`,
       async (durationSeconds) => {
         const dir = await directory()
         const paths = [
@@ -340,7 +341,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
         const service = new NativePlaybackService({
           mpvPath: mpv,
           ffmpegPath: ffmpeg,
-          mpvArgs: ['--ao=wasapi', '--pause=yes'],
+          mpvArgs: [`--ao=${playbackOutput}`, '--pause=yes'],
           resolveTrack: async (id) => paths[id - 1],
           emit: (e) => events.push(e),
           warn: (e) => warnings.push(e),
@@ -378,7 +379,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
       25000,
     )
 
-    it('seeks back into the AAC intro after a six-second continuation on muted WASAPI', async () => {
+    it(`seeks back into the AAC intro after a six-second continuation on muted ${playbackOutput}`, async () => {
       const dir = await directory()
       const paths: string[] = []
       for (const name of ['a', 'b']) {
@@ -393,7 +394,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
       const service = new NativePlaybackService({
         mpvPath: mpv,
         ffmpegPath: ffmpeg,
-        mpvArgs: ['--ao=wasapi', '--pause=yes'],
+        mpvArgs: [`--ao=${playbackOutput}`, '--pause=yes'],
         resolveTrack: async (id) => paths[id - 1],
         emit: (event) => events.push(event),
         warn: (error) => warnings.push(error),

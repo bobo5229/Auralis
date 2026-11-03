@@ -13,6 +13,7 @@ import { SoftTransitionPreparer } from './softTransition'
 
 const ffmpeg = resolve('resources/audio/ffmpeg.exe')
 const mpv = resolve('resources/audio/mpv.exe')
+const playbackOutput = process.env.AURALIS_TEST_HEADLESS_AUDIO === '1' ? 'null' : 'wasapi'
 const rate = 44100
 const directories: string[] = []
 const services: NativePlaybackService[] = []
@@ -372,7 +373,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
     expect(await analyzer.boundary(paths[0], paths[1], new AbortController().signal)).not.toBeNull()
   }, 15000)
 
-  it('pauses and seeks back into B after its Live intro was skipped on muted WASAPI', async () => {
+  it(`pauses and seeks back into B after its Live intro was skipped on muted ${playbackOutput}`, async () => {
     const dir = await directory()
     const paths = [
       await fixture(dir, 'a', 'm4a', signal([tone(4), silence(2)]), 'Live'),
@@ -384,7 +385,7 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))('isolated real Live pla
     const service = new NativePlaybackService({
       mpvPath: mpv,
       ffmpegPath: ffmpeg,
-      mpvArgs: ['--ao=wasapi', '--pause=yes'],
+      mpvArgs: [`--ao=${playbackOutput}`, '--pause=yes'],
       resolveTrack: async (id) => paths[id - 1],
       isLiveAlbum: () => true,
       emit: (event) => events.push(event),

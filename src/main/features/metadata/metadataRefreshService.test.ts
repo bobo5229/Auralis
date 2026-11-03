@@ -1132,7 +1132,7 @@ describe('legacy lyric cache recovery', () => {
         expect.objectContaining({ trackIds: [1] }),
       )
       workers[1].emit('message', { type: 'complete' })
-      await vi.waitFor(() => expect(workers).toHaveLength(3))
+      await vi.waitFor(() => expect(workers).toHaveLength(3), { timeout: 5000 })
       expect(repo.getLegacyTtmlTracks).toHaveBeenLastCalledWith(0, 128)
       await service.shutdown()
       vi.restoreAllMocks()

@@ -47,6 +47,8 @@ jobs:
         run: npm.cmd run build
 
       - name: Run unit, Electron-native, and visual-scope tests
+        env:
+          AURALIS_TEST_HEADLESS_AUDIO: '1'
         run: npm.cmd test
 
       - name: Run Electron smoke test
