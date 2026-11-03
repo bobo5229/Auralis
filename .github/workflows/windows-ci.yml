@@ -21,7 +21,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.13.0
+          node-version: 22.22.0
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -40,11 +40,14 @@ jobs:
       - name: Lint (Zero Warnings)
         run: npm.cmd run lint
 
-      - name: Run unit, Electron-native, and visual-scope tests
-        run: npm.cmd test
+      - name: Stage pinned Windows audio tools
+        run: ./scripts/stage-ci-audio-runtime.ps1 -DownloadDirectory (Join-Path $env:RUNNER_TEMP 'auralis-audio')
 
       - name: Build application bundle and check asset budget
         run: npm.cmd run build
+
+      - name: Run unit, Electron-native, and visual-scope tests
+        run: npm.cmd test
 
       - name: Run Electron smoke test
         run: npm.cmd run smoke:electron
