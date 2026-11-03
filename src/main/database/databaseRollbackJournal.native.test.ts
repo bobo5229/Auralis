@@ -65,7 +65,7 @@ function fixture() {
   const path = join(directory, 'library.sqlite')
   const db = open(path)
   db.pragma('journal_mode = DELETE')
-  migrateDatabase(db)
+  db.transaction(() => migrateDatabase(db))()
   const insert = db.prepare('INSERT INTO tracks(id,file_path,title) VALUES(?,?,?)')
   db.transaction(() => {
     for (let id = 1; id <= 500; id++)

@@ -24,6 +24,10 @@ Get-FileHash -LiteralPath resources/audio/mpv.exe, resources/audio/ffmpeg.exe -A
 脚本使用显式来源路径，不修改系统 PATH。二进制不会随 Git 检出，需要单独准备；相关探测说明见
 [mpv-probe](../scripts/mpv-probe/README.md)。
 
+Windows CI 使用 [stage-ci-audio-runtime.ps1](../scripts/stage-ci-audio-runtime.ps1) 准备测试和打包验证用的
+mpv v0.41.0（Windows x64 MSVC）和 FFmpeg 8.0.1（Gyan full build）。脚本固定发布归档和 SHA-256，
+校验后只将两个可执行文件放入 `resources/audio/`。
+
 ## 当前本地二进制记录
 
 以下版本来自 2026-09-26 的实际 `--version` / `-version` 输出，SHA-256 来自实际文件。

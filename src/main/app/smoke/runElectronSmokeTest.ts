@@ -576,7 +576,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     )
 
     await record(
-      'page parameters preserve font menu Escape, selection and return focus',
+      'page parameters preserve font weight editing, Escape and return focus',
       async () => {
         await mainWindow.webContents.executeJavaScript(
           `(async () => {
@@ -632,59 +632,44 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           throw new Error('Page parameters did not preserve the interactive library')
         }
 
-        let weight = panel.querySelector('#song-font-weight-list-title[role="combobox"]')
+        const weightControl = () => panel.querySelector('#song-font-weight-list-title[role="spinbutton"]')
+        const weight = weightControl()
         if (!weight || weight.disabled) throw new Error('Song title font weight control is unavailable')
-        const menu = () => document.getElementById(weight.getAttribute('aria-controls'))
-        const openMenu = async () => {
-          weight.focus()
-          weight.click()
-          await waitFor('font weight listbox', () => weight.getAttribute('aria-expanded') === 'true' &&
-            menu()?.getAttribute('role') === 'listbox')
-        }
-        await openMenu()
+        const initial = Number(weight.getAttribute('aria-valuenow'))
+        const minimum = Number(weight.getAttribute('aria-valuemin'))
+        const selected = initial === minimum ? initial + 100 : initial - 100
+
+        weight.focus()
+        weight.value = ''
+        weight.dispatchEvent(new Event('input', { bubbles: true }))
         keydown(weight, 'Escape')
-        await waitFor('font menu Escape', () => weight.getAttribute('aria-expanded') === 'false' &&
-          !document.querySelector('[role="listbox"]'))
+        await waitFor('font weight Escape restores the draft', () => weight.value === String(initial))
         if (!panelIsOpen() || document.activeElement !== weight) {
-          throw new Error('Font menu Escape closed the page parameters or lost focus')
+          throw new Error('Font weight Escape closed the page parameters or lost focus')
         }
 
-        await openMenu()
-        keydown(weight, 'Home')
-        keydown(weight, 'ArrowDown')
-        await waitFor('font menu keyboard navigation', () => {
-          const active = document.getElementById(weight.getAttribute('aria-activedescendant'))
-          return active?.getAttribute('role') === 'option' && active.textContent.includes('400')
-        })
-        const option = document.getElementById(weight.getAttribute('aria-activedescendant'))
-        if (option.getAttribute('aria-selected') !== 'false') {
-          throw new Error('Expected a different font weight option to select')
-        }
-        const selectedLabel = option.textContent.trim()
-        option.click()
-        await waitFor('font weight selection applies and persists', () =>
-          weight.getAttribute('aria-expanded') === 'false' &&
-          document.getElementById(weight.id + '-value').textContent.trim() === selectedLabel &&
-          JSON.parse(localStorage.getItem('auralis-song-font-weights') ?? 'null')?.list?.title === 400 &&
-          getComputedStyle(page).getPropertyValue('--auralis-song-list-title-weight').trim() === '400')
-        if (!panelIsOpen() || document.querySelector('[role="listbox"]') || document.activeElement !== weight) {
-          throw new Error('Teleported font option did not close its menu and return focus inside page parameters')
+        keydown(weight, initial === minimum ? 'ArrowUp' : 'ArrowDown')
+        await waitFor('font weight step applies and persists', () =>
+          weight.value === String(selected) &&
+          weight.getAttribute('aria-valuenow') === String(selected) &&
+          JSON.parse(localStorage.getItem('auralis-song-font-weights') ?? 'null')?.list?.title === selected &&
+          getComputedStyle(page).getPropertyValue('--auralis-song-list-title-weight').trim() === String(selected))
+        if (!panelIsOpen() || document.activeElement !== weight) {
+          throw new Error('Changing font weight closed the page parameters or lost focus')
         }
 
-        keydown(weight, 'Escape')
+        const close = panel.querySelector('.parameter-panel-close')
+        close.focus()
+        keydown(close, 'Escape')
         await assertClosed()
         trigger.click()
         await waitFor('page parameters reopen', () => panelIsOpen() &&
           document.activeElement === panel.querySelector('.parameter-panel-close'))
-        weight = panel.querySelector('#song-font-weight-list-title[role="combobox"]')
-        if (!weight || weight.disabled) throw new Error('Font weight control did not remount')
-        await openMenu()
-        if (menu().querySelector('[role="option"][aria-selected="true"]')?.textContent.trim() !== selectedLabel ||
-            document.getElementById(weight.getAttribute('aria-activedescendant'))?.textContent.trim() !== selectedLabel) {
-          throw new Error('Page parameters did not retain the selected font weight')
-        }
-        keydown(weight, 'Escape')
-        await waitFor('reopened font menu close', () => weight.getAttribute('aria-expanded') === 'false')
+        await waitFor('font weight retains the selected value', () => {
+          const reopened = weightControl()
+          return reopened?.value === String(selected) &&
+            reopened.getAttribute('aria-valuenow') === String(selected)
+        })
         panel.querySelector('.parameter-panel-close').click()
         await assertClosed()
         if (window.location.hash !== beforeHash || document.querySelector('.library-page') !== page) {

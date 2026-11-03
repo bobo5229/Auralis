@@ -8,6 +8,7 @@ import { migrateDatabase } from '@main/database/schema'
 import { migrations } from '@main/database/schemaMigrations'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
+import { ALL_METADATA_OVERRIDES } from '@shared/types/metadataOverrides'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { LibraryCatalogSnapshotStore } from './libraryCatalogSnapshotStore'
 
@@ -24,7 +25,7 @@ function openDatabase(path = ':memory:'): Database.Database {
 }
 
 function createCatalog(db = openDatabase()) {
-  migrateDatabase(db)
+  db.transaction(() => migrateDatabase(db))()
   db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist)
     VALUES(1,'one.flac','One','Artist','Album','Artist'),
           (2,'two.flac','Two','Artist','Album','Artist')`)
@@ -141,7 +142,7 @@ describe('catalog revisions', () => {
     expect(store.getPage({ cursor: first.nextCursor! }).tracks[0].title).toBe('Two')
   })
 
-  it('adds the revision to a populated v27 database without changing existing rows', () => {
+  it('upgrades a populated v27 database while preserving its library data', () => {
     const db = openDatabase()
     db.exec(
       'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
@@ -168,11 +169,27 @@ describe('catalog revisions', () => {
     const before = tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     migrateDatabase(db)
     migrateDatabase(db)
-    expect(tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())).toEqual(
-      before.map((rows, i) =>
-        i === 0 ? rows.map((row) => ({ ...(row as object), file_stat_fingerprint: null })) : rows,
-      ),
-    )
+    expect(tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())).toEqual([
+      before[0].map((row) => ({
+        ...(row as object),
+        file_stat_fingerprint: null,
+        title_fallback: null,
+        embedded_artwork_cache_key: null,
+        embedded_artwork_checked_fingerprint: null,
+        directory_artwork_cache_key: null,
+        directory_artwork_checked_fingerprint: null,
+        effective_album_title: 'Unknown Album',
+        effective_album_artist: 'Unknown Artist',
+        track_total: null,
+        disc_total: null,
+      })),
+      before[1].map((row) => ({
+        ...(row as object),
+        source: 'legacy_user_edit',
+        override_mask: ALL_METADATA_OVERRIDES,
+      })),
+      ...before.slice(2),
+    ])
     expect(new TrackRepository(db).getChangeToken()).toBe('0')
     expect(db.pragma('foreign_key_check')).toEqual([])
     db.exec("UPDATE tracks SET title='Changed' WHERE id=1")

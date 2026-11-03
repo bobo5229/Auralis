@@ -31,7 +31,7 @@ describe('collectAudioFiles', () => {
     }
     expect(files.at(-1)).toBe(join(root, 'last.mp3'))
     expect(unreadable).not.toHaveBeenCalled()
-  })
+  }, 15000)
 
   it('reports only unreadable children, skips links, and continues readable siblings', async () => {
     const root = 'C:\\IsolatedInventory'

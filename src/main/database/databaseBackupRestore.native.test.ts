@@ -41,7 +41,7 @@ describe('staged restore failure boundaries with isolated SQLite files', () => {
 
   function createStaged(path: string): void {
     const db = open(`${path}.restore_staged`)
-    migrateDatabase(db)
+    db.transaction(() => migrateDatabase(db))()
     db.exec("INSERT INTO tracks(file_path,title) VALUES('new.flac','New')")
     db.close()
   }
@@ -50,7 +50,7 @@ describe('staged restore failure boundaries with isolated SQLite files', () => {
     const path = join(directory, 'library.sqlite')
     const db = open(path)
     db.pragma('journal_mode = WAL')
-    migrateDatabase(db)
+    db.transaction(() => migrateDatabase(db))()
     db.pragma('wal_checkpoint(TRUNCATE)')
     const main = readFileSync(path)
     db.exec("INSERT INTO tracks(file_path,title) VALUES('old.flac','Original')")

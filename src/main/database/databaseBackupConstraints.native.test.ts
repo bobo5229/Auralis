@@ -43,14 +43,16 @@ function backup(
   db.exec(
     'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
   )
-  for (const migration of migrations.slice(0, version)) {
-    db.exec(rewrite(migration.sql))
-    db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
-      migration.id,
-      migration.name,
-    )
-  }
-  if (after) db.exec(after)
+  db.transaction(() => {
+    for (const migration of migrations.slice(0, version)) {
+      db.exec(rewrite(migration.sql))
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    if (after) db.exec(after)
+  })()
   db.close()
   return path
 }
@@ -89,7 +91,7 @@ it.each([
   })
   const path = join(directory, 'current.sqlite')
   const original = open(path)
-  migrateDatabase(original)
+  original.transaction(() => migrateDatabase(original))()
   original.exec(
     "INSERT INTO tracks(file_path,title) VALUES('original.flac','Original'); INSERT INTO playlists(name) VALUES('Keep me')",
   )

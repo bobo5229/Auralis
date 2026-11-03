@@ -72,7 +72,7 @@ describe('databaseBackupService', () => {
       const db = openDb(path)
       if (kind === 'tracks-only') db.exec('CREATE TABLE tracks (id INTEGER PRIMARY KEY)')
       else {
-        migrateDatabase(db)
+        db.transaction(() => migrateDatabase(db))()
         if (kind === 'missing-column')
           db.exec('ALTER TABLE tracks DROP COLUMN lyrics_sidecar_fingerprint')
         if (kind === 'missing-stat-fingerprint')
@@ -144,7 +144,7 @@ describe('databaseBackupService', () => {
     it('accepts valid Auralis database backup', () => {
       const filePath = join(tempDir, 'valid.backup')
       const db = openDb(filePath)
-      migrateDatabase(db)
+      db.transaction(() => migrateDatabase(db))()
       db.close()
 
       const result = validateBackupFile(filePath, DatabaseCtor)
@@ -158,7 +158,7 @@ describe('databaseBackupService', () => {
       const dbPath = join(tempDir, 'auralis.sqlite')
       const db = openDb(dbPath)
       db.pragma('journal_mode = WAL')
-      migrateDatabase(db)
+      db.transaction(() => migrateDatabase(db))()
 
       db.prepare(
         "INSERT INTO tracks (id, file_path, title) VALUES (1, 'path/a.flac', 'Track A')",
@@ -194,7 +194,7 @@ describe('databaseBackupService', () => {
       const db = openDb(dbPath)
       db.pragma('journal_mode = WAL')
       db.pragma('busy_timeout = 0')
-      migrateDatabase(db)
+      db.transaction(() => migrateDatabase(db))()
       db.prepare("INSERT INTO tracks (file_path, title) VALUES ('a.flac', 'A')").run()
       db.pragma('wal_checkpoint(TRUNCATE)')
       const reader = openDb(dbPath, { readonly: true })
@@ -263,7 +263,7 @@ describe('databaseBackupService', () => {
     it('stages a verified backup file into .restore_staged', async () => {
       const validBackupPath = join(tempDir, 'source-valid.backup')
       const sourceDb = openDb(validBackupPath)
-      migrateDatabase(sourceDb)
+      sourceDb.transaction(() => migrateDatabase(sourceDb))()
       sourceDb
         .prepare("INSERT INTO tracks (id, file_path, title) VALUES (99, 'p/99.flac', 'Staged 99')")
         .run()
@@ -314,11 +314,11 @@ describe('databaseBackupService', () => {
     it('retains original data when migration fails after writing replacement WAL data', () => {
       const path = join(tempDir, 'rollback.sqlite')
       const old = openDb(path)
-      migrateDatabase(old)
+      old.transaction(() => migrateDatabase(old))()
       old.exec("INSERT INTO tracks(file_path,title) VALUES('original.flac','Original')")
       old.close()
       const staged = openDb(`${path}.restore_staged`)
-      migrateDatabase(staged)
+      staged.transaction(() => migrateDatabase(staged))()
       staged.close()
       expect(() =>
         applyStagedRestoreIfExists(path, {
@@ -343,7 +343,7 @@ describe('databaseBackupService', () => {
     it('atomically swaps staged restore and verifies data with rollback cleanup', () => {
       const dbPath = join(tempDir, 'auralis.sqlite')
       const oldDb = openDb(dbPath)
-      migrateDatabase(oldDb)
+      oldDb.transaction(() => migrateDatabase(oldDb))()
       oldDb
         .prepare("INSERT INTO tracks (id, file_path, title) VALUES (1, 'p/1.flac', 'Old Track')")
         .run()
@@ -352,7 +352,7 @@ describe('databaseBackupService', () => {
       // Create a valid staged file with different data
       const stagedSourcePath = join(tempDir, 'new.backup')
       const newDb = openDb(stagedSourcePath)
-      migrateDatabase(newDb)
+      newDb.transaction(() => migrateDatabase(newDb))()
       newDb
         .prepare("INSERT INTO tracks (id, file_path, title) VALUES (2, 'p/2.flac', 'New Track')")
         .run()
@@ -376,7 +376,7 @@ describe('databaseBackupService', () => {
     it('rolls back to original database if staged file fails quick_check verification', () => {
       const dbPath = join(tempDir, 'auralis.sqlite')
       const originalDb = openDb(dbPath)
-      migrateDatabase(originalDb)
+      originalDb.transaction(() => migrateDatabase(originalDb))()
       originalDb
         .prepare("INSERT INTO tracks (id, file_path, title) VALUES (10, 'p/10.flac', 'Original')")
         .run()
