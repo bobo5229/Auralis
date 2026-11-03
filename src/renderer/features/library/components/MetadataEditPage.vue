@@ -393,13 +393,15 @@ function onSave(): void {
       return
     }
   const value = draftMetadata()
+  if (!props.metadata.editToken) {
+    // 无编辑令牌时无法构造修改集，退回字段级通用提示，避免提交处理器抛出未捕获错误。
+    showFieldError('trackNo', 'metadataEditorExtra.numberInvalid')
+    return
+  }
+  const changes = createMetadataEditRequest(value, props.metadata).changes
   try {
-    validateMetadataChanges(
-      props.metadata,
-      createMetadataEditRequest(value, props.metadata).changes,
-    )
+    validateMetadataChanges(props.metadata, changes)
   } catch {
-    const changes = createMetadataEditRequest(value, props.metadata).changes
     for (const [number, total] of [
       ['trackNo', 'trackTotal'],
       ['discNo', 'discTotal'],
@@ -616,7 +618,7 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
       >
         {{ t('metadataArtwork.manage') }}
       </button>
-      <span v-if="artworkChanges.length" class="metadata-field-hint" role="status">{{
+      <span v-if="artworkChanges.length" class="metadata-field-hint">{{
         t('metadataArtwork.pending')
       }}</span>
       <div

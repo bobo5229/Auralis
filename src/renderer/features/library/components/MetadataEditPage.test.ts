@@ -192,6 +192,20 @@ it('focuses the incorrect disc number when multiple numbering fields change', as
   expect(save).not.toHaveBeenCalled()
 })
 
+it('falls back to a field error instead of throwing when the edit token is missing', async () => {
+  const { root, save } = await mount({ ...file, editToken: undefined })
+  const form = find(root, (item) => item.tag === 'form')!
+  expect(() =>
+    (form.props.onSubmit as (event: unknown) => void)({ preventDefault: vi.fn() }),
+  ).not.toThrow()
+  await nextTick()
+  const input = find(root, (item) => item.props['data-metadata-field'] === 'trackNo')!
+  expect(input.props['aria-invalid']).toBe('true')
+  expect(input.focus).toHaveBeenCalled()
+  expect(text(root)).toContain('metadataEditorExtra.numberInvalid')
+  expect(save).not.toHaveBeenCalled()
+})
+
 it('explains an unsupported field next to its disabled input', async () => {
   const fields = Object.fromEntries(
     EDITABLE_TAG_FIELDS.map((field) => [field, field !== 'genreDisplay']),

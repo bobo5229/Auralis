@@ -227,7 +227,7 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale, focus })
           {{ t('lyricsEditor.continue') }}
         </button>
       </div>
-      <p v-if="changes.length" class="mt-3" role="status">{{ t('metadataArtwork.pending') }}</p>
+      <p v-if="changes.length" class="mt-3">{{ t('metadataArtwork.pending') }}</p>
       <ul v-if="changes.length" class="grid gap-2 mt-3" aria-live="polite">
         <li v-for="(change, index) in changes" :key="index" class="metadata-picture-change">
           <img
@@ -309,10 +309,6 @@ defineExpose({ clearCommitted, discardQueued, hasConflict: stale, focus })
   gap: 10px;
 }
 @media (max-width: 600px) {
-  .metadata-artwork-hint {
-    color: var(--auralis-text-muted);
-    margin-block: 4px 8px;
-  }
   .metadata-picture-list {
     grid-template-columns: 1fr;
   }
