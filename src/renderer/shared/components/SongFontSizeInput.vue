@@ -20,14 +20,16 @@ const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 const { t } = useI18n()
 const draft = ref(String(props.modelValue))
 const pointerFocus = ref(false)
-useEventListener(
-  document,
-  'keydown',
-  (event) => {
-    if (event.key === 'Tab') pointerFocus.value = false
-  },
-  { capture: true },
-)
+if (typeof document !== 'undefined') {
+  useEventListener(
+    document,
+    'keydown',
+    (event) => {
+      if (event.key === 'Tab') pointerFocus.value = false
+    },
+    { capture: true },
+  )
+}
 watch(
   () => props.modelValue,
   (value) => {

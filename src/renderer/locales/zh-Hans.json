@@ -574,7 +574,9 @@
       "softTransition": "柔和过渡",
       "softTransitionDescription": "普通换曲时按设定时长交叉淡化；较短曲目会自动缩短。",
       "softTransitionDuration": "过渡时长",
-      "softTransitionDurationValue": "{seconds} 秒"
+      "softTransitionDurationValue": "{seconds} 秒",
+      "effectivePlayThreshold": "有效播放阈值",
+      "effectivePlayThresholdDescription": "累计播放达到曲目时长的设定比例时，记为一次有效播放。更改在下一次开始播放曲目时生效。"
     },
     "library": {
       "maintenanceSection": "资料库维护",

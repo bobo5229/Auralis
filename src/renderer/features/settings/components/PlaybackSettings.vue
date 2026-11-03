@@ -7,6 +7,11 @@ import {
 } from '@shared/audio/softTransitionSettings'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import {
+  MAX_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+  MIN_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+} from '@renderer/features/playback/core/effectivePlayThreshold'
+import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 
@@ -20,6 +25,8 @@ const {
   setSoftTransitionEnabled,
   softTransitionDurationSeconds,
   setSoftTransitionDurationSeconds,
+  effectivePlayThresholdPercent,
+  setEffectivePlayThresholdPercent,
 } = usePlayback()
 const nativeAvailable = ref<boolean | null>(null)
 const durationPreview = ref(softTransitionDurationSeconds.value)
@@ -188,6 +195,23 @@ onMounted(async () => {
               ></span>
             </div>
             <output for="soft-transition-duration">{{ durationText }}</output>
+          </div>
+        </div>
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong>{{ t('settings.playback.effectivePlayThreshold') }}</strong>
+            <span>{{ t('settings.playback.effectivePlayThresholdDescription') }}</span>
+          </div>
+          <div>
+            <SongFontSizeInput
+              id="effective-play-threshold"
+              :model-value="effectivePlayThresholdPercent"
+              :label="t('settings.playback.effectivePlayThreshold')"
+              :min="MIN_EFFECTIVE_PLAY_THRESHOLD_PERCENT"
+              :max="MAX_EFFECTIVE_PLAY_THRESHOLD_PERCENT"
+              kind="percent"
+              @update:model-value="setEffectivePlayThresholdPercent"
+            />
           </div>
         </div>
       </div>

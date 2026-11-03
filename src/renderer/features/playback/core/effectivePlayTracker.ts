@@ -1,4 +1,8 @@
-const PLAY_COUNT_THRESHOLD_RATIO = 0.55
+import {
+  DEFAULT_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+  MAX_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+} from './effectivePlayThreshold'
+
 const PLAY_COUNT_TICK_MS = 1000
 const MAX_REALTIME_DELTA_SECONDS = 2.5
 const MIN_COUNTABLE_DURATION_SECONDS = 5
@@ -16,6 +20,7 @@ export interface EffectivePlayPayload {
 export interface EffectivePlayTrackerOptions {
   isPlaybackCountable: (trackId: number) => boolean
   getDurationSeconds: () => number | null
+  getThresholdPercent?: () => number
   recordEffectivePlay: (payload: EffectivePlayPayload) => Promise<{ ok: boolean }>
   onRecordError?: (error: unknown) => void
   monotonicNow?: () => number
@@ -29,7 +34,10 @@ interface EffectivePlaySession {
   lastSampleAt: number
   realPlayedSeconds: number
   durationSeconds: number | null
+  thresholdPercent: number
   isPlaying: boolean
+  hasPlayed: boolean
+  hasSeeked: boolean
   counted: boolean
 }
 
@@ -63,22 +71,41 @@ export class EffectivePlayTracker {
     if (this.disposed) return
     this.end()
     const now = this.monotonicNow()
+    const isPlaying = this.options.isPlaybackCountable(trackId)
     this.session = {
       sessionId: `${trackId}-${this.epochNow()}-${this.randomToken()}`,
       trackId,
       lastSampleAt: now,
       realPlayedSeconds: 0,
       durationSeconds: this.readDuration(),
-      isPlaying: this.options.isPlaybackCountable(trackId),
+      thresholdPercent:
+        this.options.getThresholdPercent?.() ?? DEFAULT_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+      isPlaying,
+      hasPlayed: isPlaying,
+      hasSeeked: false,
       counted: false,
     }
     this.sampleTimer = setInterval(() => this.sample(), PLAY_COUNT_TICK_MS)
   }
 
-  end(): void {
+  end(naturallyEnded = false): void {
     // The backend may already expose the next track (or idle). Use the old
     // session's duration and playback state to settle its final interval.
-    if (this.session) this.accumulate(this.session)
+    if (this.session) {
+      const session = this.session
+      // An unseeked track reaching its natural end proves full playback even
+      // when audio starts or ends between renderer notifications.
+      if (
+        naturallyEnded &&
+        session.thresholdPercent === MAX_EFFECTIVE_PLAY_THRESHOLD_PERCENT &&
+        session.hasPlayed &&
+        !session.hasSeeked &&
+        session.durationSeconds !== null
+      ) {
+        session.realPlayedSeconds = Math.max(session.realPlayedSeconds, session.durationSeconds)
+      }
+      this.accumulate(session)
+    }
     if (this.sampleTimer) {
       clearInterval(this.sampleTimer)
       this.sampleTimer = null
@@ -98,6 +125,7 @@ export class EffectivePlayTracker {
     if (!session || session.isPlaying === isPlaying) return
     this.accumulate(session)
     session.isPlaying = isPlaying
+    if (isPlaying) session.hasPlayed = true
   }
 
   updateDuration(): void {
@@ -116,7 +144,10 @@ export class EffectivePlayTracker {
 
   beginSeekingWithFallback(): void {
     if (this.disposed) return
-    if (this.session) this.accumulate(this.session)
+    if (this.session) {
+      this.session.hasSeeked = true
+      this.accumulate(this.session)
+    }
     this.seeking = true
     this.clearSeekFallback()
     this.seekFallbackTimer = setTimeout(() => {
@@ -178,8 +209,8 @@ export class EffectivePlayTracker {
   private checkThreshold(session: EffectivePlaySession): void {
     const duration = session.durationSeconds
     if (session.counted || duration === null) return
-    // Avoid delaying an exact 55% boundary because of floating-point rounding.
-    if (session.realPlayedSeconds + 1e-9 < duration * PLAY_COUNT_THRESHOLD_RATIO) return
+    // Avoid delaying an exact threshold boundary because of floating-point rounding.
+    if (session.realPlayedSeconds + 1e-9 < (duration * session.thresholdPercent) / 100) return
 
     session.counted = true
     const pending: PendingEffectivePlay = {

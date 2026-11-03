@@ -11,6 +11,10 @@ import {
   type PlaybackAudioRuntime,
 } from '../audio/playbackAudioRuntime'
 import { EffectivePlayTracker } from '../core/effectivePlayTracker'
+import {
+  DEFAULT_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+  isEffectivePlayThresholdPercent,
+} from '../core/effectivePlayThreshold'
 import { PlaybackNavigationSession } from '../core/playbackNavigationSession'
 import type {
   PlaybackAdvanceTrigger,
@@ -28,6 +32,7 @@ const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
 const DIGITAL_SILENCE_KEY = 'auralis-skip-boundary-digital-silence'
 const SOFT_TRANSITION_KEY = 'auralis-soft-transition-enabled'
 const SOFT_TRANSITION_DURATION_KEY = 'auralis-soft-transition-duration-seconds'
+const EFFECTIVE_PLAY_THRESHOLD_KEY = 'auralis-effective-play-threshold-percent'
 
 function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
@@ -65,6 +70,7 @@ export interface PlaybackPublicApi {
   readonly skipDigitalSilenceEnabled: Readonly<Ref<boolean>>
   readonly softTransitionEnabled: Readonly<Ref<boolean>>
   readonly softTransitionDurationSeconds: Readonly<Ref<number>>
+  readonly effectivePlayThresholdPercent: Readonly<Ref<number>>
   readonly isPlaybackPending: Readonly<Ref<boolean>>
   selectTrack(trackId: number): void
   playTrackFromQueue(
@@ -80,6 +86,7 @@ export interface PlaybackPublicApi {
   setSkipDigitalSilenceEnabled(enabled: boolean): void
   setSoftTransitionEnabled(enabled: boolean): void
   setSoftTransitionDurationSeconds(seconds: number): void
+  setEffectivePlayThresholdPercent(percent: number): void
   togglePlayPause(): Promise<void>
   play(): Promise<void>
   pause(): void
@@ -119,6 +126,12 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       : SOFT_TRANSITION_DEFAULT_SECONDS,
   )
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
+  const persistedThreshold = Number(deps.storage.getItem(EFFECTIVE_PLAY_THRESHOLD_KEY))
+  const effectivePlayThresholdPercent = ref(
+    isEffectivePlayThresholdPercent(persistedThreshold)
+      ? persistedThreshold
+      : DEFAULT_EFFECTIVE_PLAY_THRESHOLD_PERCENT,
+  )
   const playbackRequests = createPlaybackRequestLifecycle()
   const seekRequests = createPlaybackRequestGate()
   const navigationSession = new PlaybackNavigationSession()
@@ -201,7 +214,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       }
     },
     onEnded: (nextTrackId) => {
-      effectivePlayTracker.end()
+      effectivePlayTracker.end(true)
       listeningProgress?.finish(state.duration)
       void commitBoundary(nextTrackId).catch(setPlaybackError)
     },
@@ -267,6 +280,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         })
       : undefined
   const effectivePlayTracker = new EffectivePlayTracker({
+    getThresholdPercent: () => effectivePlayThresholdPercent.value,
     isPlaybackCountable: (trackId) => {
       if (trackId !== state.currentTrackId) return false
       const snapshot = audioRuntime.getSnapshot()
@@ -440,6 +454,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         return
       }
 
+      effectivePlayTracker.start(trackId)
       await audioRuntime.start(trackId, audioUrl.url, {
         decodeProbe: audioUrl.decodeProbe,
         preferGapless: gaplessPlaybackEnabled.value,
@@ -452,7 +467,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       const snapshot = audioRuntime.getSnapshot()
       state.duration = snapshot.duration
       state.currentTime = snapshot.currentTime
-      effectivePlayTracker.start(trackId)
+      effectivePlayTracker.updateDuration()
+      effectivePlayTracker.setPlaying(snapshot.trackId === trackId && snapshot.isPlaying)
       listeningProgress?.start(trackId)
       if (snapshot.kind === 'gapless' || snapshot.kind === 'mpv') {
         void gaplessSession.refresh(trackId)
@@ -462,6 +478,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         return
       }
 
+      effectivePlayTracker.end()
       audioRuntime.clear()
       setPlaybackError(err)
     } finally {
@@ -512,11 +529,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
           snapshot.kind === 'html-audio'
         ) {
           playbackRequests.transition(pendingToken, 'resuming')
-          effectivePlayTracker.start(state.currentTrackId!)
-          listeningProgress?.start(state.currentTrackId!)
           await audioRuntime.seek(0)
           if (!playbackRequests.isCurrent(pendingToken)) return
           state.currentTime = 0
+          effectivePlayTracker.start(state.currentTrackId!)
+          listeningProgress?.start(state.currentTrackId!)
           await audioRuntime.resume()
           return
         }
@@ -613,6 +630,25 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (softTransitionEnabled.value && state.currentTrackId && state.isPlaying) {
       gaplessSession.cancelPreload()
       void gaplessSession.refresh(state.currentTrackId)
+    }
+  }
+
+  function setEffectivePlayThresholdPercent(percent: number): void {
+    if (
+      !isEffectivePlayThresholdPercent(percent) ||
+      effectivePlayThresholdPercent.value === percent
+    )
+      return
+
+    try {
+      deps.storage.setItem(EFFECTIVE_PLAY_THRESHOLD_KEY, String(percent))
+      effectivePlayThresholdPercent.value = percent
+    } catch (cause) {
+      deps.diagnostics.warn({
+        scope: 'playback.effective-play',
+        message: 'Could not save effective play threshold',
+        cause,
+      })
     }
   }
 
@@ -1117,6 +1153,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     skipDigitalSilenceEnabled: readonly(skipDigitalSilenceEnabled),
     softTransitionEnabled: readonly(softTransitionEnabled),
     softTransitionDurationSeconds: readonly(softTransitionDurationSeconds),
+    effectivePlayThresholdPercent: readonly(effectivePlayThresholdPercent),
     isPlaybackPending: playbackRequests.pending,
     selectTrack,
     playTrackFromQueue,
@@ -1128,6 +1165,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     setSkipDigitalSilenceEnabled,
     setSoftTransitionEnabled,
     setSoftTransitionDurationSeconds,
+    setEffectivePlayThresholdPercent,
     togglePlayPause,
     play,
     pause,

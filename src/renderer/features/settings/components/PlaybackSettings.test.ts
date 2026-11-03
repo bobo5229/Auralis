@@ -16,6 +16,10 @@ const playback = {
   skipDigitalSilenceEnabled: ref(false),
   softTransitionEnabled: ref(true),
   softTransitionDurationSeconds: ref(2),
+  effectivePlayThresholdPercent: ref(55),
+  setEffectivePlayThresholdPercent: vi.fn((percent: number) => {
+    playback.effectivePlayThresholdPercent.value = percent
+  }),
   setGaplessPlaybackEnabled: vi.fn(),
   setSkipDigitalSilenceEnabled: vi.fn(),
   setSoftTransitionEnabled: vi.fn(),
@@ -60,10 +64,10 @@ const renderer = createRenderer<TestNode, TestNode>({
     node.props[key] = value
   },
 })
-function find(node: TestNode, type: string): TestNode | undefined {
-  if (node.type === type) return node
+function find(node: TestNode, type: string, id?: string): TestNode | undefined {
+  if (node.type === type && (id === undefined || node.props.id === id)) return node
   for (const child of node.children) {
-    const match = find(child, type)
+    const match = find(child, type, id)
     if (match) return match
   }
   return undefined
@@ -76,7 +80,11 @@ async function mount() {
   mounted.push(app)
   await Promise.resolve()
   await nextTick()
-  return { slider: find(root, 'input')!, output: find(root, 'output')! }
+  return {
+    slider: find(root, 'input')!,
+    output: find(root, 'output')!,
+    threshold: find(root, 'input', 'effective-play-threshold')!,
+  }
 }
 beforeEach(() => {
   nativeAvailability.mockResolvedValue({ available: true })
@@ -84,9 +92,23 @@ beforeEach(() => {
   playback.softTransitionEnabled.value = true
   playback.softTransitionDurationSeconds.value = 2
   playback.setSoftTransitionDurationSeconds.mockClear()
+  playback.effectivePlayThresholdPercent.value = 55
+  playback.setEffectivePlayThresholdPercent.mockClear()
 })
 afterEach(() => {
   mounted.splice(0).forEach((app) => app.unmount())
+})
+
+it('binds the threshold input to the saved playback preference', async () => {
+  const { threshold } = await mount()
+  expect(threshold.props.value).toBe('55')
+  const input = threshold.props.onInput as (event: unknown) => void
+  input({ target: { value: '101' } })
+  expect(playback.setEffectivePlayThresholdPercent).not.toHaveBeenCalled()
+  input({ target: { value: '70' } })
+  await nextTick()
+  expect(playback.setEffectivePlayThresholdPercent).toHaveBeenCalledExactlyOnceWith(70)
+  expect((await mount()).threshold.props.value).toBe('70')
 })
 
 it('previews the duration while dragging and commits only on change', async () => {

@@ -59,15 +59,32 @@ import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
 import { createRendererEventSender } from './rendererEvents'
 import { createMetadataRefreshEvents } from './metadataRefreshEvents'
 import {
+  resolveTagRecoveryTrackIds,
+  runTagWriteRecovery,
+} from '@main/features/metadata/tagWriteRecovery'
+import {
   createTrustedMainWindowSourcePolicy,
   createValidatedIpcRegistrar,
 } from './validatedIpcRegistrar'
 
-export function registerIpcHandlers(
+export async function registerIpcHandlers(
   db: Database.Database,
   artworkCacheDir: string,
   windowBehavior: WindowBehaviorController,
-): { shutdown(): Promise<void> } {
+): Promise<{ shutdown(): Promise<void> }> {
+  const trackRepository = new TrackRepository(db)
+  const libraryRootRepository = new LibraryRootRepository(db)
+  const metadataRepository = new MetadataRefreshRepository(db)
+  await runTagWriteRecovery(
+    libraryRootRepository.list().map((root) => root.path),
+    (root) => trackRepository.getWatchRecoveryTracks(root).map((track) => track.filePath),
+    (path) =>
+      metadataRepository.queueTagRecoveryRefresh(
+        resolveTagRecoveryTrackIds(path, (audioPath) =>
+          trackRepository.getTrackIdsByPlaybackPath(audioPath),
+        ),
+      ),
+  )
   const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
   const audioPaths = resolveAudioRuntimePaths({
     isPackaged: app.isPackaged,
@@ -83,8 +100,6 @@ export function registerIpcHandlers(
     selectLibraryDirectory,
     scanEvents,
   )
-  const trackRepository = new TrackRepository(db)
-  const libraryRootRepository = new LibraryRootRepository(db)
   const playbackFileCoordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (trackId) => trackRepository.getFilePathById(trackId),
     getTrackIdsByFilePath: (filePath) => trackRepository.getTrackIdsByPlaybackPath(filePath),
@@ -92,7 +107,7 @@ export function registerIpcHandlers(
       sendToRenderer(ipcChannels.metadata.trackEditStateChanged, event),
   })
   const metadataRefreshService = new MetadataRefreshService(
-    new MetadataRefreshRepository(db),
+    metadataRepository,
     artworkCacheDir,
     createMetadataRefreshEvents(sendToRenderer),
     audioPaths.ffmpegPath,
@@ -238,6 +253,7 @@ export function registerIpcHandlers(
   })
 
   metadataWatchService.start()
+  metadataWatchService.enqueueRestoredPaths(metadataRepository.listPendingTagRecoveryPaths())
   metadataRefreshService.startLegacyLyricsRecovery()
   const resolvePlaybackTrack = (trackId: number) => playbackResources.resolveTrack(trackId)
   const spectrum = new PlaybackSpectrumService({

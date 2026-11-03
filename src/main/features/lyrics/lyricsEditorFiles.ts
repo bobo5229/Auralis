@@ -140,6 +140,8 @@ export function sameLyricFiles(
   )
 }
 
+export const PENDING_LYRICS_BACKUP_MARKER = '.auralis-write-pending'
+
 /**
  * Flush first; reserve a unique backup directory; publish via an exclusive hard link.
  * No replacement rename or unlink ever overwrites an external writer's target.
@@ -156,6 +158,7 @@ export async function publishLyricsFile(
   let probeOwned = false
   let backupDirectory: string | null = null
   let backupPath: string | null = null
+  let pendingMarker: string | null = null
   let moved = false
   let published = false
   try {
@@ -183,6 +186,8 @@ export async function publishLyricsFile(
         join(dirname(target.path), `${basename(target.path)}.auralis-backup-`),
       )
       backupPath = join(backupDirectory, basename(target.path))
+      pendingMarker = join(backupDirectory, PENDING_LYRICS_BACKUP_MARKER)
+      await (await open(pendingMarker, 'wx')).close()
       await rename(target.path, backupPath)
       moved = true
       const captured = await readLyricFile(backupPath)
@@ -211,6 +216,7 @@ export async function publishLyricsFile(
         throw new LyricsEditorError('recovery-required', backupPath)
       }
       // Keep the recovery copy even when restoration succeeded.
+      if (pendingMarker) await unlink(pendingMarker).catch(() => undefined)
     }
     if (error instanceof LyricsEditorError) throw error
     if ((error as NodeJS.ErrnoException).code === 'EEXIST')
@@ -218,6 +224,7 @@ export async function publishLyricsFile(
     throw new LyricsEditorError('save-failed')
   } finally {
     // Cleanup failures after publication must not turn a committed save into a reported failure.
+    if (pendingMarker && (published || !moved)) await unlink(pendingMarker).catch(() => undefined)
     if (probeOwned) await unlink(probe).catch(() => undefined)
     if (stagingOwned) await unlink(staging).catch(() => undefined)
     if (backupDirectory && !moved) await rmdir(backupDirectory).catch(() => undefined)

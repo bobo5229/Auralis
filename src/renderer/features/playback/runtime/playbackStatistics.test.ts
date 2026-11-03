@@ -141,6 +141,7 @@ describe('playback statistics across controller and tracker', () => {
     await vi.advanceTimersByTimeAsync(4_500)
     api.pause()
     await vi.advanceTimersByTimeAsync(30_000)
+    api.setEffectivePlayThresholdPercent(90)
     expect(record).not.toHaveBeenCalled()
     await api.play()
     await vi.advanceTimersByTimeAsync(1_000)
@@ -205,6 +206,51 @@ describe('playback statistics across controller and tracker', () => {
     await vi.advanceTimersByTimeAsync(6_000)
     expect(record).toHaveBeenCalledTimes(3)
     expect(new Set(record.mock.calls.map(([payload]) => payload.sessionId)).size).toBe(3)
+  })
+
+  it('applies a lower threshold on the next repeat of the same track', async () => {
+    const { api, tracks, record, ended } = setup()
+    api.setEffectivePlayThresholdPercent(80)
+    await api.playTrackFromQueue([tracks[0]], 1, { playbackMode: 'repeat-one' })
+    await vi.advanceTimersByTimeAsync(3_000)
+    api.setEffectivePlayThresholdPercent(20)
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(record).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(record).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(2_000)
+    ended()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(record).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(record).toHaveBeenCalledTimes(2)
+    expect(record.mock.calls[0][0].sessionId).not.toBe(record.mock.calls[1][0].sessionId)
+  })
+
+  it('counts an unseeked natural end at 100 percent despite notification timing', async () => {
+    const { api, tracks, record, ended } = setup()
+    api.setEffectivePlayThresholdPercent(100)
+    await api.playTrackFromQueue([tracks[0]], 1, { playbackMode: 'repeat-one' })
+    for (let round = 0; round < 2; round++) {
+      await vi.advanceTimersByTimeAsync(9_980)
+      expect(record).toHaveBeenCalledTimes(round)
+      ended()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(record).toHaveBeenCalledTimes(round + 1)
+    }
+  })
+
+  it('does not count a seek to the end as full playback', async () => {
+    const { api, tracks, record, ended } = setup()
+    api.setEffectivePlayThresholdPercent(100)
+    await api.playTrackFromQueue([tracks[0]], 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    api.seekTo(9)
+    await vi.advanceTimersByTimeAsync(1_000)
+    ended()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(record).not.toHaveBeenCalled()
   })
 
   it('keeps accumulated playback through seeks without counting position jumps', async () => {

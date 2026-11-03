@@ -115,7 +115,7 @@ export class MetadataWatchBatch {
     for (const filePath of incoming) {
       if (!this.state.pendingFilePaths.has(filePath)) {
         this.state.pendingLyricsIntentPaths.delete(filePath)
-        this.state.pendingArtworkIntentPaths.delete(filePath)
+        this.state.pendingExplicitRefreshPaths.delete(filePath)
       }
     }
   }
@@ -222,8 +222,8 @@ export class MetadataWatchBatch {
       lyricsIntentPaths: refreshCandidates
         .filter((entry) => this.state.pendingLyricsIntentPaths.has(entry.eventPath))
         .map((entry) => entry.resolvedPath),
-      artworkIntentPaths: refreshCandidates
-        .filter((entry) => this.state.pendingArtworkIntentPaths.has(entry.eventPath))
+      explicitRefreshPaths: refreshCandidates
+        .filter((entry) => this.state.pendingExplicitRefreshPaths.has(entry.eventPath))
         .map((entry) => entry.resolvedPath),
     })
 
@@ -234,7 +234,12 @@ export class MetadataWatchBatch {
         try {
           this.context.metadataRefreshService.refreshTracksFromFileChanges(trackIds)
         } catch (error) {
-          this.requeuePaths(changedPaths)
+          const changed = new Set(changedPaths)
+          this.requeuePaths(
+            refreshCandidates
+              .filter((entry) => changed.has(entry.resolvedPath))
+              .map((entry) => entry.eventPath),
+          )
           logger.info(
             { error, count: trackIds.length },
             'Deferring metadata refresh for file changes',

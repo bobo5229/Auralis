@@ -239,7 +239,7 @@ describe('migrateDatabase', () => {
 
     const migrationIds = migrations.map(({ id }) => id)
     expect(migrationIds).toEqual([...new Set(migrationIds)].sort((left, right) => left - right))
-    expect(migrations.at(-1)?.name).toBe('add_track_and_disc_totals')
+    expect(migrations.at(-1)?.name).toBe('add_pending_tag_recovery_refresh')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -247,6 +247,7 @@ describe('migrateDatabase', () => {
         'library_roots',
         'scan_jobs',
         'metadata_refresh_jobs',
+        'pending_tag_recovery_refresh',
         'track_metadata',
         'badge_listening_epoch',
         'badge_legacy_daily',

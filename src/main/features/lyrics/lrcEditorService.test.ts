@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { LrcEditorService } from './lrcEditorService'
@@ -122,6 +122,7 @@ describe('LRC text save sessions', () => {
     expect(await readFile(sidecar, 'utf8')).toBe(edit.text)
     expect(saved.backupPath).not.toBeNull()
     expect(await readFile(saved.backupPath!, 'utf8')).toBe(original)
+    expect(await readdir(dirname(saved.backupPath!))).toEqual([basename(sidecar)])
     expect(await readFile(audio)).toEqual(before)
     await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'session-expired' })
   })

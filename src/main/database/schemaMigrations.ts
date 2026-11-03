@@ -912,4 +912,11 @@ export const migrations = [
     sql: `ALTER TABLE tracks ADD COLUMN track_total INTEGER;
       ALTER TABLE tracks ADD COLUMN disc_total INTEGER;`,
   },
+  {
+    id: 34,
+    name: 'add_pending_tag_recovery_refresh',
+    sql: `CREATE TABLE pending_tag_recovery_refresh (
+      track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE
+    );`,
+  },
 ] as const
