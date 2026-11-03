@@ -13,7 +13,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     minWorkers: 1,
-    maxWorkers: Math.min(4, availableParallelism()),
+    // Native restore fixtures use real SQLite files and compete for disk I/O on CI runners.
+    maxWorkers: Math.min(process.env.CI === 'true' ? 2 : 4, availableParallelism()),
+    testTimeout: process.env.CI === 'true' ? 60000 : 5000,
     include: ['src/**/*.native.test.ts'],
   },
 })

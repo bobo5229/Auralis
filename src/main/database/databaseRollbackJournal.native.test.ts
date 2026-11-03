@@ -29,7 +29,6 @@ vi.mock('node:fs', async (original) => {
 const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs')
 const require = createRequire(import.meta.url)
 const DatabaseCtor = require('better-sqlite3') as DatabaseConstructor
-vi.setConfig({ testTimeout: 30000 })
 const childScript = `
 const Database = require(process.argv[1]);
 const db = new Database(process.argv[2]);
@@ -66,7 +65,7 @@ function fixture() {
   const path = join(directory, 'library.sqlite')
   const db = open(path)
   db.pragma('journal_mode = DELETE')
-  migrateDatabase(db)
+  db.transaction(() => migrateDatabase(db))()
   const insert = db.prepare('INSERT INTO tracks(id,file_path,title) VALUES(?,?,?)')
   db.transaction(() => {
     for (let id = 1; id <= 500; id++)

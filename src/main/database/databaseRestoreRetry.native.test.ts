@@ -29,7 +29,6 @@ vi.mock('node:fs', async (importOriginal) => {
 
 const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs')
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as DatabaseConstructor
-vi.setConfig({ testTimeout: 30000 })
 
 describe('database restore recovery across startup attempts', () => {
   let directory: string
@@ -43,7 +42,7 @@ describe('database restore recovery across startup attempts', () => {
 
   function createStaged(path: string): void {
     const db = open(`${path}.restore_staged`)
-    migrateDatabase(db)
+    db.transaction(() => migrateDatabase(db))()
     db.exec("INSERT INTO tracks(file_path,title) VALUES('replacement.flac','Replacement')")
     db.close()
   }
@@ -52,7 +51,7 @@ describe('database restore recovery across startup attempts', () => {
     const path = join(directory, 'library.sqlite')
     const db = open(path)
     db.pragma('journal_mode = WAL')
-    migrateDatabase(db)
+    db.transaction(() => migrateDatabase(db))()
     db.pragma('wal_checkpoint(TRUNCATE)')
     const main = readFileSync(path)
     db.exec(`

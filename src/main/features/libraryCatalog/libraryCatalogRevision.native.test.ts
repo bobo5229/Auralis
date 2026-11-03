@@ -25,7 +25,7 @@ function openDatabase(path = ':memory:'): Database.Database {
 }
 
 function createCatalog(db = openDatabase()) {
-  migrateDatabase(db)
+  db.transaction(() => migrateDatabase(db))()
   db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist)
     VALUES(1,'one.flac','One','Artist','Album','Artist'),
           (2,'two.flac','Two','Artist','Album','Artist')`)
