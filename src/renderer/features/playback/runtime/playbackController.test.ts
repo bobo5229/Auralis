@@ -997,6 +997,41 @@ describe('playbackController unit tests with injected dependencies', () => {
     },
   )
 
+  it.each([null, '', 'bad', '0', '101', '55.5'])(
+    'defaults an absent or invalid effective play threshold %s to 55 percent',
+    (stored) => {
+      if (stored !== null) storageMap.set('auralis-effective-play-threshold-percent', stored)
+      const controller = createPlaybackController(deps)
+      expect(controller.api.effectivePlayThresholdPercent.value).toBe(55)
+      controller.dispose()
+    },
+  )
+
+  it('restores a saved threshold and retains it when an update cannot be saved', () => {
+    const key = 'auralis-effective-play-threshold-percent'
+    const controller = createPlaybackController(deps)
+    controller.api.setEffectivePlayThresholdPercent(1)
+    controller.api.setEffectivePlayThresholdPercent(100)
+    expect(storageMap.get(key)).toBe('100')
+    controller.dispose()
+
+    const restored = createPlaybackController(deps)
+    expect(restored.api.effectivePlayThresholdPercent.value).toBe(100)
+    vi.mocked(deps.storage.setItem).mockClear()
+    for (const invalid of [0, 101, 55.5, NaN, Infinity])
+      restored.api.setEffectivePlayThresholdPercent(invalid)
+    expect(deps.storage.setItem).not.toHaveBeenCalled()
+    const cause = new Error('storage full')
+    vi.mocked(deps.storage.setItem).mockImplementationOnce(() => {
+      throw cause
+    })
+    restored.api.setEffectivePlayThresholdPercent(25)
+    expect(restored.api.effectivePlayThresholdPercent.value).toBe(100)
+    expect(storageMap.get(key)).toBe('100')
+    expect(deps.diagnostics.warn).toHaveBeenCalledWith(expect.objectContaining({ cause }))
+    restored.dispose()
+  })
+
   it('persists duration independently of the disabled soft-transition setting', () => {
     const controller = createPlaybackController(deps)
     const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value

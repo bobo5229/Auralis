@@ -574,7 +574,9 @@
       "softTransition": "Soft transitions",
       "softTransitionDescription": "Crossfade for the selected duration during regular track changes; shorter tracks use a shorter fade.",
       "softTransitionDuration": "Transition duration",
-      "softTransitionDurationValue": "{seconds} s"
+      "softTransitionDurationValue": "{seconds} s",
+      "effectivePlayThreshold": "Effective play threshold",
+      "effectivePlayThresholdDescription": "Share of a track’s duration to listen to before it counts as a play. Changes apply the next time a track starts."
     },
     "library": {
       "maintenanceSection": "Library maintenance",
