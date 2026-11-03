@@ -43,9 +43,7 @@ export function useLibraryContextMenu(options: {
   const contextMenu = ref<LibraryContextMenuState | null>(null)
   // 菜单选中态只在菜单打开期间生效，不写入播放器的持久选择。
   const contextSelectedTrackId = computed(() =>
-    contextMenu.value?.source === 'track'
-      ? contextMenu.value.trackId
-      : null,
+    contextMenu.value?.source === 'track' ? contextMenu.value.trackId : null,
   )
   const contextSelectedAlbumKey = computed(() =>
     contextMenu.value?.source === 'album-artwork'
