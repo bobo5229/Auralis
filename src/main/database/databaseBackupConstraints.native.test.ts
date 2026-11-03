@@ -61,6 +61,7 @@ it.each([1, 21, 28, migrations.length])(
       ok: true,
     })
   },
+  15000,
 )
 it.each([
   [

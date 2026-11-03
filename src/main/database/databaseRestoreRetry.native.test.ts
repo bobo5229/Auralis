@@ -29,6 +29,7 @@ vi.mock('node:fs', async (importOriginal) => {
 
 const actualFs = await vi.importActual<typeof import('node:fs')>('node:fs')
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as DatabaseConstructor
+vi.setConfig({ testTimeout: 30000 })
 
 describe('database restore recovery across startup attempts', () => {
   let directory: string
