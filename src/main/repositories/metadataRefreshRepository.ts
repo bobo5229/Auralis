@@ -205,6 +205,24 @@ export class MetadataRefreshRepository extends BaseRepository {
     return row ?? null
   }
 
+  queueTagRecoveryRefresh(trackIds: readonly number[]): void {
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO pending_tag_recovery_refresh(track_id) VALUES (?)',
+    )
+    this.db.transaction(() => {
+      for (const trackId of trackIds) insert.run(trackId)
+    })()
+  }
+
+  listPendingTagRecoveryPaths(): string[] {
+    return this.db
+      .prepare(
+        'SELECT t.file_path FROM pending_tag_recovery_refresh p JOIN tracks t ON t.id = p.track_id',
+      )
+      .pluck()
+      .all() as string[]
+  }
+
   getJobById(jobId: number): MetadataRefreshJob | null {
     const row = this.db
       .prepare(
@@ -433,7 +451,12 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
-    this.trackWriter.updateTrackMetadata(result)
+    this.db.transaction(() => {
+      this.trackWriter.updateTrackMetadata(result)
+      this.db
+        .prepare('DELETE FROM pending_tag_recovery_refresh WHERE track_id = ?')
+        .run(result.trackId)
+    })()
   }
 
   updateTrackLyrics(result: RefreshedTrackMetadata): void {

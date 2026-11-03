@@ -16,6 +16,7 @@ import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
 import { readStableMetadata } from '../features/metadata/readStableMetadata'
 import { resolveAudioRuntimePaths } from '../features/audio/audioRuntimePaths'
 import { TrackRepository } from './trackRepository'
+import { resolveTagRecoveryTrackIds } from '../features/metadata/tagWriteRecovery'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -107,6 +108,25 @@ afterEach(async () => {
   vi.restoreAllMocks()
   for (const db of databases.splice(0)) db.close()
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+})
+
+it('persists recovery refresh for a mixed-case audio path until metadata commits', () => {
+  const filePath = process.platform === 'win32' ? 'C:\\isolated\\song.Flac' : path
+  const { db, repo } = setup(filePath)
+  const tracks = new TrackRepository(db)
+  const sidecar = filePath.slice(0, -5) + '.lrc'
+  const ids = resolveTagRecoveryTrackIds(sidecar, (candidate) =>
+    tracks.getTrackIdsByPlaybackPath(candidate),
+  )
+  expect(ids).toEqual([1])
+  repo.queueTagRecoveryRefresh(ids)
+
+  const restarted = new MetadataRefreshRepository(db)
+  expect(restarted.listPendingTagRecoveryPaths()).toEqual([filePath])
+  expect(() => restarted.updateTrackMetadata(result({ sourceFilePath: 'wrong-path' }))).toThrow()
+  expect(restarted.listPendingTagRecoveryPaths()).toEqual([filePath])
+  restarted.updateTrackMetadata(result({ sourceFilePath: filePath }))
+  expect(restarted.listPendingTagRecoveryPaths()).toEqual([])
 })
 
 describe('metadata fingerprint transactions', () => {

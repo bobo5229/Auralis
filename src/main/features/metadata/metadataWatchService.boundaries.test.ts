@@ -83,6 +83,27 @@ afterEach(() => {
 })
 
 describe('metadata watcher component boundaries', () => {
+  it('retries a batch of restored audio and sidecar paths when refresh is busy', async () => {
+    const { service, refresh } = setup()
+    refresh.mockImplementationOnce(() => {
+      throw busy()
+    })
+    service.enqueueRestoredPaths([path, normalize(`${root}/sample.lrc`)])
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(refresh.mock.calls).toEqual([[[1]], [[1]]])
+    await service.stop()
+  })
+
+  it('refreshes a restored sidecar even without a corresponding audio event', async () => {
+    const { service, refresh } = setup()
+    service.enqueueRestoredPaths([normalize(`${root}/sample.LRC`)])
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    await service.stop()
+  })
+
   it('refreshes a legacy row and skips duplicate read notifications after its baseline is committed', async () => {
     const { service, notify, refresh, setFingerprint } = setup()
     setFingerprint(null)

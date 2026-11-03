@@ -97,6 +97,9 @@ if (!app.isPackaged && !isElectronSmokeTest) {
   })
 }
 
+const hasInstanceLock = app.requestSingleInstanceLock()
+if (!hasInstanceLock) app.exit(0)
+
 initializeLogger({
   development: !app.isPackaged,
   logsDirectory: join(app.getPath('userData'), 'logs'),
@@ -114,11 +117,14 @@ const windowBehavior = createWindowBehaviorController({
   trayAvailable: () => systemTray?.isAvailable() ?? false,
   quit: () => app.quit(),
 })
+app.on('second-instance', () => {
+  if (!shuttingDown) windowBehavior.restoreWindow()
+})
 
 void app
   .whenReady()
-  .then(() => {
-    if (shuttingDown) return
+  .then(async () => {
+    if (!hasInstanceLock || shuttingDown) return
     const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
     registerArtworkProtocol(artworkCacheDir)
     const db = initializeDatabase()
@@ -151,6 +157,8 @@ void app
       reportError: (error) => logger.warn({ error }, 'System tray is unavailable'),
     })
     runtime = registerIpcHandlers(db, artworkCacheDir, windowBehavior)
+    await runtime
+    if (shuttingDown) return
     const mainWindow = createWindow()
     windowBehavior.attachWindow(mainWindow)
 
@@ -174,7 +182,7 @@ app.on('window-all-closed', () => {
 const handleShutdown = createAppShutdownHandler({
   shutdownServices: async () => {
     shuttingDown = true
-    await runtime?.shutdown()
+    await (await runtime)?.shutdown()
   },
   closeResources: () => {
     closeDatabase()

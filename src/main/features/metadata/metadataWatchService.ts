@@ -84,6 +84,10 @@ export class MetadataWatchService {
     this.syncRoots()
   }
 
+  enqueueRestoredPaths(paths: readonly string[]): void {
+    for (const path of paths) this.enqueueChangedPath(path, true)
+  }
+
   async stop(): Promise<void> {
     this.state.stopped = true
     this.rootWatchers.close()
@@ -104,7 +108,7 @@ export class MetadataWatchService {
     this.state.pendingFilePaths.clear()
     this.missingConfirmation.clear()
     this.state.pendingLyricsIntentPaths.clear()
-    this.state.pendingArtworkIntentPaths.clear()
+    this.state.pendingExplicitRefreshPaths.clear()
     this.importQueue.clearDeferred()
   }
 
@@ -161,7 +165,7 @@ export class MetadataWatchService {
     for (const paths of [
       this.state.pendingFilePaths,
       this.state.pendingLyricsIntentPaths,
-      this.state.pendingArtworkIntentPaths,
+      this.state.pendingExplicitRefreshPaths,
       this.state.statRetries,
       this.state.suppressRefreshUntil,
     ]) {
@@ -182,7 +186,7 @@ export class MetadataWatchService {
     return !this.state.stopped && this.rootWatchers.containsPath(filePath)
   }
 
-  private enqueueChangedPath(filePath: string): void {
+  private enqueueChangedPath(filePath: string, forceRefresh = false): void {
     if (!this.isCurrentPath(filePath)) return
     if (win32.basename(filePath).toLowerCase() === 'cover.jpg') {
       const directory = win32.dirname(filePath)
@@ -195,7 +199,7 @@ export class MetadataWatchService {
         )
           continue
         this.state.pendingFilePaths.set(track.filePath, Date.now())
-        this.state.pendingArtworkIntentPaths.add(track.filePath)
+        this.state.pendingExplicitRefreshPaths.add(track.filePath)
       }
       if (this.state.pendingFilePaths.size) this.scheduleFlush()
       return
@@ -221,6 +225,7 @@ export class MetadataWatchService {
     }
 
     this.state.pendingFilePaths.set(filePath, Date.now())
+    if (forceRefresh) this.state.pendingExplicitRefreshPaths.add(filePath)
     this.scheduleFlush()
   }
 

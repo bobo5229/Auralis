@@ -55,7 +55,7 @@ export function resolveWatchRefreshPaths(input: {
   stats: WatchedFileStat[]
   fingerprints: Map<string, FileScanFingerprint>
   lyricsIntentPaths?: Iterable<string>
-  artworkIntentPaths?: Iterable<string>
+  explicitRefreshPaths?: Iterable<string>
 }): string[] {
   const changedPaths = new Set(
     resolveChangedFilePaths({
@@ -64,7 +64,7 @@ export function resolveWatchRefreshPaths(input: {
     }),
   )
   const lyricsIntentPaths = new Set(input.lyricsIntentPaths ?? [])
-  const artworkIntentPaths = new Set(input.artworkIntentPaths ?? [])
+  const explicitRefreshPaths = new Set(input.explicitRefreshPaths ?? [])
   const selected = new Set<string>()
   const result: string[] = []
 
@@ -73,7 +73,7 @@ export function resolveWatchRefreshPaths(input: {
     if (
       !changedPaths.has(entry.filePath) &&
       !lyricsIntentPaths.has(entry.filePath) &&
-      !artworkIntentPaths.has(entry.filePath)
+      !explicitRefreshPaths.has(entry.filePath)
     )
       continue
     selected.add(entry.filePath)
