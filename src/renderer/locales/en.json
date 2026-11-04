@@ -1317,7 +1317,7 @@
   "metadataArtwork": {
     "title": "Embedded artwork",
     "manage": "Manage embedded artwork",
-    "currentHint": "Manage embedded images here. The header shows the current artwork.",
+    "currentHint": "Manage embedded images here. Click the artwork in the header to open it.",
     "pending": "These image changes will be written when song information is saved.",
     "loading": "Reading images…",
     "fallback": "Fallback after removing the final image: ",

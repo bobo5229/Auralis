@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   getTrackEditState: vi.fn(),
   onTrackEditStateChanged: vi.fn(),
   updateTrackMetadata: vi.fn(),
+  getMetadataArtwork: vi.fn(),
 }))
 const playback = reactive({
   currentTrackId: 7 as number | null,
@@ -1154,6 +1155,20 @@ it('keeps the edited track artwork independent from playback and retries it on r
   expect(find((node) => node.type === 'img')?.props.src).toBe(
     'auralis-artwork://edited-track-cover',
   )
+})
+
+it('loads embedded artwork from the header cover', async () => {
+  api.getMetadataArtwork.mockResolvedValue({
+    ok: true,
+    value: { pictures: [], fallbackSource: 'none' },
+  })
+  await mount(undefined, 'metadata', undefined, 'edited-track-cover')
+  const cover = find(
+    (node) => node.type === 'button' && node.props['aria-label'] === 'metadataArtwork.manage',
+  )!
+  fire(cover, 'onClick')
+  await vi.waitFor(() => expect(api.getMetadataArtwork).toHaveBeenCalled())
+  expect(find((node) => String(node.props.class).includes('metadata-artwork-shortcut'))).toBeUndefined()
 })
 
 it('uses the music placeholder when the edited track has no artwork', async () => {

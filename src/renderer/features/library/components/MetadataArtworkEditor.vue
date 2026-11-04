@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { auralis } from '@renderer/shared/ipc/client'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
@@ -23,8 +23,13 @@ const imports = ref<Record<string, ImportedMetadataArtwork>>({})
 const loaded = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
 function focus(): void {
-  sectionRef.value?.scrollIntoView({ block: 'start', behavior: 'auto' })
+  sectionRef.value?.scrollIntoView?.({ block: 'start', behavior: 'auto' })
   sectionRef.value?.focus({ preventScroll: true })
+}
+async function open(): Promise<void> {
+  if (!loaded.value && !props.disabled) await load()
+  await nextTick()
+  focus()
 }
 
 let revision = 0
@@ -134,7 +139,7 @@ function discardQueued(): void {
 onBeforeUnmount(() => {
   revision++
 })
-defineExpose({ clearCommitted, discardQueued, hasConflict: stale, focus })
+defineExpose({ clearCommitted, discardQueued, hasConflict: stale, focus, open })
 </script>
 <template>
   <section ref="sectionRef" tabindex="-1" class="metadata-artwork-editor auralis-type-caption">

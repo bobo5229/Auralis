@@ -156,6 +156,25 @@ describe('metadata editor legacy choices', () => {
   })
 })
 
+it('places the primary fields in reading order', async () => {
+  const { root } = await mount(file)
+  const fields: string[] = []
+  const visit = (item: Node): void => {
+    const field = item.props['data-metadata-field']
+    if (typeof field === 'string') fields.push(field)
+    for (const child of item.children) visit(child)
+  }
+  visit(root)
+  expect(fields.slice(0, 6)).toEqual([
+    'title',
+    'artistDisplay',
+    'albumTitle',
+    'albumArtistDisplay',
+    'genreDisplay',
+    'releaseDate',
+  ])
+})
+
 it('identifies the invalid date beside its field', async () => {
   const { root, save } = await mount(file)
   const input = find(root, (item) => item.props['data-metadata-field'] === 'releaseDate')!
@@ -218,6 +237,18 @@ it('explains an unsupported field next to its disabled input', async () => {
   expect(input.props.disabled).toBe(true)
   expect(text(input.parent!)).toContain('metadataEditorExtra.fieldUnsupported')
   expect(text(root)).toContain('metadataEditorExtra.monthUnsupported')
+})
+
+it('keeps the embedded artwork action inside the artwork section', async () => {
+  const { root } = await mount(file)
+  const buttons = [] as Node[]
+  const visit = (item: Node): void => {
+    if (item.tag === 'button' && text(item).includes('metadataArtwork.manage')) buttons.push(item)
+    for (const child of item.children) visit(child)
+  }
+  visit(root)
+  expect(buttons).toHaveLength(1)
+  expect(String(buttons[0]?.parent?.props.class)).toContain('metadata-artwork-editor')
 })
 
 it('shows artwork changes as pending until they are saved', async () => {

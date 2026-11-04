@@ -96,7 +96,7 @@ function clearFieldError(field: EditableTagField): void {
   }
 }
 function openArtwork(): void {
-  artworkEditor.value?.focus()
+  void artworkEditor.value?.open()
 }
 
 const saveProgress = ref<InstanceType<typeof SaveProgressIcon> | null>(null)
@@ -193,7 +193,16 @@ function startMergedLegacy(): void {
   setForm(value)
   mergingLegacy.value = true
 }
-defineExpose({ showSaveSuccess, dirty, composing, markCommitted, focus, reconcile, save: onSave })
+defineExpose({
+  showSaveSuccess,
+  dirty,
+  composing,
+  markCommitted,
+  focus,
+  reconcile,
+  save: onSave,
+  openArtwork,
+})
 
 const legacyDifferences = computed(() => {
   const legacy = props.metadata?.legacyMetadata
@@ -610,17 +619,6 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           </button>
         </div>
       </section>
-      <button
-        v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
-        type="button"
-        class="metadata-artwork-shortcut auralis-dialog-action"
-        @click="openArtwork"
-      >
-        {{ t('metadataArtwork.manage') }}
-      </button>
-      <span v-if="artworkChanges.length" class="metadata-field-hint">{{
-        t('metadataArtwork.pending')
-      }}</span>
       <div
         v-if="metadata && (!metadata.legacyMetadata || mergingLegacy)"
         class="metadata-edit-fields"
@@ -643,21 +641,6 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
           }}</span>
         </label>
         <label class="metadata-dialog-label">
-          {{ t('library.metadataEditor.fields.album') }}
-          <input
-            v-model="form.albumTitle"
-            data-metadata-field="albumTitle"
-            class="metadata-dialog-input metadata-input"
-            :placeholder="t('library.metadataEditor.placeholders.album')"
-            :disabled="fieldDisabled('albumTitle')"
-            :readonly="readOnly"
-            @input="clearFieldError('albumTitle')"
-          />
-          <span v-if="fieldUnsupported('albumTitle')" class="metadata-field-hint">{{
-            t('metadataEditorExtra.fieldUnsupported')
-          }}</span>
-        </label>
-        <label class="metadata-dialog-label">
           {{ t('library.metadataEditor.fields.artist') }}
           <input
             v-model="form.artistDisplay"
@@ -669,6 +652,21 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
             @input="clearFieldError('artistDisplay')"
           />
           <span v-if="fieldUnsupported('artistDisplay')" class="metadata-field-hint">{{
+            t('metadataEditorExtra.fieldUnsupported')
+          }}</span>
+        </label>
+        <label class="metadata-dialog-label">
+          {{ t('library.metadataEditor.fields.album') }}
+          <input
+            v-model="form.albumTitle"
+            data-metadata-field="albumTitle"
+            class="metadata-dialog-input metadata-input"
+            :placeholder="t('library.metadataEditor.placeholders.album')"
+            :disabled="fieldDisabled('albumTitle')"
+            :readonly="readOnly"
+            @input="clearFieldError('albumTitle')"
+          />
+          <span v-if="fieldUnsupported('albumTitle')" class="metadata-field-hint">{{
             t('metadataEditorExtra.fieldUnsupported')
           }}</span>
         </label>
@@ -881,9 +879,6 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 </template>
 
 <style scoped>
-.metadata-artwork-shortcut {
-  margin-bottom: 12px;
-}
 .metadata-field-hint,
 .metadata-field-error {
   font-size: var(--auralis-type-caption-size);
@@ -923,10 +918,8 @@ function resolveLegacy(action: 'adopt-file' | 'write-legacy'): void {
 .metadata-edit-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 14px 16px;
-}
-.metadata-edit-fields > label:nth-child(-n + 2) {
-  grid-column: 1 / -1;
 }
 .metadata-edit-footer {
   margin-inline: 24px;

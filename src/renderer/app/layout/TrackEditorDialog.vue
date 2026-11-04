@@ -113,6 +113,11 @@ watch(
   },
   { immediate: true },
 )
+function openHeaderArtwork(): void {
+  if (busy.value || confirming.value || composing.value) return
+  active.value = 'metadata'
+  void nextTick(() => metadataPage.value?.openArtwork())
+}
 function selectTab(tab: TrackEditorTab): void {
   if (busy.value || confirming.value || composing.value) return
   active.value = tab
@@ -215,7 +220,14 @@ defineExpose({ requestClose })
     @keydown.capture="keydown"
   >
     <template #header-leading>
-      <div class="track-editor-artwork" aria-hidden="true">
+      <button
+        type="button"
+        class="track-editor-artwork"
+        :aria-label="t('metadataArtwork.manage')"
+        v-tooltip="t('metadataArtwork.manage')"
+        :disabled="busy || confirming || composing"
+        @click="openHeaderArtwork"
+      >
         <img
           v-if="artworkUrl && !artworkFailed"
           :key="artworkUrl"
@@ -225,7 +237,7 @@ defineExpose({ requestClose })
           @error="artworkFailed = true"
         />
         <span v-else class="i-lucide-music-2" />
-      </div>
+      </button>
     </template>
     <template #subtitle>
       <div class="track-editor-subtitle">
@@ -360,9 +372,23 @@ defineExpose({ requestClose })
   flex: none;
   width: 60px;
   height: 60px;
+  padding: 0;
+  border: 0;
   border-radius: var(--auralis-artwork-radius-preview);
   background: color-mix(in srgb, var(--auralis-main-bg) 72%, #000);
   color: var(--auralis-text-muted);
+  cursor: pointer;
+}
+.track-editor-artwork:hover:not(:disabled) {
+  outline: 1px solid var(--auralis-border-subtle);
+  outline-offset: 2px;
+}
+.track-editor-artwork:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+.track-editor-artwork:disabled {
+  cursor: default;
 }
 .track-editor-artwork img {
   position: absolute;
