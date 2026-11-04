@@ -8,12 +8,15 @@ const mix = (a: RgbColor, b: RgbColor, t: number): RgbColor => ({
   b: Math.round(a.b + (b.b - a.b) * t),
 })
 
-/** Preserve the theme color whenever it meets contrast on the actual composited surface. */
-export function readableAlbumText(source: RgbColor, background: RgbColor, opacity = 1): RgbColor {
-  const target = rgb(255)
-  for (let step = 0; step <= 100; step++) {
+/** Keep the preferred neutral when readable, otherwise move toward a readable extreme. */
+export function readableAlbumText(source: RgbColor, background: RgbColor): RgbColor {
+  if (getContrastRatio(source, background) >= 4.5) return source
+  const white = rgb(255)
+  const black = rgb(0)
+  const target = getContrastRatio(white, background) >= 4.5 ? white : black
+  for (let step = 1; step <= 100; step++) {
     const candidate = mix(source, target, step / 100)
-    if (getContrastRatio(mix(background, candidate, opacity), background) >= 4.5) return candidate
+    if (getContrastRatio(candidate, background) >= 4.5) return candidate
   }
   return target
 }
@@ -24,31 +27,29 @@ export function readableAlbumDivider(background: RgbColor): RgbColor {
     const candidate = rgb(value)
     if (getContrastRatio(candidate, background) >= 1.7) return candidate
   }
-  return rgb(255)
+  for (let value = 90; value >= 0; value--) {
+    const candidate = rgb(value)
+    if (getContrastRatio(candidate, background) >= 1.7) return candidate
+  }
+  return rgb(0)
 }
 
-/** The cover canvas uses the same dark palette in either application theme. */
+/** Retain the cover's lightness and chroma while keeping side surfaces slightly darker. */
 export function albumDetailColors(source: RgbColor) {
-  const { a, b } = rgbToOklab(source)
-  const chroma = Math.hypot(a, b)
-  const strength = chroma < 0.015 ? 0 : Math.min(1.3, 0.16 / chroma)
-  const surface = (l: number) => {
-    let scale = strength
-    let color = oklabToRgb({ l, a: a * scale, b: b * scale })
+  const { l, a, b } = rgbToOklab(source)
+  const mainLightness = Math.max(0.32, Math.min(0.9, l))
+  const surface = (lightness: number) => {
+    let scale = 1
+    let color = oklabToRgb({ l: lightness, a, b })
     for (let i = 0; i < 12 && [color.r, color.g, color.b].some((v) => v <= 1 || v >= 254); i++) {
       scale *= 0.9
-      color = oklabToRgb({ l, a: a * scale, b: b * scale })
+      color = oklabToRgb({ l: lightness, a: a * scale, b: b * scale })
     }
     return color
   }
-  let mainLightness = 0.56
-  let main = surface(mainLightness)
-  while (mainLightness > 0.49 && getContrastRatio(rgb(255), main) < 4.5) {
-    mainLightness -= 0.005
-    main = surface(mainLightness)
-  }
-  const more = surface(0.48)
-  const side = surface(0.4)
+  const main = surface(mainLightness)
+  const more = surface(mainLightness - 0.04)
+  const side = surface(mainLightness - 0.08)
   const defaults = {
     text: { r: 243, g: 238, b: 230 },
     muted: { r: 175, g: 180, b: 188 },
@@ -56,7 +57,7 @@ export function albumDetailColors(source: RgbColor) {
     active: rgb(216),
     inactive: { r: 81, g: 81, b: 82 },
   }
-  const text = (color: RgbColor, bg: RgbColor, opacity = 1) => readableAlbumText(color, bg, opacity)
+  const text = (color: RgbColor, bg: RgbColor) => readableAlbumText(color, bg)
   return {
     main,
     divider: readableAlbumDivider(main),
@@ -70,8 +71,8 @@ export function albumDetailColors(source: RgbColor) {
     sideText: text(defaults.text, side),
     sideMuted: text(defaults.muted, side),
     sideFaint: text(defaults.faint, side),
-    lyricsActive: text(defaults.active, side),
-    lyricsInactive: text(defaults.inactive, side, 0.8),
+    lyricsActive: text(getContrastRatio(rgb(255), side) >= 4.5 ? defaults.active : rgb(32), side),
+    lyricsInactive: text(defaults.inactive, side),
     lyricsMuted: text(defaults.muted, side),
   }
 }

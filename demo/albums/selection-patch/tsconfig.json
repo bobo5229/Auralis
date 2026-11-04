@@ -1,0 +1,5 @@
+{
+  "extends": "../../../tsconfig.web.json",
+  "compilerOptions": { "composite": false, "noEmit": true },
+  "include": ["app.ts", "patch.ts", "../../../src/env.d.ts"]
+}

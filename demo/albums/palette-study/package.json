@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@material/material-color-utilities": "^0.4.0",
+    "colorthief": "^3.5.0",
+    "node-vibrant": "^4.0.4"
+  }
+}

@@ -1876,6 +1876,11 @@ input[type='range'].volume-overlay-slider {
   backdrop-filter: none;
 }
 
+/* Album lyrics colors already account for contrast against the cover-derived surface. */
+.app-shell.has-album-detail-color > .now-playing-panel .lyric-line-blur-filter {
+  opacity: 1;
+}
+
 .main-page-frame {
   display: flex;
   height: 100%;
@@ -1927,7 +1932,7 @@ input[type='range'].volume-overlay-slider {
   --auralis-text-subtle: var(--album-detail-side-faint);
 }
 
-:where([data-theme='light']) .app-shell.has-album-detail-color > .app-main {
+.app-shell.has-album-detail-color > .app-main {
   --auralis-track-selected-bg: color-mix(in srgb, var(--album-detail-main-text) 10%, transparent);
   --auralis-track-hover-bg: color-mix(in srgb, var(--album-detail-main-text) 8%, transparent);
   --auralis-control-hover-bg: color-mix(in srgb, var(--album-detail-main-text) 8%, transparent);
@@ -1935,7 +1940,7 @@ input[type='range'].volume-overlay-slider {
   --auralis-focus-ring: var(--album-detail-main-text);
 }
 
-:where([data-theme='light']) .app-shell.has-album-detail-color > .app-sidebar {
+.app-shell.has-album-detail-color > .app-sidebar {
   --auralis-sidebar-active-text: var(--album-detail-side-text);
   --auralis-sidebar-active-indicator: var(--album-detail-side-text);
   --auralis-sidebar-active-bg: color-mix(in srgb, var(--album-detail-side-text) 12%, transparent);
