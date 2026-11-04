@@ -34,8 +34,8 @@ interface UseAlbumDetailTracksResult {
   albumTracks: ComputedRef<TrackListItem[]>
   moreAlbums: ComputedRef<AlbumSummary[]>
   genreAlbums: ComputedRef<AlbumSummary[]>
-  previewArtworkCacheKey: Ref<string | null>
-  previewReleaseDate: Ref<string | null>
+  previewArtworkCacheKey: ComputedRef<string | null>
+  previewReleaseDate: ComputedRef<string | null>
   loadState: Ref<AlbumDetailLoadState>
   initialize: () => Promise<void>
   reloadTracks: (options?: { background?: boolean }) => Promise<boolean>
@@ -79,8 +79,18 @@ export function useAlbumDetailTracks({
       ? albumIdentityKey(initialSnapshot.albumArtist, initialSnapshot.albumTitle)
       : '',
   )
-  const previewArtworkCacheKey = ref<string | null>(initialSnapshot?.artworkCacheKey ?? null)
-  const previewReleaseDate = ref<string | null>(initialSnapshot?.releaseDate ?? null)
+  const previewAlbumKey = ref(albumIdentityKey(albumArtist.value, albumTitle.value))
+  const previewArtworkValue = ref<string | null>(initialSnapshot?.artworkCacheKey ?? null)
+  const previewReleaseValue = ref<string | null>(initialSnapshot?.releaseDate ?? null)
+  const previewMatchesCurrentAlbum = computed(
+    () => previewAlbumKey.value === albumIdentityKey(albumArtist.value, albumTitle.value),
+  )
+  const previewArtworkCacheKey = computed(() =>
+    previewMatchesCurrentAlbum.value ? previewArtworkValue.value : null,
+  )
+  const previewReleaseDate = computed(() =>
+    previewMatchesCurrentAlbum.value ? previewReleaseValue.value : null,
+  )
   let hasCatalogSnapshot = snapshotHasCatalog(initialSnapshot)
   const albumTracks = computed(() =>
     getAlbumCatalogIndex(tracks.value).selectTracks(albumArtist.value, albumTitle.value),
@@ -141,6 +151,9 @@ export function useAlbumDetailTracks({
     const key = albumIdentityKey(albumArtist.value, albumTitle.value)
     if (key === currentAlbumKey) return
     currentAlbumKey = key
+    previewArtworkValue.value = null
+    previewReleaseValue.value = null
+    previewAlbumKey.value = key
     loadGeneration += 1
   }
 
@@ -151,8 +164,9 @@ export function useAlbumDetailTracks({
   function applySnapshot(snapshot: AlbumDetailSnapshot): void {
     storedGenreAlbums.value = snapshot.genreAlbums ?? []
     storedAlbumKey.value = albumIdentityKey(snapshot.albumArtist, snapshot.albumTitle)
-    previewArtworkCacheKey.value = snapshot.artworkCacheKey
-    previewReleaseDate.value = snapshot.releaseDate
+    previewArtworkValue.value = snapshot.artworkCacheKey
+    previewReleaseValue.value = snapshot.releaseDate
+    previewAlbumKey.value = albumIdentityKey(snapshot.albumArtist, snapshot.albumTitle)
 
     if (snapshotHasCatalog(snapshot) && snapshot.catalogTracks) {
       tracks.value = snapshot.catalogTracks
@@ -164,10 +178,10 @@ export function useAlbumDetailTracks({
     }
 
     if (albumTracks.value.length > 0) {
-      previewArtworkCacheKey.value =
+      previewArtworkValue.value =
         albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
         snapshot.artworkCacheKey
-      previewReleaseDate.value =
+      previewReleaseValue.value =
         albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? snapshot.releaseDate
       loadState.value = 'ready'
     }
@@ -222,11 +236,11 @@ export function useAlbumDetailTracks({
 
     if (albumTracks.value.length > 0) {
       if (!previewArtworkCacheKey.value) {
-        previewArtworkCacheKey.value =
+        previewArtworkValue.value =
           albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
       }
       if (!previewReleaseDate.value) {
-        previewReleaseDate.value =
+        previewReleaseValue.value =
           albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null
       }
       loadState.value = 'ready'
@@ -270,10 +284,9 @@ export function useAlbumDetailTracks({
       if (!hasCatalogSnapshot) storedMoreAlbums.value = result.moreAlbums.map(toAlbumSummary)
       storedGenreAlbums.value = result.genreAlbums.map(toAlbumSummary)
       storedAlbumKey.value = albumIdentityKey(albumArtist.value, albumTitle.value)
-      previewArtworkCacheKey.value =
-        result.tracks.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
-        previewArtworkCacheKey.value
-      previewReleaseDate.value =
+      previewArtworkValue.value =
+        result.tracks.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
+      previewReleaseValue.value =
         result.tracks.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value
       syncLoadStateFromTracks()
       rememberSnapshot(result)

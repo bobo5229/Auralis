@@ -1165,7 +1165,8 @@ onBeforeUnmount(() => {
   }
 
   .album-hero-main-stage {
-    min-height: clamp(520px, 72cqi, 700px);
+    /* The cover occupies half the pane width and must fit even on very wide screens. */
+    min-height: max(clamp(520px, 72cqi, 700px), 50cqi);
   }
 
   .album-body-grid {

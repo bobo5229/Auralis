@@ -132,6 +132,72 @@ describe('selectAlbumTracks', () => {
 })
 
 describe('useAlbumDetailTracks', () => {
+  it('drops the previous album artwork immediately when navigation has no matching snapshot', async () => {
+    const first = createTrack(1, { album: 'A', artworkCacheKey: 'cover-A', releaseDate: '2001' })
+    const second = createTrack(2, { album: 'B' })
+    writeAlbumDetailSnapshot({
+      albumArtist: 'Artist',
+      albumTitle: 'A',
+      artworkCacheKey: 'cover-A',
+      releaseDate: '2001',
+      tracks: [first],
+      moreAlbums: [],
+      catalogTracks: [first, second],
+    })
+    const library = createLibraryClient()
+    const title = ref('A')
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: title,
+      library: library.client,
+    })
+    try {
+      await detail.initialize()
+      title.value = 'B'
+      expect(detail.previewArtworkCacheKey.value).toBeNull()
+      expect(detail.previewReleaseDate.value).toBeNull()
+      await detail.ensureCurrentAlbum()
+      expect(detail.albumTracks.value.map((track) => track.id)).toEqual([2])
+      expect(detail.previewArtworkCacheKey.value).toBeNull()
+      expect(detail.previewReleaseDate.value).toBeNull()
+    } finally {
+      detail.dispose()
+    }
+  })
+
+  it('clears an old artwork key from the detail and snapshot after a successful refresh removes the cover', async () => {
+    const original = createTrack(1, { artworkCacheKey: 'cover-A' })
+    writeAlbumDetailSnapshot({
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+      artworkCacheKey: 'cover-A',
+      releaseDate: null,
+      tracks: [original],
+      moreAlbums: [],
+      genreAlbums: [],
+      catalogTracks: null,
+    })
+    const library = createLibraryClient()
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [createTrack(1)],
+      moreAlbums: [],
+      genreAlbums: [],
+    })
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    try {
+      await detail.initialize()
+      expect(detail.previewArtworkCacheKey.value).toBe('cover-A')
+      library.emit({ reason: 'metadata-refresh', trackIds: [1], filePaths: [] })
+      await vi.waitFor(() => expect(detail.previewArtworkCacheKey.value).toBeNull())
+      expect(readAlbumDetailSnapshot('Artist', 'Album')?.artworkCacheKey).toBeNull()
+    } finally {
+      detail.dispose()
+    }
+  })
   it('subscribes before initial detail loading so catalog changes are not missed', async () => {
     const library = createLibraryClient()
     const oldDetail = createDeferred<AlbumDetailResult>()
@@ -618,7 +684,11 @@ describe('useAlbumDetailTracks', () => {
   it('preserves an existing ready snapshot after a failed background reload', async () => {
     const library = createLibraryClient()
     library.getAlbumDetail
-      .mockResolvedValueOnce({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
+      .mockResolvedValueOnce({
+        tracks: [createTrack(1, { artworkCacheKey: 'cover-A' })],
+        moreAlbums: [],
+        genreAlbums: [],
+      })
       .mockRejectedValueOnce(new Error('fail'))
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
@@ -631,6 +701,7 @@ describe('useAlbumDetailTracks', () => {
 
     expect(detail.loadState.value).toBe('ready')
     expect(detail.tracks.value.map((track) => track.id)).toEqual([1])
+    expect(detail.previewArtworkCacheKey.value).toBe('cover-A')
   })
 
   it('reports an initial foreground failure and cancels pending work on dispose', async () => {
