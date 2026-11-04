@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch, type CSSProperties } from 'vue'
 import {
   provideAlbumMetadataEditor,
   type AlbumMetadataEditorRequest,
@@ -25,6 +25,9 @@ import { usePlayerDisplayMode } from '@renderer/features/playback/composables/us
 import { useAppOverlays } from './app/composables/useAppOverlays'
 import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
+import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
 
 const {
   active: startupAlbumActive,
@@ -40,6 +43,52 @@ provideAlbumMetadataEditor({
   },
 })
 const route = useRoute()
+const detailArtworkKey = ref<string | null>(null)
+let detailArtworkOwner: symbol | null = null
+provideAlbumDetailArtwork({
+  set: (owner, key) => {
+    detailArtworkOwner = owner
+    detailArtworkKey.value = key
+  },
+  clear: (owner) => {
+    if (detailArtworkOwner !== owner) return
+    detailArtworkOwner = null
+    detailArtworkKey.value = null
+  },
+})
+const detailPaletteEnabled = computed(() => route.name === 'album-detail')
+const { palette: detailPalette } = useArtworkPalette(detailArtworkKey, {
+  enabled: detailPaletteEnabled,
+})
+const detailColorStyle = computed<CSSProperties>(() => {
+  const palette = detailPalette.value
+  if (
+    !detailPaletteEnabled.value ||
+    !detailArtworkKey.value ||
+    palette.key !== detailArtworkKey.value ||
+    palette.quality === 'fallback' ||
+    !palette.dominant
+  )
+    return {}
+  const c = albumDetailColors(palette.dominant)
+  return {
+    '--album-detail-main': cssAlbumColor(c.main),
+    '--album-detail-divider': cssAlbumColor(c.divider),
+    '--album-detail-more': cssAlbumColor(c.more),
+    '--album-detail-more-text': cssAlbumColor(c.moreText),
+    '--album-detail-more-faint': cssAlbumColor(c.moreFaint),
+    '--album-detail-side': cssAlbumColor(c.side),
+    '--album-detail-main-text': cssAlbumColor(c.mainText),
+    '--album-detail-main-muted': cssAlbumColor(c.mainMuted),
+    '--album-detail-main-faint': cssAlbumColor(c.mainFaint),
+    '--album-detail-side-text': cssAlbumColor(c.sideText),
+    '--album-detail-side-muted': cssAlbumColor(c.sideMuted),
+    '--album-detail-side-faint': cssAlbumColor(c.sideFaint),
+    '--album-detail-lyrics-active': cssAlbumColor(c.lyricsActive),
+    '--album-detail-lyrics-inactive': cssAlbumColor(c.lyricsInactive),
+    '--album-detail-lyrics-muted': cssAlbumColor(c.lyricsMuted),
+  } as CSSProperties
+})
 const { cdCanvasTheme } = useCdCanvasTheme()
 const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
 const cdViewSwitchRef = ref<InstanceType<typeof CdViewSwitch> | null>(null)
@@ -134,6 +183,7 @@ const {
       class="app-shell relative"
       :class="{
         'is-album-detail': isAlbumDetail,
+        'has-album-detail-color': !!detailColorStyle['--album-detail-main'],
         'is-cd-albums': isCdCanvas,
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'is-sidebar-collapsed': renderedSidebarRail,
@@ -144,7 +194,7 @@ const {
         'is-lyrics-width-resizing': isLyricsWidthResizing,
         'is-album-layout-transitioning': isAlbumLayoutTransitioning,
       }"
-      :style="shellStyle"
+      :style="[shellStyle, detailColorStyle]"
     >
       <div
         class="shell-drag-region"

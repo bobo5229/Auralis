@@ -67,10 +67,7 @@ export function extractBackgroundPalette(cover: CanvasImageSource): BackgroundPa
   const dominantRgb = result.dominant.rgb
   if (!dominantRgb) return neutralPalette()
   const dominant = rgbToOklab(dominantRgb)
-  const primaryColor = colors.find(
-    (color) => color.weight >= 0.08 && chroma(rgbToOklab(color.rgb)) >= 0.025,
-  )
-  const primary = primaryColor ? rgbToOklab(primaryColor.rgb) : dominant
+  const primary = dominant
   const alternatives = colors.map((color) => rgbToOklab(color.rgb))
   const secondary =
     alternatives.find(

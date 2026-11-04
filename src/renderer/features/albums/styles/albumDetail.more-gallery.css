@@ -6,14 +6,15 @@
   min-width: 0;
   padding: 24px var(--album-detail-inline-padding, 32px);
   border-top: none;
-  background: var(--auralis-album-detail-more-bg);
+  background: var(--album-detail-more, var(--auralis-album-detail-more-bg));
+  transition: background-color 650ms ease;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .album-more-gallery-title {
   margin: 0 0 16px;
-  color: var(--auralis-text);
+  color: var(--album-detail-more-text, var(--auralis-text));
   font-size: var(--auralis-type-section-size);
   line-height: var(--auralis-type-section-line-height);
   font-weight: 700;
@@ -234,7 +235,7 @@
 
 .album-more-gallery-album-title {
   overflow: hidden;
-  color: var(--auralis-text);
+  color: var(--album-detail-more-text, var(--auralis-text));
   font-size: var(--auralis-type-control-size);
   font-weight: 650;
   line-height: var(--auralis-type-control-line-height);
@@ -244,11 +245,12 @@
 
 .album-more-gallery-year {
   margin-top: 4px;
-  color: var(--auralis-text-faint);
+  color: var(--album-detail-more-faint, var(--auralis-text-faint));
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
 
+:where([data-reduced-motion='true']) .album-more-gallery,
 :where([data-reduced-motion='true']) .album-more-gallery-scroller,
 :where([data-reduced-motion='true']) .album-more-gallery-cover,
 :where([data-reduced-motion='true']) .album-more-gallery-image,

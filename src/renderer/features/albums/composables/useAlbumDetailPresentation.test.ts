@@ -38,6 +38,17 @@ function track(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
 }
 
 describe('useAlbumDetailPresentation', () => {
+  it('shows total duration only when every track has a valid duration', () => {
+    const tracks = ref([track(1, { durationSeconds: 180 }), track(2, { durationSeconds: 220 })])
+    const state = useAlbumDetailPresentation(tracks, ref(null))
+    expect(state.albumDuration.value).toBe('06:40')
+    tracks.value[1].durationSeconds = null
+    expect(state.albumDuration.value).toBe('')
+    tracks.value[1].durationSeconds = -1
+    expect(state.albumDuration.value).toBe('')
+    tracks.value = []
+    expect(state.albumDuration.value).toBe('')
+  })
   it('deduplicates genres per track and orders by frequency with stable ties', () => {
     const tracks = ref([
       track(1, { genre: 'Rock; Rock; Jazz' }),

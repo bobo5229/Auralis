@@ -1,8 +1,7 @@
 .album-tracklist-panel {
-  --auralis-cover-track-divider: color-mix(
-    in srgb,
-    var(--auralis-text) 20%,
-    var(--auralis-main-bg)
+  --auralis-cover-track-divider: var(
+    --album-detail-divider,
+    color-mix(in srgb, var(--auralis-text) 20%, var(--auralis-main-bg))
   );
   min-width: 0;
 }
@@ -50,7 +49,9 @@
 .album-detail-track + .album-detail-track::before,
 .album-detail-track--disc-end::after {
   content: '';
-  transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition:
+    opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
+    border-color 650ms ease;
 }
 
 .album-detail-track + .album-detail-track::before {

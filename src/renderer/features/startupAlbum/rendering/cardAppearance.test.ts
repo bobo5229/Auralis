@@ -46,6 +46,21 @@ describe('startup card appearance', () => {
     expect(createCardAppearance(cover, 'glass').redSurface).toBe(0)
   })
 
+  it('uses the shared representative color when neutral and vivid areas compete', () => {
+    const data = new Uint8ClampedArray(100 * 4)
+    for (let i = 0; i < 100; i++) {
+      data.set(i < 55 ? [128, 128, 128, 255] : [30, 105, 225, 255], i * 4)
+    }
+    vi.stubGlobal('document', {
+      createElement: () => ({
+        getContext: () => ({ drawImage: vi.fn(), getImageData: () => ({ data }) }),
+      }),
+    })
+    expect(extractBackgroundPalette({} as CanvasImageSource).primary).toEqual(
+      rgbToOklab({ r: 30, g: 105, b: 225 }),
+    )
+  })
+
   it.each([
     [199, 71, 33],
     [0, 130, 230],

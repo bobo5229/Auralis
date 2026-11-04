@@ -680,6 +680,7 @@ body.is-column-resizing * {
 
 .now-playing-panel {
   overflow: hidden;
+  transition: background-color 650ms ease;
   border-left-color: color-mix(
     in srgb,
     var(--auralis-border-subtle) calc(100% * var(--auralis-lyrics-progress, 1)),
@@ -1853,7 +1854,26 @@ input[type='range'].volume-overlay-slider {
   --main-page-inset-end: 8px;
   --main-page-inset-top: 16px;
   --main-page-scrollbar-size: 12px;
-  background: var(--auralis-main-bg);
+  background: var(--album-detail-main, var(--auralis-main-bg));
+  transition: background-color 650ms ease;
+}
+
+.app-shell.has-album-detail-color > .app-main {
+  --auralis-text: var(--album-detail-main-text);
+  --auralis-text-muted: var(--album-detail-main-muted);
+  --auralis-text-faint: var(--album-detail-main-faint);
+  --auralis-text-subtle: var(--album-detail-main-faint);
+}
+
+.app-shell.has-album-detail-color > .now-playing-panel {
+  --auralis-lyrics-active: var(--album-detail-lyrics-active);
+  --auralis-lyrics-inactive: var(--album-detail-lyrics-inactive);
+  --auralis-text: var(--album-detail-side-text);
+  --auralis-text-muted: var(--album-detail-lyrics-muted);
+  --auralis-text-faint: var(--album-detail-side-faint);
+  background: var(--album-detail-side, var(--auralis-now-playing-bg));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .main-page-frame {
@@ -1885,13 +1905,43 @@ input[type='range'].volume-overlay-slider {
   /* Preserve the floating card's original 12px leading / 16px trailing gutters. */
   width: calc(100% - var(--auralis-shell-edge-gap) - 16px);
   padding-bottom: 0;
-  background: var(--auralis-sidebar-bg) !important;
+  background: var(--album-detail-side, var(--auralis-sidebar-bg)) !important;
   border-right: 1px solid var(--auralis-border-subtle);
   box-shadow: none;
   transition:
     border-color 0.3s ease,
     box-shadow 0.3s ease,
-    background 0.3s ease;
+    background 650ms ease;
+}
+
+:where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums) > .app-main,
+:where([data-reduced-motion='true']) .app-shell > .app-sidebar,
+:where([data-reduced-motion='true']) .app-shell > .now-playing-panel {
+  transition: none;
+}
+
+.app-shell.has-album-detail-color > .app-sidebar {
+  --auralis-text: var(--album-detail-side-text);
+  --auralis-text-muted: var(--album-detail-side-muted);
+  --auralis-text-faint: var(--album-detail-side-faint);
+  --auralis-text-subtle: var(--album-detail-side-faint);
+}
+
+:where([data-theme='light']) .app-shell.has-album-detail-color > .app-main {
+  --auralis-track-selected-bg: color-mix(in srgb, var(--album-detail-main-text) 10%, transparent);
+  --auralis-track-hover-bg: color-mix(in srgb, var(--album-detail-main-text) 8%, transparent);
+  --auralis-control-hover-bg: color-mix(in srgb, var(--album-detail-main-text) 8%, transparent);
+  --auralis-sidebar-active-indicator: var(--album-detail-main-text);
+  --auralis-focus-ring: var(--album-detail-main-text);
+}
+
+:where([data-theme='light']) .app-shell.has-album-detail-color > .app-sidebar {
+  --auralis-sidebar-active-text: var(--album-detail-side-text);
+  --auralis-sidebar-active-indicator: var(--album-detail-side-text);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--album-detail-side-text) 12%, transparent);
+  --auralis-sidebar-brand-text: var(--album-detail-side-text);
+  --auralis-control-hover-bg: color-mix(in srgb, var(--album-detail-side-text) 8%, transparent);
+  --auralis-focus-ring: var(--album-detail-side-text);
 }
 
 :where([data-theme='light']) .app-sidebar {

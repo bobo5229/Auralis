@@ -16,6 +16,7 @@ import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
 import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
+import { useAlbumDetailArtworkPublisher } from '../albumDetailArtwork'
 
 const props = withDefaults(
   defineProps<{
@@ -78,8 +79,14 @@ onBeforeRouteLeave(cancelPendingPlayback)
  */
 const hasRenderableData = computed(() => loadState.value === 'ready')
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
-const { albumGenrePills, albumHeroGenreLabel, heroLegalLine, albumReleaseDate, albumDiscGroups } =
-  useAlbumDetailPresentation(albumTracks, previewReleaseDate)
+const {
+  albumGenrePills,
+  albumHeroGenreLabel,
+  heroLegalLine,
+  albumReleaseDate,
+  albumDuration,
+  albumDiscGroups,
+} = useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
@@ -95,6 +102,9 @@ const artworkCacheKey = computed(
     previewArtworkCacheKey.value,
 )
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
+const publishArtwork = useAlbumDetailArtworkPublisher()
+const artworkOwner = Symbol('album-detail')
+watch(artworkCacheKey, (key) => publishArtwork?.set(artworkOwner, key), { immediate: true })
 
 const isGenreGallery = computed(() => moreAlbumsByArtist.value.length === 0)
 const galleryAlbums = computed(() =>
@@ -225,6 +235,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  publishArtwork?.clear(artworkOwner)
   isPageUnmounted = true
   artworkTransition?.cancel()
   artworkTransition = null
@@ -247,7 +258,6 @@ onBeforeUnmount(() => {
         @click="goBack"
       >
         <span class="i-lucide-arrow-left" aria-hidden="true" />
-        <span>{{ t('albums.detail.back') }}</span>
       </button>
 
       <div class="album-detail-wrapper">
@@ -293,10 +303,8 @@ onBeforeUnmount(() => {
                     <span v-tooltip.overflow="displayAlbumArtist" class="album-hero-artist-text">
                       {{ displayAlbumArtist }}
                     </span>
-                    <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                     <span class="album-hero-date-text">{{ albumReleaseDate }}</span>
                     <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
-                      <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                       <span
                         v-tooltip.overflow="songParts(albumGenrePills.slice(0, 2))"
                         class="album-hero-genre-text"
@@ -305,6 +313,10 @@ onBeforeUnmount(() => {
                       </span>
                     </span>
                   </div>
+                  <p class="album-hero-track-summary">
+                    <span>{{ t('albums.cd.trackCount', { count: albumTracks.length }) }}</span>
+                    <span v-if="albumDuration">{{ albumDuration }}</span>
+                  </p>
                 </div>
               </div>
 
@@ -379,7 +391,6 @@ onBeforeUnmount(() => {
         @click="goBack"
       >
         <span class="i-lucide-arrow-left" aria-hidden="true" />
-        <span>{{ t('albums.detail.back') }}</span>
       </button>
 
       <div class="album-detail-wrapper" aria-hidden="true">
@@ -638,11 +649,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.album-hero-artist-dot {
-  color: var(--auralis-text-muted);
-  user-select: none;
 }
 
 .album-hero-date-text,
@@ -971,5 +977,203 @@ onBeforeUnmount(() => {
 :where([data-reduced-motion='true']) .album-hero-shuffle-btn:hover,
 :where([data-reduced-motion='true']) .album-detail-back:hover {
   transform: none;
+}
+
+/* The layout responds to the available detail pane, including sidebar and lyrics widths. */
+.album-detail-scroll-wrapper {
+  container-type: inline-size;
+  padding-top: 0;
+}
+
+.album-detail-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 50%;
+  background: rgb(20 27 25 / 50%);
+  color: #fff;
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.album-detail-back .i-lucide-arrow-left {
+  width: 18px;
+  height: 18px;
+}
+
+.album-detail-back:hover {
+  background: rgb(20 27 25 / 70%);
+  color: #fff;
+}
+
+.album-detail-wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.album-hero-billboard,
+.album-body-grid {
+  margin: 0;
+}
+
+.album-hero-billboard {
+  padding: 0 0 28px;
+  gap: 0;
+}
+
+.album-hero-main-stage {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: max(480px, 100cqi);
+  padding: 0;
+}
+
+.album-hero-cover-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+.album-hero-cover {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.album-hero-cover img {
+  mask-image:
+    linear-gradient(to right, #000 75%, transparent),
+    linear-gradient(to bottom, #000 70%, transparent);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(to right, #000 75%, transparent),
+    linear-gradient(to bottom, #000 70%, transparent);
+  -webkit-mask-composite: source-in;
+}
+
+.album-hero-content-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  gap: 18px;
+  box-sizing: border-box;
+  padding: 24px 24px 0;
+  text-align: center;
+  isolation: isolate;
+}
+
+.album-hero-content-stage::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -96px 0 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--album-detail-main, var(--auralis-main-bg)) 45%
+  );
+}
+
+.album-hero-zone-primary,
+.album-hero-meta-block {
+  align-items: center;
+  text-align: center;
+}
+
+.album-hero-artist-row {
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.album-hero-artist-text {
+  display: block;
+  flex: 0 1 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+.album-hero-genre-group {
+  flex: 0 1 auto;
+}
+
+.album-hero-track-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.album-hero-actions {
+  align-self: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.album-hero-shuffle-btn {
+  order: -1;
+}
+
+.album-hero-footer-stage {
+  padding: 16px 28px 0;
+  text-align: center;
+}
+
+.album-body-grid {
+  padding: 16px var(--album-detail-inline-padding) 0;
+}
+
+@container (max-width: 719px) {
+  .album-hero-cover img {
+    mask-image:
+      linear-gradient(to right, #000 75%, transparent),
+      linear-gradient(to bottom, #000 45%, transparent 82%);
+    -webkit-mask-image:
+      linear-gradient(to right, #000 75%, transparent),
+      linear-gradient(to bottom, #000 45%, transparent 82%);
+  }
+}
+
+@container (min-width: 720px) {
+  .album-detail-wrapper {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .album-hero-main-stage {
+    min-height: clamp(520px, 72cqi, 700px);
+  }
+
+  .album-body-grid {
+    padding: 64px var(--album-detail-inline-padding) 28px 16px;
+  }
+
+  .album-detail-wrapper > :deep(.album-more-gallery) {
+    grid-column: 1 / -1;
+  }
 }
 </style>

@@ -2,6 +2,7 @@ import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatGenreParts } from '@renderer/shared/media/formatGenre'
+import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { rankAlbumGenres } from '@shared/utils/albumGenres'
 import { formatAlbumReleaseDate } from '../utils/formatAlbumReleaseDate'
 
@@ -32,6 +33,15 @@ export function useAlbumDetailPresentation(
   const albumReleaseDate = computed(() =>
     formatAlbumReleaseDate(releaseDate.value, t('albums.detail.unknownDate')),
   )
+  const albumDuration = computed(() => {
+    const durations = albumTracks.value.map((track) => track.durationSeconds)
+    if (
+      !durations.length ||
+      durations.some((duration) => duration == null || !Number.isFinite(duration) || duration < 0)
+    )
+      return ''
+    return formatDuration(durations.reduce<number>((total, duration) => total + (duration ?? 0), 0))
+  })
   /**
    * 多碟分组：至少两个不同有效 discNo（null 视为 1）时才分组并显示 Disc 头。
    * 单碟或全同一碟时 discNo 为 null，模板不渲染分组头。
@@ -63,6 +73,7 @@ export function useAlbumDetailPresentation(
     albumHeroGenreLabel,
     heroLegalLine,
     albumReleaseDate,
+    albumDuration,
     albumDiscGroups,
   }
 }

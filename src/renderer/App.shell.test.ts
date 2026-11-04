@@ -7,6 +7,8 @@ import { useLyricsPanelWidth } from './features/appearance/composables/useLyrics
 import { useSidebarLayout } from './features/appearance/composables/useSidebarLayout'
 import { usePlayerDisplayMode } from './features/playback/composables/usePlayerDisplayMode'
 import { useSettingsDialog } from './features/settings/composables/useSettingsDialog'
+import { useTheme } from './features/appearance/composables/useTheme'
+import { useAlbumDetailArtworkPublisher } from './features/albums/albumDetailArtwork'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
@@ -35,7 +37,20 @@ const fixture = vi.hoisted(() => ({
   prepareDisplay: vi.fn(async () => {}),
   requestClose: vi.fn(),
   syncCd: vi.fn(),
+  detailCover: false,
 }))
+vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () => {
+  const { computed } = await import('vue')
+  return {
+    useArtworkPalette: (key: Ref<string | null>) => ({
+      palette: computed(() => ({
+        key: key.value ?? 'fallback',
+        quality: key.value ? 'reduced' : 'fallback',
+        dominant: key.value ? { r: 235, g: 30, b: 30 } : undefined,
+      })),
+    }),
+  }
+})
 vi.mock('./features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({
     state: { currentTrackId: 7, currentTrack: { id: 7, artworkCacheKey: 'playing-cover' } },
@@ -47,6 +62,10 @@ vi.mock('vue-router', async () => {
   const page = {
     name: 'AlbumsPage',
     setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
+      const publishArtwork = useAlbumDetailArtworkPublisher()
+      if (fixture.detailCover && fixture.route.name === 'album-detail') {
+        publishArtwork?.set(Symbol('test-detail'), 'test-cover')
+      }
       expose({
         prepareLyricsLayoutTransition: fixture.prepare,
         commitLyricsLayoutTransition: fixture.commit,
@@ -278,6 +297,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() })
   fixture.width.value = 1600
   fixture.startup.value = false
+  fixture.detailCover = false
   lyrics.setLyricsPanelExpanded(true)
   mode.setMode('split')
   widths.setLyricsPanelWidth(0)
@@ -296,6 +316,26 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
+  it('keeps album canvas and text colors identical when the application theme changes', async () => {
+    await useTheme().setTheme('dark')
+    fixture.detailCover = true
+    await mount('album-detail')
+    const shell = find('.app-shell')
+    const names = [
+      '--album-detail-main',
+      '--album-detail-more',
+      '--album-detail-side',
+      '--album-detail-main-text',
+      '--album-detail-lyrics-active',
+      '--album-detail-lyrics-inactive',
+    ]
+    const dark = names.map((name) => shell.style.getPropertyValue(name))
+    expect(dark.every(Boolean)).toBe(true)
+    await useTheme().setTheme('light')
+    await flush()
+    expect(names.map((name) => shell.style.getPropertyValue(name))).toEqual(dark)
+    await useTheme().setTheme('dark')
+  })
   it('reverses from painted position and ignores the cancelled animation completion', async () => {
     await mount()
     const panel = find('.now-playing-panel')

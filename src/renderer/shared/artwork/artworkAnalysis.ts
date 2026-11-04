@@ -121,8 +121,8 @@ function mergeClusters(colors: ArtworkColor[]): ArtworkColor[] {
 }
 
 function getRepresentativeScore(color: ArtworkColor): number {
-  // Area dominates; chroma is a bounded bonus and never excludes black, white or gray.
-  return color.weight * (0.9 + 0.1 * Math.min(1, color.chroma / 0.12))
+  // Give substantial vivid areas the same preference as the approved color prototype.
+  return color.weight * (0.55 + 0.45 * Math.min(1, color.chroma / 0.12))
 }
 
 function toArtworkColor(cluster: Cluster, totalSamples: number): ArtworkColor {
