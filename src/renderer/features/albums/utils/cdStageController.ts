@@ -107,19 +107,26 @@ export function createCdStage(
   let materialAppearance = { dark: false, vinyl: 0 }
 
   function syncDiscMaterial(): void {
-    const node = focusProgress > 0 && !startup ? resources.get(selected) : undefined
-    material.sync(
-      node,
-      node
-        ? {
-            ...node.rotation,
-            angle: resources.getArtworkAngle(node),
-            vinyl: materialAppearance.vinyl * focusProgress,
-            dark: materialAppearance.dark,
-            size: 392 * node.poseScale,
-          }
-        : undefined,
-    )
+    const selectedNode = resources.get(selected)
+    const node = focusProgress > 0 && !startup ? selectedNode : undefined
+    const appearance = selectedNode
+      ? {
+          ...selectedNode.rotation,
+          angle: resources.getArtworkAngle(selectedNode),
+          vinyl: materialAppearance.vinyl * focusProgress,
+          dark: materialAppearance.dark,
+          // Keep the backing buffer fixed throughout the zoom. CSS owns the
+          // moving silhouette; settle to the exact resolution only at the end.
+          size:
+            392 *
+            (focusMoving
+              ? Math.max(cdPose(0, width, height).size, focusGeometry.size) / 400
+              : selectedNode.poseScale),
+        }
+      : undefined
+    material.sync(node, node ? appearance : undefined)
+    if (startup || active || focusMoving || document.hidden) material.cancelPreparation()
+    else if (appearance) material.prepare(appearance)
   }
 
   const resources = createCdStageResources(
@@ -262,6 +269,7 @@ export function createCdStage(
 
   function setFocused(open: boolean, entrance: 'motion' | 'fade' = 'motion'): void {
     if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
+    material.cancelPreparation()
     interactions.clearKeyboardNavigation()
     clearVibration()
     cancelAnimation?.()
@@ -464,6 +472,7 @@ export function createCdStage(
   }
 
   function stop(): void {
+    material.cancelPreparation()
     material.sync(undefined)
     interactions.clearKeyboardNavigation()
     clearVibration()
@@ -502,6 +511,7 @@ export function createCdStage(
   }
 
   function beginStartup(): void {
+    material.cancelPreparation()
     startup = true
     onStartup?.(true)
     resources.prepareStartup((preparation) => {
@@ -598,6 +608,7 @@ export function createCdStage(
   function moveToPosition(target: number): void {
     if (startup || focusProgress > 0 || focusMoving) return
     if (!albums.length || target === (active?.target ?? selected)) return
+    material.cancelPreparation()
     const direction = Math.sign(target - (active?.target ?? selected))
     interactions.resetHover()
     if (reducedMotion.matches) {

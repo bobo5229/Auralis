@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createCdStage } from './cdStageController'
+import * as stageMaterial from './cdStageMaterial'
 
 import { stageClock as clock, TestElement } from './cdStageTestSupport'
 
@@ -38,6 +39,13 @@ describe('CD stage lifetime', () => {
     const media = Object.assign(new EventTarget(), { matches: false })
     vi.stubGlobal('window', new EventTarget())
     vi.stubGlobal('matchMedia', () => media)
+    // GPU preparation uses the browser's idle queue, independently of the
+    // startup/interaction timers exercised by this state-only DOM fixture.
+    vi.stubGlobal(
+      'requestIdleCallback',
+      vi.fn(() => 1),
+    )
+    vi.stubGlobal('cancelIdleCallback', vi.fn())
     const document = Object.assign(new EventTarget(), {
       hidden: false,
       createElement: () => new TestElement(),
@@ -84,6 +92,42 @@ describe('CD stage lifetime', () => {
       Number(slot.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1])
     return [...stage.children].sort((first, second) => left(first) - left(second))
   }
+
+  it('prepares coating only at rest and keeps its resolution fixed through focus zooms', () => {
+    const coating = {
+      sync: vi.fn(),
+      prepare: vi.fn(),
+      cancelPreparation: vi.fn(),
+      releaseNode: vi.fn(),
+      dispose: vi.fn(),
+    }
+    vi.spyOn(stageMaterial, 'createCdStageMaterial').mockReturnValue(coating)
+    const { controller } = setup(8, vi.fn())
+    expect(coating.prepare).toHaveBeenCalled()
+    coating.prepare.mockClear()
+    coating.sync.mockClear()
+    controller.setFocused(true)
+    advance(30)
+    expect(coating.prepare).not.toHaveBeenCalled()
+    const sizes = coating.sync.mock.calls.filter(([node]) => node).map(([, state]) => state.size)
+    expect(sizes.length).toBeGreaterThan(20)
+    expect(new Set(sizes).size).toBe(1)
+    settle()
+    expect(coating.prepare).toHaveBeenCalled()
+    coating.prepare.mockClear()
+    coating.sync.mockClear()
+    controller.setFocused(false)
+    advance(20)
+    expect(coating.prepare).not.toHaveBeenCalled()
+    const exitSizes = coating.sync.mock.calls
+      .filter(([node]) => node)
+      .map(([, state]) => state.size)
+    expect(exitSizes.length).toBeGreaterThan(10)
+    expect(new Set(exitSizes).size).toBe(1)
+    settle()
+    controller.dispose()
+    expect(coating.dispose).toHaveBeenCalledOnce()
+  })
 
   function discAt(stage: TestElement, index: number): TestElement {
     // Browse positions are spatial slots; focus uses the foreground layer explicitly.

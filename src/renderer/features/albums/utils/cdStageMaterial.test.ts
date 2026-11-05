@@ -35,6 +35,18 @@ const appearance: CdDiscMaterialState = {
   size: 392,
 }
 function setup() {
+  let nextIdle = 0
+  const idle = new Map<number, () => void>()
+  vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+    idle.set(++nextIdle, callback)
+    return nextIdle
+  })
+  vi.stubGlobal('cancelIdleCallback', (id: number) => idle.delete(id))
+  const flushPreparation = () => {
+    const callbacks = [...idle.values()]
+    idle.clear()
+    callbacks.forEach((callback) => callback())
+  }
   let invalidate = () => {}
   const canvas = new Element()
   const document = { hidden: false, createElement: vi.fn(() => canvas) }
@@ -47,7 +59,15 @@ function setup() {
   const material = createCdStageMaterial()
   const disc = new Element()
   const node = { disc } as unknown as CdStageNode
-  return { material, node, disc, canvas, document, invalidate: () => invalidate() }
+  return {
+    material,
+    node,
+    disc,
+    canvas,
+    document,
+    flushPreparation,
+    invalidate: () => invalidate(),
+  }
 }
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -55,10 +75,14 @@ afterEach(() => {
 })
 
 describe('focused CD material lifetime and CSS fallback', () => {
-  it('allocates lazily and reuses a single coating across focused discs', () => {
-    const { material, node, disc, canvas } = setup()
+  it('warms a detached coating in idle time and reuses it across focused discs', () => {
+    const { material, node, disc, canvas, flushPreparation } = setup()
     material.sync(undefined)
+    material.prepare(appearance)
     expect(gpu.create).not.toHaveBeenCalled()
+    flushPreparation()
+    expect(disc.children).toEqual([])
+    expect(gpu.draw).toHaveBeenCalledWith(appearance, true)
     material.sync(node, appearance)
     expect(disc.attributes.get('data-material-ready')).toBe('true')
     expect(disc.children).toEqual([canvas])
@@ -77,8 +101,10 @@ describe('focused CD material lifetime and CSS fallback', () => {
   })
 
   it('keeps CSS until a valid draw and restores it immediately on context loss', () => {
-    const { material, node, disc, canvas, invalidate } = setup()
+    const { material, node, disc, canvas, invalidate, flushPreparation } = setup()
     gpu.draw.mockReturnValue(false)
+    material.prepare(appearance)
+    flushPreparation()
     material.sync(node, appearance)
     expect(disc.attributes.get('data-material-ready')).toBe('false')
     expect(canvas.style.visibility).toBe('hidden')
@@ -96,10 +122,12 @@ describe('focused CD material lifetime and CSS fallback', () => {
   })
 
   it('falls back after an allocation/compile failure without retrying every pose update', () => {
-    const { material, node, disc } = setup()
+    const { material, node, disc, flushPreparation } = setup()
     gpu.create.mockImplementation(() => {
       throw new Error('Shader unavailable')
     })
+    material.prepare(appearance)
+    flushPreparation()
     material.sync(node, appearance)
     material.sync(node, { ...appearance, x: 25 })
     expect(gpu.create).toHaveBeenCalledTimes(1)
@@ -109,11 +137,15 @@ describe('focused CD material lifetime and CSS fallback', () => {
   })
 
   it('does no GPU work while hidden and uses the latest appearance when visible', () => {
-    const { material, node, document, invalidate } = setup()
+    const { material, node, document, invalidate, flushPreparation } = setup()
     document.hidden = true
+    material.prepare(appearance)
+    flushPreparation()
     material.sync(node, appearance)
     expect(gpu.create).not.toHaveBeenCalled()
     document.hidden = false
+    material.prepare(appearance)
+    flushPreparation()
     material.sync(node, appearance)
     gpu.draw.mockClear()
     document.hidden = true
@@ -127,7 +159,9 @@ describe('focused CD material lifetime and CSS fallback', () => {
   })
 
   it('cannot reattach a removed disc or revive the renderer after disposal', () => {
-    const { material, node, disc, invalidate } = setup()
+    const { material, node, disc, invalidate, flushPreparation } = setup()
+    material.prepare(appearance)
+    flushPreparation()
     material.sync(node, appearance)
     material.releaseNode(node)
     gpu.draw.mockClear()
@@ -140,5 +174,35 @@ describe('focused CD material lifetime and CSS fallback', () => {
     expect(gpu.create).toHaveBeenCalledTimes(1)
     expect(gpu.dispose).toHaveBeenCalledTimes(1)
     expect(disc.attributes.get('data-material-ready')).toBe('false')
+  })
+
+  it('keeps the CSS coating when immediate motion cancels preparation, then prepares the latest pose', () => {
+    const { material, node, disc, flushPreparation } = setup()
+    material.prepare(appearance)
+    material.cancelPreparation()
+    for (let x = 0; x < 60; x++) material.sync(node, { ...appearance, x })
+    flushPreparation()
+    expect(gpu.create).not.toHaveBeenCalled()
+    expect(disc.attributes.get('data-material-ready')).toBe('false')
+    material.prepare(appearance)
+    material.prepare({ ...appearance, x: 59 })
+    flushPreparation()
+    expect(gpu.create).toHaveBeenCalledTimes(1)
+    expect(gpu.draw).toHaveBeenLastCalledWith(expect.objectContaining({ x: 59 }), true)
+    expect(disc.attributes.get('data-material-ready')).toBe('true')
+    material.dispose()
+  })
+
+  it('cancels pending preparation on disposal and skips it if the window becomes hidden', () => {
+    const { material, document, flushPreparation } = setup()
+    material.prepare(appearance)
+    document.hidden = true
+    flushPreparation()
+    expect(gpu.create).not.toHaveBeenCalled()
+    document.hidden = false
+    material.prepare(appearance)
+    material.dispose()
+    flushPreparation()
+    expect(gpu.create).not.toHaveBeenCalled()
   })
 })
