@@ -10,6 +10,7 @@ import type {
 } from '../utils/albumGridTransitionController'
 import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
 import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
+import { createAlbumIndexLayoutTransition } from '../utils/albumIndexLayoutTransition'
 
 type TransitionLayer = Pick<
   InstanceType<typeof AlbumGridTransitionLayer>,
@@ -24,8 +25,8 @@ interface AlbumLayoutTransitionOptions {
     'gridWidth' | 'columnCount' | 'beginTransition' | 'commitTransitionTarget' | 'endTransition'
   >
   getVirtualRows(): readonly { index: number; start: number; size: number }[]
-  cancelDrop(): void
   requestCancel(): void
+  getIndex?(): HTMLElement | null
 }
 
 /** AlbumsPage's participant in the shell-owned lyrics/sidebar layout transition. */
@@ -35,8 +36,8 @@ export function useAlbumLayoutTransition({
   isPageActive,
   grid,
   getVirtualRows,
-  cancelDrop,
   requestCancel,
+  getIndex = () => null,
 }: AlbumLayoutTransitionOptions) {
   const {
     gridWidth,
@@ -49,6 +50,7 @@ export function useAlbumLayoutTransition({
   let layoutTransitionRevision = 0
   let savedFocus: { albumKey: string; selector: string } | null = null
   let pendingTransitionScrollTop: number | null = null
+  const indexTransition = createAlbumIndexLayoutTransition(getIndex)
 
   function toTransitionRect(rect: DOMRect): AlbumTransitionRect {
     return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
@@ -195,13 +197,13 @@ export function useAlbumLayoutTransition({
   }
 
   function prepareLyricsLayoutTransition(revision: number): boolean {
-    cancelDrop()
     const container = scrollRef.value
     const layer = transitionLayerRef.value
     if (!isPageActive.value || !container?.isConnected || !layer) return false
     const reversing = isLayoutTransitionActive.value
     let gridTransitionBegun = false
     try {
+      indexTransition.prepare()
       const viewport = measureScrollViewport(container)
       let fromViewport = toTransitionRect(viewport)
       let sources: AlbumTransitionVisual[]
@@ -232,6 +234,7 @@ export function useAlbumLayoutTransition({
       isLayoutTransitionActive.value = true
       layer.prepareSources(fromViewport, sources)
     } catch (error) {
+      indexTransition.clear()
       layer.clear()
       isLayoutTransitionActive.value = false
       savedFocus = null
@@ -276,6 +279,7 @@ export function useAlbumLayoutTransition({
       )
         return false
       pendingTransitionScrollTop = container.scrollTop
+      indexTransition.commit()
 
       // The remapped scroll event updates TanStack's visible range at the rendering
       // boundary, after Vue's geometry patch. Capture targets only after that update.
@@ -293,6 +297,7 @@ export function useAlbumLayoutTransition({
       layer.commitTargets(toTransitionRect(viewport), collectVisibleTransitionTargets(viewport))
       return true
     } catch (error) {
+      indexTransition.clear()
       layer.clear()
       rendererDiagnostics.error({
         scope: 'albums.transition',
@@ -304,12 +309,15 @@ export function useAlbumLayoutTransition({
   }
 
   async function animateLyricsLayoutTransition(revision: number, duration: number): Promise<void> {
-    if (revision === layoutTransitionRevision) await transitionLayerRef.value?.animate(duration)
+    if (revision !== layoutTransitionRevision) return
+    indexTransition.animate(duration)
+    await transitionLayerRef.value?.animate(duration)
   }
 
   async function finishLyricsLayoutTransition(revision: number): Promise<void> {
     if (revision !== layoutTransitionRevision) return
     const container = scrollRef.value
+    indexTransition.clear()
     transitionLayerRef.value?.clear()
     isLayoutTransitionActive.value = false
     removeTransitionInputListeners()
@@ -327,6 +335,7 @@ export function useAlbumLayoutTransition({
 
   function cancelLyricsLayoutTransition(revision: number): void {
     if (revision !== layoutTransitionRevision) return
+    indexTransition.clear()
     transitionLayerRef.value?.clear()
     savedFocus = null
     isLayoutTransitionActive.value = false

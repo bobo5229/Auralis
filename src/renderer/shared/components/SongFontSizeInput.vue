@@ -131,10 +131,10 @@ function adjust(delta: number) {
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
-  width: 148px;
+  width: 124px;
   max-width: 100%;
   height: 30px;
-  padding: 0 10px;
+  padding: 2px;
   border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
   border-radius: 8px;
   color: var(--auralis-text);
@@ -170,6 +170,10 @@ input {
   font-variant-numeric: tabular-nums;
   text-align: center;
   caret-color: var(--auralis-text);
+  border-radius: 4px;
+}
+input:focus {
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
 }
 .song-font-size-unit {
   margin-inline-start: 2px;
@@ -177,13 +181,13 @@ input {
 }
 button {
   display: flex;
-  flex: 0 0 20px;
+  flex: 0 0 27px;
   align-self: stretch;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 2px;
+  border-radius: 5px;
   color: var(--auralis-text-muted);
   background: transparent;
   cursor: pointer;
@@ -194,7 +198,7 @@ button > span {
 }
 button:hover:not(:disabled) {
   color: var(--auralis-text);
-  background: transparent;
+  background: var(--auralis-control-hover-bg);
   box-shadow: none;
 }
 button:active:not(:disabled) {

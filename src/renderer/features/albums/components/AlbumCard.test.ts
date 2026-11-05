@@ -60,6 +60,7 @@ const cleanups: Array<() => void> = []
 afterEach(() => {
   cleanups.splice(0).forEach((cleanup) => cleanup())
   useChineseTextDisplay().setSongInfoScript('simplified')
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -136,5 +137,62 @@ describe('AlbumCard play control', () => {
     ;(playButton?.props.onContextmenu as (event: object) => void)(contextEvent)
     expect(contextEvent.preventDefault).toHaveBeenCalledOnce()
     expect(card.openContextMenu).toHaveBeenCalledExactlyOnceWith(album, contextEvent)
+  })
+})
+
+describe('AlbumCard cover interaction', () => {
+  it.each([
+    { key: 'Enter', shiftKey: false },
+    { key: ' ', shiftKey: false },
+    { key: 'Enter', shiftKey: true },
+  ])('opens details with $key (shift=$shiftKey)', (keys) => {
+    const card = mountCard()
+    const cover = findByClass(card.root, 'cover-stage')!
+    const event = { ...keys, preventDefault: vi.fn(), repeat: false }
+    ;(cover.props.onKeydown as (event: object) => void)(event)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(card.open).toHaveBeenCalledExactlyOnceWith(album)
+    expect(card.play).not.toHaveBeenCalled()
+  })
+
+  it('ignores repeated activation and unrelated keys', () => {
+    const card = mountCard()
+    const keydown = findByClass(card.root, 'cover-stage')!.props.onKeydown as (
+      event: object,
+    ) => void
+    const preventDefault = vi.fn()
+    keydown({ key: 'Enter', repeat: true, preventDefault })
+    keydown({ key: ' ', repeat: true, preventDefault })
+    keydown({ key: 'ArrowRight', preventDefault })
+    expect(preventDefault).toHaveBeenCalledTimes(2)
+    expect(card.open).not.toHaveBeenCalled()
+    expect(card.play).not.toHaveBeenCalled()
+  })
+
+  it('keeps a held cover as a normal click without feedback or delayed playback', async () => {
+    vi.useFakeTimers()
+    const card = mountCard()
+    const cover = findByClass(card.root, 'cover-stage')!
+    ;(cover.props.onPointerdown as ((event: object) => void) | undefined)?.({ button: 0 })
+    await vi.advanceTimersByTimeAsync(1500)
+    await nextTick()
+    expect(cover.props.class).toBe('cover-stage')
+    expect(cover.props['aria-description']).toBeUndefined()
+    expect(card.open).not.toHaveBeenCalled()
+    expect(card.play).not.toHaveBeenCalled()
+    ;(cover.props.onClick as () => void)()
+    expect(card.open).toHaveBeenCalledExactlyOnceWith(album)
+    await vi.runAllTimersAsync()
+    expect(card.play).not.toHaveBeenCalled()
+  })
+
+  it('opens the context menu from the cover without opening details or playing', () => {
+    const card = mountCard()
+    const event = { preventDefault: vi.fn() }
+    ;(findByClass(card.root, 'cover-stage')!.props.onContextmenu as (event: object) => void)(event)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(card.openContextMenu).toHaveBeenCalledExactlyOnceWith(album, event)
+    expect(card.open).not.toHaveBeenCalled()
+    expect(card.play).not.toHaveBeenCalled()
   })
 })

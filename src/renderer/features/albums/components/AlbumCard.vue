@@ -11,12 +11,10 @@ import {
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { AlbumSummary } from '../types'
-import { useAlbumCoverLongPress } from '../composables/useAlbumCoverLongPress'
 
 const props = defineProps<{
   album: AlbumSummary
   highlighted?: boolean
-  longPressEnabled?: boolean
 }>()
 
 const { t } = useI18n()
@@ -53,15 +51,7 @@ const emit = defineEmits<{
   open: [album: AlbumSummary]
   play: [album: AlbumSummary]
   openContextMenu: [album: AlbumSummary, event: MouseEvent]
-  longPress: [album: AlbumSummary, cover: HTMLElement]
 }>()
-
-const longPress = useAlbumCoverLongPress(
-  computed(() => Boolean(props.longPressEnabled)),
-  (cover) => emit('longPress', props.album, cover),
-)
-const { holding } = longPress
-watch(() => props.album.key, longPress.cancel)
 
 const imageFailed = ref(false)
 const cardRootRef = ref<HTMLElement | null>(null)
@@ -131,8 +121,7 @@ onBeforeUnmount(() => {
   visibilityObserver = null
 })
 
-function openAlbum(event?: MouseEvent): void {
-  if (longPress.consumeClick(event)) return
+function openAlbum(): void {
   emit('open', props.album)
 }
 
@@ -140,16 +129,10 @@ function onCoverKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
   if (event.repeat) return
-  longPress.cancel()
-  if (event.key === 'Enter' && event.shiftKey && props.longPressEnabled) {
-    emit('longPress', props.album, event.currentTarget as HTMLElement)
-  } else emit('open', props.album)
+  emit('open', props.album)
 }
 
 function onContextMenu(event: MouseEvent): void {
-  longPress.cancel()
-  const isCover = (event.currentTarget as HTMLElement | null)?.classList?.contains('cover-stage')
-  if (isCover && longPress.consumeClick(event)) return
   emit('openContextMenu', props.album, event)
 }
 </script>
@@ -165,12 +148,9 @@ function onContextMenu(event: MouseEvent): void {
       <!-- cover-stage 锁定 1:1；img 绝对填充并通过 object-fit:cover 裁切 -->
       <div
         class="cover-stage"
-        :class="{ 'cover-stage--holding': holding }"
         role="button"
         tabindex="0"
         :aria-label="t('albums.a11y.openAlbum', { title: displayAlbumTitle })"
-        :aria-description="longPressEnabled ? t('albums.a11y.longPressPlay') : undefined"
-        @pointerdown="longPress.start"
         @dragstart.prevent
         @click="openAlbum"
         @contextmenu.prevent="onContextMenu"
@@ -234,7 +214,6 @@ function onContextMenu(event: MouseEvent): void {
 :global(:root) {
   /* Album-list cover geometry; root scope also reaches inert layout-transition clones. */
   --album-list-cover-radius: var(--auralis-artwork-radius-card);
-  --album-list-cover-hold-outset: 3px;
 }
 
 .album-card {
@@ -345,30 +324,6 @@ function onContextMenu(event: MouseEvent): void {
   touch-action: pan-y;
   user-select: none;
   -webkit-touch-callout: none;
-}
-
-.cover-stage--holding::after {
-  position: absolute;
-  inset: calc(0px - var(--album-list-cover-hold-outset));
-  border: 2px solid var(--auralis-focus-ring);
-  border-radius: calc(var(--album-list-cover-radius) + var(--album-list-cover-hold-outset));
-  pointer-events: none;
-  content: '';
-  animation: album-cover-hold 500ms ease-out forwards;
-}
-
-@keyframes album-cover-hold {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.8;
-  }
-}
-
-:where([data-reduced-motion='true']) .cover-stage--holding::after {
-  animation: none;
-  opacity: 0.6;
 }
 
 .cover-stage:focus-visible {

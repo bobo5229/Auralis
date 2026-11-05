@@ -9,13 +9,16 @@
   --album-detail-type-back-line-height: 18px;
 
   --album-detail-font-title: var(--auralis-font-ui);
-  --album-detail-type-title-size: var(--auralis-type-hero-title-size);
-  --album-detail-type-title-line-height: var(--auralis-type-hero-title-line-height);
-  --album-detail-type-title-weight: var(--auralis-type-hero-title-weight);
+  --album-detail-type-title-size: clamp(26px, 3.6cqi, 30px);
+  --album-detail-type-title-line-height: 1.2;
+  --album-detail-type-title-weight: 700;
 
-  --album-detail-type-artist-size: 17px;
-  --album-detail-type-artist-line-height: 24px;
-  --album-detail-type-artist-weight: 650;
+  --album-detail-type-artist-size: 18px;
+  --album-detail-type-artist-line-height: 26px;
+  --album-detail-type-artist-weight: 600;
+
+  --album-detail-type-summary-size: 13px;
+  --album-detail-type-summary-line-height: 20px;
 
   --album-detail-type-track-title-size: var(--auralis-type-control-size);
   --album-detail-type-track-title-line-height: var(--auralis-type-control-line-height);
@@ -26,4 +29,10 @@
   --album-detail-type-track-number-size: 13px;
   --album-detail-type-track-number-line-height: 20px;
   --album-detail-type-track-number-weight: 400;
+}
+
+@container (min-width: 840px) {
+  .album-hero-title {
+    --album-detail-type-title-size: clamp(32px, 3.6cqi, 36px);
+  }
 }

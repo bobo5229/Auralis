@@ -24,7 +24,7 @@ const options = LYRICS_PANEL_MODES.map((value) => ({
       <span id="lyrics-panel-layout-description">{{
         t('settings.appearance.lyricsPanelLayout.description')
       }}</span>
-      <span v-if="persistFailed" role="status">{{
+      <span v-if="persistFailed" class="settings-status--error" role="status">{{
         t('settings.appearance.lyricsPanelLayout.persistFailed')
       }}</span>
     </div>

@@ -21,19 +21,18 @@ vi.mock('vue-i18n', async () => {
     'settings.appearance.accent.preview': '效果预览',
     'settings.appearance.accent.previewSample': 'Aa 123',
     'settings.appearance.accent.alphaRejected': '强调色需为不透明颜色。',
-    'settings.appearance.accent.invalidColor': '请输入有效的六位 HEX 颜色。',
+    'colorPicker.invalidColor': '请输入有效的六位 HEX 颜色。',
     'settings.appearance.accent.persistFailed': '颜色已在本次会话中保留，保存未完成。',
     'settings.appearance.accent.pickerLabel': '{theme}强调色选择器',
-    'settings.appearance.accent.presetColor': '预设颜色',
-    'settings.appearance.accent.currentColor': '当前颜色：{color}',
-    'settings.appearance.accent.hexField': '十六进制颜色',
-    'settings.appearance.accent.saturationBrightnessSlider': '饱和度和明度',
-    'settings.appearance.accent.saturationBrightnessValue':
-      '饱和度：{saturation}%，明度：{brightness}%',
-    'settings.appearance.accent.presetListLabel': '选择要应用的预设颜色',
+    'colorPicker.presetColor': '预设颜色',
+    'colorPicker.currentColor': '当前颜色：{color}',
+    'colorPicker.hexField': '十六进制颜色',
+    'colorPicker.saturationBrightnessSlider': '饱和度和明度',
+    'colorPicker.saturationBrightnessValue': '饱和度：{saturation}%，明度：{brightness}%',
+    'colorPicker.presetListLabel': '选择要应用的预设颜色',
   }
   const t = (key: string, values?: Record<string, unknown>): string => {
-    if (locale.value === 'en' && key === 'settings.appearance.accent.hexField') return 'HEX color'
+    if (locale.value === 'en' && key === 'colorPicker.hexField') return 'HEX color'
     let message = messages[key] ?? key
     for (const [name, value] of Object.entries(values ?? {})) {
       message = message.replace(`{${name}}`, String(value))
@@ -468,6 +467,16 @@ describe('ThemeAccentSettings', () => {
     expect(lightState.lightAccent.value).toBe('#FB7185')
     expect(darkState.darkAccent.value).toBe('#22D3EE')
     expect(storage.writes).toEqual(['auralis-theme'])
+  })
+
+  it('rejects translucent colors through the shared picker', async () => {
+    const root = await mountSettings()
+    await clickAndFlush(findClass(root, 'dark-accent-toggle')!)
+    storage.writes.length = 0
+    invokeProp(findClass(root, 'vc-input-input')!, 'onInput', { target: { value: '#60A5FA80' } })
+    await nextTick()
+    expect(nodeText(root)).toContain('强调色需为不透明颜色。')
+    expect(storage.writes).toEqual([])
   })
 
   it('clears invalid input and refreshes accessibility when the app theme changes', async () => {

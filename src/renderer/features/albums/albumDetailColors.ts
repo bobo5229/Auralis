@@ -21,7 +21,7 @@ export function readableAlbumText(source: RgbColor, background: RgbColor): RgbCo
   return target
 }
 
-/** Retain the cover's lightness and chroma while keeping side surfaces slightly darker. */
+/** Retain cover color while allowing the main panel to stay closer to black. */
 export function albumDetailColors(source: RgbColor) {
   const { l, a, b } = rgbToOklab(source)
   const mainLightness = Math.max(0.32, Math.min(0.9, l))
@@ -34,9 +34,11 @@ export function albumDetailColors(source: RgbColor) {
     }
     return color
   }
-  const main = surface(mainLightness)
+  // Keep the main panel close to black without changing the surrounding surfaces.
+  const main = surface(Math.max(0.18, Math.min(0.9, l)))
   const more = surface(mainLightness - 0.04)
   const side = surface(mainLightness - 0.08)
+  const accent = surface(Math.min(0.48, mainLightness - 0.18))
   const defaults = {
     text: { r: 243, g: 238, b: 230 },
     muted: { r: 175, g: 180, b: 188 },
@@ -46,17 +48,23 @@ export function albumDetailColors(source: RgbColor) {
   }
   const text = (color: RgbColor, bg: RgbColor) => readableAlbumText(color, bg)
   const mainText = text(defaults.text, main)
+  const accentText = text(defaults.text, accent)
+  const sideText = text(defaults.text, side)
   return {
     main,
     divider: mainText,
     more,
     side,
+    accent,
+    accentText,
+    accentBorder: getContrastRatio(accent, main) < 1.5 ? mix(accent, mainText, 0.45) : accent,
+    accentSideBorder: getContrastRatio(accent, side) < 1.5 ? mix(accent, sideText, 0.45) : accent,
     moreText: text(defaults.text, more),
     moreFaint: text(defaults.faint, more),
     mainText,
     mainMuted: text(defaults.muted, main),
     mainFaint: text(defaults.faint, main),
-    sideText: text(defaults.text, side),
+    sideText,
     sideMuted: text(defaults.muted, side),
     sideFaint: text(defaults.faint, side),
     lyricsActive: text(getContrastRatio(rgb(255), side) >= 4.5 ? defaults.active : rgb(32), side),

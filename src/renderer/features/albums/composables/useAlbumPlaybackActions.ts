@@ -2,7 +2,6 @@ import type { Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackPublicApi } from '@renderer/features/playback/composables/usePlayback'
 import type { AlbumSummary } from '../types'
-import type { AlbumDropRequest } from '../utils/albumDropMotion'
 import type { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
 
@@ -13,9 +12,6 @@ export function useAlbumPlaybackActions({
   hasCurrentTrack,
   contextMenu,
   closeContextMenu,
-  dropLayerRef,
-  canDropAlbum,
-  isDropActive,
 }: {
   tracks: Readonly<Ref<TrackListItem[]>>
   catalogIndex: Readonly<Ref<ReturnType<typeof getAlbumCatalogIndex>>>
@@ -23,11 +19,6 @@ export function useAlbumPlaybackActions({
   hasCurrentTrack: Readonly<Ref<boolean>>
   contextMenu: Readonly<Ref<{ album: AlbumSummary } | null>>
   closeContextMenu: () => void
-  dropLayerRef: Readonly<
-    Ref<{ cancel: () => void; play: (request: AlbumDropRequest) => void } | null>
-  >
-  canDropAlbum: Readonly<Ref<boolean>>
-  isDropActive: Readonly<Ref<boolean>>
 }) {
   function selectAlbumPlaybackTracks(album: AlbumSummary): TrackListItem[] {
     return catalogIndex.value.selectTracks(album.albumArtist, album.title)
@@ -54,17 +45,6 @@ export function useAlbumPlaybackActions({
     if (album) playAlbum(album)
   }
 
-  function playCoverAlbum(album: AlbumSummary): void {
-    dropLayerRef.value?.cancel()
-    playAlbum(album)
-  }
-
-  function dropAlbum(album: AlbumSummary, cover: HTMLElement): void {
-    if (!canDropAlbum.value || isDropActive.value || !album.tracks.length) return
-    closeContextMenu()
-    dropLayerRef.value?.play({ album, cover, onLand: () => playAlbum(album) })
-  }
-
   function insertContextAlbum(): void {
     if (!hasCurrentTrack.value) return
     const album = contextMenu.value?.album
@@ -73,5 +53,5 @@ export function useAlbumPlaybackActions({
 
     playback.insertTracksAfterCurrent(selectAlbumPlaybackTracks(album))
   }
-  return { playContextAlbum, playCoverAlbum, dropAlbum, insertContextAlbum }
+  return { playAlbum, playContextAlbum, insertContextAlbum }
 }

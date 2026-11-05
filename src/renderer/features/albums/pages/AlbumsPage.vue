@@ -24,7 +24,6 @@ import { useChineseTextDisplay } from '@renderer/features/appearance/composables
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
-import AlbumDropTransitionLayer from '../components/AlbumDropTransitionLayer.vue'
 import type { AlbumSummary } from '../types'
 import { indexedAlbums } from '../utils/indexedAlbums'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
@@ -176,7 +175,6 @@ const currentLetter = computed(() => {
 })
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
-const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
 const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
 const {
   isLayoutTransitionActive,
@@ -188,30 +186,13 @@ const {
   isPageActive,
   grid: gridLayout,
   getVirtualRows: () => virtualRows.value,
-  cancelDrop: () => dropLayerRef.value?.cancel(),
   requestCancel: () => emit('cancel-layout-transition'),
+  getIndex: () =>
+    scrollRef.value?.parentElement?.querySelector<HTMLElement>('.main-artist-index') ?? null,
 })
 watch(metadataOccupancy, () => {
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
 })
-const isDropActive = ref(false)
-const canDropAlbum = computed(
-  () =>
-    isPageActive.value &&
-    route.name === 'albums' &&
-    displayMode.value === 'normal' &&
-    !props.isTransitioning &&
-    !props.isLayoutResizing &&
-    !isLayoutTransitionActive.value,
-)
-watch(
-  canDropAlbum,
-  (allowed) => {
-    if (!allowed) dropLayerRef.value?.cancel()
-  },
-  { flush: 'sync' },
-)
-
 function seedAlbumDetailSnapshot(album: AlbumSummary): void {
   writeAlbumDetailSnapshot({
     albumArtist: album.albumArtist,
@@ -225,7 +206,6 @@ function seedAlbumDetailSnapshot(album: AlbumSummary): void {
 }
 
 watch(albums, () => {
-  dropLayerRef.value?.cancel()
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
 })
 
@@ -271,19 +251,14 @@ function openContextAlbumInCd(): void {
   })
 }
 
-const { playContextAlbum, playCoverAlbum, dropAlbum, insertContextAlbum } = useAlbumPlaybackActions(
-  {
-    tracks,
-    catalogIndex,
-    playback,
-    hasCurrentTrack,
-    contextMenu,
-    closeContextMenu,
-    dropLayerRef,
-    canDropAlbum,
-    isDropActive,
-  },
-)
+const { playAlbum, playContextAlbum, insertContextAlbum } = useAlbumPlaybackActions({
+  tracks,
+  catalogIndex,
+  playback,
+  hasCurrentTrack,
+  contextMenu,
+  closeContextMenu,
+})
 
 onActivated(() => {
   isPageActive.value = true
@@ -293,7 +268,6 @@ onActivated(() => {
 })
 
 onBeforeRouteLeave(() => {
-  dropLayerRef.value?.cancel()
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
   gridViewport.rememberScroll()
   closeContextMenu()
@@ -301,7 +275,6 @@ onBeforeRouteLeave(() => {
 
 function disconnectPage(): void {
   artistJump.value = null
-  dropLayerRef.value?.cancel()
   albumMenu.deactivate()
   isPageActive.value = false
   albumSearch.deactivate()
@@ -418,11 +391,9 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
                 :data-album-key="album.key"
                 :album="album"
                 :highlighted="highlightedAlbumKey === album.key"
-                :long-press-enabled="canDropAlbum && !isDropActive && album.tracks.length > 0"
                 :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
-                @play="playCoverAlbum"
-                @long-press="dropAlbum"
+                @play="playAlbum"
                 @open-context-menu="openContextMenu"
               />
             </div>
@@ -450,7 +421,6 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
     </template>
 
     <AlbumGridTransitionLayer ref="transitionLayerRef" />
-    <AlbumDropTransitionLayer ref="dropLayerRef" @active-change="isDropActive = $event" />
 
     <Teleport to="body">
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
@@ -563,7 +533,7 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   flex: 0 0 auto;
   display: flex;
   /* Align with the covers, excluding their shadow gutters and the letter index. */
-  padding: 8px calc(48px + var(--main-page-scrollbar-size, 12px)) 8px 20px;
+  padding: 8px 48px 8px 20px;
 }
 
 .albums-toolbar .page-search-tools {
@@ -594,26 +564,21 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   min-height: 0;
 }
 
-.albums-scroll {
+.albums-scroll.main-page-scroll {
   margin-right: 28px;
   min-height: 0;
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
   /* Separate the first covers from the persistent toolbar. */
   padding-top: 12px;
   padding-bottom: var(--auralis-playbar-safe-area);
 }
 
-.albums-scroll::-webkit-scrollbar-thumb {
-  background-color: transparent;
-}
-
-.albums-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
-  background-color: var(
-    --auralis-scrollbar-thumb,
-    color-mix(in srgb, var(--auralis-text) 22%, transparent)
-  );
+.albums-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .albums-grid-row {

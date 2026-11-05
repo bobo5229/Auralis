@@ -20,7 +20,6 @@ const fixture = vi.hoisted(() => ({
   route: { name: 'albums' },
   beforeLeave: null as null | (() => void),
   cancelRequested: vi.fn(),
-  dropCancel: vi.fn(),
   layer: {
     prepareSources: vi.fn(),
     commitTargets: vi.fn(),
@@ -66,21 +65,11 @@ vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', async ()
 vi.mock('@renderer/features/playback/composables/useArtworkPalette', () => ({
   prefetchArtworkPalette: vi.fn(),
 }))
-vi.mock('../components/AlbumCard.vue', async () => {
-  const { h } = await import('vue')
-  return {
-    default: {
-      props: ['longPressEnabled'],
-      setup: (props: { longPressEnabled: boolean }) => () =>
-        h('div', { class: 'album-card', 'data-long-press-enabled': props.longPressEnabled }),
-    },
-  }
-})
+vi.mock('../components/AlbumCard.vue', () => ({
+  default: { render: () => h('div', { class: 'album-card' }) },
+}))
 vi.mock('../components/AlbumGridTransitionLayer.vue', () => ({
   default: { methods: fixture.layer, render: () => null },
-}))
-vi.mock('../components/AlbumDropTransitionLayer.vue', () => ({
-  default: { methods: { cancel: fixture.dropCancel }, render: () => null },
 }))
 // The custom renderer exercises the page and real grid layout. DOM animation and
 // virtualizer observers are covered separately by the isolated Chrome probe.
@@ -337,7 +326,7 @@ async function settle(): Promise<void> {
   for (let i = 0; i < 5; i++) await nextTick()
 }
 let parameters: PageParameters | undefined
-async function mountPage(withParameters = false) {
+async function mountPage(withParameters = false, transitioning = ref(false)) {
   const active = ref(true)
   const app = renderer.createApp({
     setup() {
@@ -348,7 +337,11 @@ async function mountPage(withParameters = false) {
       return () =>
         h(KeepAlive, null, [
           active.value
-            ? h(AlbumsPage, { ref: participant, onCancelLayoutTransition: fixture.cancelRequested })
+            ? h(AlbumsPage, {
+                ref: participant,
+                isTransitioning: transitioning.value,
+                onCancelLayoutTransition: fixture.cancelRequested,
+              })
             : h({ render: () => h('div') }),
         ])
     },
@@ -494,6 +487,30 @@ describe('AlbumsPage grid connection', () => {
     active.value = true
     await settle()
     expect(observers.at(-1)?.element).toBe(element)
+  })
+
+  it('keeps an early scroll when the return transition ends and a pending catalog refresh runs', async () => {
+    const transitioning = ref(false)
+    const active = await mountPage(false, transitioning)
+    await setAlbums(40)
+    const element = find('albums-scroll')!
+    element.scrollTop = 420
+    fixture.beforeLeave?.()
+    transitioning.value = true
+    active.value = false
+    await settle()
+    await setAlbums(41)
+    active.value = true
+    await settle()
+    expect(find('albums-scroll')).toBe(element)
+    expect(element.scrollTop).toBe(420)
+    element.scrollTop = 520
+    ;(element.props.onScroll as (event: object) => void)({ target: element })
+    transitioning.value = false
+    await settle()
+    observers.at(-1)?.callback()
+    await settle()
+    expect(element.scrollTop).toBe(520)
   })
 })
 
@@ -736,14 +753,10 @@ describe('AlbumsPage layout transition participant', () => {
     await setAlbums(40)
     const scroll = find('albums-scroll')!
     const grid = scroll.children[0]
-    expect(find('album-card')?.props['data-long-press-enabled']).toBe(true)
-    fixture.dropCancel.mockClear()
     expect(pageTransition().prepareLyricsLayoutTransition(2)).toBe(true)
     await settle()
-    expect(fixture.dropCancel).toHaveBeenCalled()
     expect(grid.props.inert).toBe(true)
     expect(grid.props['aria-hidden']).toBe('true')
-    expect(find('album-card')?.props['data-long-press-enabled']).toBe(false)
     expect(shortcut().defaultPrevented).toBe(false)
     scroll.clientWidth = 685
     observers.at(-1)!.callback()
@@ -765,7 +778,6 @@ describe('AlbumsPage layout transition participant', () => {
     await settle()
     expect(grid.props.inert).toBeUndefined()
     expect(grid.props['aria-hidden']).toBeUndefined()
-    expect(find('album-card')?.props['data-long-press-enabled']).toBe(true)
     expect(shortcut().defaultPrevented).toBe(true)
   })
 

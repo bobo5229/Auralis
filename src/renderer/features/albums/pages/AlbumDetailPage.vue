@@ -16,7 +16,8 @@ import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
 import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 import { useAlbumDetailArtworkPublisher } from '../albumDetailArtwork'
-import { getAlbumColorPreference, setAlbumColorPreference } from '../albumColorPreferences'
+import AlbumColorPreference from '../components/AlbumColorPreference.vue'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -34,6 +35,8 @@ const { songText, songValues, songParts } = useChineseTextDisplay()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
+const coverImageRef = ref<HTMLImageElement | null>(null)
+const coverImageReady = ref(false)
 const highlightedTrackId = ref<number | null>(null)
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null
 let isPageUnmounted = false
@@ -101,30 +104,14 @@ const artworkCacheKey = computed(
     previewArtworkCacheKey.value,
 )
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
+watch(artworkUrl, () => {
+  coverImageReady.value = false
+})
 const publishArtwork = useAlbumDetailArtworkPublisher()
 const artworkOwner = Symbol('album-detail')
 const colorAnchors = computed(() =>
   albumTracks.value.map(({ id, createdAt }) => ({ id, createdAt })),
 )
-const colorPreference = computed(() => getAlbumColorPreference(colorAnchors.value))
-const colorError = ref(false)
-const colorHex = computed(() => {
-  const value = colorPreference.value ?? { r: 128, g: 128, b: 128 }
-  return `#${[value.r, value.g, value.b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
-})
-function updateAlbumColor(event: Event): void {
-  const value = (event.target as HTMLInputElement).value
-  if (!/^#[0-9a-f]{6}$/i.test(value)) return
-  const color = {
-    r: parseInt(value.slice(1, 3), 16),
-    g: parseInt(value.slice(3, 5), 16),
-    b: parseInt(value.slice(5, 7), 16),
-  }
-  colorError.value = !setAlbumColorPreference(colorAnchors.value, color)
-}
-function resetAlbumColor(): void {
-  colorError.value = !setAlbumColorPreference(colorAnchors.value, null)
-}
 watch(
   [artworkCacheKey, colorAnchors, albumArtist, albumTitle],
   ([key, anchors, artist, title]) =>
@@ -272,20 +259,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="album-detail-container album-detail-page h-full w-full relative bg-transparent">
+    <button
+      v-if="hasRenderableData || loadState === 'loading'"
+      class="album-detail-back album-glass-control"
+      type="button"
+      :aria-label="t('albums.detail.back')"
+      @click="goBack"
+    >
+      <FrostedSurface />
+      <span class="i-lucide-arrow-left" aria-hidden="true" />
+    </button>
     <section
       v-if="hasRenderableData"
       ref="detailRootRef"
       class="album-detail-scroll-wrapper h-full w-full overflow-x-hidden overflow-y-auto relative z-10"
     >
-      <button
-        class="album-detail-back"
-        type="button"
-        :aria-label="t('albums.detail.back')"
-        @click="goBack"
-      >
-        <span class="i-lucide-arrow-left" aria-hidden="true" />
-      </button>
-
       <div class="album-detail-wrapper">
         <!-- Phase 1: Hero 巨幕 Banner -->
         <section
@@ -299,11 +287,15 @@ onBeforeUnmount(() => {
               <div class="album-hero-cover">
                 <img
                   v-if="artworkUrl"
+                  ref="coverImageRef"
+                  crossorigin="anonymous"
                   :src="artworkUrl"
                   :alt="t('albums.detail.coverAlt', { title: displayAlbumTitle })"
                   class="h-full w-full object-cover"
                   decoding="async"
                   draggable="false"
+                  @load="coverImageReady = true"
+                  @error="coverImageReady = false"
                 />
                 <div
                   v-else
@@ -365,20 +357,12 @@ onBeforeUnmount(() => {
                     <span class="i-lucide-shuffle h-4 w-4"></span>
                   </span>
                 </button>
-              </div>
-              <div class="album-color-preference">
-                <label
-                  >{{ t('albums.detail.colorPreference') }}
-                  <input
-                    type="color"
-                    :value="colorHex"
-                    :aria-label="t('albums.detail.colorPreference')"
-                    @input="updateAlbumColor"
-                /></label>
-                <button v-if="colorPreference" type="button" @click="resetAlbumColor">
-                  {{ t('albums.detail.colorReset') }}
-                </button>
-                <span v-if="colorError" role="alert">{{ t('albums.detail.colorSaveError') }}</span>
+                <AlbumColorPreference
+                  :anchors="colorAnchors"
+                  :artwork-key="artworkCacheKey"
+                  :cover-image="coverImageRef"
+                  :cover-ready="coverImageReady"
+                />
               </div>
             </div>
           </div>
@@ -424,15 +408,6 @@ onBeforeUnmount(() => {
       aria-busy="true"
       :aria-label="t('albums.detail.loading')"
     >
-      <button
-        class="album-detail-back"
-        type="button"
-        :aria-label="t('albums.detail.back')"
-        @click="goBack"
-      >
-        <span class="i-lucide-arrow-left" aria-hidden="true" />
-      </button>
-
       <div class="album-detail-wrapper" aria-hidden="true">
         <section class="album-hero-billboard">
           <div class="album-hero-main-stage">
@@ -656,6 +631,7 @@ onBeforeUnmount(() => {
   line-height: var(--album-detail-type-title-line-height);
   letter-spacing: var(--auralis-type-hero-title-letter-spacing);
   overflow: hidden;
+  overflow-wrap: anywhere;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -721,32 +697,6 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.album-color-preference {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-caption-size);
-}
-.album-color-preference label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.album-color-preference input {
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.album-color-preference button {
-  color: inherit;
-  text-decoration: underline;
-}
-
 .album-hero-play-btn,
 .album-hero-shuffle-btn {
   display: inline-flex;
@@ -760,7 +710,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.02em;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: pointer;
@@ -769,9 +719,9 @@ onBeforeUnmount(() => {
 
 /* 扁平操作：强调色主按钮与中性随机按钮。 */
 .album-hero-play-btn {
-  background: var(--auralis-theme-accent);
-  border: 1px solid var(--auralis-theme-accent);
-  color: var(--auralis-control-primary-text);
+  background: var(--album-detail-accent, var(--auralis-theme-accent));
+  border: 1px solid var(--album-detail-accent-border, var(--auralis-theme-accent));
+  color: var(--album-detail-accent-text, var(--auralis-control-primary-text));
 }
 
 .album-hero-action-icon {
@@ -912,26 +862,15 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 16px;
   left: 16px;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   justify-content: center;
   margin: 0;
-  border: 1px solid rgb(255 255 255 / 22%);
-  border-radius: 50%;
-  background: rgb(20 27 25 / 50%);
-  color: #fff;
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .album-detail-back .i-lucide-arrow-left {
   width: 18px;
   height: 18px;
-}
-
-.album-detail-back:hover {
-  background: rgb(20 27 25 / 70%);
-  color: #fff;
 }
 
 .album-detail-wrapper {
@@ -1049,8 +988,9 @@ onBeforeUnmount(() => {
   gap: 4px 12px;
   margin: 4px 0 0;
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
+  font-size: var(--album-detail-type-summary-size);
+  line-height: var(--album-detail-type-summary-line-height);
+  font-weight: 400;
 }
 
 .album-hero-actions {
@@ -1072,7 +1012,7 @@ onBeforeUnmount(() => {
   padding: 16px var(--album-detail-inline-padding) 0;
 }
 
-@container (max-width: 719px) {
+@container (width < 840px) {
   .album-hero-cover img {
     mask-image:
       linear-gradient(to right, #000 75%, transparent),
@@ -1083,19 +1023,19 @@ onBeforeUnmount(() => {
   }
 }
 
-@container (min-width: 720px) {
+@container (min-width: 840px) {
   .album-detail-wrapper {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
     align-items: start;
   }
 
   .album-hero-main-stage {
-    /* The cover occupies half the pane width and must fit even on very wide screens. */
-    min-height: max(clamp(520px, 72cqi, 700px), 50cqi);
+    /* The cover spans 58% of the pane and must fit even on very wide screens. */
+    min-height: max(clamp(520px, 72cqi, 700px), 58cqi);
   }
 
   .album-body-grid {
-    padding: 40px var(--album-detail-inline-padding) 28px 16px;
+    padding: 28px var(--album-detail-inline-padding) 28px 16px;
   }
 
   .album-detail-wrapper > :deep(.album-more-gallery) {
@@ -1103,3 +1043,5 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+<style scoped src="../styles/albumGlassControl.css"></style>

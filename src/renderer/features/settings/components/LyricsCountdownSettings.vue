@@ -24,7 +24,7 @@ const options = LYRICS_COUNTDOWN_EFFECTS.map((value) => ({
       <span id="lyrics-countdown-description">{{
         t('settings.appearance.lyricsEffects.countdown.description')
       }}</span>
-      <span v-if="persistFailed" role="status">{{
+      <span v-if="persistFailed" class="settings-status--error" role="status">{{
         t('settings.appearance.lyricsEffects.persistFailed')
       }}</span>
     </div>

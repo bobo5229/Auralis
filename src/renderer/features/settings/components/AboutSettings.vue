@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -11,10 +11,8 @@ const { t } = useI18n()
 const appInfo = ref<AppInfo | null>(null)
 const appInfoError = ref(false)
 const exportState = ref<'idle' | 'exporting' | 'saved' | 'cancelled' | 'failed'>('idle')
-let exportStateTimer: number | undefined
 
 async function exportDiagnostics(): Promise<void> {
-  window.clearTimeout(exportStateTimer)
   exportState.value = 'exporting'
 
   try {
@@ -23,10 +21,6 @@ async function exportDiagnostics(): Promise<void> {
   } catch {
     exportState.value = 'failed'
   }
-
-  exportStateTimer = window.setTimeout(() => {
-    exportState.value = 'idle'
-  }, 3200)
 }
 
 function exportButtonLabel(): string {
@@ -43,10 +37,6 @@ onMounted(async () => {
   } catch {
     appInfoError.value = true
   }
-})
-
-onBeforeUnmount(() => {
-  window.clearTimeout(exportStateTimer)
 })
 </script>
 
@@ -118,14 +108,17 @@ onBeforeUnmount(() => {
           <div>
             <strong>{{ t('settings.about.diagnostics') }}</strong>
             <span>{{ t('settings.about.diagnosticsDescription') }}</span>
+            <span role="status" :class="{ 'settings-status--error': exportState === 'failed' }">{{
+              exportState === 'idle' ? '' : exportButtonLabel()
+            }}</span>
           </div>
           <button
             type="button"
-            class="about-diagnostics-button"
+            class="settings-text-button"
             :disabled="exportState === 'exporting'"
             @click="exportDiagnostics"
           >
-            {{ exportButtonLabel() }}
+            {{ t('settings.about.exportDiagnostics') }}
           </button>
         </div>
       </div>

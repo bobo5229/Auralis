@@ -7,7 +7,7 @@ import {
   normalizeDarkAccent,
   resolveDarkAccent,
 } from './resolveDarkAccent'
-import { parseOpaquePickerAccent, type PickerAccentResult } from './parsePickerAccent'
+import { parseOpaquePickerColor, type PickerColorResult } from '@renderer/shared/color/pickerColor'
 
 describe('dark accent color rules', () => {
   it('normalizes only opaque six-digit hex values', () => {
@@ -51,19 +51,19 @@ describe('dark accent color rules', () => {
   })
 
   it('uses the published tinycolor event object and rejects transparency', () => {
-    expect(parseOpaquePickerAccent(tinycolor('#60a5fa'))).toEqual({
+    expect(parseOpaquePickerColor(tinycolor('#60a5fa'))).toEqual({
       valid: true,
       color: '#60A5FA',
     })
-    expect(parseOpaquePickerAccent(tinycolor('#60A5FAFF'))).toEqual({
+    expect(parseOpaquePickerColor(tinycolor('#60A5FAFF'))).toEqual({
       valid: true,
       color: '#60A5FA',
     })
-    expect(parseOpaquePickerAccent(tinycolor('#60A5FA80'))).toEqual({
+    expect(parseOpaquePickerColor(tinycolor('#60A5FA80'))).toEqual({
       valid: false,
       reason: 'alpha',
     })
-    expect(parseOpaquePickerAccent(tinycolor('not-a-color'))).toEqual({
+    expect(parseOpaquePickerColor(tinycolor('not-a-color'))).toEqual({
       valid: false,
       reason: 'invalid',
     })
@@ -119,7 +119,7 @@ describe('dark accent color rules', () => {
     })
     const root: PickerNode = { type: 'root', props: {}, children: [], parent: null }
     const color = ref(tinycolor(DEFAULT_DARK_ACCENT))
-    let pickerResult: PickerAccentResult | null = null
+    let pickerResult: PickerColorResult | null = null
     let emittedAlpha: number | undefined
     const app = renderer.createApp({
       setup() {
@@ -127,7 +127,7 @@ describe('dark accent color rules', () => {
           h(SketchPicker, {
             tinyColor: color.value,
             'onUpdate:tinyColor': (value: unknown) => {
-              pickerResult = parseOpaquePickerAccent(value)
+              pickerResult = parseOpaquePickerColor(value)
               emittedAlpha = (value as { getAlpha(): number }).getAlpha()
               if (pickerResult.valid) color.value = tinycolor(pickerResult.color)
             },

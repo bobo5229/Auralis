@@ -9,7 +9,11 @@ import { usePlayerDisplayMode } from './features/playback/composables/usePlayerD
 import { useSettingsDialog } from './features/settings/composables/useSettingsDialog'
 import { useTheme } from './features/appearance/composables/useTheme'
 import { useAlbumDetailArtworkPublisher } from './features/albums/albumDetailArtwork'
-import { setAlbumColorPreference } from './features/albums/albumColorPreferences'
+import {
+  getAlbumColorPreference,
+  setAlbumColorPreference,
+} from './features/albums/albumColorPreferences'
+import { albumDetailColors, cssAlbumColor } from './features/albums/albumDetailColors'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
@@ -38,18 +42,21 @@ const fixture = vi.hoisted(() => ({
   prepareDisplay: vi.fn(async () => {}),
   requestClose: vi.fn(),
   syncCd: vi.fn(),
+  paletteReady: null as unknown as Ref<boolean>,
   detailCover: false,
   detailCoverKey: 'test-cover',
+  detailTrackIds: {} as Record<string, number>,
   publishDetailCover: null as null | ((key: string) => void),
 }))
 vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () => {
-  const { computed } = await import('vue')
+  const { computed, ref } = await import('vue')
+  fixture.paletteReady = ref(true)
   return {
     useArtworkPalette: (key: Ref<string | null>) => ({
       palette: computed(() => ({
-        key: key.value ?? 'fallback',
-        quality: key.value ? 'reduced' : 'fallback',
-        dominant: key.value ? { r: 235, g: 30, b: 30 } : undefined,
+        key: key.value && fixture.paletteReady.value ? key.value : 'fallback',
+        quality: key.value && fixture.paletteReady.value ? 'reduced' : 'fallback',
+        dominant: key.value && fixture.paletteReady.value ? { r: 235, g: 30, b: 30 } : undefined,
       })),
     }),
   }
@@ -68,13 +75,19 @@ vi.mock('vue-router', async () => {
       const publishArtwork = useAlbumDetailArtworkPublisher()
       if (fixture.detailCover && fixture.route.name === 'album-detail') {
         const owner = Symbol('test-detail')
+        const anchors = () => [
+          {
+            id: fixture.detailTrackIds[fixture.route.query.artist ?? ''] ?? 7,
+            createdAt: '2024-01-01',
+          },
+        ]
         fixture.publishDetailCover = (key) =>
-          publishArtwork?.set(owner, key, [{ id: 7, createdAt: '2024-01-01' }], {
+          publishArtwork?.set(owner, key, anchors(), {
             artist: fixture.route.query.artist ?? '',
             title: fixture.route.query.title ?? '',
           })
         watchEffect(() =>
-          publishArtwork?.set(owner, fixture.detailCoverKey, [{ id: 7, createdAt: '2024-01-01' }], {
+          publishArtwork?.set(owner, fixture.detailCoverKey, anchors(), {
             artist: fixture.route.query.artist ?? '',
             title: fixture.route.query.title ?? '',
           }),
@@ -315,8 +328,10 @@ beforeEach(() => {
   })
   fixture.width.value = 1600
   fixture.startup.value = false
+  fixture.paletteReady.value = true
   fixture.detailCover = false
   fixture.detailCoverKey = 'test-cover'
+  fixture.detailTrackIds = {}
   fixture.publishDetailCover = null
   lyrics.setLyricsPanelExpanded(true)
   mode.setMode('split')
@@ -336,65 +351,73 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
-  it('applies the Your Wedding override to the detail and lyrics surfaces', async () => {
+  it('does not write color preferences when navigating between albums sharing a cover', async () => {
     fixture.detailCover = true
     fixture.detailCoverKey =
-      'v2-cc83d2eb92cc289bfd2fdd8637819af67f9a5d444466bd3cc1c1315691095a3d.webp'
+      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
+    fixture.detailTrackIds = { NewJeans: 8 }
     await mount('album-detail')
-    const name = '你的婚礼 电影原声带'
-    fixture.route.query = { artist: name, title: name }
+    fixture.route.query = { artist: 'Other Artist', title: 'Other Album' }
+    await flush()
+    const before = localStorage.getItem('auralis-album-color-preferences-v1')
+    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
+    await flush()
+    expect(getAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }])).toBeNull()
+    expect(getAlbumColorPreference([{ id: 8, createdAt: '2024-01-01' }])).toBeNull()
+    expect(localStorage.getItem('auralis-album-color-preferences-v1')).toBe(before)
+  })
+  it('updates the detail accent when a saved album color changes and clears it on exit', async () => {
+    fixture.detailCover = true
+    await mount('album-detail')
+    fixture.route.query = { artist: 'Artist', title: 'Album' }
     await flush()
     const shell = find('.app-shell')
-    const main = shell.style.getPropertyValue('--album-detail-main')
-    const side = shell.style.getPropertyValue('--album-detail-side')
-    const channels = main.match(/\d+/g)?.map(Number) ?? []
-    expect(channels[1]).toBeGreaterThan(channels[0])
-    expect(channels[1]).toBeGreaterThan(channels[2])
-    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBe(side)
-    expect(shell.style.getPropertyValue('--album-detail-divider')).toBe(
-      shell.style.getPropertyValue('--album-detail-main-text'),
+    const custom = { r: 207, g: 255, b: 196 }
+    expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], custom)).toBe(true)
+    await flush()
+    const colors = albumDetailColors(custom)
+    expect(shell.style.getPropertyValue('--album-detail-accent')).toBe(cssAlbumColor(colors.accent))
+    expect(shell.style.getPropertyValue('--album-detail-accent-text')).toBe(
+      cssAlbumColor(colors.accentText),
     )
-    fixture.route.query = { artist: name, title: 'Another album' }
+    await navigate('albums')
     await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(main)
-    fixture.publishDetailCover?.('replaced-cover')
-    await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(main)
+    expect(shell.classList.contains('has-album-detail-color')).toBe(false)
   })
-  it('applies the Supernatural cover override to the shared detail surfaces', async () => {
-    fixture.detailCover = true
-    fixture.detailCoverKey =
-      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
-    await mount('album-detail')
-    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
-    await flush()
-    const shell = find('.app-shell')
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
-    expect(shell.style.getPropertyValue('--album-detail-side')).toBe('rgb(31 31 31)')
-    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBe('rgb(31 31 31)')
-    fixture.route.query = { artist: 'NewJeans', title: 'Different album' }
-    await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
-  })
-  it('does not reapply a migrated override after the user restores automatic color', async () => {
-    fixture.detailCover = true
-    fixture.detailCoverKey =
-      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
-    await mount('album-detail')
-    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
-    await flush()
-    const shell = find('.app-shell')
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
-    expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], null)).toBe(true)
-    await flush()
-    const automatic = shell.style.getPropertyValue('--album-detail-main')
-    expect(automatic).not.toBe('rgb(51 51 51)')
-    fixture.route.query = { artist: 'NewJeans', title: 'Another album' }
-    await flush()
-    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
-    await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
-  })
+  it.each([
+    [
+      'NewJeans',
+      'Supernatural',
+      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp',
+    ],
+    [
+      '你的婚礼 电影原声带',
+      '你的婚礼 电影原声带',
+      'v2-cc83d2eb92cc289bfd2fdd8637819af67f9a5d444466bd3cc1c1315691095a3d.webp',
+    ],
+  ])(
+    'uses automatic color and preserves a saved preference for %s / %s',
+    async (artist, title, key) => {
+      fixture.detailCover = true
+      fixture.detailCoverKey = key
+      await mount('album-detail')
+      fixture.route.query = { artist, title }
+      await flush()
+      const shell = find('.app-shell')
+      const automatic = cssAlbumColor(albumDetailColors({ r: 235, g: 30, b: 30 }).main)
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
+      expect(localStorage.getItem('auralis-album-color-preferences-v1')).toBeNull()
+      const saved = { r: 207, g: 255, b: 196 }
+      expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], saved)).toBe(true)
+      await flush()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBe(
+        cssAlbumColor(albumDetailColors(saved).main),
+      )
+      expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], null)).toBe(true)
+      await flush()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
+    },
+  )
   it('starts the album colors together when the list-to-detail animation starts', async () => {
     fixture.detailCover = true
     await mount('albums')
@@ -412,6 +435,176 @@ describe('App shell composition', () => {
     expect(shell.style.getPropertyValue('--album-detail-side')).toBeTruthy()
     expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBeTruthy()
     expect(shell.style.getPropertyValue('--album-detail-more')).toBeTruthy()
+  })
+
+  it('holds the album palette during entry and applies a late preference after the dissolve', async () => {
+    fixture.detailCover = true
+    await mount('albums')
+    await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+    const shell = find('.app-shell')
+    const page = find('.test-page')
+    hook('onBeforeEnter', page)
+    hook('onEnter', page)
+    for (let i = 0; i < 5; i++) await frame()
+    const initial = shell.style.getPropertyValue('--album-detail-main')
+    const saved = { r: 207, g: 255, b: 196 }
+    expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], saved)).toBe(true)
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(initial)
+    page.animations.forEach((animation) => animation.finish())
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(
+      cssAlbumColor(albumDetailColors(saved).main),
+    )
+  })
+
+  it('crossfades a late palette after the entry preparation times out', async () => {
+    vi.useFakeTimers()
+    const root = new ShellTestElement('html')
+    const cleanup = vi.fn()
+    const snapshot = vi.fn((update: () => Promise<void>) => {
+      const updated = update()
+      return { ready: updated, finished: updated, skipTransition: cleanup }
+    })
+    Object.assign(doc, { documentElement: root, startViewTransition: snapshot })
+    try {
+      fixture.detailCover = true
+      fixture.paletteReady.value = false
+      await mount('albums')
+      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+      const page = find('.test-page')
+      const shell = find('.app-shell')
+      hook('onBeforeEnter', page)
+      hook('onEnter', page)
+      await vi.advanceTimersByTimeAsync(1000)
+      hook('onAfterEnter', page)
+      await flush()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
+      fixture.paletteReady.value = true
+      await flush()
+      expect(snapshot).toHaveBeenCalledOnce()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
+      expect(root.classList.contains('album-palette-reveal')).toBe(false)
+    } finally {
+      unmount?.()
+      Reflect.deleteProperty(doc, 'documentElement')
+      Reflect.deleteProperty(doc, 'startViewTransition')
+      vi.useRealTimers()
+    }
+  })
+
+  it('applies late colors without intermediate transitions when snapshots are unavailable', async () => {
+    vi.useFakeTimers()
+    const root = new ShellTestElement('html')
+    Object.assign(doc, { documentElement: root })
+    try {
+      fixture.detailCover = true
+      fixture.paletteReady.value = false
+      await mount('albums')
+      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+      const page = find('.test-page')
+      const shell = find('.app-shell')
+      hook('onBeforeEnter', page)
+      hook('onEnter', page)
+      await vi.advanceTimersByTimeAsync(1000)
+      hook('onAfterEnter', page)
+      await flush()
+      fixture.paletteReady.value = true
+      await flush()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
+      expect(shell.classList.contains('album-palette-instant')).toBe(false)
+    } finally {
+      unmount?.()
+      Reflect.deleteProperty(doc, 'documentElement')
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps transition suppression until a skipped snapshot update finishes', async () => {
+    vi.useFakeTimers()
+    const root = new ShellTestElement('html')
+    const finished = deferred<void>()
+    let update: (() => Promise<void>) | undefined
+    Object.assign(doc, {
+      documentElement: root,
+      startViewTransition: (callback: () => Promise<void>) => {
+        update = callback
+        return {
+          ready: Promise.reject(new Error('skipped')),
+          finished: finished.promise,
+          skipTransition: vi.fn(),
+        }
+      },
+    })
+    try {
+      fixture.detailCover = true
+      fixture.paletteReady.value = false
+      await mount('albums')
+      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+      const page = find('.test-page')
+      const shell = find('.app-shell')
+      hook('onBeforeEnter', page)
+      hook('onEnter', page)
+      await vi.advanceTimersByTimeAsync(1000)
+      hook('onAfterEnter', page)
+      await flush()
+      fixture.paletteReady.value = true
+      await flush()
+      expect(shell.classList.contains('album-palette-instant')).toBe(true)
+      await update?.()
+      await flush()
+      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
+      expect(shell.classList.contains('album-palette-instant')).toBe(true)
+      finished.resolve()
+      await flush()
+      expect(shell.classList.contains('album-palette-instant')).toBe(false)
+    } finally {
+      unmount?.()
+      Reflect.deleteProperty(doc, 'documentElement')
+      Reflect.deleteProperty(doc, 'startViewTransition')
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels a pending late-color snapshot when navigating away', async () => {
+    vi.useFakeTimers()
+    const root = new ShellTestElement('html')
+    const skip = vi.fn()
+    let update: (() => Promise<void>) | undefined
+    const pending = new Promise<void>(() => {})
+    Object.assign(doc, {
+      documentElement: root,
+      startViewTransition: (callback: () => Promise<void>) => {
+        update = callback
+        return { ready: pending, finished: pending, skipTransition: skip }
+      },
+    })
+    try {
+      fixture.detailCover = true
+      fixture.paletteReady.value = false
+      await mount('albums')
+      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+      const page = find('.test-page')
+      hook('onBeforeEnter', page)
+      hook('onEnter', page)
+      await vi.advanceTimersByTimeAsync(1000)
+      hook('onAfterEnter', page)
+      await flush()
+      fixture.paletteReady.value = true
+      await flush()
+      expect(update).toBeDefined()
+      await navigate('albums')
+      expect(skip).toHaveBeenCalledOnce()
+      await update?.()
+      await flush()
+      expect(find('.app-shell').classList.contains('has-album-detail-color')).toBe(false)
+      expect(root.classList.contains('album-palette-reveal')).toBe(false)
+    } finally {
+      unmount?.()
+      Reflect.deleteProperty(doc, 'documentElement')
+      Reflect.deleteProperty(doc, 'startViewTransition')
+      vi.useRealTimers()
+    }
   })
 
   it('keeps album canvas and text colors identical when the application theme changes', async () => {
@@ -713,6 +906,46 @@ describe('App shell composition', () => {
     await flush()
     expect(main.inert).toBe(false)
     expect(doc.activeElement).toBe(cover)
+  })
+
+  it('unlocks the returning list when detail content fades while the page dissolve continues', async () => {
+    await mount('album-detail')
+    find('.app-main').focus()
+    await navigate('albums')
+    const main = find('.app-main')
+    const detail = new ShellTestElement()
+    const content = new ShellTestElement()
+    content.className = 'album-body-grid'
+    detail.append(content)
+    const list = new ShellTestElement()
+    main.append(detail)
+    main.append(list)
+    const call = (name: string, node: ShellTestElement, done: () => void) => {
+      const callbacks = fixture.hooks[name]
+      for (const cb of Array.isArray(callbacks) ? callbacks : [callbacks])
+        if (typeof cb === 'function') cb(node, done)
+    }
+    call('onBeforeLeave', detail, () => {})
+    call('onLeave', detail, () => {})
+    call('onBeforeEnter', list, () => {})
+    const entered = vi.fn(() => hook('onAfterEnter', list))
+    call('onEnter', list, entered)
+    for (let i = 0; i < 4; i++) await frame()
+    expect(main.inert).toBe(true)
+    expect(content.animations).toHaveLength(1)
+    content.animations[0].finish()
+    await flush()
+    expect(main.inert).toBe(false)
+    expect(list.style.getPropertyValue('pointer-events')).toBe('')
+    expect(detail.animations[0].cancelled).toBe(false)
+    expect(entered).not.toHaveBeenCalled()
+    const button = new ShellTestElement('button')
+    list.append(button)
+    button.focus()
+    detail.animations[0].finish()
+    await flush()
+    expect(entered).toHaveBeenCalledOnce()
+    expect(doc.activeElement).toBe(button)
   })
 
   it('preserves outgoing inert state and respects focus moved to the player bar', async () => {

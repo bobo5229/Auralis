@@ -11,6 +11,10 @@ interface AppRouteTransitionOptions {
   mainRef: Ref<HTMLElement | null>
   beforeNavigate(): void
   syncCdViewSwitch(): void
+  getAlbumDetailColors(): Record<string, string>
+  releaseAlbumDetailColors(): void
+  waitForAlbumDetailColors(signal: AbortSignal): Promise<void>
+  onAlbumDetailTimeout(): void
 }
 
 export function useAppRouteTransitions({
@@ -19,6 +23,10 @@ export function useAppRouteTransitions({
   mainRef,
   beforeNavigate,
   syncCdViewSwitch,
+  getAlbumDetailColors,
+  releaseAlbumDetailColors,
+  waitForAlbumDetailColors,
+  onAlbumDetailTimeout,
 }: AppRouteTransitionOptions) {
   /** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
   const previousRouteName = ref(route.name)
@@ -27,14 +35,30 @@ export function useAppRouteTransitions({
   const isAlbumDetailEntering = ref(false)
   const albumDetailColorReady = ref(true)
   const isAlbumRouteTransitioning = ref(false)
+  const isAlbumRouteInteractionLocked = ref(false)
   let albumRouteRevision = 0
   const enteringRevisions = new WeakMap<Element, number>()
   const leavingInertStates = new WeakMap<HTMLElement, boolean>()
   let shouldRestoreRouteFocus = false
+  let returnInteractionReleased = false
   let albumListReturnFocus: { albumKey: string; selector: string } | null = null
-  const albumDetailEntryTransition = createAlbumDetailEntryTransition(undefined, () => {
-    albumDetailColorReady.value = true
-  })
+  const albumDetailEntryTransition = createAlbumDetailEntryTransition(
+    undefined,
+    () => {
+      albumDetailColorReady.value = true
+      return getAlbumDetailColors()
+    },
+    releaseAlbumDetailColors,
+    waitForAlbumDetailColors,
+    () => {
+      albumDetailColorReady.value = true
+      onAlbumDetailTimeout()
+    },
+    () => {
+      returnInteractionReleased = true
+      isAlbumRouteInteractionLocked.value = false
+    },
+  )
   const albumDetailTransitionHooks = computed(() =>
     isAlbumRouteTransitioning.value
       ? {
@@ -52,6 +76,7 @@ export function useAppRouteTransitions({
     if (failure) return
     albumDetailEntryTransition.cancel()
     albumRouteRevision += 1
+    returnInteractionReleased = false
     const focused = document.activeElement
     const mainHasFocus = focused instanceof HTMLElement && !!mainRef.value?.contains(focused)
     if (from.name === 'albums' && to.name === 'album-detail') {
@@ -87,16 +112,9 @@ export function useAppRouteTransitions({
     isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
     isAlbumRouteTransitioning.value =
       isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
+    isAlbumRouteInteractionLocked.value = isAlbumRouteTransitioning.value
     albumDetailColorReady.value = !isAlbumDetailEntering.value
-    const albumRoute = isAlbumDetailEntering.value ? to : from
-    albumDetailEntryTransition.configure(
-      isAlbumRouteTransitioning.value &&
-        typeof albumRoute.query.artist === 'string' &&
-        typeof albumRoute.query.title === 'string'
-        ? albumIdentityKey(albumRoute.query.artist, albumRoute.query.title)
-        : null,
-      !isAlbumDetailEntering.value,
-    )
+    albumDetailEntryTransition.configure(!isAlbumDetailEntering.value)
     shouldRestoreRouteFocus =
       (isAlbumRouteTransitioning.value && mainHasFocus) ||
       (shouldRestoreRouteFocus && (mainHasFocus || focused === document.body))
@@ -104,7 +122,7 @@ export function useAppRouteTransitions({
 
   /**
    * 路由过渡规则：
-   * 1. 列表与专辑详情之间通过 JS 动画衔接封面；不可衔接时使用短交叉淡入淡出
+   * 1. 列表与专辑详情之间以对称的柔和叠化过渡
    * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
    * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
    * 5. 其余路由切换：不使用 CSS 过渡，立即完成
@@ -155,6 +173,8 @@ export function useAppRouteTransitions({
     const focused = document.activeElement
     // Respect focus moved to the Playbar or Sidebar while the page was inert.
     if (!main?.isConnected || (focused !== document.body && !main.contains(focused))) return
+    // A user can focus a list control while the last part of the dissolve is still running.
+    if (returnInteractionReleased && focused !== document.body && focused !== main) return
     const returnTarget =
       route.name === 'albums' && albumListReturnFocus
         ? findAlbumTransitionFocusTarget(
@@ -174,6 +194,7 @@ export function useAppRouteTransitions({
     isAlbumDetailEntering.value = false
     albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
+    isAlbumRouteInteractionLocked.value = false
     void restoreRouteFocus(albumRouteRevision)
   }
 
@@ -183,6 +204,7 @@ export function useAppRouteTransitions({
     isAlbumDetailEntering.value = false
     albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
+    isAlbumRouteInteractionLocked.value = false
     void restoreRouteFocus(albumRouteRevision)
   }
 
@@ -196,12 +218,14 @@ export function useAppRouteTransitions({
     isAlbumDetailEntering.value = false
     albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
+    isAlbumRouteInteractionLocked.value = false
   }
   return {
     cdIndexSlideDirection,
     isAlbumDetailEntering,
     albumDetailColorReady,
     isAlbumRouteTransitioning,
+    isAlbumRouteInteractionLocked,
     albumDetailTransitionHooks,
     transitionName,
     onTransitionBeforeEnter,

@@ -1,10 +1,8 @@
-import { getContrastRatio, oklabToRgb, rgbToOklab } from '@renderer/shared/color/colorMath'
-import type { OklabColor, RgbColor } from '@renderer/shared/color/types'
+import { getRelativeLuminance, oklabToRgb, rgbToOklab } from '@renderer/shared/color/colorMath'
+import type { RgbColor } from '@renderer/shared/color/types'
+import type { SurfaceColor } from '@renderer/shared/color/surfaceColor'
+export { parseSurfaceColor } from '@renderer/shared/color/surfaceColor'
 
-export interface SurfaceColor extends RgbColor {
-  a: number
-  lab?: OklabColor
-}
 export interface ForegroundChoice {
   target: RgbColor
   preferred: RgbColor
@@ -12,38 +10,6 @@ export interface ForegroundChoice {
 export interface ForegroundStep {
   offset: number
   colors: Record<string, string>
-}
-
-export function parseSurfaceColor(value: string): SurfaceColor | null {
-  const raw = value.trim()
-  const lab = /^oklab\(\s*([-+\d.]+)\s+([-+\d.]+)\s+([-+\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)$/i.exec(
-    raw,
-  )
-  if (lab) {
-    const value = { l: Number(lab[1]), a: Number(lab[2]), b: Number(lab[3]) }
-    return { ...oklabToRgb(value), a: lab[4] === undefined ? 1 : Number(lab[4]), lab: value }
-  }
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(raw)?.[1]
-  if (hex) {
-    const full = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex
-    return {
-      r: parseInt(full.slice(0, 2), 16),
-      g: parseInt(full.slice(2, 4), 16),
-      b: parseInt(full.slice(4, 6), 16),
-      a: 1,
-    }
-  }
-  const rgb = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i.exec(
-    raw,
-  )
-  return rgb
-    ? {
-        r: Number(rgb[1]),
-        g: Number(rgb[2]),
-        b: Number(rgb[3]),
-        a: rgb[4] === undefined ? 1 : Number(rgb[4]),
-      }
-    : null
 }
 
 // CSS `ease`: cubic-bezier(.25,.1,.25,1). Solve x to obtain the eased progress.
@@ -96,8 +62,16 @@ export function planAlbumForeground(
   choices: Record<string, ForegroundChoice>,
   backdropTransition?: { from: SurfaceColor; to: SurfaceColor; offset: number; scale: number },
 ): ForegroundStep[] {
-  const white = { r: 255, g: 255, b: 255 },
-    black = { r: 0, g: 0, b: 0 }
+  // Foreground candidates stay fixed throughout the transition. Convert them once,
+  // rather than repeating color-space conversions at every sampled threshold.
+  const candidates = Object.entries(choices).map(([name, choice]) => ({
+    name,
+    target: getRelativeLuminance(choice.target),
+    preferred: getRelativeLuminance(choice.preferred),
+    targetCss: `rgb(${choice.target.r} ${choice.target.g} ${choice.target.b})`,
+    preferredCss: `rgb(${choice.preferred.r} ${choice.preferred.g} ${choice.preferred.b})`,
+  }))
+  const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
   const at = (time: number): Record<string, string> => {
     const currentBackdrop = backdropTransition
       ? backgroundAt(
@@ -108,17 +82,18 @@ export function planAlbumForeground(
         )
       : backdrop
     const background = backgroundAt(from, to, time, currentBackdrop)
+    const luminance = getRelativeLuminance(background)
     return Object.fromEntries(
-      Object.entries(choices).map(([name, choice]) => {
+      candidates.map((choice) => {
         const chosen =
-          getContrastRatio(choice.target, background) >= 4.58
-            ? choice.target
-            : getContrastRatio(choice.preferred, background) >= 4.9
-              ? choice.preferred
-              : getContrastRatio(white, background) >= getContrastRatio(black, background)
-                ? white
-                : black
-        return [name, `rgb(${chosen.r} ${chosen.g} ${chosen.b})`]
+          contrast(choice.target, luminance) >= 4.58
+            ? choice.targetCss
+            : contrast(choice.preferred, luminance) >= 4.9
+              ? choice.preferredCss
+              : contrast(1, luminance) >= contrast(0, luminance)
+                ? 'rgb(255 255 255)'
+                : 'rgb(0 0 0)'
+        return [choice.name, chosen]
       }),
     )
   }

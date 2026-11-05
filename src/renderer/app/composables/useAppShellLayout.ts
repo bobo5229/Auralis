@@ -45,6 +45,10 @@ interface AppShellLayoutOptions {
   pageParameters: PageParameters
   prepareForDisplay(): Promise<void> | undefined
   syncCdViewSwitch(): void
+  getAlbumDetailColors(): Record<string, string>
+  releaseAlbumDetailColors(): void
+  waitForAlbumDetailColors(signal: AbortSignal): Promise<void>
+  onAlbumDetailTimeout(): void
 }
 
 export function useAppShellLayout({
@@ -59,6 +63,10 @@ export function useAppShellLayout({
   pageParameters,
   prepareForDisplay,
   syncCdViewSwitch,
+  getAlbumDetailColors,
+  releaseAlbumDetailColors,
+  waitForAlbumDetailColors,
+  onAlbumDetailTimeout,
 }: AppShellLayoutOptions) {
   const { lyricsPanelExpanded } = useLyricsPanelVisibility()
   const { mode: lyricsPanelMode } = useLyricsPanelMode()
@@ -236,6 +244,10 @@ export function useAppShellLayout({
     router,
     mainRef,
     syncCdViewSwitch,
+    getAlbumDetailColors,
+    releaseAlbumDetailColors,
+    waitForAlbumDetailColors,
+    onAlbumDetailTimeout,
     beforeNavigate: () => {
       if (transition.isGenericTransitioning)
         applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
@@ -246,6 +258,7 @@ export function useAppShellLayout({
     isAlbumDetailEntering,
     albumDetailColorReady,
     isAlbumRouteTransitioning,
+    isAlbumRouteInteractionLocked,
     albumDetailTransitionHooks,
     transitionName,
     onTransitionBeforeEnter,
@@ -368,6 +381,7 @@ export function useAppShellLayout({
     isAlbumDetailEntering,
     albumDetailColorReady,
     isAlbumRouteTransitioning,
+    isAlbumRouteInteractionLocked,
     albumDetailTransitionHooks,
     transitionName,
     onTransitionBeforeEnter,

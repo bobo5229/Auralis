@@ -44,34 +44,6 @@
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
 }
 
-.settings-surface .about-diagnostics-button {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  color: var(--auralis-text-muted);
-  background: transparent;
-  font-family: var(--auralis-font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.settings-surface .about-diagnostics-button:hover:not(:disabled) {
-  color: var(--auralis-text);
-}
-
-.settings-surface .about-diagnostics-button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.settings-surface .about-diagnostics-button:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 2px;
-}
-
 .settings-surface .about-settings .settings-value {
   padding: 0;
   border-radius: 0;
@@ -90,9 +62,9 @@
   min-height: 48px;
   padding: 9px 16px;
   color: var(--auralis-text);
-  font-size: 13px;
+  font-size: var(--auralis-type-control-size);
   font-weight: 600;
-  line-height: 1.35;
+  line-height: var(--auralis-type-control-line-height);
   list-style: none;
   cursor: pointer;
 }
@@ -140,31 +112,20 @@
   outline-offset: -2px;
 }
 
-.settings-surface .settings-compact-actions .database-path {
-  font-family: var(--auralis-font-ui);
-}
-
 .settings-surface .database-path {
-  overflow: hidden;
-  max-width: 480px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
   direction: ltr;
-  font-family: var(--auralis-font-ui);
-  color: var(--auralis-sidebar-active-text) !important;
-  font-size: 11px !important;
+  user-select: text;
 }
 
-@media (max-width: 560px) {
+@container (max-width: 560px) {
   .settings-surface .settings-row--path {
     align-items: flex-start;
     flex-direction: column;
     padding-block: 16px;
     gap: 12px;
-  }
-
-  .settings-surface .database-path {
-    max-width: calc(100vw - 72px);
   }
 }
 

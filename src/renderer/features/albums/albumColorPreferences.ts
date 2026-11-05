@@ -17,6 +17,8 @@ interface Store {
 const STORAGE_KEY = 'auralis-album-color-preferences-v1'
 const initial = (): Store => ({ version: 1, preferences: [], migrated: [] })
 const revision = ref(0)
+let cachedRaw: string | null | undefined
+let cachedStore: Store | null = null
 
 function validColor(value: unknown): value is RgbColor {
   if (!value || typeof value !== 'object') return false
@@ -38,7 +40,10 @@ function validAnchor(value: unknown): value is AlbumColorAnchor {
 function load(): Store | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return initial()
+    if (raw === cachedRaw) return cachedStore
+    cachedRaw = raw
+    cachedStore = null
+    if (!raw) return (cachedStore = initial())
     const data = JSON.parse(raw) as Store
     if (data.version !== 1 || !Array.isArray(data.preferences) || !Array.isArray(data.migrated))
       return null
@@ -53,14 +58,17 @@ function load(): Store | null {
     )
       return null
     if (!data.migrated.every((key) => typeof key === 'string')) return null
-    return data
+    return (cachedStore = data)
   } catch {
     return null
   }
 }
 function save(data: Store): boolean {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    const raw = JSON.stringify(data)
+    localStorage.setItem(STORAGE_KEY, raw)
+    cachedRaw = raw
+    cachedStore = data
     revision.value++
     return true
   } catch {
@@ -68,19 +76,25 @@ function save(data: Store): boolean {
   }
 }
 const key = (anchor: AlbumColorAnchor): string => `${anchor.id}\0${anchor.createdAt}`
-function matches(stored: AlbumColorAnchor[], current: AlbumColorAnchor[]): boolean {
-  if (!stored.length || !current.length) return false
-  const ids = new Set(current.map(key))
-  const overlap = stored.filter((anchor) => ids.has(key(anchor))).length
+function matches(stored: AlbumColorAnchor[], ids: Set<string>, currentLength: number): boolean {
+  if (!stored.length || !currentLength) return false
+  let overlap = 0
+  for (const anchor of stored) if (ids.has(key(anchor))) overlap++
   // A majority on both sides avoids silently applying a preference to a split or merge.
-  return overlap / stored.length > 0.5 && overlap / current.length > 0.5
+  return overlap / stored.length > 0.5 && overlap / currentLength > 0.5
 }
 export function getAlbumColorPreference(anchors: AlbumColorAnchor[]): RgbColor | null {
   void revision.value
   const data = load()
   if (!data) return null
-  const found = data.preferences.filter((entry) => matches(entry.anchors, anchors))
-  return found.length === 1 ? found[0].color : null
+  const ids = new Set(anchors.map(key))
+  let found: Preference | undefined
+  for (const entry of data.preferences) {
+    if (!matches(entry.anchors, ids, anchors.length)) continue
+    if (found) return null
+    found = entry
+  }
+  return found ? { ...found.color } : null
 }
 export function setAlbumColorPreference(
   anchors: AlbumColorAnchor[],
@@ -90,25 +104,13 @@ export function setAlbumColorPreference(
     return false
   const data = load()
   if (!data) return false
-  const found = data.preferences.filter((entry) => matches(entry.anchors, anchors))
-  if (found.length > 1) return false
-  data.preferences = data.preferences.filter((entry) => entry !== found[0])
-  if (color) data.preferences.push({ anchors, color })
-  return save(data)
-}
-
-export function migrateAlbumColorPreference(
-  anchors: AlbumColorAnchor[],
-  migrationKey: string,
-  color: RgbColor,
-): boolean {
-  if (!anchors.length || !anchors.every(validAnchor) || !validColor(color)) return false
-  const data = load()
-  if (!data) return false
-  if (data.migrated.includes(migrationKey)) return true
-  if (!data.preferences.some((entry) => matches(entry.anchors, anchors))) {
-    data.preferences.push({ anchors, color })
-  }
-  data.migrated.push(migrationKey)
-  return save(data)
+  const ids = new Set(anchors.map(key))
+  // Explicit user choices replace conflicting history; automatic reads stay conservative.
+  const preferences = data.preferences.filter(
+    (entry) => !matches(entry.anchors, ids, anchors.length),
+  )
+  if (color)
+    preferences.push({ anchors: anchors.map((anchor) => ({ ...anchor })), color: { ...color } })
+  // Do not mutate the cached store before persistence succeeds.
+  return save({ ...data, preferences })
 }

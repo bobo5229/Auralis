@@ -3,6 +3,22 @@
     "play": "Play album",
     "skip": "Skip"
   },
+  "colorPicker": {
+    "invalidColor": "Enter a valid six-digit HEX color.",
+    "presetColor": "Preset color",
+    "currentColor": "Current color: {color}",
+    "hexField": "HEX color",
+    "redField": "Red",
+    "greenField": "Green",
+    "blueField": "Blue",
+    "hueField": "Hue",
+    "saturationField": "Saturation",
+    "lightnessField": "Lightness",
+    "brightnessField": "Brightness",
+    "saturationBrightnessSlider": "Saturation and brightness",
+    "saturationBrightnessValue": "Saturation: {saturation}%, brightness: {brightness}%",
+    "presetListLabel": "Choose a preset color"
+  },
   "trackEditor": {
     "title": "Edit song",
     "metadata": "Song information",
@@ -483,22 +499,8 @@
         "preview": "Preview",
         "previewSample": "Aa 123",
         "alphaRejected": "Use an opaque accent color.",
-        "invalidColor": "Enter a valid six-digit HEX color.",
         "persistFailed": "Color applied for this session, but could not save it.",
-        "pickerLabel": "{theme} accent color picker",
-        "presetColor": "Preset color",
-        "currentColor": "Current color: {color}",
-        "hexField": "HEX color",
-        "redField": "Red",
-        "greenField": "Green",
-        "blueField": "Blue",
-        "hueField": "Hue",
-        "saturationField": "Saturation",
-        "lightnessField": "Lightness",
-        "brightnessField": "Brightness",
-        "saturationBrightnessSlider": "Saturation and brightness",
-        "saturationBrightnessValue": "Saturation: {saturation}%, brightness: {brightness}%",
-        "presetListLabel": "Choose a preset color"
+        "pickerLabel": "{theme} accent color picker"
       },
       "sidebarLayout": "Sidebar layout",
       "sidebarLayoutDescription": "Float the sidebar with space around it, or extend it along the full left edge.",
@@ -829,6 +831,11 @@
       "play": "Play",
       "shuffle": "Shuffle",
       "disc": "Disc {number}",
+      "previousTracks": "Previous tracks",
+      "nextTracks": "Next tracks",
+      "chooseDisc": "Choose disc",
+      "discPlaying": "Playing",
+      "showPlayingTrack": "Now playing",
       "unknownYear": "Unknown year",
       "unknownDate": "Unknown date",
       "unknownTitle": "Untitled track",
@@ -844,7 +851,10 @@
       "returnToAlbums": "Back to albums",
       "colorPreference": "Album color",
       "colorReset": "Restore automatic color",
-      "colorSaveError": "Unable to save color preference"
+      "colorSaveError": "Unable to save color preference",
+      "colorSampleCover": "Pick from cover",
+      "colorSampleHint": "Click an opaque area of the cover to pick a color; press Esc to cancel",
+      "colorSampleError": "Unable to pick a color from the cover"
     },
     "search": {
       "ariaLabel": "Search albums and album artists",
@@ -870,7 +880,6 @@
     },
     "a11y": {
       "openAlbum": "Open album {title}",
-      "longPressPlay": "Hold the artwork or press Shift+Enter to play the album",
       "coverAlt": "Artwork for {title}"
     },
     "year": "{year}"

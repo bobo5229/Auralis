@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/colorMath'
 import { albumDetailColors, readableAlbumText } from './albumDetailColors'
-import { legacyAlbumDetailSourceColor as albumDetailSourceColor } from './albumColorLegacyMigration'
 
 describe('album detail colors', () => {
-  it('uses the light green background only for the identified Your Wedding artwork', () => {
-    const key = 'v2-cc83d2eb92cc289bfd2fdd8637819af67f9a5d444466bd3cc1c1315691095a3d.webp'
-    const name = '你的婚礼 电影原声带'
-    const dominant = { r: 126, g: 106, b: 67 }
-    const chosen = albumDetailSourceColor(name, name, key, dominant)
-    expect(chosen).toEqual({ r: 207, g: 255, b: 196 })
-    const colors = albumDetailColors(chosen)
+  it('keeps a light green source coordinated and readable', () => {
+    const colors = albumDetailColors({ r: 207, g: 255, b: 196 })
     expect(colors.main.g).toBeGreaterThan(colors.main.r)
     expect(colors.main.g).toBeGreaterThan(colors.main.b)
     expect(getRelativeLuminance(colors.side)).toBeLessThan(getRelativeLuminance(colors.main))
@@ -18,25 +12,21 @@ describe('album detail colors', () => {
     expect(getContrastRatio(colors.lyricsActive, colors.side)).toBeGreaterThanOrEqual(4.5)
     expect(getContrastRatio(colors.lyricsInactive, colors.side)).toBeGreaterThanOrEqual(4.5)
     expect(colors.divider).toEqual(colors.mainText)
-    expect(albumDetailSourceColor(name, name, 'other-artwork', dominant)).toBe(dominant)
-    expect(albumDetailSourceColor('Other artist', name, key, dominant)).toBe(dominant)
-    expect(albumDetailSourceColor(name, 'Other album', key, dominant)).toBe(dominant)
   })
-  it('limits the Supernatural override to the identified artwork and album', () => {
-    const key = 'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
-    const dominant = { r: 214, g: 82, b: 151 }
-    const chosen = albumDetailSourceColor('NewJeans', 'Supernatural', key, dominant)
-    expect(chosen).toEqual({ r: 36, g: 36, b: 36 })
-    const colors = albumDetailColors(chosen)
+  it('keeps a dark neutral source neutral and readable', () => {
+    const colors = albumDetailColors({ r: 36, g: 36, b: 36 })
     expect(colors.main.r).toBe(colors.main.g)
     expect(colors.main.g).toBe(colors.main.b)
     expect(getRelativeLuminance(colors.side)).toBeLessThan(getRelativeLuminance(colors.main))
     expect(getContrastRatio(colors.lyricsActive, colors.side)).toBeGreaterThanOrEqual(4.5)
-    expect(albumDetailSourceColor('NewJeans', 'Supernatural', 'other-artwork', dominant)).toBe(
-      dominant,
-    )
-    expect(albumDetailSourceColor('NewJeans', 'Another album', key, dominant)).toBe(dominant)
-    expect(albumDetailSourceColor('Another artist', 'Supernatural', key, dominant)).toBe(dominant)
+  })
+  it('keeps a black source near black on the main panel while preserving the side surfaces', () => {
+    const colors = albumDetailColors({ r: 0, g: 0, b: 0 })
+    expect(colors.main).toEqual({ r: 18, g: 18, b: 18 })
+    expect(colors.more).toEqual({ r: 41, g: 41, b: 41 })
+    expect(colors.side).toEqual({ r: 31, g: 31, b: 31 })
+    expect(getContrastRatio(colors.mainText, colors.main)).toBeGreaterThanOrEqual(4.5)
+    expect(getContrastRatio(colors.mainMuted, colors.main)).toBeGreaterThanOrEqual(4.5)
   })
   it('retains the approved gentle surfaces for a light pink cover', () => {
     const colors = albumDetailColors({ r: 246, g: 213, b: 213 })
@@ -77,8 +67,13 @@ describe('album detail colors', () => {
       expect(getContrastRatio(c.sideText, c.side)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.sideMuted, c.side)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.sideFaint, c.side)).toBeGreaterThanOrEqual(4.5)
-      expect(getRelativeLuminance(c.main)).toBeGreaterThan(getRelativeLuminance(c.more))
+      if (getRelativeLuminance(source) > 0.01)
+        expect(getRelativeLuminance(c.main)).toBeGreaterThan(getRelativeLuminance(c.more))
       expect(getRelativeLuminance(c.more)).toBeGreaterThan(getRelativeLuminance(c.side))
+      expect(getRelativeLuminance(c.side)).toBeGreaterThan(getRelativeLuminance(c.accent))
+      expect(getContrastRatio(c.accentText, c.accent)).toBeGreaterThanOrEqual(4.5)
+      expect(getContrastRatio(c.accentBorder, c.main)).toBeGreaterThanOrEqual(1.5)
+      expect(getContrastRatio(c.accentSideBorder, c.side)).toBeGreaterThanOrEqual(1.5)
       expect(getContrastRatio(c.moreText, c.more)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.moreFaint, c.more)).toBeGreaterThanOrEqual(4.5)
     }

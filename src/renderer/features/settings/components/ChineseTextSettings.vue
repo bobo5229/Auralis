@@ -26,7 +26,7 @@ const rows = [
       <span :id="`text-display-${row.id}-description`">{{
         t(`settings.appearance.textDisplay.${row.id}Description`)
       }}</span>
-      <span v-if="row.failed.value" role="status">{{
+      <span v-if="row.failed.value" class="settings-status--error" role="status">{{
         t('settings.appearance.textDisplay.persistFailed')
       }}</span>
     </div>

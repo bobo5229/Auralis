@@ -3,6 +3,22 @@
     "play": "播放专辑",
     "skip": "跳过"
   },
+  "colorPicker": {
+    "invalidColor": "请输入有效的六位 HEX 颜色。",
+    "presetColor": "预设颜色",
+    "currentColor": "当前颜色：{color}",
+    "hexField": "十六进制颜色",
+    "redField": "红色分量",
+    "greenField": "绿色分量",
+    "blueField": "蓝色分量",
+    "hueField": "色相",
+    "saturationField": "饱和度",
+    "lightnessField": "亮度",
+    "brightnessField": "明度",
+    "saturationBrightnessSlider": "饱和度和明度",
+    "saturationBrightnessValue": "饱和度：{saturation}%，明度：{brightness}%",
+    "presetListLabel": "选择要应用的预设颜色"
+  },
   "trackEditor": {
     "title": "编辑歌曲",
     "metadata": "歌曲信息",
@@ -483,22 +499,8 @@
         "preview": "效果预览",
         "previewSample": "Aa 123",
         "alphaRejected": "强调色需为不透明颜色。",
-        "invalidColor": "请输入有效的六位 HEX 颜色。",
         "persistFailed": "颜色已在本次会话中保留，保存未完成。",
-        "pickerLabel": "{theme}强调色选择器",
-        "presetColor": "预设颜色",
-        "currentColor": "当前颜色：{color}",
-        "hexField": "十六进制颜色",
-        "redField": "红色分量",
-        "greenField": "绿色分量",
-        "blueField": "蓝色分量",
-        "hueField": "色相",
-        "saturationField": "饱和度",
-        "lightnessField": "亮度",
-        "brightnessField": "明度",
-        "saturationBrightnessSlider": "饱和度和明度",
-        "saturationBrightnessValue": "饱和度：{saturation}%，明度：{brightness}%",
-        "presetListLabel": "选择要应用的预设颜色"
+        "pickerLabel": "{theme}强调色选择器"
       },
       "sidebarLayout": "侧边栏布局",
       "sidebarLayoutDescription": "悬浮布局与窗口边缘留白；全高布局贴齐左侧并占满窗口高度。",
@@ -829,6 +831,11 @@
       "play": "播放",
       "shuffle": "随机播放",
       "disc": "Disc {number}",
+      "previousTracks": "上一页曲目",
+      "nextTracks": "下一页曲目",
+      "chooseDisc": "选择碟片",
+      "discPlaying": "正在播放",
+      "showPlayingTrack": "当前播放",
       "unknownYear": "年份未知",
       "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
@@ -844,7 +851,10 @@
       "returnToAlbums": "返回专辑目录",
       "colorPreference": "专辑颜色",
       "colorReset": "恢复自动取色",
-      "colorSaveError": "无法保存颜色偏好"
+      "colorSaveError": "无法保存颜色偏好",
+      "colorSampleCover": "从封面取色",
+      "colorSampleHint": "点击封面的不透明区域取色，按 Esc 取消",
+      "colorSampleError": "无法从封面取色"
     },
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
@@ -870,7 +880,6 @@
     },
     "a11y": {
       "openAlbum": "打开专辑 {title}",
-      "longPressPlay": "长按封面播放整张专辑，也可按 Shift+Enter 触发",
       "coverAlt": "{title} 的封面"
     },
     "year": "{year} 年"

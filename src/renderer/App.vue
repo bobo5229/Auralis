@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
 import {
   provideAlbumMetadataEditor,
   type AlbumMetadataEditorRequest,
@@ -12,6 +12,7 @@ import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import WindowTrafficLights from '@renderer/shared/components/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
+import { useThemeTransition } from './app/layout/useThemeTransition'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
@@ -30,11 +31,9 @@ import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetail
 import { createAlbumSurfaceSynchronization } from './app/layout/albumSurfaceSynchronization'
 import {
   getAlbumColorPreference,
-  migrateAlbumColorPreference,
   type AlbumColorAnchor,
 } from '@renderer/features/albums/albumColorPreferences'
 import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
-import { legacyAlbumDetailSourceColor } from '@renderer/features/albums/albumColorLegacyMigration'
 
 const {
   active: startupAlbumActive,
@@ -73,24 +72,22 @@ const detailPaletteEnabled = computed(() => route.name === 'album-detail')
 const { palette: detailPalette } = useArtworkPalette(detailArtworkKey, {
   enabled: detailPaletteEnabled,
 })
-watch(
-  [detailArtworkKey, detailAnchors, () => route.query.artist, () => route.query.title],
-  ([key, anchors, artist, title]) => {
-    if (!key || !anchors.length) return
-    const sentinel = { r: 0, g: 0, b: 0 }
-    const legacy = legacyAlbumDetailSourceColor(artist, title, key, sentinel)
-    if (legacy !== sentinel) migrateAlbumColorPreference(anchors, key, legacy)
-  },
-  { immediate: true },
-)
-const detailColorStyle = computed<CSSProperties>(() => {
+const frozenDetailColorStyle = ref<CSSProperties | null>(null)
+const lateAlbumColorsPending = ref(false)
+const paletteInstant = ref(false)
+const detailColorPreference = computed(() => {
+  if (
+    detailIdentity.value?.artist !== route.query.artist ||
+    detailIdentity.value?.title !== route.query.title
+  )
+    return null
+  return getAlbumColorPreference(detailAnchors.value)
+})
+const liveDetailColorStyle = computed<CSSProperties>(() => {
   const palette = detailPalette.value
   if (!detailPaletteEnabled.value || !albumDetailColorReady.value) return {}
-  const identityMatches =
-    detailIdentity.value?.artist === route.query.artist &&
-    detailIdentity.value?.title === route.query.title
   const selected =
-    (identityMatches ? getAlbumColorPreference(detailAnchors.value) : null) ??
+    detailColorPreference.value ??
     (detailArtworkKey.value &&
     palette.key === detailArtworkKey.value &&
     palette.quality !== 'fallback'
@@ -105,6 +102,10 @@ const detailColorStyle = computed<CSSProperties>(() => {
     '--album-detail-more-text': cssAlbumColor(c.moreText),
     '--album-detail-more-faint': cssAlbumColor(c.moreFaint),
     '--album-detail-side': cssAlbumColor(c.side),
+    '--album-detail-accent': cssAlbumColor(c.accent),
+    '--album-detail-accent-text': cssAlbumColor(c.accentText),
+    '--album-detail-accent-border': cssAlbumColor(c.accentBorder),
+    '--album-detail-accent-side-border': cssAlbumColor(c.accentSideBorder),
     '--album-detail-lyrics-surface': cssAlbumColor(c.side),
     '--album-detail-main-text': cssAlbumColor(c.mainText),
     '--album-detail-main-muted': cssAlbumColor(c.mainMuted),
@@ -117,6 +118,29 @@ const detailColorStyle = computed<CSSProperties>(() => {
     '--album-detail-lyrics-muted': cssAlbumColor(c.lyricsMuted),
   } as CSSProperties
 })
+const detailColorStyle = computed<CSSProperties>(
+  () => frozenDetailColorStyle.value ?? liveDetailColorStyle.value,
+)
+function waitForAlbumDetailColors(signal: AbortSignal): Promise<void> {
+  const ready = () => {
+    const key = detailArtworkKey.value
+    return !key || detailColorPreference.value !== null || detailPalette.value.key === key
+  }
+  if (signal.aborted || ready()) return Promise.resolve()
+  return new Promise((resolve) => {
+    let stop: (() => void) | undefined
+    const finish = () => {
+      stop?.()
+      signal.removeEventListener('abort', finish)
+      resolve()
+    }
+    stop = watch([detailArtworkKey, detailPalette, detailColorPreference], () => {
+      if (ready()) finish()
+    })
+    signal.addEventListener('abort', finish, { once: true })
+    if (signal.aborted || ready()) finish()
+  })
+}
 const { cdCanvasTheme } = useCdCanvasTheme()
 const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
 const cdViewSwitchRef = ref<InstanceType<typeof CdViewSwitch> | null>(null)
@@ -142,6 +166,7 @@ watch(displayMode, (mode) => {
   if (mode === 'fullscreen') albumEditRequest.value = null
 })
 const shellRef = ref<HTMLElement | null>(null)
+useThemeTransition(shellRef, () => route.fullPath)
 watch(shellRef, (shell, _previous, onCleanup) => {
   if (shell) onCleanup(createAlbumSurfaceSynchronization(shell))
 })
@@ -176,6 +201,7 @@ const {
   isAlbumDetailEntering,
   albumDetailColorReady,
   isAlbumRouteTransitioning,
+  isAlbumRouteInteractionLocked,
   albumDetailTransitionHooks,
   transitionName,
   onTransitionBeforeEnter,
@@ -185,6 +211,24 @@ const {
   onTransitionAfterEnter,
   onTransitionEnterCancelled,
 } = useAppShellLayout({
+  getAlbumDetailColors: () => {
+    const colors = liveDetailColorStyle.value
+    if (route.name === 'album-detail') frozenDetailColorStyle.value = { ...colors }
+    return Object.fromEntries(
+      Object.entries(colors).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    )
+  },
+  releaseAlbumDetailColors: () => {
+    if (!lateAlbumColorsPending.value) frozenDetailColorStyle.value = null
+  },
+  waitForAlbumDetailColors,
+  onAlbumDetailTimeout: () => {
+    if (route.name !== 'album-detail' || liveDetailColorStyle.value['--album-detail-main']) return
+    frozenDetailColorStyle.value = { ...liveDetailColorStyle.value }
+    lateAlbumColorsPending.value = true
+  },
   route,
   router,
   shellRef,
@@ -197,6 +241,84 @@ const {
   prepareForDisplay: () => nowPlayingPanelRef.value?.prepareForDisplay(),
   syncCdViewSwitch: () => cdViewSwitchRef.value?.syncToCurrent(true),
 })
+let lateColorTransition: ViewTransition | null = null
+let lateColorRevision = 0
+function cancelLateColorTransition(): void {
+  lateColorRevision++
+  lateColorTransition?.skipTransition()
+  lateColorTransition = null
+  paletteInstant.value = false
+  shellRef.value?.classList.remove('album-palette-instant')
+  document.documentElement?.classList.remove('album-palette-reveal')
+}
+watch(
+  () => route.fullPath,
+  () => {
+    cancelLateColorTransition()
+    lateAlbumColorsPending.value = false
+    frozenDetailColorStyle.value = null
+  },
+  { flush: 'sync' },
+)
+watch(
+  [lateAlbumColorsPending, liveDetailColorStyle, isAlbumRouteTransitioning],
+  ([pending, colors, transitioning]) => {
+    if (
+      !pending ||
+      transitioning ||
+      route.name !== 'album-detail' ||
+      !colors['--album-detail-main']
+    )
+      return
+    lateAlbumColorsPending.value = false
+    const shell = shellRef.value
+    if (!shell) {
+      frozenDetailColorStyle.value = null
+      return
+    }
+    paletteInstant.value = true
+    shell.classList.add('album-palette-instant')
+    const revision = ++lateColorRevision
+    const applyColors = async () => {
+      if (revision !== lateColorRevision) return
+      frozenDetailColorStyle.value = null
+      await nextTick()
+    }
+    if (
+      typeof document.startViewTransition !== 'function' ||
+      document.documentElement?.dataset.reducedMotion === 'true'
+    ) {
+      void applyColors().then(() => {
+        if (revision !== lateColorRevision) return
+        // Commit the new styles before restoring ordinary transitions.
+        shell.getBoundingClientRect()
+        paletteInstant.value = false
+        shell.classList.remove('album-palette-instant')
+      })
+      return
+    }
+    document.documentElement?.classList.add('album-palette-reveal')
+    try {
+      const transition = document.startViewTransition(applyColors)
+      lateColorTransition = transition
+      const finished = () => {
+        if (lateColorTransition === transition) cancelLateColorTransition()
+      }
+      // `ready` can reject before the update callback has run; keep the instant
+      // styles until the whole transition has settled.
+      void transition.ready.catch(() => {})
+      void transition.finished.then(finished, finished)
+    } catch {
+      void applyColors().then(() => {
+        if (revision !== lateColorRevision) return
+        shell.getBoundingClientRect()
+        cancelLateColorTransition()
+      })
+    }
+  },
+  { flush: 'post' },
+)
+onBeforeUnmount(cancelLateColorTransition)
 </script>
 
 <template>
@@ -214,6 +336,7 @@ const {
       ref="shellRef"
       class="app-shell relative"
       :class="{
+        'album-palette-instant': paletteInstant,
         'is-album-detail': isAlbumDetail,
         'has-album-detail-color': !!detailColorStyle['--album-detail-main'],
         'is-cd-albums': isCdCanvas,
@@ -258,7 +381,7 @@ const {
         ref="mainRef"
         class="app-main relative z-10"
         tabindex="-1"
-        :inert="isAlbumRouteTransitioning"
+        :inert="isAlbumRouteInteractionLocked"
       >
         <CdViewSwitch
           v-if="isCdCanvas"
@@ -287,7 +410,9 @@ const {
                 :ref="viewRoute.name === 'albums' ? setActiveAlbumsPage : undefined"
                 v-bind="
                   viewRoute.name === 'album-detail'
-                    ? { isEntering: isAlbumDetailEntering }
+                    ? {
+                        isEntering: isAlbumDetailEntering,
+                      }
                     : viewRoute.name === 'albums'
                       ? {
                           isTransitioning: isAlbumRouteTransitioning,

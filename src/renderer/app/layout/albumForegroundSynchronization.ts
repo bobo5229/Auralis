@@ -3,6 +3,8 @@ import {
   planAlbumForeground,
   type ForegroundChoice,
 } from './albumForegroundPlan'
+import { getRelativeLuminance } from '@renderer/shared/color/colorMath'
+import type { ForegroundReadiness } from '@renderer/shared/color/foregroundReadiness'
 
 interface SurfaceSpec {
   selector: string
@@ -22,6 +24,7 @@ export function createAlbumForegroundSynchronization(
   main: HTMLElement,
   moreClock: HTMLElement,
   lyricsClock: HTMLElement,
+  onMainReadiness?: (readiness: ForegroundReadiness | null) => void,
 ): { sync: () => void; dispose: () => void } {
   const specs: SurfaceSpec[] = [
     {
@@ -97,6 +100,7 @@ export function createAlbumForegroundSynchronization(
       return
     previous?.restore()
     active.delete(target)
+    if (target === main && previous) onMainReadiness?.(null)
     if (
       !reference ||
       reference.startTime === null ||
@@ -156,11 +160,70 @@ export function createAlbumForegroundSynchronization(
           }
         : undefined
     const steps = planAlbumForeground(from, to, currentMain, choices, backdropTransition)
+    if (!shell.classList.contains('has-album-detail-color') && !isFloatingLyrics) {
+      // Unregistered, inherited tokens in a WAAPI effect invalidate descendants on
+      // every frame, even with steps easing. Theme colors change at only a few
+      // contrast thresholds; apply them once at each threshold instead.
+      const saved = Object.keys(choices).map((token) => ({
+        token,
+        value: target.style.getPropertyValue(token),
+        priority: target.style.getPropertyPriority(token),
+      }))
+      const timers: ReturnType<typeof setTimeout>[] = []
+      const elapsed = typeof reference.currentTime === 'number' ? reference.currentTime : 0
+      const apply = (colors: Record<string, string>) => {
+        for (const [token, value] of Object.entries(colors)) target.style.setProperty(token, value)
+      }
+      let current = steps[0]
+      for (const step of steps) {
+        const delay = step.offset * duration - elapsed
+        if (delay <= 0) current = step
+        else timers.push(setTimeout(() => apply(step.colors), delay))
+      }
+      apply(current.colors)
+      const restore = () => {
+        for (const timer of timers) clearTimeout(timer)
+        for (const { token, value, priority } of saved) {
+          if (value) target.style.setProperty(token, value, priority)
+          else target.style.removeProperty(token)
+        }
+      }
+      active.set(target, { reference, backdropReference: mainReference, isFloatingLyrics, restore })
+      const finish = () => {
+        if (active.get(target)?.reference !== reference) return
+        active.delete(target)
+        restore()
+        if (target === main) onMainReadiness?.(null)
+      }
+      void reference.finished.then(finish, finish)
+      return
+    }
     const foregroundAnimation = target.animate(
       steps.map((step) => ({ ...step.colors, offset: step.offset, easing: 'steps(1, end)' })),
       { duration, easing: 'linear', fill: 'both' },
     )
     foregroundAnimation.startTime = reference.startTime
+    if (target === main && onMainReadiness) {
+      const desired = choices['--auralis-text']?.target
+      const targetIsDark = desired && getRelativeLuminance(desired) < 0.18
+      const matching =
+        desired &&
+        steps.find((step) => {
+          const color = parseSurfaceColor(step.colors['--auralis-text'] ?? '')
+          return color && getRelativeLuminance(color) < 0.18 === targetIsDark
+        })
+      onMainReadiness(
+        desired && matching && typeof reference.currentTime === 'number'
+          ? {
+              target: desired,
+              readyAt:
+                performance.now() +
+                Math.max(0, matching.offset * duration - reference.currentTime) +
+                17,
+            }
+          : null,
+      )
+    }
     const restore = () => foregroundAnimation.cancel()
     active.set(target, { reference, backdropReference: mainReference, isFloatingLyrics, restore })
     void foregroundAnimation.finished.then(
@@ -168,6 +231,7 @@ export function createAlbumForegroundSynchronization(
         if (active.get(target)?.reference !== reference) return
         active.delete(target)
         restore()
+        if (target === main) onMainReadiness?.(null)
       },
       () => {},
     )
@@ -191,6 +255,7 @@ export function createAlbumForegroundSynchronization(
     disposed = true
     for (const state of active.values()) state.restore()
     active.clear()
+    onMainReadiness?.(null)
   }
   return { sync, dispose }
 }

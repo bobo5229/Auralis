@@ -1,5 +1,5 @@
 .song-font-weight-reset-notice {
-  color: var(--auralis-danger);
+  color: var(--auralis-text-muted);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.35;
@@ -44,7 +44,7 @@
 }
 
 .song-font-weight-status.is-warning {
-  color: var(--auralis-text);
+  color: var(--auralis-danger);
 }
 
 /* Keep parameter section and column labels on the existing compact 11px scale. */
@@ -178,5 +178,5 @@
 }
 
 .song-font-weight-status.song-font-weight-reset-notice {
-  color: var(--auralis-danger);
+  color: var(--auralis-text-muted);
 }

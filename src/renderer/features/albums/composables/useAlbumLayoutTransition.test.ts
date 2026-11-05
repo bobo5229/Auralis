@@ -173,7 +173,6 @@ function setup() {
   const begin = vi.spyOn(grid, 'beginTransition')
   const commit = vi.spyOn(grid, 'commitTransitionTarget')
   const end = vi.spyOn(grid, 'endTransition')
-  const cancelDrop = vi.fn()
   const requestCancel = vi.fn()
   const session = useAlbumLayoutTransition({
     container,
@@ -181,7 +180,6 @@ function setup() {
     isPageActive,
     grid,
     getVirtualRows: () => [{ index: 0, start: 0, size: grid.rowHeight.value }],
-    cancelDrop,
     requestCancel,
   })
   sessions.push(session)
@@ -199,7 +197,6 @@ function setup() {
     commit,
     end,
     measure,
-    cancelDrop,
     requestCancel,
     session,
     p: session.participant,
@@ -220,7 +217,6 @@ describe('album layout transition session', () => {
     zero.rect.width = 0
     f.second.opacity = 'invalid'
     expect(f.p.prepareLyricsLayoutTransition(1)).toBe(true)
-    expect(f.cancelDrop).toHaveBeenCalledOnce()
     expect(f.begin).toHaveBeenCalledOnce()
     expect(f.layer.prepareSources).toHaveBeenCalledWith(
       { left: 102, top: 53, width: 985, height: 650 },
@@ -235,7 +231,7 @@ describe('album layout transition session', () => {
   })
 
   it.each(['inactive', 'detached', 'no-container', 'no-layer'] as const)(
-    'refuses prepare on %s after cancelling drop',
+    'refuses prepare on %s',
     (cause) => {
       const f = setup()
       if (cause === 'inactive') f.isPageActive.value = false
@@ -243,7 +239,6 @@ describe('album layout transition session', () => {
       if (cause === 'no-container') f.container.value = null
       if (cause === 'no-layer') f.layerRef.value = null
       expect(f.p.prepareLyricsLayoutTransition(1)).toBe(false)
-      expect(f.cancelDrop).toHaveBeenCalledOnce()
       expect(f.begin).not.toHaveBeenCalled()
       expect(f.layer.prepareSources).not.toHaveBeenCalled()
     },

@@ -2,11 +2,15 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { SketchPicker, tinycolor } from 'vue-color'
-import 'vue-color/style.css'
+import { tinycolor } from 'vue-color'
+import AuralisColorPicker from '@renderer/shared/components/AuralisColorPicker.vue'
+import {
+  syncPickerAccessibility as updatePickerAccessibility,
+  syncCurrentColorAccessibility as updateCurrentColorAccessibility,
+} from '@renderer/shared/color/pickerAccessibility'
 import { DARK_ACCENT_PRESETS } from '@renderer/features/appearance/constants/darkAccent'
 import { useDarkAccent } from '@renderer/features/appearance/composables/useDarkAccent'
-import { parseOpaquePickerAccent } from '@renderer/features/appearance/utils/parsePickerAccent'
+import type { PickerColorChange } from '@renderer/shared/color/pickerColor'
 import { useLightAccent } from '@renderer/features/appearance/composables/useLightAccent'
 import { DEFAULT_LIGHT_ACCENT } from '@renderer/features/appearance/constants/lightAccent'
 import { useTheme } from '@renderer/features/appearance/composables/useTheme'
@@ -66,31 +70,18 @@ useEventListener(
 const pickerBinding = computed(() => {
   const boundTheme = theme.value
   return {
-    color: tinycolor(activeAccent.value),
-    onUpdate: (value: unknown) => {
+    color: activeAccent.value,
+    onUpdate: (change: PickerColorChange) => {
       if (theme.value !== boundTheme) return
-      const result = parseOpaquePickerAccent(value)
-      if (!result.valid) {
-        pickerIssue.value = result.reason
-        return
-      }
       pickerIssue.value = null
-      setEditingAccent(resolvePickedAccent(value, result.color))
+      setEditingAccent(resolvePickedAccent(change))
+    },
+    onInvalid: (reason: 'alpha' | 'invalid') => {
+      if (theme.value === boundTheme) pickerIssue.value = reason
     },
   }
 })
 const presetColors = [...DARK_ACCENT_PRESETS]
-const inputLabelKeys: Record<string, string> = {
-  hex: 'hexField',
-  'hex with transparency': 'hexField',
-  red: 'redField',
-  green: 'greenField',
-  blue: 'blueField',
-  hue: 'hueField',
-  saturation: 'saturationField',
-  lightness: 'lightnessField',
-  brightness: 'brightnessField',
-}
 const previewStyle = computed(() => ({
   '--dark-accent-preview': activeResolution.value.display,
   '--dark-accent-on-preview': activeResolution.value.onAccent,
@@ -101,18 +92,16 @@ function setEditingAccent(value: string): void {
   else setDarkAccent(value)
 }
 
-function resolvePickedAccent(value: unknown, color: string): string {
-  if (theme.value !== 'light' || activeAccent.value !== DEFAULT_LIGHT_ACCENT) return color
-
-  const picked = tinycolor(value as Parameters<typeof tinycolor>[0])
-  const input = picked.getOriginalInput()
-  // SketchPicker emits HSL for hue changes; the saturation square emits HSV.
-  if (!input || typeof input !== 'object' || !('h' in input) || !('l' in input)) return color
-
+function resolvePickedAccent(change: PickerColorChange): string {
+  if (
+    theme.value !== 'light' ||
+    activeAccent.value !== DEFAULT_LIGHT_ACCENT ||
+    change.input !== 'hsl'
+  )
+    return change.color
   const initial = tinycolor(DEFAULT_LIGHT_ACCENT).toHsl()
-  const next = picked.toHsl()
-  if (Math.abs(next.h - initial.h) < 0.5 || Math.abs(next.s - initial.s) > 0.01) return color
-
+  const next = change.hsl
+  if (Math.abs(next.h - initial.h) < 0.5 || Math.abs(next.s - initial.s) > 0.01) return change.color
   return tinycolor({ ...next, s: 0.45 })
     .toHexString()
     .toUpperCase()
@@ -125,105 +114,19 @@ function resetEditingAccent(): void {
 }
 
 function syncPickerAccessibility(): void {
-  const host = pickerHostRef.value
-  if (!host) return
-
-  host
-    .querySelector<HTMLElement>('[role="application"]')
-    ?.setAttribute('aria-label', pickerLabel.value)
-  host
-    .querySelector<HTMLElement>('.vc-saturation-slider[role="application"]')
-    ?.setAttribute('aria-label', t('settings.appearance.accent.saturationBrightnessSlider'))
-  host
-    .querySelector<HTMLElement>('.presets[role="listbox"]')
-    ?.setAttribute('aria-label', t('settings.appearance.accent.presetListLabel'))
-
-  host.querySelectorAll<HTMLElement>('.presets [role="option"]').forEach((option) => {
-    const color = option.getAttribute('title')
-    if (color) {
-      option.setAttribute(
-        'aria-label',
-        `${t('settings.appearance.accent.presetColor')} ${color.toUpperCase()}`,
-      )
-    }
-  })
-
-  host.querySelectorAll<HTMLInputElement>('.vc-input-input').forEach((input) => {
-    const originalLabel = input.getAttribute('aria-label')?.toLowerCase()
-    const key =
-      input.getAttribute('data-accent-label-key') ??
-      (originalLabel ? inputLabelKeys[originalLabel] : undefined)
-    if (key) {
-      input.setAttribute('data-accent-label-key', key)
-      input.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
-    }
-  })
-
-  host.querySelectorAll<HTMLElement>('[role="slider"]').forEach((slider) => {
-    const originalLabel = slider.getAttribute('aria-label')?.toLowerCase() ?? ''
-    if (originalLabel.includes('saturation') && originalLabel.includes('brightness')) {
-      slider.setAttribute('aria-label', t('settings.appearance.accent.saturationBrightnessSlider'))
-      const valueText = slider.getAttribute('aria-valuetext')
-      const valueMatch = /saturation:\s*(\d+(?:\.\d+)?)%,\s*brightness:\s*(\d+(?:\.\d+)?)%/iu.exec(
-        valueText ?? '',
-      )
-      if (valueMatch) {
-        slider.setAttribute(
-          'aria-valuetext',
-          t('settings.appearance.accent.saturationBrightnessValue', {
-            saturation: valueMatch[1],
-            brightness: valueMatch[2],
-          }),
-        )
-      }
-      return
-    }
-
-    const key = slider.getAttribute('data-accent-label-key') ?? inputLabelKeys[originalLabel]
-    if (key) {
-      slider.setAttribute('data-accent-label-key', key)
-      slider.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
-    }
-  })
-
-  syncCurrentColorAccessibility(host)
+  if (pickerHostRef.value)
+    updatePickerAccessibility(
+      pickerHostRef.value,
+      pickerLabel.value,
+      activeAccent.value,
+      (key, values) => t(key, values ?? {}),
+    )
 }
-
-function syncCurrentColorAccessibility(host = pickerHostRef.value): void {
-  if (!host) return
-
-  const saturationSlider = host.querySelector<HTMLElement>('.vc-saturation-slider [role="slider"]')
-  if (saturationSlider) {
-    saturationSlider.setAttribute(
-      'aria-label',
-      t('settings.appearance.accent.saturationBrightnessSlider'),
+function syncCurrentColorAccessibility(): void {
+  if (pickerHostRef.value)
+    updateCurrentColorAccessibility(pickerHostRef.value, activeAccent.value, (key, values) =>
+      t(key, values ?? {}),
     )
-    const hsv = tinycolor(activeAccent.value).toHsv()
-    saturationSlider.setAttribute('aria-valuenow', hsv.s.toFixed(2))
-    saturationSlider.setAttribute(
-      'aria-valuetext',
-      t('settings.appearance.accent.saturationBrightnessValue', {
-        saturation: Math.round(hsv.s * 100),
-        brightness: Math.round(hsv.v * 100),
-      }),
-    )
-  }
-
-  host.querySelectorAll<HTMLElement>('.presets [role="option"]').forEach((option) => {
-    const selected =
-      option.getAttribute('title')?.toUpperCase() === activeAccent.value.toUpperCase()
-    option.setAttribute('aria-selected', String(selected))
-  })
-
-  const currentColor = host.querySelector<HTMLElement>('.active-color')
-  if (currentColor) {
-    currentColor.setAttribute(
-      'aria-label',
-      t('settings.appearance.accent.currentColor', {
-        color: tinycolor(activeAccent.value).toRgbString(),
-      }),
-    )
-  }
 }
 
 function openPicker(): void {
@@ -365,7 +268,7 @@ watch(activeAccent, async () => {
             {{ t('settings.appearance.accent.alphaRejected') }}
           </p>
           <p v-else-if="pickerIssue === 'invalid'" class="dark-accent-message" role="status">
-            {{ t('settings.appearance.accent.invalidColor') }}
+            {{ t('colorPicker.invalidColor') }}
           </p>
           <p v-if="activePersistFailed" class="dark-accent-message" role="status">
             {{ t('settings.appearance.accent.persistFailed') }}
@@ -378,12 +281,12 @@ watch(activeAccent, async () => {
             role="group"
             :aria-label="pickerLabel"
           >
-            <SketchPicker
+            <AuralisColorPicker
               :key="theme"
-              :tiny-color="pickerBinding.color"
-              :disable-alpha="true"
+              :color="pickerBinding.color"
               :preset-colors="presetColors"
-              @update:tiny-color="pickerBinding.onUpdate"
+              @change="pickerBinding.onUpdate"
+              @invalid="pickerBinding.onInvalid"
             />
           </div>
         </div>
@@ -705,9 +608,9 @@ watch(activeAccent, async () => {
   border: 0;
   border-radius: 6px;
   padding: 0;
-  color: var(--auralis-danger);
+  color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--auralis-type-caption-size);
   font-weight: 600;
   line-height: 1.4;
   cursor: pointer;
@@ -715,7 +618,7 @@ watch(activeAccent, async () => {
 }
 
 .dark-accent-reset:hover {
-  color: var(--auralis-danger);
+  color: var(--auralis-text);
   text-decoration: underline;
 }
 

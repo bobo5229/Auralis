@@ -14,7 +14,7 @@ const rows = ['edgeFade', 'blur'] as const
       <span :id="`lyrics-effect-${effect}-description`">{{
         t(`settings.appearance.lyricsEffects.${effect}.description`)
       }}</span>
-      <span v-if="persistFailed[effect]" role="status">{{
+      <span v-if="persistFailed[effect]" class="settings-status--error" role="status">{{
         t('settings.appearance.lyricsEffects.persistFailed')
       }}</span>
     </div>

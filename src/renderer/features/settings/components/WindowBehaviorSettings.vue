@@ -65,7 +65,9 @@ onMounted(() => {
       <span v-if="ready && !state.trayAvailable" role="status">{{
         t('settings.appearance.windowBehavior.trayUnavailable')
       }}</span>
-      <span v-if="error" role="status">{{ t(`settings.appearance.windowBehavior.${error}`) }}</span>
+      <span v-if="error" class="settings-status--error" role="status">{{
+        t(`settings.appearance.windowBehavior.${error}`)
+      }}</span>
       <button
         v-if="error === 'loadFailed'"
         type="button"

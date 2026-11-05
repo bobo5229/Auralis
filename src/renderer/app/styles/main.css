@@ -4,6 +4,38 @@
 @import '../../shared/menu/menuGeometry.css';
 @import '../../shared/styles/panelGeometry.css';
 
+/* Global theme changes resolve the palette once; only background-layer opacity animates. */
+html[data-theme-transition] *,
+html[data-theme-transition] *::before,
+html[data-theme-transition] *::after {
+  transition: none !important;
+}
+
+.theme-transition-surface {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+/* These controls paint their own surface and switch palette immediately. Their
+   text must follow that surface rather than the surrounding panel's fade. */
+:root[data-theme-transition] {
+  --theme-control-text: var(--auralis-text);
+  --theme-control-muted: var(--auralis-text-muted);
+  --theme-control-faint: var(--auralis-text-faint);
+  --theme-control-subtle: var(--auralis-text-subtle);
+}
+
+html[data-theme-transition] :is(.page-search-tools, .library-flat-track-header) {
+  --auralis-text: var(--theme-control-text);
+  --auralis-text-muted: var(--theme-control-muted);
+  --auralis-text-faint: var(--theme-control-faint);
+  --auralis-text-subtle: var(--theme-control-subtle);
+}
+
 @font-face {
   font-family: 'Auralis Tibetan';
   src: url('../../assets/fonts/noto-scripts/NotoSerifTibetan.woff2') format('woff2');
@@ -206,7 +238,7 @@
   --auralis-text-subtle: #9299a3;
   --auralis-text-faint: #9299a3;
   --auralis-text-disabled: rgba(175, 180, 188, 0.35);
-  --auralis-sidebar-brand-text: color-mix(in srgb, #ffffff 88%, transparent);
+  --auralis-sidebar-brand-text: rgba(255, 255, 255, 0.88);
 
   /* Controls & Focus */
   --auralis-control-bg: var(--auralis-surface-raised);
@@ -1902,6 +1934,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 .app-shell.has-album-detail-color > .app-main {
+  --auralis-theme-accent: var(--album-detail-accent);
+  --auralis-control-primary-text: var(--album-detail-accent-text);
   --auralis-text: var(--album-detail-main-text);
   --auralis-text-muted: var(--album-detail-main-muted);
   --auralis-text-faint: var(--album-detail-main-faint);
@@ -1975,10 +2009,16 @@ input[type='range'].volume-overlay-slider {
 }
 
 .app-shell.has-album-detail-color > .app-sidebar {
+  --auralis-theme-accent: var(--album-detail-accent);
+  --auralis-control-primary-text: var(--album-detail-accent-text);
   --auralis-text: var(--album-detail-side-text);
   --auralis-text-muted: var(--album-detail-side-muted);
   --auralis-text-faint: var(--album-detail-side-faint);
   --auralis-text-subtle: var(--album-detail-side-faint);
+}
+
+.app-shell.has-album-detail-color > .app-sidebar .sidebar-link-active {
+  border-color: var(--album-detail-accent-side-border) !important;
 }
 
 .app-shell.has-album-detail-color > .app-main {
@@ -3298,46 +3338,43 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-smart-create-submenu {
+  display: grid;
+  grid-template-rows: 1fr;
   padding-top: 4px;
   padding-left: 20px;
 }
 
-.sidebar-smart-create-expand-enter-active {
+.sidebar-smart-create-submenu > div {
+  min-height: 0;
+}
+
+.sidebar-smart-create-expand-enter-active,
+.sidebar-smart-create-expand-leave-active {
   overflow: hidden;
-  animation: sidebar-smart-create-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding-top 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-smart-create-expand-enter-active > div,
+.sidebar-smart-create-expand-leave-active > div {
+  overflow: hidden;
 }
 
 .sidebar-smart-create-expand-leave-active {
-  overflow: hidden;
-  animation: sidebar-smart-create-collapse 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition-duration: 160ms;
   pointer-events: none;
 }
 
-@keyframes sidebar-smart-create-expand {
-  from {
-    height: 0;
-    padding-top: 0;
-  }
-  to {
-    height: 140px;
-    padding-top: 4px;
-  }
-}
-
-@keyframes sidebar-smart-create-collapse {
-  from {
-    height: 140px;
-    padding-top: 4px;
-  }
-  to {
-    height: 0;
-    padding-top: 0;
-  }
+.sidebar-smart-create-expand-enter-from,
+.sidebar-smart-create-expand-leave-to {
+  grid-template-rows: 0fr;
+  padding-top: 0;
 }
 
 :where([data-reduced-motion='true']) .sidebar-smart-create-expand-enter-active,
 :where([data-reduced-motion='true']) .sidebar-smart-create-expand-leave-active {
-  animation: none;
+  transition: none;
 }
 
 .sidebar-create-error {
@@ -3686,4 +3723,23 @@ input[type='range'].volume-overlay-slider {
   );
   /* 全局 hover 使用 background 简写，这里保留裁剪以避免滑块变粗。 */
   background-clip: padding-box;
+}
+
+/* Capture both palette states without the intermediate foreground switches. */
+.app-shell.album-palette-instant > .app-main,
+.app-shell.album-palette-instant > .app-sidebar,
+.app-shell.album-palette-instant > .now-playing-panel,
+.app-shell.album-palette-instant .album-more-color-clock,
+.app-shell.album-palette-instant .album-lyrics-color-clock,
+.app-shell.album-palette-instant .album-more-gallery,
+.app-shell.album-palette-instant .album-hero-content-stage::before,
+.app-shell.album-palette-instant *,
+.app-shell.album-palette-instant *::before,
+.app-shell.album-palette-instant *::after {
+  transition: none !important;
+}
+:root.album-palette-reveal::view-transition-old(root),
+:root.album-palette-reveal::view-transition-new(root) {
+  animation-duration: 650ms;
+  animation-timing-function: ease-in-out;
 }

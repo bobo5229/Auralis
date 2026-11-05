@@ -288,7 +288,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-playbar-layout-description">{{
               t('settings.appearance.playbarLayout.description')
             }}</span>
-            <span v-if="playbarLayoutPersistFailed" role="status">{{
+            <span v-if="playbarLayoutPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.playbarLayout.persistFailed')
             }}</span>
           </div>
@@ -309,7 +309,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-playbar-style-description">{{
               t('settings.appearance.playbarStyle.description')
             }}</span>
-            <span v-if="playbarStylePersistFailed" role="status">{{
+            <span v-if="playbarStylePersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.playbarStyle.persistFailed')
             }}</span>
           </div>
@@ -331,7 +331,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               <span id="appearance-liquid-glass-description">{{
                 t('settings.appearance.liquidGlass.description')
               }}</span>
-              <span v-if="liquidGlassPersistFailed" role="status">{{
+              <span v-if="liquidGlassPersistFailed" class="settings-status--error" role="status">{{
                 t('settings.appearance.liquidGlass.persistFailed')
               }}</span>
             </div>
@@ -398,7 +398,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-motion-description">{{
               t('settings.appearance.reducedMotion.description')
             }}</span>
-            <span v-if="motionPersistFailed" role="status">{{
+            <span v-if="motionPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.reducedMotion.persistFailed')
             }}</span>
           </div>
@@ -425,10 +425,10 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-language-description">{{
               t('settings.appearance.languageDescription')
             }}</span>
-            <span v-if="localePersistFailed" role="status">{{
+            <span v-if="localePersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.languagePersistFailed')
             }}</span>
-            <span v-if="nativeSyncFailed" role="status">{{
+            <span v-if="nativeSyncFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.languageSyncFailed')
             }}</span>
           </div>
@@ -450,7 +450,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-chinese-font-description">{{
               t('settings.appearance.chineseFont.description')
             }}</span>
-            <span v-if="chineseFontPersistFailed" role="status">{{
+            <span v-if="chineseFontPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.chineseFont.persistFailed')
             }}</span>
           </div>
@@ -472,7 +472,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-english-font-description">{{
               t('settings.appearance.englishFont.description')
             }}</span>
-            <span v-if="englishFontPersistFailed" role="status">{{
+            <span v-if="englishFontPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.englishFont.persistFailed')
             }}</span>
           </div>
@@ -504,7 +504,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="appearance-lyrics-scroll-description">{{
               t('settings.appearance.lyricsScroll.description')
             }}</span>
-            <span v-if="lyricsScrollPersistFailed" role="status">{{
+            <span v-if="lyricsScrollPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.lyricsScroll.persistFailed')
             }}</span>
           </div>
@@ -533,10 +533,10 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             <span id="startup-album-description">{{
               t('settings.appearance.startupAlbum.description')
             }}</span>
-            <span v-if="startupAlbumPersistFailed" role="status">{{
+            <span v-if="startupAlbumPersistFailed" class="settings-status--error" role="status">{{
               t('settings.appearance.startupAlbum.persistFailed')
             }}</span>
-            <span v-if="startupAlbumDrawError" role="status">{{
+            <span v-if="startupAlbumDrawError" class="settings-status--error" role="status">{{
               t(`settings.appearance.startupAlbum.${startupAlbumDrawError}`)
             }}</span>
           </div>

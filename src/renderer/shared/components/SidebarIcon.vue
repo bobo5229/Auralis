@@ -43,9 +43,9 @@ defineProps<{ kind: SidebarIconKind }>()
         <circle cx="12" cy="12" r="1.5" />
       </template>
       <template v-else-if="kind === 'archive'">
-        <path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+        <rect x="4" y="3" width="16" height="18" rx="2" />
         <path d="M2.5 7H5M2.5 12H5M2.5 17H5" />
-        <path d="m13 12 1-4 5-5a1.4 1.4 0 0 1 2 2l-5 5-3 2Z" />
+        <path d="M9 11v3m3-6v9m3-7v5" />
       </template>
       <template v-else-if="kind === 'playlist'">
         <path d="M3 5h18M3 10h12M3 15h8M3 20h8" />
@@ -59,16 +59,18 @@ defineProps<{ kind: SidebarIconKind }>()
         <path d="M3 21h18M4 21v-9h4v9M10 21V4h4v17M16 21V9h4v12" />
       </template>
       <template v-else-if="kind === 'recentAdded'">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3.5 2" />
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M7 3v4M17 3v4M3 9h18M12 12v6m-3-3h6" />
       </template>
       <template v-else-if="kind === 'custom'">
         <path d="M3 5h18M3 10h10M3 15h8M3 20h8" />
         <path d="m17 12 1.2 3.8L22 17l-3.8 1.2L17 22l-1.2-3.8L12 17l3.8-1.2L17 12Z" />
       </template>
       <template v-else-if="kind === 'filters'">
-        <path d="M9 3h10a2 2 0 0 1 2 2v10M6 6h10a2 2 0 0 1 2 2v10" />
-        <rect x="3" y="9" width="12" height="12" rx="2" />
+        <circle cx="5" cy="12" r="2" />
+        <circle cx="19" cy="6" r="2" />
+        <circle cx="19" cy="18" r="2" />
+        <path d="M7 12h4m0 0V6h6m-6 6v6h6" />
       </template>
       <template v-else-if="kind === 'refresh'">
         <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8.5M21 3v5.5h-5.5" />

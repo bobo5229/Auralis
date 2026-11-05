@@ -1,12 +1,22 @@
+import type { ForegroundReadiness } from '@renderer/shared/color/foregroundReadiness'
 import { createAlbumForegroundSynchronization } from './albumForegroundSynchronization'
 
 /** Synchronize surfaces mounted after the shared color transition has begun. */
-export function createAlbumSurfaceSynchronization(shell: HTMLElement): () => void {
+export function createAlbumSurfaceSynchronization(
+  shell: HTMLElement,
+  onMainReadiness?: (readiness: ForegroundReadiness | null) => void,
+): () => void {
   const main = shell.querySelector<HTMLElement>('.app-main')
   const clock = shell.querySelector<HTMLElement>('.album-more-color-clock')
   const lyricsClock = shell.querySelector<HTMLElement>('.album-lyrics-color-clock')
   if (!main || !clock || !lyricsClock || typeof MutationObserver === 'undefined') return () => {}
-  const foreground = createAlbumForegroundSynchronization(shell, main, clock, lyricsClock)
+  const foreground = createAlbumForegroundSynchronization(
+    shell,
+    main,
+    clock,
+    lyricsClock,
+    onMainReadiness,
+  )
 
   const active = new Map<HTMLElement, { animation: Animation; reference: Animation }>()
   let scheduled: number | null = null

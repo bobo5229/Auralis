@@ -3,6 +3,125 @@
   min-width: 0;
 }
 
+.album-track-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  margin: 0 12px 8px;
+  color: var(--auralis-text);
+}
+.album-track-pagination-group {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 2px;
+  border-radius: 10px;
+  background: transparent;
+}
+.album-track-pagination-arrow {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.album-track-pagination-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.album-track-pagination-arrow:not(:disabled):hover,
+.album-track-playing-jump:hover {
+  background: color-mix(in srgb, var(--auralis-text) 16%, transparent);
+}
+.album-track-pagination-arrow > span,
+.album-track-playing-jump > span {
+  width: 16px;
+  height: 16px;
+}
+.album-track-pagination-position {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 3px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-variant-numeric: tabular-nums;
+}
+.album-track-disc-select :deep(.settings-select) {
+  max-width: 150px;
+  height: 30px;
+  padding: 0 6px;
+  border-color: transparent;
+  color: var(--auralis-text);
+  background: transparent;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.album-track-disc-select :deep(.settings-select:hover) {
+  background: color-mix(in srgb, var(--auralis-text) 9%, transparent);
+}
+.album-track-page-number {
+  min-width: 36px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--auralis-text-muted);
+}
+.album-track-playing-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  cursor: pointer;
+}
+.album-track-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.album-track-pagination :is(button, select):focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+.album-track-enter-next {
+  animation: album-track-page-next 180ms ease-out;
+}
+.album-track-enter-previous {
+  animation: album-track-page-previous 180ms ease-out;
+}
+@keyframes album-track-page-next {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes album-track-page-previous {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+:where([data-reduced-motion='true']) :is(.album-track-enter-next, .album-track-enter-previous) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.album-track-enter-next, .album-track-enter-previous) { animation: none; }
+}
+
 .album-detail-track-list {
   position: relative;
   background: transparent;
@@ -70,15 +189,16 @@
   padding: 6px 16px 6px 8px;
   color: var(--auralis-text);
   border-radius: 12px;
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition:
+    background-color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
+    transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .album-detail-track + .album-detail-track::before,
 .album-detail-track--disc-end::after {
   content: '';
-  transition:
-    opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
-    border-color 650ms ease;
+  transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .album-detail-track + .album-detail-track::before {

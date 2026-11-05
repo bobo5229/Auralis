@@ -294,8 +294,9 @@ onBeforeUnmount(() => {
   gap: 6px;
   height: 28px;
   padding: 0 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--auralis-panel-control-radius);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 500;
   color: var(--auralis-text);
   background: color-mix(in srgb, var(--auralis-text) 6%, transparent);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -10,14 +10,11 @@ const appInfoError = ref(false)
 const copyState = ref<'idle' | 'copied' | 'failed'>('idle')
 const backupState = ref<'idle' | 'exporting' | 'saved' | 'cancelled' | 'failed'>('idle')
 const restoreState = ref<'idle' | 'staging' | 'staged' | 'cancelled' | 'failed'>('idle')
-let copyStateTimer: number | undefined
-let backupStateTimer: number | undefined
-let restoreStateTimer: number | undefined
 
 async function copyDatabasePath(): Promise<void> {
   if (!appInfo.value?.databasePath) return
 
-  window.clearTimeout(copyStateTimer)
+  copyState.value = 'idle'
 
   try {
     await navigator.clipboard.writeText(appInfo.value.databasePath)
@@ -25,14 +22,9 @@ async function copyDatabasePath(): Promise<void> {
   } catch {
     copyState.value = 'failed'
   }
-
-  copyStateTimer = window.setTimeout(() => {
-    copyState.value = 'idle'
-  }, 2400)
 }
 
 async function backupDatabase(): Promise<void> {
-  window.clearTimeout(backupStateTimer)
   backupState.value = 'exporting'
 
   try {
@@ -41,14 +33,9 @@ async function backupDatabase(): Promise<void> {
   } catch {
     backupState.value = 'failed'
   }
-
-  backupStateTimer = window.setTimeout(() => {
-    backupState.value = 'idle'
-  }, 3200)
 }
 
 async function restoreDatabase(): Promise<void> {
-  window.clearTimeout(restoreStateTimer)
   restoreState.value = 'staging'
 
   try {
@@ -57,10 +44,6 @@ async function restoreDatabase(): Promise<void> {
   } catch {
     restoreState.value = 'failed'
   }
-
-  restoreStateTimer = window.setTimeout(() => {
-    restoreState.value = 'idle'
-  }, 4800)
 }
 
 function backupButtonLabel(): string {
@@ -86,12 +69,6 @@ onMounted(async () => {
     appInfoError.value = true
   }
 })
-
-onBeforeUnmount(() => {
-  window.clearTimeout(copyStateTimer)
-  window.clearTimeout(backupStateTimer)
-  window.clearTimeout(restoreStateTimer)
-})
 </script>
 
 <template>
@@ -111,6 +88,13 @@ onBeforeUnmount(() => {
                 : t('settings.library.databaseLoading'))
             }}
           </span>
+          <span role="status" :class="{ 'settings-status--error': copyState === 'failed' }">{{
+            copyState === 'copied'
+              ? t('settings.library.copySuccess')
+              : copyState === 'failed'
+                ? t('settings.library.copyFailed')
+                : ''
+          }}</span>
         </div>
         <button
           type="button"
@@ -118,13 +102,7 @@ onBeforeUnmount(() => {
           :disabled="!appInfo?.databasePath"
           @click="copyDatabasePath"
         >
-          {{
-            copyState === 'copied'
-              ? t('settings.library.copySuccess')
-              : copyState === 'failed'
-                ? t('settings.library.copyFailed')
-                : t('settings.library.copyPath')
-          }}
+          {{ t('settings.library.copyPath') }}
         </button>
       </div>
 
@@ -132,6 +110,9 @@ onBeforeUnmount(() => {
         <div>
           <strong>{{ t('settings.library.backupDatabase') }}</strong>
           <span>{{ t('settings.library.backupDatabaseDescription') }}</span>
+          <span role="status" :class="{ 'settings-status--error': backupState === 'failed' }">{{
+            backupState === 'idle' ? '' : backupButtonLabel()
+          }}</span>
         </div>
         <button
           type="button"
@@ -139,7 +120,7 @@ onBeforeUnmount(() => {
           :disabled="backupState === 'exporting'"
           @click="backupDatabase"
         >
-          {{ backupButtonLabel() }}
+          {{ t('settings.library.exportBackup') }}
         </button>
       </div>
 
@@ -147,6 +128,9 @@ onBeforeUnmount(() => {
         <div>
           <strong>{{ t('settings.library.restoreDatabase') }}</strong>
           <span>{{ t('settings.library.restoreDatabaseDescription') }}</span>
+          <span role="status" :class="{ 'settings-status--error': restoreState === 'failed' }">{{
+            restoreState === 'idle' ? '' : restoreButtonLabel()
+          }}</span>
         </div>
         <button
           type="button"
@@ -154,7 +138,7 @@ onBeforeUnmount(() => {
           :disabled="restoreState === 'staging'"
           @click="restoreDatabase"
         >
-          {{ restoreButtonLabel() }}
+          {{ t('settings.library.restoreBackup') }}
         </button>
       </div>
     </div>

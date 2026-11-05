@@ -1,6 +1,20 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { CreateAppFunction } from 'vue'
 
+vi.mock('vue', async (importOriginal) => {
+  const vue = await importOriginal<typeof import('vue')>()
+  return {
+    ...vue,
+    Transition: vue.defineComponent({
+      inheritAttrs: false,
+      setup:
+        (_props, { slots }) =>
+        () =>
+          slots.default?.(),
+    }),
+  }
+})
+
 const playbackActions = vi.hoisted(() => ({
   playAlbum: vi.fn(),
   playTrack: vi.fn(),
@@ -79,10 +93,16 @@ class TestNode {
   querySelector(): null {
     return null
   }
+  closest(): null {
+    return null
+  }
   scrollTo(): void {}
+  focus(): void {}
 }
 
+let overlay = new TestNode('div')
 const rendererOptions = {
+  querySelector: () => overlay,
   createElement: (type: string) => new TestNode(type),
   createText: (text: string) => Object.assign(new TestNode('text'), { text }),
   createComment: () => new TestNode('comment'),
@@ -129,13 +149,19 @@ function find(node: TestNode, predicate: (node: TestNode) => boolean): TestNode 
 }
 
 function byClass(root: TestNode, className: string): TestNode {
-  const node = find(root, (candidate) => candidate.props.class === className)
+  const node = find(
+    root,
+    (candidate) =>
+      typeof candidate.props.class === 'string' &&
+      candidate.props.class.split(/\s+/u).includes(className),
+  )
   if (!node) throw new Error(`missing .${className}`)
   return node
 }
 
 async function mountAlbum(stored: string | null) {
   vi.resetModules()
+  overlay = new TestNode('div')
   const storage = new Map<string, string>()
   if (stored) storage.set('auralis-control-style', stored)
   vi.stubGlobal('localStorage', {
@@ -158,7 +184,7 @@ async function mountAlbum(stored: string | null) {
   const { nextTick } = await import('vue')
   await nextTick()
   await nextTick()
-  return { root, storage }
+  return { root, overlay, storage }
 }
 
 it('keeps album playback actions available regardless of the old material preference', async () => {
@@ -169,17 +195,23 @@ it('keeps album playback actions available regardless of the old material prefer
   expect(playbackActions.playAlbumShuffle).toHaveBeenCalledTimes(1)
 })
 
-it('saves a chosen album color and restores automatic color on request', async () => {
+it('exposes cover sampling and restores a saved color from the inline controls', async () => {
   const { root, storage } = await mountAlbum(null)
   const preference = byClass(root, 'album-color-preference')
-  const input = find(preference, (node) => node.type === 'input')!
-  ;(input.props.onInput as (event: unknown) => void)({ target: { value: '#cfffc4' } })
+  const { setAlbumColorPreference } = await import('../albumColorPreferences')
+  expect(
+    setAlbumColorPreference([{ id: 1, createdAt: '2022-03-01T00:00:00.000Z' }], {
+      r: 207,
+      g: 255,
+      b: 196,
+    }),
+  ).toBe(true)
   const { nextTick } = await import('vue')
   await nextTick()
-  const saved = JSON.parse(storage.get('auralis-album-color-preferences-v1')!)
-  expect(saved.preferences[0].color).toEqual({ r: 207, g: 255, b: 196 })
-  const reset = find(preference, (node) => node.type === 'button')!
-  ;(reset.props.onClick as () => void)()
+  ;(byClass(preference, 'album-color-trigger').props.onClick as () => void)()
+  await nextTick()
+  expect(byClass(preference, 'album-color-sample').props.disabled).toBe(true)
+  ;(byClass(preference, 'album-color-reset').props.onClick as () => void)()
   await nextTick()
   expect(JSON.parse(storage.get('auralis-album-color-preferences-v1')!).preferences).toEqual([])
 })
