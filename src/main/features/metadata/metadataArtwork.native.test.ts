@@ -1,12 +1,11 @@
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import sharp from 'sharp'
-import { Mpeg4File, ReadStyle, ByteVector, Mpeg4BoxType } from 'node-taglib-sharp'
 import { migrateDatabase } from '../../database/schema'
 import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import { TrackRepository } from '../../repositories/trackRepository'
@@ -30,17 +29,29 @@ async function fixture() {
           .png()
           .toBuffer()
       : null
-    const file = new Mpeg4File(path, ReadStyle.None)
-    try {
-      file.tag.setQuickTimeData(
-        Mpeg4BoxType.COVR,
-        bytes ? [ByteVector.fromByteArray(bytes)] : [],
-        14,
-      )
-      file.save()
-    } finally {
-      file.dispose()
-    }
+    // Simulate an external tagger on disposable fixtures, using the shipped FFmpeg.
+    const image = join(root, 'fixture.png')
+    const output = path + '.updated.m4a'
+    if (bytes) await writeFile(image, bytes)
+    execFileSync(
+      resolve('resources/audio/ffmpeg.exe'),
+      [
+        '-y',
+        '-v',
+        'error',
+        '-i',
+        path,
+        ...(bytes ? ['-i', image] : []),
+        '-map',
+        '0:a',
+        ...(bytes ? ['-map', '1:v', '-disposition:v:0', 'attached_pic'] : []),
+        '-c',
+        'copy',
+        output,
+      ],
+      { windowsHide: true },
+    )
+    await rename(output, path)
   }
   async function add(id: number, color: string | null, trackNo: number) {
     const path = join(root, `${id}.m4a`)
@@ -229,13 +240,25 @@ describe('artwork provenance from real MP4 covers', () => {
     const red = f.artwork(1),
       blue = f.artwork(2)
     expect(f.artwork(3)).toBe(red)
-    const file = new Mpeg4File(path, ReadStyle.None)
-    try {
-      file.tag.album = 'Another Album'
-      file.save()
-    } finally {
-      file.dispose()
-    }
+    const external = path + '.external.m4a'
+    execFileSync(
+      resolve('resources/audio/ffmpeg.exe'),
+      [
+        '-v',
+        'error',
+        '-i',
+        path,
+        '-map',
+        '0',
+        '-c',
+        'copy',
+        '-metadata',
+        'album=Another Album',
+        external,
+      ],
+      { windowsHide: true },
+    )
+    await rename(external, path)
     f.metadata.updateTrackMetadata(await readStableMetadata(1, path, f.root))
     expect(f.artwork(1)).toBe(red)
     expect(f.artwork(3)).toBe(blue)

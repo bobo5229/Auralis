@@ -11,9 +11,6 @@ import { migrateDatabase } from '../../database/schema'
 import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { normalizeMetadata } from './metadataNormalizer'
-import { verifyWrittenMetadata } from './verifyWrittenMetadata'
-import { normalizeEditableMetadata } from '@main/shared/editableMetadataValidation'
-import { writeAudioTags } from './audioTagWriteService'
 import { formatDelimitedValues, splitDelimitedValues } from '@shared/utils/delimitedValues'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
@@ -169,7 +166,7 @@ describe('multi-value metadata file and database flow', () => {
     ['mp3', 'libmp3lame', '4'],
     ['m4a', 'aac', '3'],
     ['flac', 'flac', '3'],
-  ])('reads, edits and stores %s (%s, ID3 %s) consistently', async (extension, codec, version) => {
+  ])('reads and stores %s (%s, ID3 %s) consistently', async (extension, codec, version) => {
     const filePath = await audio(extension!, codec!, version)
     const original = normalizeMetadata(await parseAudioMetadata(filePath, { skipCovers: true }))
     expect(original).toMatchObject({
@@ -179,20 +176,7 @@ describe('multi-value metadata file and database flow', () => {
       composers: ['A/B', 'C'],
       copyright: 'Label; Other',
     })
-    const edit = normalizeEditableMetadata({
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: ' AC/DC; Tyler, The Creator; ac/dc ',
-      albumTitle: 'Album',
-      albumArtistDisplay: ' First; Second; first ',
-      genreDisplay: 'R&B/Soul; Hip-Hop/Rap; r&b/soul',
-      year: null,
-      releaseDate: null,
-    })
-    await writeAudioTags(filePath, edit, ffmpegPath)
-    const parsed = await parseAudioMetadata(filePath, { skipCovers: true })
-    expect(() => verifyWrittenMetadata(edit, parsed)).not.toThrow()
-    const normalized = normalizeMetadata(parsed)
+    const normalized = original
     const fingerprint = await stat(filePath)
     const db = new DatabaseCtor(':memory:')
     databases.push(db)
@@ -220,17 +204,17 @@ describe('multi-value metadata file and database flow', () => {
       copyright: string
     }
     expect(stored).toMatchObject({
-      artist: edit.artistDisplay,
-      album_artist: edit.albumArtistDisplay,
-      genre: edit.genreDisplay,
+      artist: 'AC/DC; Tyler, The Creator',
+      album_artist: 'First; Second',
+      genre: 'R&B/Soul; Hip-Hop/Rap',
       composer: 'A/B; C',
       copyright: 'Label; Other',
     })
     expect(db.prepare('SELECT genre FROM tracks WHERE id=1').get()).toEqual({
-      genre: edit.genreDisplay,
+      genre: 'R&B/Soul; Hip-Hop/Rap',
     })
     expect(db.prepare('SELECT genre_display FROM track_metadata WHERE track_id=1').get()).toEqual({
-      genre_display: edit.genreDisplay,
+      genre_display: 'R&B/Soul; Hip-Hop/Rap',
     })
     expect(
       db
@@ -254,21 +238,5 @@ describe('multi-value metadata file and database flow', () => {
       'Electronic',
       'Live',
     ])
-    const edit = {
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: 'AC/DC; Tyler, The Creator',
-      albumTitle: 'Album',
-      albumArtistDisplay: 'First; Second',
-      genreDisplay: 'R&B/Soul; Hip-Hop/Rap; Electronic; Live',
-      year: null,
-      releaseDate: null,
-    }
-    expect(() => verifyWrittenMetadata(edit, parsed)).not.toThrow()
-    const changed = { ...edit, genreDisplay: 'New; Other' }
-    await writeAudioTags(path, changed, ffmpegPath)
-    const rewritten = await parseAudioMetadata(path, { skipCovers: true })
-    expect(() => verifyWrittenMetadata(changed, rewritten)).not.toThrow()
-    expect(normalizeMetadata(rewritten).genres).toEqual(['New', 'Other'])
   })
 })

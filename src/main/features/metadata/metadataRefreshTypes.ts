@@ -15,14 +15,13 @@ export interface StableTrackMetadata extends RefreshedTrackMetadata {
 
 export interface MetadataRefreshWorkerInput {
   jobId: number
-  tracks: Array<{ trackId: number; filePath: string; generation?: number }>
+  tracks: Array<{ trackId: number; filePath: string }>
   artworkCacheDir: string
   writeMode?: 'metadata' | 'lyrics' | 'legacy-ttml'
 }
 
 export interface MetadataRefreshWorkerResult extends StableTrackMetadata {
   jobId: number
-  generation: number
   lyricsSidecarFingerprint?: string
 }
 

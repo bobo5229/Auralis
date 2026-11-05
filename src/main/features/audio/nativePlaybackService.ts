@@ -1,15 +1,8 @@
-import type {
-  NativePlaybackCommand,
-  NativePlaybackEvent,
-  UpdateTrackMetadataResult,
-} from '@shared/ipc/contracts'
-import type { AudioTagEdit as EditableTrackMetadata } from '../metadata/audioTagEdit'
+import type { NativePlaybackCommand, NativePlaybackEvent } from '@shared/ipc/contracts'
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
 import type { SpectrumSource } from './playbackSpectrumService'
-import { BufferedTagPlayback } from './bufferedTagPlayback'
 import { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 import { NativePlaybackSession } from './nativePlaybackSession'
-import { canReplacePlayingM4a, replacePlayingM4a } from './m4aFileReplacement'
 import type { LogicalPlaybackView, NativePlaybackOptions } from './nativePlaybackTypes'
 import { clearSoftTransitionContinuation } from './softTransitionContinuation'
 
@@ -18,7 +11,6 @@ export type { PlaybackCoordinator } from './nativePlaybackTypes'
 /** Main-process facade: owns the logical song and publishes its single playback snapshot. */
 export class NativePlaybackService {
   private readonly runtime: NativePlaybackSession
-  private readonly tags: BufferedTagPlayback
   private readonly scheduler: NativeNextTrackScheduler
   private transport: AbortController | null = null
   private opening: Promise<MpvClient> | null = null
@@ -48,65 +40,21 @@ export class NativePlaybackService {
       currentTime: this.snapshot.currentTime,
       duration: this.snapshot.duration,
     })
-    this.tags = new BufferedTagPlayback(
-      options,
-      this.runtime,
-      read,
-      {
-        canBeginTagWrite: () => this.scheduler.canBeginTagWrite(),
-        suspendPreparation: () => this.scheduler.suspendPreparation(),
-        cancelNext: (client) => this.scheduler.cancelNext(client),
-        deferPrevious: (request) => this.scheduler.deferPrevious(request),
-        drainAnalysis: () => this.scheduler.drainAnalysis(),
-        restoreDeferredNext: () => this.scheduler.restoreDeferredNext(),
-      },
-      (time) => {
-        this.loaded = true
-        this.snapshot.currentTime = time
-        this.publish()
-      },
-      (error) => this.failure(error),
-    )
-    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, this.tags, () =>
+    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, () =>
       this.flushPendingEnd(),
     )
-  }
-
-  canWriteMetadata(filePath: string): boolean {
-    return this.tags.canWriteMetadata(filePath)
-  }
-
-  canReplaceMetadata(filePath: string): boolean {
-    return canReplacePlayingM4a(filePath, this.options.ffmpegPath)
-  }
-
-  writeMetadata(
-    filePath: string,
-    metadata: EditableTrackMetadata,
-    commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
-  ): Promise<UpdateTrackMetadataResult> {
-    if (canReplacePlayingM4a(filePath, this.options.ffmpegPath))
-      return replacePlayingM4a(
-        this.options,
-        () => this.scheduler.suspendMetadataAnalysis(),
-        filePath,
-        metadata,
-        commitAndReconcile,
-      )
-    return this.tags.writeMetadata(filePath, metadata, commitAndReconcile)
   }
 
   /** Read-only view of the actual decoder source, including transition bridges. */
   getSpectrumSource(): SpectrumSource | null {
     if (!this.loaded || this.snapshot.trackId === null) return null
     const bridge = this.scheduler.bridge
-    const tag = this.tags.spectrumBuffer
     return {
       trackId: this.snapshot.trackId,
-      path: tag?.path ?? bridge?.path ?? this.tags.fallbackPath ?? this.path,
+      path: bridge?.path ?? this.path,
       currentTime: this.snapshot.currentTime,
       isPlaying: this.snapshot.isPlaying,
-      timelineOffset: tag?.start ?? bridge?.incomingStart ?? 0,
+      timelineOffset: bridge?.incomingStart ?? 0,
     }
   }
 
@@ -131,7 +79,6 @@ export class NativePlaybackService {
 
   private release(): Promise<void> {
     this.pendingEnd = null
-    this.tags.reset()
     const opening = this.opening
     this.opening = null
     this.transport?.abort()
@@ -145,7 +92,7 @@ export class NativePlaybackService {
         (client) => client.close(),
         () => undefined,
       ),
-    ]).then(() => this.tags.cleanup())
+    ]).then(() => undefined)
     this.closing.add(released)
     void released.then(
       () => this.closing.delete(released),
@@ -177,8 +124,8 @@ export class NativePlaybackService {
       }
       this.runtime.client = client
       await Promise.all(
-        ['time-pos', 'duration', 'pause', 'paused-for-cache', 'idle-active', 'audio-pts'].map(
-          (name, index) => client.command('observe_property', index + 1, name),
+        ['time-pos', 'duration', 'pause', 'paused-for-cache', 'idle-active'].map((name, index) =>
+          client.command('observe_property', index + 1, name),
         ),
       )
       return client
@@ -205,7 +152,6 @@ export class NativePlaybackService {
     if (request.action === 'next') return this.scheduler.schedule(request)
     if (request.action === 'cancel-next' || request.action === 'seek')
       this.scheduler.invalidatePreparation(request.action === 'cancel-next')
-    if (request.action === 'seek') this.tags.cancelWrite()
     const client = this.runtime.client
     const isCurrent = () => this.runtime.isCurrent(request.session, client)
     return this.runtime.enqueue(async () => {
@@ -215,18 +161,15 @@ export class NativePlaybackService {
           case 'cancel-next':
             // invalidatePreparation already cleared the request when cancellation
             // arrived. A newer deferred request may have arrived while queued.
-            if (!this.tags.isActive())
-              await this.scheduler.cancelNext(client, { preserveDeferredNext: true })
+            await this.scheduler.cancelNext(client, { preserveDeferredNext: true })
             break
           case 'pause':
             await client.command('set_property', 'pause', true)
             if (!isCurrent()) return { accepted: false }
             this.paused = true
-            this.tags.onPause()
             this.publish()
             break
           case 'resume':
-            this.tags.onResume()
             await client.command('set_property', 'pause', false)
             if (!isCurrent()) return { accepted: false }
             this.paused = false
@@ -239,12 +182,6 @@ export class NativePlaybackService {
               this.loaded &&
               this.snapshot.trackId === trackId &&
               !this.scheduler.isEnteringNext
-            const tagSeek = this.tags.seek(client, request.time)
-            if (tagSeek) {
-              await tagSeek
-              if (!isCurrent()) return { accepted: false }
-              break
-            }
             await this.scheduler.cancelNext(client)
             if (!isCurrent()) return { accepted: false }
             const continuation = this.scheduler.seekContinuation(client, request.time)
@@ -276,12 +213,10 @@ export class NativePlaybackService {
   ): Promise<{ accepted: boolean }> {
     if (request.session <= this.runtime.id) return { accepted: false }
     const previousClient = this.runtime.client
-    // Tag-write recovery and installed bridges still own temporary decoder files.
+    // Installed bridges still own temporary decoder files.
     // Keep their existing process-exit barrier; ordinary song replacement reuses mpv.
-    if (!this.tags.canReuseTransport || !this.scheduler.canReuseTransport)
-      void this.release().catch(this.options.warn)
+    if (!this.scheduler.canReuseTransport) void this.release().catch(this.options.warn)
     else {
-      this.tags.reset()
       this.scheduler.reset()
       this.loaded = false
     }
@@ -362,7 +297,7 @@ export class NativePlaybackService {
 
   private onEvent(event: MpvMessage, session: number): void {
     if (event.event === 'start-file' && this.loaded) {
-      if (!this.tags.onStartFile()) this.scheduler.onStartFile(session)
+      this.scheduler.onStartFile(session)
     } else if (event.event === 'property-change') {
       this.propertyChanged(event)
     } else if (event.event === 'file-loaded') {
@@ -370,9 +305,8 @@ export class NativePlaybackService {
         if (session === this.runtime.id && this.runtime.client) this.failure(error)
       })
     } else if (event.event === 'end-file' && event.reason === 'error') {
-      if (!this.tags.recoverDecodeError(session))
-        this.failure(new Error(`mpv could not decode audio: ${event.error ?? 'unknown error'}`))
-    } else if (event.event === 'idle' && this.loaded && !this.tags.ignoresIdle) {
+      this.failure(new Error(`mpv could not decode audio: ${event.error ?? 'unknown error'}`))
+    } else if (event.event === 'idle' && this.loaded) {
       this.playbackEnded()
     }
   }
@@ -383,14 +317,11 @@ export class NativePlaybackService {
       return
     }
     this.pendingEnd = null
-    this.tags.onPlaybackEnded(() => {
-      this.snapshot.currentTime = this.snapshot.duration
-    })
+    this.snapshot.currentTime = this.snapshot.duration
     this.loaded = false
     this.scheduler.endPlayback()
     this.runtime.releasePlaybackLeases()
     this.publish('ended')
-    void this.tags.cleanup().catch(this.options.warn)
   }
 
   private flushPendingEnd(): void {
@@ -405,10 +336,13 @@ export class NativePlaybackService {
 
   private propertyChanged(event: MpvMessage): void {
     if (event.name === 'idle-active' && event.data === true && this.loaded) {
-      if (!this.tags.ignoresIdle) this.playbackEnded()
+      this.playbackEnded()
       return
     }
-    const time = this.tags.timeFromProperty(event.name, event.data, this.scheduler.isEnteringNext)
+    const time =
+      event.name === 'time-pos' && typeof event.data === 'number' && !this.scheduler.isEnteringNext
+        ? event.data
+        : undefined
     if (time !== undefined)
       this.snapshot.currentTime =
         event.name === 'time-pos' && this.scheduler.bridge
@@ -418,10 +352,9 @@ export class NativePlaybackService {
       event.name === 'duration' &&
       typeof event.data === 'number' &&
       !this.scheduler.isEnteringNext &&
-      !this.tags.isActive() &&
       !this.scheduler.bridge
     )
-      this.snapshot.duration = event.data + this.tags.decodeOffset
+      this.snapshot.duration = event.data
     if (event.name === 'pause' && typeof event.data === 'boolean') this.paused = event.data
     if (event.name === 'paused-for-cache' && typeof event.data === 'boolean')
       this.buffering = event.data
@@ -430,14 +363,12 @@ export class NativePlaybackService {
 
   private beginLoadedTrack(paused: unknown): { continuation: boolean; boundary: boolean } {
     if (typeof paused === 'boolean') this.paused = paused
-    const tagContinuation = this.tags.consumeSeekContinuation()
-    const continuation = this.scheduler.isContinuation || tagContinuation
+    const continuation = this.scheduler.isContinuation
     const boundary = this.loaded && !continuation
     if (boundary) {
       const next = this.scheduler.takeEnteredTrack()
       this.snapshot.trackId = next.id
       this.path = next.path
-      this.tags.onLogicalBoundary()
       this.runtime.advanceLease()
     }
     this.loaded = true
@@ -467,8 +398,6 @@ export class NativePlaybackService {
   private async fileLoaded(session: number): Promise<void> {
     const client = this.runtime.client
     if (!client) return
-    // A tag continuation is the same logical song; a soft bridge can introduce B.
-    if (this.tags.needsLoadHandling && (await this.tags.handleFileLoaded(session, client))) return
     if (
       this.scheduler.hasInterruptedLoad &&
       (await this.scheduler.recoverInterruptedLoad(session, client))
@@ -487,23 +416,7 @@ export class NativePlaybackService {
     }
     if (!this.runtime.isCurrent(session, client)) return
     const { continuation, boundary } = this.beginLoadedTrack(properties[2])
-    const loadedPath = this.path
-    const eligibility = this.tags.refreshEligibility(loadedPath, session, client)
-    // Preserve start/continuation readiness for tag editing. A natural boundary
-    // must publish its new logical track before optional tag parsing can finish.
-    if (!boundary && !(await eligibility)) return
     this.publishLoadedFile(properties, continuation, boundary)
-    if (!this.runtime.isCurrent(session, client)) return
-    if (boundary) {
-      void eligibility
-        .then((current) => {
-          if (current && this.runtime.isCurrent(session, client) && this.path === loadedPath)
-            this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
-        })
-        .catch(this.options.warn)
-    } else {
-      this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
-    }
     this.runtime.finishLoad()
   }
 }

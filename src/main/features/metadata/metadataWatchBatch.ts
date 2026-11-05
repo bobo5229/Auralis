@@ -1,7 +1,6 @@
 import type { Stats } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { scanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
-import { normalizeAudioFilePath } from '@main/shared/normalizeAudioFilePath'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
@@ -30,15 +29,11 @@ interface MetadataWatchBatchContext {
     | 'getFileFingerprintsByFilePaths'
     | 'getTrackIdsByFilePaths'
   >
-  metadataRefreshService: Pick<
-    MetadataRefreshService,
-    'isWritingFile' | 'refreshTracksFromFileChanges'
-  >
+  metadataRefreshService: Pick<MetadataRefreshService, 'refreshTracksFromFileChanges'>
   importQueue: Pick<MetadataWatchImportQueue, 'deferIfInFlight' | 'importFiles'>
   missingConfirmation: Pick<MetadataMissingConfirmation, 'restorePaths' | 'enqueue'>
   isCurrentPath: (filePath: string) => boolean
   scheduleFlush: (delay?: number) => void
-  hasScheduledFlush: () => boolean
 }
 
 /** Routes one observed batch through stat, refresh, import and missing confirmation. */
@@ -64,11 +59,6 @@ export class MetadataWatchBatch {
     const incoming: string[] = []
 
     for (const filePath of filePaths) {
-      if (this.context.metadataRefreshService.isWritingFile?.(filePath)) {
-        this.state.pendingFilePaths.set(filePath, Date.now())
-        this.context.scheduleFlush()
-        continue
-      }
       if (
         this.context.isCurrentPath(filePath) &&
         !this.context.importQueue.deferIfInFlight(filePath)
@@ -129,11 +119,6 @@ export class MetadataWatchBatch {
     const transientErrorPaths: string[] = []
 
     for (let i = 0; i < incoming.length; i++) {
-      if (this.context.metadataRefreshService.isWritingFile?.(incoming[i])) {
-        this.state.pendingFilePaths.set(incoming[i], Date.now())
-        this.context.scheduleFlush()
-        continue
-      }
       const result = statResults[i]
 
       if (result.status === 'fulfilled' && result.value.isFile()) {
@@ -185,7 +170,7 @@ export class MetadataWatchBatch {
     }
 
     // Availability depends on a regular file returning, independently of
-    // whether its metadata fingerprint changed or tag writes are suppressed.
+    // whether its metadata fingerprint changed.
     this.context.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.resolvedPath))
 
     this.refreshKnownEntries(knownEntries)
@@ -194,22 +179,7 @@ export class MetadataWatchBatch {
   }
 
   private refreshKnownEntries(knownEntries: KnownWatchEntry[]): void {
-    // Refresh changed/unknown audio fingerprints and explicit sidecar intent.
-    // Ordinary reads leave a verified fingerprint intact and stay on the fast
-    // path. Tag-write suppression delays only this metadata decision.
-    let suppressionRetryDelay = Infinity
-    const refreshCandidates = knownEntries.filter((entry) => {
-      if (!this.isRefreshSuppressed(entry.eventPath)) return true
-      this.state.pendingFilePaths.set(entry.eventPath, Date.now())
-      suppressionRetryDelay = Math.min(
-        suppressionRetryDelay,
-        this.state.suppressRefreshUntil.get(normalizeAudioFilePath(entry.eventPath))! - Date.now(),
-      )
-      return false
-    })
-    if (Number.isFinite(suppressionRetryDelay) && !this.context.hasScheduledFlush()) {
-      this.context.scheduleFlush(Math.max(1, suppressionRetryDelay))
-    }
+    const refreshCandidates = knownEntries
     const fingerprints = this.context.trackRepository.getFileFingerprintsByFilePaths(
       refreshCandidates.map((entry) => entry.resolvedPath),
     )
@@ -272,19 +242,6 @@ export class MetadataWatchBatch {
     return this.context.trackRepository.adoptPlaybackPath(id, stored, filePath)
       ? [filePath]
       : [stored]
-  }
-
-  private isRefreshSuppressed(filePath: string): boolean {
-    const normalizedPath = normalizeAudioFilePath(filePath)
-    const until = this.state.suppressRefreshUntil.get(normalizedPath)
-    if (until === undefined) {
-      return false
-    }
-    if (Date.now() >= until) {
-      this.state.suppressRefreshUntil.delete(normalizedPath)
-      return false
-    }
-    return true
   }
 
   private requeuePaths(filePaths: string[]): void {

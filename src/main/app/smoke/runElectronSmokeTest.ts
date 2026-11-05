@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createWindow } from '../createWindow'
 import { runSidebarSmokeChecks } from './runSidebarSmokeChecks'
+import { runMetadataReadOnlySmokeChecks } from './runMetadataReadOnlySmokeChecks'
 
 interface SmokeCheck {
   name: string
@@ -923,6 +924,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       wav.write('data', 36)
       wav.writeUInt32LE(samples * 2, 40)
       await writeFile(join(musicFolder, 'Initial Smoke.wav'), wav)
+      await writeFile(join(musicFolder, 'Initial Smoke.lrc'), '[00:00.01]繁體歌詞\n')
 
       const originalShowOpenDialog = Object.getOwnPropertyDescriptor(dialog, 'showOpenDialog')
       Object.defineProperty(dialog, 'showOpenDialog', {
@@ -963,6 +965,10 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         else Reflect.deleteProperty(dialog, 'showOpenDialog')
       }
     })
+
+    await record('read-only metadata menus, lyrics, refresh and source files', () =>
+      runMetadataReadOnlySmokeChecks(mainWindow),
+    )
 
     await record('no main-frame load or renderer failure occurred', () => {
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))

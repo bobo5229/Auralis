@@ -188,7 +188,6 @@ it('refreshes directory artwork on real active filesystem events while the audio
     { list: () => [{ path: f.root }] } as unknown as LibraryRootRepository,
     f.tracks,
     {
-      isWritingFile: () => false,
       refreshTracksFromFileChanges: (ids: number[]) => {
         const operation = (async () => {
           for (const id of ids)

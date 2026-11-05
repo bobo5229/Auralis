@@ -5,7 +5,7 @@ import type { ChineseScript } from '@renderer/features/appearance/utils/chineseT
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 
 type CloseReason = 'escape' | 'tab' | 'outside' | 'focusout' | 'scroll' | 'position-error'
-type MenuItemKey = 'script' | 'edit'
+type MenuItemKey = 'script'
 
 const props = withDefaults(
   defineProps<{
@@ -13,26 +13,21 @@ const props = withDefaults(
     anchor: { clientX: number; clientY: number }
     currentScript: ChineseScript
     id?: string
-    showEditLyrics?: boolean
   }>(),
-  { id: 'fullscreen-lyrics-context-menu', showEditLyrics: false },
+  { id: 'fullscreen-lyrics-context-menu' },
 )
 
 const emit = defineEmits<{
   select: [script: ChineseScript]
-  editLyrics: []
   close: [reason: CloseReason]
 }>()
 
 const { t } = useI18n()
 const menuRef = ref<HTMLElement | null>(null)
 const toggleRef = ref<HTMLButtonElement | null>(null)
-const editRef = ref<HTMLButtonElement | null>(null)
 const activeIndex = ref(0)
 
-const items = computed<MenuItemKey[]>(() =>
-  props.showEditLyrics ? ['script', 'edit'] : ['script'],
-)
+const items: readonly MenuItemKey[] = ['script']
 
 const targetScript = computed<ChineseScript>(() =>
   props.currentScript === 'simplified' ? 'traditional' : 'simplified',
@@ -42,15 +37,14 @@ let tabCloseTimer: ReturnType<typeof setTimeout> | null = null
 let closeRequested = false
 
 function getItemElement(index: number): HTMLButtonElement | null {
-  const key = items.value[index]
+  const key = items[index]
   if (key === 'script') return toggleRef.value
-  if (key === 'edit') return editRef.value
   return null
 }
 
 function focusItem(index: number): void {
-  if (items.value.length === 0) return
-  const clamped = (index + items.value.length) % items.value.length
+  if (items.length === 0) return
+  const clamped = (index + items.length) % items.length
   activeIndex.value = clamped
   void nextTick(() => getItemElement(clamped)?.focus({ preventScroll: true }))
 }
@@ -67,10 +61,6 @@ function requestClose(reason: CloseReason): void {
 
 function select(script: ChineseScript): void {
   emit('select', script)
-}
-
-function triggerEditLyrics(): void {
-  emit('editLyrics')
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -95,17 +85,15 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'End') {
     event.preventDefault()
     event.stopPropagation()
-    focusItem(items.value.length - 1)
+    focusItem(items.length - 1)
     return
   }
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     event.stopPropagation()
-    const activeKey = items.value[activeIndex.value]
+    const activeKey = items[activeIndex.value]
     if (activeKey === 'script') {
       select(targetScript.value)
-    } else if (activeKey === 'edit') {
-      triggerEditLyrics()
     }
     return
   }
@@ -223,23 +211,6 @@ onBeforeUnmount(() => {
         t(`fullscreen.lyricsContextMenu.${targetScript}`)
       }}</span>
     </button>
-    <template v-if="showEditLyrics">
-      <div class="library-context-menu-separator" role="separator" />
-      <button
-        ref="editRef"
-        type="button"
-        class="library-context-menu-item"
-        role="menuitem"
-        tabindex="0"
-        @click="triggerEditLyrics"
-        @mouseenter="activeIndex = 1"
-      >
-        <span class="i-lucide-pencil" aria-hidden="true" />
-        <span class="library-context-menu-text">{{
-          t('fullscreen.lyricsContextMenu.editLyrics')
-        }}</span>
-      </button>
-    </template>
   </div>
 </template>
 

@@ -25,8 +25,6 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
   ipcChannels.metadata.refreshProgress,
-  ipcChannels.metadata.albumEditProgress,
-  ipcChannels.metadata.trackEditStateChanged,
   ipcChannels.window.maximizedChanged,
   ipcChannels.window.visibilityChanged,
 ])
@@ -117,8 +115,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(87)
-    expect(kinds).toEqual({ void: 24, optional: 6, required: 57 })
+    expect(actualChannels).toHaveLength(71)
+    expect(kinds).toEqual({ void: 23, optional: 6, required: 42 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -269,68 +267,6 @@ describe('IPC schema security and resource compatibility', () => {
 })
 
 describe('domain IPC payload validation behavior', () => {
-  it('bounds editor numbering and artwork operations and never accepts caller-supplied paths or raw images', () => {
-    const valid = {
-      trackId: 1,
-      editToken: 'token',
-      changes: { trackNo: 65535, trackTotal: 65535, discNo: null, composer: 'A; B' },
-      artworkChanges: [{ kind: 'replace', index: 0, imageToken: 'image-token' }],
-      legacyAction: 'apply-merged',
-    }
-    expect(parse('metadata:update-track-metadata', valid)).toBe(valid)
-    for (const value of [0, -1, 65536, 1.5, '2'])
-      expect(() =>
-        parse('metadata:update-track-metadata', { ...valid, changes: { trackNo: value } }),
-      ).toThrow()
-    for (const artworkChanges of [
-      [{ kind: 'replace', index: -1, imageToken: 'token' }],
-      [{ kind: 'add', path: 'C:/private.png' }],
-      [{ kind: 'add', imageToken: 'token', data: new Uint8Array(4) }],
-      Array.from({ length: 17 }, () => ({ kind: 'add', imageToken: 'token' })),
-    ])
-      expect(() => parse('metadata:update-track-metadata', { ...valid, artworkChanges })).toThrow()
-    expect(() =>
-      parse('metadata:import-artwork-edit', {
-        trackId: 1,
-        editToken: 'token',
-        path: 'C:/private.png',
-      }),
-    ).toThrow()
-    expect(() =>
-      parse('metadata:prepare-album-edit', {
-        album: { title: 'Album', artist: 'Artist' },
-        trackIds: [1, 2],
-      }),
-    ).toThrow()
-    let calls = 0
-    const accessor = Object.defineProperty({ imageToken: 'token' }, 'kind', {
-      enumerable: true,
-      get() {
-        calls++
-        return 'add'
-      },
-    })
-    expect(() =>
-      parse('metadata:update-track-metadata', { ...valid, artworkChanges: [accessor] }),
-    ).toThrow()
-    expect(calls).toBe(0)
-  })
-  it('requires an edit token and restricts patches to editable tag fields', () => {
-    const request = {
-      trackId: 1,
-      editToken: 'token',
-      changes: { title: null, artistDisplay: 'AC/DC; B' },
-    }
-    expect(parse('metadata:update-track-metadata', request)).toBe(request)
-    for (const changes of [
-      { year: 2026 },
-      { lyricsText: 'private' },
-      { filePath: 'C:/secret.flac' },
-      { title: 42 },
-    ])
-      expect(() => parse('metadata:update-track-metadata', { ...request, changes })).toThrow()
-    expect(() => parse('metadata:update-track-metadata', { trackId: 1, changes: {} })).toThrow()
-  })
   it('accepts a bounded spectrum subscription and rejects paths and decoder options', () => {
     const request = {
       subscriptionId: 1,
@@ -466,20 +402,6 @@ describe('domain IPC payload validation behavior', () => {
       }),
     ).toBeTruthy()
     expect(
-      parse('metadata:update-track-metadata', {
-        trackId: 42,
-        editToken: 'test-token',
-        changes: {
-          title: 'Title',
-          artistDisplay: null,
-          albumTitle: 'Album',
-          albumArtistDisplay: 'Artist',
-          genreDisplay: 'Genre',
-          releaseDate: '2026-08-24',
-        },
-      }),
-    ).toBeTruthy()
-    expect(
       parse('playback:record-effective-play', {
         trackId: 42,
         sessionId: 'session-42',
@@ -507,8 +429,6 @@ describe('domain IPC payload validation behavior', () => {
     ['library:start-scan', { rootId: 0 }],
     ['library:cancel-scan', { jobId: Number.NaN }],
     ['lyrics:get-by-track-id', { trackId: Number.POSITIVE_INFINITY }],
-    ['lyrics:open-lrc-editor', { trackId: 1, filePath: 'C:/untrusted/song.flac' }],
-    ['lyrics:close-lrc-editor', { sessionId: 'too-short' }],
     ['library:get-track-page', { limit: 5_001 }],
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
@@ -561,16 +481,6 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/invalid item count/)
   })
 
-  it('accepts structurally valid metadata dates without calendar checks', () => {
-    expect(
-      parse('metadata:update-track-metadata', {
-        trackId: 42,
-        editToken: 'test-token',
-        changes: { releaseDate: '2026-02-30' },
-      }),
-    ).toBeTruthy()
-  })
-
   it('keeps smart-playlist resource and enum-shape checks without business pairing', () => {
     expect(parse('smart-playlists:create', { name: 'Empty rule', rule: {} })).toBeTruthy()
     expect(
@@ -611,9 +521,12 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/depth limit/)
   })
 
-  it('does not register TTML editing channels', () => {
+  it('does not register lyrics editing channels', () => {
     const registered = Object.values(ipcChannels.lyrics)
     for (const channel of [
+      'lyrics:open-lrc-editor',
+      'lyrics:save-lrc-editor',
+      'lyrics:close-lrc-editor',
       'lyrics:open-editor',
       'lyrics:close-editor',
       'lyrics:save-editor',
@@ -622,25 +535,6 @@ describe('domain IPC payload validation behavior', () => {
       'lyrics:replace-editor-line-text',
     ])
       expect(registered).not.toContain(channel)
-  })
-
-  it('bounds LRC text saves and rejects arbitrary destinations or extra file paths', () => {
-    const request = {
-      sessionId: '00000000-0000-4000-8000-000000000001',
-      expectedRevision: 'a'.repeat(64),
-      text: '[00:01.00]Line',
-      target: 'tag',
-    }
-    expect(parse('lyrics:save-lrc-editor', request)).toBeTruthy()
-    expect(parse('lyrics:save-lrc-editor', { ...request, target: 'file' })).toBeTruthy()
-    expect(() => parse('lyrics:save-lrc-editor', { ...request, target: 'ttml' })).toThrow()
-    expect(() => parse('lyrics:save-lrc-editor', { ...request, target: 'chorus' })).toThrow()
-    expect(() =>
-      parse('lyrics:save-lrc-editor', { ...request, filePath: 'arbitrary.flac' }),
-    ).toThrow()
-    expect(() =>
-      parse('lyrics:save-lrc-editor', { ...request, text: 'x'.repeat(128 * 1024 + 1) }),
-    ).toThrow()
   })
 
   it('rejects extra invoke arguments and never reflects sensitive payload values', () => {

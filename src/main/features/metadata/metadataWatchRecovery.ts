@@ -72,7 +72,7 @@ export class MetadataWatchRecovery {
     let needsRetry = false
     try {
       // Install the new watcher first, then reconcile the gap. Reuse the normal
-      // fingerprint, tag-write suppression, import and missing-confirmation paths.
+      // fingerprint, import and missing-confirmation paths.
       const files = await collectAudioFiles(
         root,
         (directory) => {

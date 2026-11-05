@@ -11,7 +11,7 @@ import type {
   LibraryRevealFeedback,
   LibraryRevealRequest,
 } from '../types/libraryInteraction'
-import type { LibraryMetadataFocusTarget } from './useLibraryMetadataEditor'
+import type { LibraryFocusTarget } from '../types/libraryInteraction'
 
 export function useLibraryContextMenu(options: {
   tracks: { readonly value: TrackListItem[] }
@@ -30,10 +30,8 @@ export function useLibraryContextMenu(options: {
   insertTrackAfterCurrent: (track: TrackListItem) => void
   insertTracksAfterCurrent: (tracks: TrackListItem[]) => void
   scrollToTrackById: (trackId: number) => Promise<void>
-  openMetadataEditor: (trackId: number) => void | Promise<void>
-  setMetadataReturnTarget: (target: LibraryMetadataFocusTarget) => void
-  setViewSwitchReturnTarget: (target: LibraryMetadataFocusTarget) => void
-  restoreFocus: (target: LibraryMetadataFocusTarget, scroll: boolean) => Promise<void>
+  setViewSwitchReturnTarget: (target: LibraryFocusTarget) => void
+  restoreFocus: (target: LibraryFocusTarget, scroll: boolean) => Promise<void>
   t: (key: string, values?: Record<string, unknown>) => string
   listSidebarItems: () => Promise<SidebarPlaylistItem[]>
   createPlaylist: () => Promise<{ id: number; name: string }>
@@ -126,7 +124,7 @@ export function useLibraryContextMenu(options: {
     revealInFlight = false
   }
 
-  function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
+  function closeContextMenu(handoffTarget?: 'view-switch'): void {
     clearAddToPlaylistFeedback()
     invalidateReveal()
     playlistOperationRevision++
@@ -135,7 +133,7 @@ export function useLibraryContextMenu(options: {
     isCreatingPlaylistFromMenu.value = false
     if (!contextMenu.value) return
 
-    const target: LibraryMetadataFocusTarget = {
+    const target: LibraryFocusTarget = {
       trackId: contextMenu.value.trackId,
       source: contextMenu.value.source,
       openReason: contextMenu.value.anchor.openReason,
@@ -143,9 +141,7 @@ export function useLibraryContextMenu(options: {
 
     contextMenu.value = null
 
-    if (handoffTarget === 'metadata-dialog') {
-      options.setMetadataReturnTarget(target)
-    } else if (handoffTarget === 'view-switch') {
+    if (handoffTarget === 'view-switch') {
       options.setViewSwitchReturnTarget(target)
     } else {
       void options.restoreFocus(target, target.openReason !== 'pointer')
@@ -275,13 +271,6 @@ export function useLibraryContextMenu(options: {
     } else {
       onInsertAfterCurrent(contextMenu.value.trackId)
     }
-  }
-
-  function onEditMetadataFromContextMenu(): void {
-    if (!contextMenu.value) return
-    const trackId = contextMenu.value.trackId
-    closeContextMenu('metadata-dialog')
-    void options.openMetadataEditor(trackId)
   }
 
   async function onLocateCurrentTrack(): Promise<void> {
@@ -457,7 +446,6 @@ export function useLibraryContextMenu(options: {
     onOpenAlbumArtworkContextMenu,
     onContextMenuPlay,
     onContextMenuInsert,
-    onEditMetadataFromContextMenu,
     onLocateCurrentTrack,
     onAddContextTracksToPlaylist,
     onCreatePlaylistAndAddContextTracks,

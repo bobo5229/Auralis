@@ -1,10 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from 'vue'
-import {
-  provideAlbumMetadataEditor,
-  type AlbumMetadataEditorRequest,
-} from './shared/albumMetadataEditor'
-import AlbumMetadataEditDialog from './features/library/components/AlbumMetadataEditDialog.vue'
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import './app/styles/cdCanvasTransition.css'
@@ -16,7 +11,6 @@ import { useThemeTransition } from './app/layout/useThemeTransition'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
-import TrackEditorDialog from './app/layout/TrackEditorDialog.vue'
 import PageParameterPanel from './app/layout/PageParameterPanel.vue'
 import CdViewSwitch from './features/albums/components/CdViewSwitch.vue'
 import { provideCdViewSwitchVisibility } from './features/albums/composables/useCdViewSwitchVisibility'
@@ -42,12 +36,6 @@ const {
   shown: startupAlbumShown,
   close: closeStartupAlbum,
 } = useStartupAlbum()
-const albumEditRequest = ref<AlbumMetadataEditorRequest | null>(null)
-provideAlbumMetadataEditor({
-  open: (request) => {
-    if (!isTrackEditorOpen.value) albumEditRequest.value = request
-  },
-})
 const route = useRoute()
 const detailArtworkKey = ref<string | null>(null)
 const detailAnchors = ref<AlbumColorAnchor[]>([])
@@ -148,23 +136,7 @@ useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
 const { sidebarCollapsed } = useSidebarLayout()
 
-const {
-  isSettingsOpen,
-  isTrackEditorOpen,
-  trackEditorRef,
-  trackEditorRequest,
-  closeTrackEditor,
-  openLyricsEditPanel,
-  pageParameters,
-} = useAppOverlays(route, displayMode, startupAlbumActive, () => {
-  albumEditRequest.value = null
-})
-watch(isSettingsOpen, (open) => {
-  if (open) albumEditRequest.value = null
-})
-watch(displayMode, (mode) => {
-  if (mode === 'fullscreen') albumEditRequest.value = null
-})
+const { isSettingsOpen, pageParameters } = useAppOverlays(route, displayMode, startupAlbumActive)
 const shellRef = ref<HTMLElement | null>(null)
 useThemeTransition(shellRef, () => route.fullPath)
 watch(shellRef, (shell, _previous, onCleanup) => {
@@ -235,7 +207,6 @@ const {
   mainRef,
   displayMode,
   isSettingsOpen,
-  isTrackEditorOpen,
   startupAlbumActive,
   pageParameters,
   prepareForDisplay: () => nowPlayingPanelRef.value?.prepareForDisplay(),
@@ -444,20 +415,12 @@ onBeforeUnmount(cancelLateColorTransition)
         @resize-pointer-down="onLyricsWidthPointerDown"
         @resize-key-down="onLyricsWidthKeyDown"
         @reset-width="resetLyricsWidth"
-        @edit-lyrics="openLyricsEditPanel"
       />
       <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />
   </div>
   <SettingsDialog />
-  <AlbumMetadataEditDialog
-    :request="albumEditRequest"
-    :show-return-button="!isTrackEditorOpen && !isSettingsOpen && displayMode === 'normal'"
-    @close="albumEditRequest = null"
-    @reopen="albumEditRequest = {}"
-  />
-  <TrackEditorDialog ref="trackEditorRef" :request="trackEditorRequest" @close="closeTrackEditor" />
   <component
     :is="startupAlbumOverlay"
     v-if="startupAlbumOverlay && startupAlbumPresentation"

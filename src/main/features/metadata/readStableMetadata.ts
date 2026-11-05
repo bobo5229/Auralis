@@ -1,5 +1,4 @@
 import { stat } from 'node:fs/promises'
-import type { IAudioMetadata } from 'music-metadata'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { getMetadataParserVersion } from './metadataParserVersion'
 import {
@@ -51,7 +50,6 @@ export async function readStableMetadata(
   trackId: number,
   filePath: string,
   artworkCacheDir: string,
-  verifyTags?: (metadata: IAudioMetadata) => void,
 ): Promise<StableTrackMetadata> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -72,9 +70,6 @@ export async function readStableMetadata(
         ...fingerprint,
         directoryArtworkFingerprint: artwork.directoryArtworkFingerprint,
       })
-      // User edits verify the parsed tags locally; refresh results only carry
-      // fields consumed by the repository, without serialized tag snapshots.
-      verifyTags?.(metadata)
       return {
         ...normalized,
         metadataParserVersion: getMetadataParserVersion(filePath),

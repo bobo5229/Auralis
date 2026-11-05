@@ -314,8 +314,7 @@ export class MetadataTrackWriter {
         fingerprint.fileMtimeMs !== result.fileMtimeMs
       ) {
         // The worker already read full tags: an audio change must not be consumed as lyrics-only.
-        this.updateTrackMetadata(result)
-        return
+        throw new Error('Audio fingerprint changed during lyrics-only refresh')
       }
       this.db
         .prepare(

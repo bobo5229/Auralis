@@ -3,18 +3,6 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
   'app:shutdown-ready': { ok: true },
-  'metadata:prepare-album-edit': { album: { title: 'Album', artist: 'Artist' } },
-  'metadata:preview-album-edit': {
-    taskId: 'task',
-    operations: { albumTitle: { mode: 'replace', value: 'Album' } },
-    skipBlocked: false,
-  },
-  'metadata:start-album-edit': { taskId: 'task' },
-  'metadata:cancel-album-edit': { taskId: 'task' },
-  'metadata:release-album-edit': { taskId: 'task' },
-  'metadata:get-artwork-edit': { trackId: 1, editToken: 'token' },
-  'metadata:import-artwork-edit': { trackId: 1, editToken: 'token' },
-  'metadata:release-edit': { editToken: 'token' },
   'playback:record-listening-progress': {
     epoch: 0,
     sessionId: 'session',
@@ -66,14 +54,6 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     ],
   },
   'lyrics:get-by-track-id': { trackId: 1 },
-  'lyrics:open-lrc-editor': { trackId: 1 },
-  'lyrics:save-lrc-editor': {
-    sessionId: '00000000-0000-4000-8000-000000000001',
-    expectedRevision: 'a'.repeat(64),
-    text: '[00:01.00]Lyrics',
-    target: 'file',
-  },
-  'lyrics:close-lrc-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
   'playback:get-track': { trackId: 1 },
   'playback:get-audio-url': { trackId: 1 },
   'playback:spectrum-subscribe': {
@@ -106,21 +86,6 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'metadata:refresh-lyrics-missing': { limit: 100 },
   'metadata:get-refresh-status': { jobId: 1 },
   'metadata:list-refresh-failures': { limit: 100 },
-  'metadata:get-track-metadata': { trackId: 1 },
-  'metadata:get-track-edit-snapshot': { trackId: 1 },
-  'metadata:get-track-edit-state': { trackId: 1 },
-  'metadata:update-track-metadata': {
-    trackId: 1,
-    editToken: 'test-token',
-    changes: {
-      title: 'Title',
-      artistDisplay: null,
-      albumTitle: 'Album',
-      albumArtistDisplay: 'Artist',
-      genreDisplay: 'Genre',
-      releaseDate: '2026-10',
-    },
-  },
   'window:control': { action: 'close' },
   'window:set-close-behavior': { behavior: 'tray' },
 }

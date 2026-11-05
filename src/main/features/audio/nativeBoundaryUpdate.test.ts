@@ -29,7 +29,6 @@ function setup() {
     end: 'none',
     loaded: true,
     duration: 120,
-    decodeOffset: 0,
     enteringNext: false,
     current: true,
     before: (async () => {}) as (command: Command) => Promise<void>,
@@ -163,21 +162,17 @@ describe('NativeBoundaryUpdater playlist transactions', () => {
     })
   })
 
-  it.each(['silence', 'soft'] as const)(
-    'applies %s with a nonzero decoder offset',
-    async (kind) => {
-      const t = setup()
-      t.state.decodeOffset = 10
-      await expect(t.run(kind)).resolves.toBe(kind === 'silence' ? 'applied' : true)
-      expect(t.state.end).toBe('109')
-      expect(t.state.playlist).toEqual(
-        kind === 'silence'
-          ? [ordinary()[0], { path: 'b.flac', start: '0.1' }]
-          : [ordinary()[0], { path: 'bridge.wav', start: '0' }, { path: 'b.flac', start: '1.1' }],
-      )
-      t.idle()
-    },
-  )
+  it.each(['silence', 'soft'] as const)('applies %s at the outgoing boundary', async (kind) => {
+    const t = setup()
+    await expect(t.run(kind)).resolves.toBe(kind === 'silence' ? 'applied' : true)
+    expect(t.state.end).toBe('119')
+    expect(t.state.playlist).toEqual(
+      kind === 'silence'
+        ? [ordinary()[0], { path: 'b.flac', start: '0.1' }]
+        : [ordinary()[0], { path: 'bridge.wav', start: '0' }, { path: 'b.flac', start: '1.1' }],
+    )
+    t.idle()
+  })
 
   it('trims only the incoming head without setting the outgoing end', async () => {
     const t = setup()
@@ -191,12 +186,11 @@ describe('NativeBoundaryUpdater playlist transactions', () => {
 
   it.each(['silence', 'soft'] as const)('keeps the two-second margin for %s', async (kind) => {
     const t = setup()
-    t.state.time = 107.01
-    t.state.decodeOffset = 10
+    t.state.time = 117.01
     await expect(t.run(kind)).resolves.toBe(kind === 'silence' ? 'too-late' : false)
     expect(t.state.playlist).toEqual(ordinary())
     expect(t.state.end).toBe('none')
-    t.state.time = 107
+    t.state.time = 117
     await expect(t.run(kind)).resolves.toBe(kind === 'silence' ? 'applied' : true)
     t.idle()
   })

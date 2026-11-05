@@ -1,20 +1,14 @@
-import { LEGACY_TAG_FIELDS } from '@shared/utils/metadataEditRequest'
 import type Database from 'better-sqlite3'
 import { parse } from 'node:path'
 import type { FileTagValues, FileMetadataSnapshot } from '@shared/types/trackMetadata'
 import { commitArtworkProjection, type ArtworkAlbumIdentity } from './trackArtworkProjection'
-import { canonicalizeDelimitedValues, splitDelimitedValues } from '@shared/utils/delimitedValues'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
 
-/** One transaction-local projection shared by scan, refresh, relocation and verified edits. */
+/** One transaction-local projection shared by scan, refresh and relocation. */
 export function prepareFileMetadataProjection(db: Database.Database) {
   const raw = db.prepare(`UPDATE tracks SET title=?, artist=?, album=?, album_artist=?,
     genre=?, year=?, release_date=?, title_fallback=? WHERE id=?`)
-  const existing =
-    db.prepare(`SELECT title,artist_display AS artistDisplay,album_title AS albumTitle,
-    album_artist_display AS albumArtistDisplay,genre_display AS genreDisplay,year,
-    release_date AS releaseDate,override_mask AS mask FROM track_metadata
-    WHERE track_id=? AND source='legacy_user_edit'`)
   const release = db.prepare(
     `UPDATE track_metadata SET source='file_tag',override_mask=0 WHERE track_id=?`,
   )
@@ -77,20 +71,9 @@ export function prepareFileMetadataProjection(db: Database.Database) {
         db.prepare(
           `UPDATE tracks SET ${included.map((key) => columns[key] + '=?').join(',')} WHERE id=?`,
         ).run(...included.map((key) => tags[key] ?? null), trackId)
-      const legacy = existing.get(trackId) as (FileTagValues & { mask: number }) | undefined
-      // Old overrides have no field-level history. Release only a complete, exact semantic match.
-      if (
-        legacy &&
-        LEGACY_TAG_FIELDS.every((key) => {
-          const left = legacy[key],
-            right = tags[key]
-          return ['artistDisplay', 'albumArtistDisplay', 'genreDisplay'].includes(key)
-            ? canonicalizeDelimitedValues(left as string | null) ===
-                canonicalizeDelimitedValues(right as string | null)
-            : left === right
-        })
-      )
-        release.run(trackId)
+      // A complete stable file read replaces historical display overrides.
+      release.run(trackId)
+      db.prepare('DELETE FROM pending_tag_recovery_refresh WHERE track_id=?').run(trackId)
     }
     sync.run(trackId)
     const row = effective.get(trackId) as

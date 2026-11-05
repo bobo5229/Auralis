@@ -54,3 +54,9 @@ export interface LibraryContextMenuProps {
   playlistLoadError: string | null
   creatingPlaylist: boolean
 }
+
+export interface LibraryFocusTarget {
+  trackId: number
+  source: LibraryContextMenuSource
+  openReason?: 'pointer' | 'keyboard'
+}

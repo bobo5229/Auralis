@@ -19,68 +19,6 @@
     "saturationBrightnessValue": "饱和度：{saturation}%，明度：{brightness}%",
     "presetListLabel": "选择要应用的预设颜色"
   },
-  "trackEditor": {
-    "title": "编辑歌曲",
-    "metadata": "歌曲信息",
-    "lyrics": "歌词",
-    "conflict": "文件内容已变化，草稿已保留。请先保留草稿，再关闭并重新打开编辑。",
-    "unsavedPages": "尚未保存：{pages}。请返回对应页面保存。",
-    "discardAll": "放弃全部修改"
-  },
-  "lyricsEditor": {
-    "title": "编辑歌词",
-    "unknownTitle": "未知曲目",
-    "unknownArtist": "未知歌手",
-    "unsaved": "未保存",
-    "noChanges": "未修改",
-    "lineNumber": "第 {number} 行",
-    "lineTimingHint": "时间调整作用于当前整行。",
-    "playLine": "从本行播放",
-    "playLineHint": "从本行时间开始播放，并继续播放后续内容。",
-    "noLineTime": "当前行没有可播放的有效时间。",
-    "playbackMismatch": "正在播放其他曲目，试听和打点不可用。",
-    "tagTtmlProtected": "音频中含有内嵌 TTML，不能保存到歌曲标签；可另存为 LRC 文件。",
-    "close": "关闭歌词编辑",
-    "updateTime": "更新时间",
-    "insertTime": "插入时间",
-    "earlier": "−0.1 秒",
-    "later": "+0.1 秒",
-    "updateTimeTooltip": "用当前播放时间更新本行时间戳",
-    "insertTimeTooltip": "在本行插入当前播放时间",
-    "earlierTooltip": "本行时间提前 0.1 秒",
-    "laterTooltip": "本行时间延后 0.1 秒",
-    "enhancedShiftHint": "整行调时将同步移动行内时间。",
-    "enhancedManualHint": "本行时间标记存在歧义或错误，请在原文中编辑。",
-    "cannotShift": "无法整体移动到该时间，歌词内容未修改。",
-    "undo": "撤销",
-    "redo": "重做",
-    "play": "播放",
-    "pause": "暂停",
-    "position": "播放位置",
-    "text": "LRC 文本",
-    "loading": "正在载入歌词…",
-    "reload": "重新载入",
-    "tag": "保存到歌曲标签",
-    "file": "保存为 LRC 文件",
-    "save": "保存",
-    "saving": "正在保存…",
-    "saved": "已保存",
-    "cachePending": "歌词已写入，播放器缓存尚未更新。",
-    "writeWarning": "歌词已写入，但播放恢复或缓存更新未完成。请检查播放状态。",
-    "otherSource": "已保存，播放器仍使用更高优先级的歌词来源。",
-    "saveChanges": "保存歌词修改？",
-    "continue": "继续编辑",
-    "discard": "放弃修改",
-    "saveClose": "保存并关闭",
-    "errors": {
-      "unsupportedDocument": "歌词内容超出编辑限制。",
-      "lrcOnly": "仅支持编辑 LRC 或纯文本歌词。",
-      "changed": "文件已变化或编辑会话已过期。请保留编辑内容，关闭后重新载入。",
-      "busy": "歌曲正在写入，请稍后重试。",
-      "unavailable": "歌曲不可用，无法载入歌词。",
-      "failed": "歌词操作未完成，编辑内容已保留。请重试；若有恢复备份，请保留该文件。"
-    }
-  },
   "dialog": {
     "close": "关闭面板"
   },
@@ -750,7 +688,6 @@
       "label": "歌词显示",
       "simplified": "切换为简体中文",
       "traditional": "切换为繁体中文",
-      "editLyrics": "编辑歌词",
       "persistFailed": "本次切换已生效，保存失败，重启后可能恢复"
     }
   },
@@ -858,9 +795,11 @@
     },
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
-      "placeholder": "搜索专辑、专辑艺术家",
+      "placeholder": "输入专辑名或专辑艺术家的开头",
+      "locateHint": "Enter 定位",
+      "clear": "清除搜索",
       "matched": "{index} / {total}",
-      "wrapped": "已回到开头（{index} / {total}）",
+      "wrapped": "已回到开头",
       "notFound": "未找到匹配专辑"
     },
     "contextMenu": {
@@ -887,7 +826,31 @@
   "library": {
     "playCount": "{count} 次",
     "recentAdded": {
-      "empty": "还没有添加音乐"
+      "empty": "还没有添加音乐",
+      "carousel": "最近添加的专辑",
+      "carouselRole": "轮播",
+      "previous": "上一张专辑",
+      "next": "下一张专辑",
+      "pause": "暂停自动轮播",
+      "resume": "继续自动轮播",
+      "collectionDescription": "让新收藏的音乐，慢慢进入日常。",
+      "collectionTitle": "收藏足迹",
+      "albumCount": "{count} 张专辑",
+      "heroEyebrow": "新近收藏",
+      "playAlbum": "播放专辑",
+      "previewTracks": "浏览曲目",
+      "inspectAlbum": "浏览专辑 {title} 的曲目",
+      "tracks": "{count} 首歌曲",
+      "days": "近 {count} 天",
+      "undated": "更早的收藏",
+      "search": "搜索专辑或艺人",
+      "noSearchResults": "没有找到匹配的专辑",
+      "clearSearch": "清除搜索",
+      "closePreview": "收起曲目",
+      "fullAlbum": "查看完整专辑",
+      "loadMore": "继续浏览更早的收藏",
+      "emptyRange": "这段时间还没有新加入的专辑。",
+      "actionError": "操作未完成，请重试。"
     },
     "columns": {
       "artwork": "封面",
@@ -917,7 +880,6 @@
       "insertAlbum": "接下来播放专辑「{album}」",
       "addToPlaylist": "添加到歌单",
       "createPlaylist": "新建歌单",
-      "editMetadata": "编辑元数据",
       "switchToCover": "切换到专辑封面",
       "switchToFlat": "切换到曲目列表",
       "openInExplorer": "在资源管理器中打开",
@@ -936,72 +898,6 @@
       "tracksUnavailable": "未添加新歌曲，不可用的歌曲无法添加。",
       "playlistNotFound": "此歌单已删除，请选择其他歌单。",
       "playlistAddError": "添加歌曲失败，请重试。"
-    },
-    "metadataEditor": {
-      "title": "编辑元数据",
-      "fields": {
-        "title": "标题",
-        "artist": "艺术家",
-        "album": "专辑",
-        "albumArtist": "专辑艺术家",
-        "genre": "流派",
-        "releaseDate": "发行日期"
-      },
-      "placeholders": {
-        "title": "输入曲目标题",
-        "artist": "输入艺术家名称",
-        "album": "输入专辑名称",
-        "albumArtist": "输入专辑艺术家名称",
-        "genre": "输入流派",
-        "releaseDate": "例如：2024-05-20"
-      },
-      "actions": {
-        "cancel": "取消",
-        "save": "保存",
-        "saving": "正在保存…",
-        "saved": "已保存"
-      },
-      "validation": {
-        "dateInvalid": "请输入有效日期，格式为 YYYY、YYYY-MM 或 YYYY-MM-DD。"
-      },
-      "status": {
-        "checking": "正在检查编辑状态…",
-        "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
-        "preloadInUse": "歌曲已预加载，暂时无法修改元数据。",
-        "queryFailed": "无法确认编辑状态，请重试。",
-        "loading": "正在读取歌曲信息…",
-        "retry": "重试"
-      },
-      "errors": {
-        "saveFailed": "保存元数据失败",
-        "tagPreservationFailed": "保存会丢失原有标签，已取消写入。编辑内容已保留。",
-        "tagVerificationFailed": "写入结果与编辑内容不一致，保存未完成。请重新读取歌曲信息后核对。",
-        "unsupportedDatePrecision": "此格式暂不支持只包含年月的发行日期。请选择年份或完整日期。",
-        "legacyDateConflict": "已有年份与发行日期不一致。为保护原有数据，请先修改发行日期后再保存。",
-        "tagWriteFailed": "无法生成更新后的标签文件。编辑内容已保留，请重试。",
-        "fileChanged": "歌曲文件已被其他操作修改，本次保存已取消。请重新读取歌曲信息后重试。",
-        "diskFull": "磁盘空间不足，无法完成保存。请释放空间后重试。",
-        "permissionDenied": "没有文件写入权限，或文件被其他程序锁定。请检查后重试。",
-        "fileNotFound": "找不到歌曲文件，请检查文件是否已移动或删除。",
-        "loadFailed": "读取歌曲信息失败，请重试。",
-        "writeInProgress": "当前文件正在保存中，请稍候。",
-        "bufferPreparationFailed": "暂时无法在播放中保存。编辑内容已保留，请重试或切曲后保存。",
-        "fileInUse": "文件写回失败。编辑内容已保留，请检查文件占用或磁盘空间后重试。",
-        "playbackRestoreFailed": "续播恢复失败。文件可能已更新，请重新读取元数据后核对。",
-        "playbackChanged": "播放状态已改变，本次保存未完成。编辑内容已保留，请核对后重试。",
-        "metadataConflict": "文件或标签已变化。你输入的内容已保留，请重新打开并核对后保存。",
-        "legacyMetadataUnresolved": "请先选择如何处理历史保留值。"
-      },
-      "legacy": {
-        "title": "核对历史保留值",
-        "description": "曲库中保留了旧版编辑值。采用文件标签只更新曲库；写入保留值会修改音乐文件，并在成功后解除覆盖。",
-        "field": "字段",
-        "file": "文件标签",
-        "saved": "历史保留值",
-        "year": "年份",
-        "adopt": "采用文件标签",
-        "write": "将保留值写入文件"
-      }
     },
     "status": {
       "loading": "正在读取音乐资料库…",
@@ -1231,126 +1127,5 @@
     "songsList": "曲目列表",
     "songsCover": "专辑封面",
     "albums": "专辑页参数"
-  },
-  "metadataEditorExtra": {
-    "targets": "{count} 首歌曲",
-    "conflict": "文件标签已变化，你的输入已保留。读取最新标签后核对差异。",
-    "reload": "读取最新标签并核对",
-    "savedRefreshPending": "标签已保存，曲库刷新尚未完成。",
-    "retryRefresh": "仅重试刷新",
-    "choose": "请选择来源",
-    "fileValue": "最新文件值",
-    "legacyValue": "历史保留值",
-    "myValue": "我的输入",
-    "mergeLegacy": "按所选值继续编辑",
-    "chooseConflicts": "以下字段在文件和草稿中均有修改，请逐项选择。",
-    "fieldUnsupported": "此文件格式不支持编辑此字段。",
-    "multiHint": "多个艺术家、专辑艺术家、流派或作曲者请使用分号加空格分隔，例如 Artist A; Artist B。AC/DC、R&B/Soul 保持单值。",
-    "dateHint": "日期格式：YYYY、YYYY-MM 或 YYYY-MM-DD。",
-    "monthUnsupported": "此文件不支持仅年月日期，请输入年份或完整日期。",
-    "numberInvalid": "编号与总数须为 1–65535 的整数，编号不能大于总数。",
-    "numbering": "曲目与碟片",
-    "moreTags": "更多标签",
-    "reset": "重置",
-    "resetConfirm": "放弃当前输入并恢复最近保存的标签？",
-    "fields": {
-      "title": "标题",
-      "artistDisplay": "艺术家",
-      "albumTitle": "专辑",
-      "albumArtistDisplay": "专辑艺术家",
-      "genreDisplay": "流派",
-      "releaseDate": "发行日期",
-      "trackNo": "曲目号",
-      "trackTotal": "曲目总数",
-      "discNo": "碟号",
-      "discTotal": "碟片总数",
-      "composer": "作曲者",
-      "copyright": "版权",
-      "isrc": "ISRC"
-    },
-    "previousDraft": "此前未保存的输入（可选中复制）"
-  },
-  "albumMetadataEditor": {
-    "title": "编辑整张专辑",
-    "editAlbum": "编辑整张专辑",
-    "editTrack": "编辑当前曲目",
-    "viewTask": "查看专辑编辑任务",
-    "mixed": "多个不同的值",
-    "background": "关闭此面板或切换页面后，任务继续运行。取消会等待当前歌曲安全完成。",
-    "skipBlocked": "跳过不可编辑的歌曲（{count} 首）",
-    "targets": "展开 / 收起完整目标与差异",
-    "previous": "上一页",
-    "next": "下一页",
-    "cancel": "取消任务",
-    "preview": "预览修改",
-    "save": "确认并保存",
-    "retryFailed": "仅重新准备失败歌曲",
-    "prepareRequested": "重新准备所选专辑",
-    "states": {
-      "preparing": "正在读取标签",
-      "ready": "准备完成",
-      "running": "正在保存",
-      "completed": "任务完成",
-      "cancelled": "任务已取消",
-      "failed": "任务失败"
-    },
-    "itemStates": {
-      "pending": "待读取",
-      "ready": "可编辑",
-      "blocked": "不可编辑",
-      "succeeded": "成功",
-      "failed": "失败",
-      "skipped": "已跳过",
-      "unexecuted": "未执行"
-    },
-    "modes": {
-      "keep": "保持原值",
-      "replace": "替换",
-      "clear": "清空",
-      "add": "添加值",
-      "remove": "移除值"
-    },
-    "errors": {
-      "busy": "已有编辑任务，请先完成或释放。",
-      "too-many-tracks": "超过 5000 首，请缩小专辑目标。",
-      "expired": "准备结果已过期，请重新准备。",
-      "not-found": "找不到目标歌曲或任务。",
-      "blocked": "请先处理不可编辑曲目，或明确选择跳过。",
-      "invalid": "操作未完成，请核对输入后重试。"
-    }
-  },
-  "metadataArtwork": {
-    "title": "内嵌封面",
-    "manage": "管理内嵌封面",
-    "currentHint": "此处管理文件中的内嵌图片。点击顶部封面即可打开。",
-    "pending": "以下图片修改将在保存歌曲信息时写入文件。",
-    "loading": "正在读取图片…",
-    "fallback": "移除最后一张图片后的回退来源：",
-    "sources": {
-      "directory": "目录 cover.jpg",
-      "album": "同专辑的可用封面",
-      "none": "无封面"
-    },
-    "add": "添加图片",
-    "replace": "替换所选图片",
-    "remove": "移除所选图片",
-    "discard": "放弃图片修改并重读",
-    "unsupported": "此格式暂不支持内嵌图片编辑。",
-    "confirmRemove": "确认移除所选内嵌图片？其他图片将保留。",
-    "stale": "文件已变化。图片修改仍保留供核对，请重新导入图片后保存。",
-    "undo": "取消此操作",
-    "operations": {
-      "add": "将添加图片",
-      "replace": "将替换图片",
-      "remove": "将移除图片"
-    },
-    "errors": {
-      "metadata-conflict": "文件已变化，请重读最新标签。",
-      "unsupported-format": "此格式不支持图片编辑。",
-      "invalid-image": "请选择有效的 JPEG 或 PNG 图片。",
-      "image-too-large": "图片须不超过 20 MiB 和 4000 万像素。",
-      "limit-exceeded": "图片或未释放的导入数量超出限制，请关闭后重新打开编辑器。",
-      "unavailable": "图片操作未完成，请重试。"
-    }
   }
 }

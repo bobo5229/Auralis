@@ -62,8 +62,6 @@ function createMenu(splitAlbum = false) {
   const insertTrackAfterCurrent = vi.fn()
   const insertTracksAfterCurrent = vi.fn()
   const scrollToTrackById = vi.fn(async () => undefined)
-  const openMetadataEditor = vi.fn(async () => undefined)
-  const setMetadataReturnTarget = vi.fn()
   const setViewSwitchReturnTarget = vi.fn()
   const restoreFocus = vi.fn(async () => undefined)
   const onTrackActivated = vi.fn()
@@ -113,8 +111,6 @@ function createMenu(splitAlbum = false) {
     insertTrackAfterCurrent,
     insertTracksAfterCurrent,
     scrollToTrackById,
-    openMetadataEditor,
-    setMetadataReturnTarget,
     setViewSwitchReturnTarget,
     restoreFocus,
     t: (key, values) => (values ? `${key}:${JSON.stringify(values)}` : key),
@@ -133,8 +129,6 @@ function createMenu(splitAlbum = false) {
     insertTrackAfterCurrent,
     insertTracksAfterCurrent,
     scrollToTrackById,
-    openMetadataEditor,
-    setMetadataReturnTarget,
     setViewSwitchReturnTarget,
     restoreFocus,
     onTrackActivated,
@@ -320,7 +314,7 @@ describe('useLibraryContextMenu', () => {
   })
 
   it('restores focus when closing a keyboard menu, without metadata or view-switch handoff', () => {
-    const { menu, restoreFocus, setMetadataReturnTarget, setViewSwitchReturnTarget } = createMenu()
+    const { menu, restoreFocus, setViewSwitchReturnTarget } = createMenu()
     menu.onOpenContextMenu(1, createMouseEvent(), 'track', 'keyboard')
 
     menu.closeContextMenu()
@@ -330,7 +324,6 @@ describe('useLibraryContextMenu', () => {
       { trackId: 1, source: 'track', openReason: 'keyboard' },
       true,
     )
-    expect(setMetadataReturnTarget).not.toHaveBeenCalled()
     expect(setViewSwitchReturnTarget).not.toHaveBeenCalled()
   })
 
@@ -398,7 +391,7 @@ describe('useLibraryContextMenu', () => {
     expect(selectedTrackId.value).toBe(2)
 
     menu.onOpenContextMenu(3, createMouseEvent())
-    menu.closeContextMenu('metadata-dialog')
+    menu.closeContextMenu('view-switch')
     expect(menu.highlightedTrackId.value).toBe(2)
   })
 
@@ -425,17 +418,8 @@ describe('useLibraryContextMenu', () => {
     expect(menu.highlightedTrackId.value).toBe(2)
   })
 
-  it('hands the return target to metadata or view-switch without restoring focus', () => {
-    const { menu, restoreFocus, setMetadataReturnTarget, setViewSwitchReturnTarget } = createMenu()
-    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork', 'pointer')
-    menu.closeContextMenu('metadata-dialog')
-    expect(setMetadataReturnTarget).toHaveBeenCalledWith({
-      trackId: 1,
-      source: 'album-artwork',
-      openReason: 'pointer',
-    })
-    expect(restoreFocus).not.toHaveBeenCalled()
-
+  it('hands the return target to view-switch without restoring focus', () => {
+    const { menu, restoreFocus, setViewSwitchReturnTarget } = createMenu()
     menu.onOpenContextMenu(1, createMouseEvent(), 'track', 'keyboard')
     menu.closeContextMenu('view-switch')
     expect(setViewSwitchReturnTarget).toHaveBeenCalledWith({

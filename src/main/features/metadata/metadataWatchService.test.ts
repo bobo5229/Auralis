@@ -58,7 +58,6 @@ describe('metadata watcher shutdown', () => {
       } as unknown as TrackRepository,
       {
         refreshTracksFromFileChanges: refresh,
-        isWritingFile: () => false,
       } as unknown as MetadataRefreshService,
       { importFiles: vi.fn() } as unknown as LibraryIncrementalImportService,
       vi.fn(),
@@ -69,7 +68,7 @@ describe('metadata watcher shutdown', () => {
     expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
     await service.stop()
   })
-  it('preserves deferred availability work when tag-write suppression starts during import', async () => {
+  it('preserves deferred availability work after import completes', async () => {
     vi.useFakeTimers()
     const filePath = normalize('C:/isolated-music/track.flac')
     vi.mocked(stat)
@@ -103,6 +102,7 @@ describe('metadata watcher shutdown', () => {
         getFilePathById: () => null,
         adoptPlaybackPath: () => false,
         getFileFingerprintsByFilePaths: () => new Map(),
+        getTrackIdsByFilePaths: () => [1],
         markAvailableByFilePaths: markAvailable,
       } as unknown as TrackRepository,
       { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
@@ -114,13 +114,12 @@ describe('metadata watcher shutdown', () => {
     await vi.advanceTimersByTimeAsync(1200)
     notify('rename', 'track.flac')
     await vi.advanceTimersByTimeAsync(1200)
-    service.suppressRefreshForPath(filePath)
     getExistingFilePaths.mockReturnValue(new Set([filePath]))
     finish({ imported: [filePath], unstable: [], failed: [] })
     await vi.advanceTimersByTimeAsync(1200)
     expect(importFiles).toHaveBeenCalledOnce()
     expect(markAvailable).toHaveBeenCalledExactlyOnceWith([filePath])
-    expect(refresh).not.toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
     expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
       reason: 'track-restored',
       trackIds: [1],

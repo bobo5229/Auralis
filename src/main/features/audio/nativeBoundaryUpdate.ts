@@ -22,7 +22,6 @@ interface BoundaryUpdateDependencies {
   read(): {
     readonly loaded: boolean
     readonly duration: number
-    readonly decodeOffset: number
     readonly enteringNext: boolean
     readonly hasTransition: boolean
   }
@@ -119,8 +118,7 @@ export class NativeBoundaryUpdater {
         return (
           owns() &&
           typeof time === 'number' &&
-          prepared.outgoingEnd - time - this.dependencies.read().decodeOffset >=
-            BOUNDARY_UPDATE_MARGIN_SECONDS
+          prepared.outgoingEnd - time >= BOUNDARY_UPDATE_MARGIN_SECONDS
         )
       }
       if (!(await ready())) return false
@@ -146,11 +144,7 @@ export class NativeBoundaryUpdater {
         await client.command('playlist-remove', position + 3)
         if (!(await ready())) return false
         withdraw = this.dependencies.publishTransition(prepared, nextPath)
-        await client.command(
-          'set_property',
-          'file-local-options/end',
-          String(prepared.outgoingEnd - this.dependencies.read().decodeOffset),
-        )
+        await client.command('set_property', 'file-local-options/end', String(prepared.outgoingEnd))
         installed = true
         return true
       } finally {
@@ -192,7 +186,7 @@ export class NativeBoundaryUpdater {
         ownsBoundary() &&
         currentPosition === position &&
         typeof time === 'number' &&
-        end - time - this.dependencies.read().decodeOffset >= BOUNDARY_UPDATE_MARGIN_SECONDS
+        end - time >= BOUNDARY_UPDATE_MARGIN_SECONDS
       )
     }
     const skipped = () => (ownsBoundary() ? ('too-late' as const) : ('cancelled' as const))
@@ -222,11 +216,7 @@ export class NativeBoundaryUpdater {
       replaced = true
       if (!(await canUpdate())) return skipped()
       if (boundary.end !== null)
-        await client.command(
-          'set_property',
-          'file-local-options/end',
-          String(boundary.end - this.dependencies.read().decodeOffset),
-        )
+        await client.command('set_property', 'file-local-options/end', String(boundary.end))
       if (!ownsBoundary()) return skipped()
       appended = false
       return 'applied'

@@ -91,11 +91,11 @@ const {
 } = useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
-    ? t('library.unknownArtist')
+    ? t('library.missing.artist')
     : songValues(albumArtist.value),
 )
 const displayAlbumTitle = computed(() =>
-  albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : songText(albumTitle.value),
+  albumTitle.value === 'Unknown Album' ? t('library.missing.album') : songText(albumTitle.value),
 )
 
 const artworkCacheKey = computed(

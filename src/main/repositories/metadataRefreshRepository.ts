@@ -1,18 +1,9 @@
 import type Database from 'better-sqlite3'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import type { EditableTrackMetadata, MetadataRefreshFailure } from '@shared/types/libraryScan'
+import type { MetadataRefreshFailure } from '@shared/types/libraryScan'
 import { BaseRepository } from './baseRepository'
-import { UserEditedMetadataWriter } from './userEditedMetadataWriter'
 import { MetadataTrackWriter } from './metadataTrackWriter'
-import type { FileTagValues } from '@shared/types/trackMetadata'
-import { prepareFileMetadataProjection } from './fileMetadataProjection'
-import {
-  captureArtworkAlbum,
-  refreshArtworkAlbum,
-  selectArtworkAlbumCandidate,
-  type ArtworkAlbumIdentity,
-} from './trackArtworkProjection'
-import { decodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
+import { captureArtworkAlbum, refreshArtworkAlbum } from './trackArtworkProjection'
 import type {
   MetadataRefreshJob,
   TrackForMetadataRefresh,
@@ -24,7 +15,6 @@ export type {
   TrackForMetadataRefresh,
   RefreshedTrackMetadata,
 } from './metadataRefreshRepositoryTypes'
-export { resolveArtworkKeyForUserEdit } from './userEditedMetadataWriter'
 
 function isUnderRoot(filePath: string, root: string): boolean {
   const path = resolve(filePath)
@@ -45,12 +35,10 @@ function clampLimit(limit: number | undefined, fallback = 5000, max = 10000): nu
 }
 
 export class MetadataRefreshRepository extends BaseRepository {
-  private readonly userEditWriter: UserEditedMetadataWriter
   private readonly trackWriter: MetadataTrackWriter
 
   constructor(db: Database.Database) {
     super(db)
-    this.userEditWriter = new UserEditedMetadataWriter(db)
     this.trackWriter = new MetadataTrackWriter(db)
   }
 
@@ -186,23 +174,36 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   getActiveJob(): MetadataRefreshJob | null {
-    const row = this.db
-      .prepare(
-        `SELECT id, scope, status,
-                total_tracks AS totalTracks,
-                processed_tracks AS processedTracks,
-                failed_tracks AS failedTracks,
-                started_at AS startedAt,
-                finished_at AS finishedAt,
-                error_message AS errorMessage
-         FROM metadata_refresh_jobs
-         WHERE status = 'running'
-         ORDER BY id DESC
-         LIMIT 1`,
-      )
-      .get() as MetadataRefreshJob | undefined
+    return (
+      (this.db
+        .prepare(
+          `SELECT id, scope, status,
+      total_tracks AS totalTracks, processed_tracks AS processedTracks,
+      failed_tracks AS failedTracks, started_at AS startedAt,
+      finished_at AS finishedAt, error_message AS errorMessage
+      FROM metadata_refresh_jobs WHERE status='running' ORDER BY id DESC LIMIT 1`,
+        )
+        .get() as MetadataRefreshJob | undefined) ?? null
+    )
+  }
 
-    return row ?? null
+  queueLegacyMetadataRecovery(): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare(
+          `INSERT OR IGNORE INTO pending_tag_recovery_refresh(track_id)
+        SELECT track_id FROM track_metadata
+        WHERE override_mask != 0 OR source IN ('user_edit', 'legacy_user_edit')`,
+        )
+        .run()
+      this.db
+        .prepare(
+          `UPDATE tracks SET metadata_checked_mtime_ms = NULL
+        WHERE id IN (SELECT track_id FROM track_metadata
+          WHERE override_mask != 0 OR source IN ('user_edit', 'legacy_user_edit'))`,
+        )
+        .run()
+    })()
   }
 
   queueTagRecoveryRefresh(trackIds: readonly number[]): void {
@@ -360,115 +361,13 @@ export class MetadataRefreshRepository extends BaseRepository {
     return tracks
   }
 
-  getArtworkFallback(trackId: number): string | null {
-    const identity = this.db
-      .prepare(
-        'SELECT effective_album_title AS album,effective_album_artist AS artist FROM tracks WHERE id=?',
-      )
-      .get(trackId) as ArtworkAlbumIdentity | undefined
-    return identity ? selectArtworkAlbumCandidate(this.db, identity, trackId) : null
-  }
-  getAlbumEditTrackIds(title: string, artist: string): number[] {
-    return (
-      this.db
-        .prepare(
-          `SELECT id FROM tracks WHERE effective_album_title=? AND effective_album_artist=? ORDER BY id LIMIT 5001`,
-        )
-        .all(title, artist) as Array<{ id: number }>
-    ).map((row) => row.id)
-  }
-
-  getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
-    return this.userEditWriter.getEditableTrackMetadata(trackId)
-  }
-
-  getMetadataEditRevision(trackId: number): string {
-    return JSON.stringify(
-      this.db
-        .prepare(
-          `SELECT t.file_path,t.title,t.artist,t.album,t.album_artist,t.genre,t.year,t.release_date,t.track_no,t.track_total,t.disc_no,t.disc_total,t.composer,t.copyright,t.isrc,
-      tm.title AS override_title,tm.artist_display,tm.album_title,tm.album_artist_display,tm.genre_display,
-      tm.year AS override_year,tm.release_date AS override_date,tm.source,tm.override_mask
-      FROM tracks t LEFT JOIN track_metadata tm ON tm.track_id=t.id WHERE t.id=?`,
-        )
-        .get(trackId) ?? null,
-    )
-  }
-
-  getMetadataFileFingerprint(trackId: number) {
-    return decodeScanFileFingerprint(
-      this.db
-        .prepare('SELECT file_stat_fingerprint FROM tracks WHERE id=?')
-        .pluck()
-        .get(trackId) as string | null,
-    )
-  }
-
-  getLegacyMetadata(trackId: number): EditableTrackMetadata | null {
-    const row = this.db
-      .prepare(
-        `SELECT 1 FROM track_metadata WHERE track_id=?
-      AND (override_mask!=0 OR source IN ('user_edit','legacy_user_edit'))`,
-      )
-      .get(trackId)
-    return row ? this.getEditableTrackMetadata(trackId) : null
-  }
-
-  adoptFileMetadata(
-    trackId: number,
-    path: string,
-    tags: FileTagValues,
-    expectedRevision: string,
-  ): void {
-    this.db.transaction(() => {
-      const previous = captureArtworkAlbum(this.db, trackId)
-      if (
-        this.getMetadataEditRevision(trackId) !== expectedRevision ||
-        this.getTrackFilePath(trackId) !== path
-      )
-        throw new Error('Metadata changed before adopting file values')
-      this.db
-        .prepare(`UPDATE track_metadata SET source='file_tag',override_mask=0 WHERE track_id=?`)
-        .run(trackId)
-      prepareFileMetadataProjection(this.db)(trackId, path, tags, {}, previous)
-    })()
-  }
-
-  commitVerifiedFileEdit(result: RefreshedTrackMetadata): void {
-    this.db.transaction(() => {
-      this.trackWriter.assertTrackIdentity(result)
-      const previous = captureArtworkAlbum(this.db, result.trackId)
-      this.db
-        .prepare(`UPDATE track_metadata SET source='file_tag',override_mask=0 WHERE track_id=?`)
-        .run(result.trackId)
-      this.updateTrackMetadata(result)
-      if (previous) refreshArtworkAlbum(this.db, previous)
-    })()
-  }
-
-  updateUserEditedMetadata(metadata: EditableTrackMetadata): void {
-    this.userEditWriter.updateUserEditedMetadata(metadata)
-  }
-
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
     this.db.transaction(() => {
       this.trackWriter.updateTrackMetadata(result)
-      this.db
-        .prepare('DELETE FROM pending_tag_recovery_refresh WHERE track_id = ?')
-        .run(result.trackId)
     })()
   }
 
   updateTrackLyrics(result: RefreshedTrackMetadata): void {
     this.trackWriter.updateTrackLyrics(result)
-  }
-
-  commitVerifiedUserEdit(metadata: EditableTrackMetadata, result: RefreshedTrackMetadata): void {
-    this.db.transaction(() => {
-      if (metadata.trackId !== result.trackId) throw new Error('Metadata track identity changed')
-      this.trackWriter.assertTrackIdentity(result)
-      this.updateUserEditedMetadata(metadata)
-      this.updateTrackMetadata(result)
-    })()
   }
 }

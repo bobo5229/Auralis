@@ -12,11 +12,6 @@ import type {
   NextTrackRequest,
 } from './nativePlaybackTypes'
 
-interface TagPlaybackView {
-  isActive(): boolean
-  readonly decodeOffset: number
-}
-
 interface ScheduledSoftTransition {
   plan: SoftTransition
   continuationPath: string
@@ -27,9 +22,6 @@ interface ScheduledSoftTransition {
 /** Owns speculative next-track work and every soft-transition playlist entry. */
 export class NativeNextTrackScheduler {
   private readonly analysisTasks = new Set<Promise<void>>()
-  private metadataWrites = 0
-  private deferredAnalysis: (() => void) | null = null
-  private lastNextRequest: NextTrackRequest | null = null
   private deferredNext: NextTrackRequest | null = null
   private scan = new AbortController()
   private nextGeneration = 0
@@ -55,7 +47,6 @@ export class NativeNextTrackScheduler {
     >,
     private readonly runtime: NativePlaybackSession,
     private readonly read: () => LogicalPlaybackView,
-    private readonly tag: TagPlaybackView,
     private readonly onRecoverySettled: () => void,
   ) {
     this.boundaryUpdater = new NativeBoundaryUpdater({
@@ -64,7 +55,6 @@ export class NativeNextTrackScheduler {
       read: () => ({
         loaded: this.read().loaded,
         duration: this.read().duration,
-        decodeOffset: this.tag.decodeOffset,
         enteringNext: this.enteringNext !== null,
         hasTransition: this.transition !== null,
       }),
@@ -120,57 +110,15 @@ export class NativeNextTrackScheduler {
     return this.transition?.stage === 'bridge' ? this.transition.plan : null
   }
 
-  canBeginTagWrite(): boolean {
-    return (
-      (!this.transition || this.transition.stage === 'queued') &&
-      !this.boundaryUpdater.isInstalling &&
-      !this.enteringNext
-    )
-  }
-
   invalidatePreparation(clearRequest = false): void {
     this.nextGeneration++
     this.scan.abort()
     if (clearRequest) {
-      this.lastNextRequest = null
       this.deferredNext = null
     }
   }
 
-  suspendPreparation(): NextTrackRequest | null {
-    const request = this.lastNextRequest
-    this.invalidatePreparation()
-    return request
-  }
-
-  deferPrevious(request: NextTrackRequest | null): void {
-    this.deferredNext ??= this.lastNextRequest === request ? request : null
-  }
-
-  async drainAnalysis(): Promise<void> {
-    await Promise.allSettled([...this.analysisTasks])
-  }
-
-  /** Let existing analysis finish without touching the playlist or its decoder handles. */
-  async suspendMetadataAnalysis(): Promise<() => void> {
-    this.metadataWrites++
-    await this.drainAnalysis()
-    let resumed = false
-    return () => {
-      if (resumed) return
-      resumed = true
-      this.metadataWrites--
-      if (!this.metadataWrites) {
-        const analysis = this.deferredAnalysis
-        this.deferredAnalysis = null
-        analysis?.()
-      }
-    }
-  }
-
   reset(): void {
-    this.deferredAnalysis = null
-    this.lastNextRequest = null
     this.scan.abort()
     this.disposeTransition()
     this.clearingTransition = null
@@ -320,11 +268,6 @@ export class NativeNextTrackScheduler {
   }
 
   async schedule(request: NextTrackRequest): Promise<{ accepted: boolean }> {
-    this.lastNextRequest = request
-    if (this.tag.isActive()) {
-      this.deferredNext = request
-      return { accepted: true }
-    }
     if (this.transition && this.transition.stage !== 'queued') {
       this.deferredNext = request
       return { accepted: true }
@@ -408,10 +351,7 @@ export class NativeNextTrackScheduler {
             this.refineNext(client, currentPath, nextPath, request, signal, isCurrent),
           )
       }
-      // A save gates file analysis, not playlist scheduling. Resume the latest
-      // still-current refinement without canceling or reloading its next item.
-      if (this.metadataWrites) this.deferredAnalysis = analyze
-      else analyze()
+      analyze()
     }
     return result
   }

@@ -12,7 +12,6 @@ import { createLibrarySnapshotLoader, dependsOnPlayStats } from '../utils/librar
 import { useLibrarySnapshotPresentation } from './useLibrarySnapshotPresentation'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
-import type { LibraryMetadataRefreshResult } from './useLibraryMetadataEditor'
 import type { LibraryViewportCapture } from './useLibraryViewport'
 import type { LibraryDataSnapshot } from '../utils/libraryDataSnapshot'
 import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
@@ -23,7 +22,7 @@ import {
   type LibraryRouteScope,
 } from '../utils/libraryRouteScope'
 
-export type LibraryLoadResult = LibraryMetadataRefreshResult
+export type LibraryLoadResult = 'committed' | 'stale' | 'redirected' | 'failed' | 'queued'
 
 export function useLibraryCatalogLoader(options: {
   isDisposed: () => boolean
@@ -158,7 +157,7 @@ export function useLibraryCatalogLoader(options: {
         catalogClient.isLibraryRevisionCurrent(libraryRevision)
       )
         return result
-      // Failed/queued/stale refreshes must not satisfy a successful save.
+      // Only a committed, current snapshot can satisfy this revision.
       if (isDisposed()) return 'stale'
     }
 
@@ -184,16 +183,6 @@ export function useLibraryCatalogLoader(options: {
     onRequestStarted?: (isCurrent: () => boolean) => void,
   ): Promise<LibraryLoadResult> {
     if (isDisposed()) return 'stale'
-    if (mode === 'metadata-save') {
-      while (coordinator.hasActiveForeground && !isDisposed()) {
-        await coordinator.waitForForegroundIdle()
-      }
-
-      if (isDisposed()) return 'stale'
-      if (libraryRevision) catalogClient.invalidateForLibraryRevision(libraryRevision)
-      else catalogClient.invalidate()
-    }
-
     const scope = options.captureRouteScope()
     const generation = coordinator.begin(mode)
     if (generation === null) {

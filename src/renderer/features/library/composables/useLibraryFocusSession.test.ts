@@ -49,7 +49,6 @@ function fixture(realViewport = false) {
   const selected = ref<number | null>(null)
   const current = ref<number | null>(null)
   const menuOpen = ref(false)
-  const editorOpen = ref(false)
   const container = Object.assign(new EventTarget(), {
     focus: vi.fn(),
     scrollTop: 0,
@@ -102,7 +101,6 @@ function fixture(realViewport = false) {
     getAlbumGroupByTrackId: group,
     isInteractiveTarget: interactive,
     isContextMenuOpen: () => menuOpen.value,
-    isMetadataEditorOpen: () => editorOpen.value,
     selectTrack: select,
     playTrack: play,
   })
@@ -117,7 +115,6 @@ function fixture(realViewport = false) {
     selected,
     current,
     menuOpen,
-    editorOpen,
     port,
     container,
     viewport,
@@ -197,7 +194,7 @@ describe('useLibraryFocusSession', () => {
       expect(f.play).not.toHaveBeenCalled()
     },
   )
-  it.each(['prevented', 'composing', '229', 'interactive', 'menu', 'editor'])(
+  it.each(['prevented', 'composing', '229', 'interactive', 'menu'])(
     'ignores shell keys for %s',
     async (condition) => {
       const f = fixture()
@@ -211,7 +208,6 @@ describe('useLibraryFocusSession', () => {
               : {}
       if (condition === 'interactive') f.interactive.mockReturnValue(true)
       if (condition === 'menu') f.menuOpen.value = true
-      if (condition === 'editor') f.editorOpen.value = true
       for (const key of ['ArrowDown', ' ', 'Enter'])
         expect(f.key(key, patch).preventDefault).not.toHaveBeenCalled()
       await settle()

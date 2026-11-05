@@ -15,12 +15,13 @@ import type { AlbumSummary } from '../types'
 const props = defineProps<{
   album: AlbumSummary
   highlighted?: boolean
+  highlightRevision?: number
 }>()
 
 const { t } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 const displayAlbumTitle = computed(() =>
-  props.album.title === 'Unknown Album' ? t('library.unknownAlbum') : songText(props.album.title),
+  props.album.title === 'Unknown Album' ? t('library.missing.album') : songText(props.album.title),
 )
 const indexArtist = computed(
   () =>
@@ -30,7 +31,7 @@ const indexArtist = computed(
 )
 const displayAlbumArtist = computed(() =>
   indexArtist.value === 'Unknown Artist'
-    ? t('library.unknownArtist')
+    ? t('library.missing.artist')
     : songValues(indexArtist.value),
 )
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
@@ -55,9 +56,45 @@ const emit = defineEmits<{
 
 const imageFailed = ref(false)
 const cardRootRef = ref<HTMLElement | null>(null)
+const coverRef = ref<HTMLElement | null>(null)
 const playIconRef = ref<SVGSVGElement | null>(null)
+let searchHighlightAnimation: Animation | null = null
 let playIconAnimation: Animation | null = null
 let visibilityObserver: IntersectionObserver | null = null
+
+function cancelSearchHighlight(): void {
+  searchHighlightAnimation?.cancel()
+  searchHighlightAnimation = null
+}
+
+function updateSearchHighlight(): void {
+  cancelSearchHighlight()
+  const cover = coverRef.value
+  if (!props.highlighted || !cover?.animate) return
+  const tint =
+    '0 0 0 2px color-mix(in srgb, var(--auralis-theme-accent) 45%, transparent), ' +
+    '0 4px 12px color-mix(in srgb, var(--auralis-theme-accent) 8%, transparent)'
+  const clear = '0 0 0 2px transparent, 0 4px 12px transparent'
+  const frames: Keyframe[] = createReducedMotionQuery().matches
+    ? [{ boxShadow: tint }, { boxShadow: tint }]
+    : [
+        { boxShadow: clear, offset: 0, easing: 'ease-out' },
+        { boxShadow: tint, offset: 0.125 },
+        { boxShadow: tint, offset: 0.3125, easing: 'ease-out' },
+        { boxShadow: clear, offset: 1 },
+      ]
+  const animation = cover.animate(frames, { duration: 800, composite: 'add' })
+  searchHighlightAnimation = animation
+  animation.onfinish = () => {
+    if (searchHighlightAnimation === animation) searchHighlightAnimation = null
+  }
+}
+
+watch(
+  [() => props.album.key, () => props.highlighted, () => props.highlightRevision],
+  updateSearchHighlight,
+  { flush: 'post' },
+)
 
 function cancelPlayIconAnimation(): void {
   playIconAnimation?.cancel()
@@ -101,6 +138,7 @@ watch(
 )
 
 onMounted(() => {
+  updateSearchHighlight()
   const card = cardRootRef.value
   if (card && typeof IntersectionObserver !== 'undefined') {
     visibilityObserver = new IntersectionObserver(
@@ -116,6 +154,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelSearchHighlight()
   cancelPlayIconAnimation()
   visibilityObserver?.disconnect()
   visibilityObserver = null
@@ -138,15 +177,11 @@ function onContextMenu(event: MouseEvent): void {
 </script>
 
 <template>
-  <article
-    ref="cardRootRef"
-    class="album-card min-w-0"
-    :class="{ 'album-card--highlighted': highlighted }"
-    @pointerenter="prefetchCoverPalette"
-  >
+  <article ref="cardRootRef" class="album-card min-w-0" @pointerenter="prefetchCoverPalette">
     <div class="album-card-cover">
       <!-- cover-stage 锁定 1:1；img 绝对填充并通过 object-fit:cover 裁切 -->
       <div
+        ref="coverRef"
         class="cover-stage"
         role="button"
         tabindex="0"
@@ -291,23 +326,6 @@ function onContextMenu(event: MouseEvent): void {
 .album-card-play:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 3px;
-}
-
-.album-card--highlighted .cover-stage {
-  animation: album-card-search-highlight 1.8s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes album-card-search-highlight {
-  0%,
-  35% {
-    box-shadow:
-      0 0 0 3px var(--auralis-sidebar-active-indicator),
-      0 12px 28px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
 }
 
 /* ── 常规网格：舞台强制 1:1，图片 cover 裁切 ───────────── */

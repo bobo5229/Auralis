@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseLrc } from './parseLrc'
 import { getActiveLyricSegment } from './getActiveLyricSegment'
-import { getLrcTextLine, nudgeLrcLineTime, replaceLrcLineTime } from './lrcTextEditing'
 import { scanLrcInlineTiming } from '@shared/utils/lrcTiming'
 
 describe('enhanced LRC playback', () => {
@@ -108,64 +107,5 @@ describe('enhanced LRC playback', () => {
     expect(lines[16].segments).toBeUndefined()
     expect(lines[16].text).toHaveLength(1024)
     expect(scanLrcInlineTiming('<0:00>a'.repeat(2000)).timestamps.length).toBe(1025)
-  })
-})
-
-describe('enhanced LRC source edits', () => {
-  const text = '[00:12.123]<00:12.123>  A\t<00:12.456>B <00:13.001>'
-  it.each(['\uFEFF', '  ', '\t', '\uFEFF \t'])(
-    'preserves the source prefix when stamping and nudging: %j',
-    (prefix) => {
-      const raw = `${prefix}${text}\n[offset:1000]`
-      const line = getLrcTextLine(raw, prefix.length + 5)
-      expect(line.editable).toBe(true)
-      const stamped = replaceLrcLineTime(line, 20.123)!
-      expect(stamped).toBe(`${prefix}[00:21.123]<00:21.123>  A\t<00:21.456>B <00:22.001>`)
-      expect(parseLrc(`${stamped}\n[offset:1000]`)[0].timeSeconds).toBe(20.123)
-      const nudged = nudgeLrcLineTime(line, 0.1)!
-      expect(nudged).toBe(`${prefix}[00:12.223]<00:12.223>  A\t<00:12.556>B <00:13.101>`)
-      expect(parseLrc(nudged)[0].segments?.map((segment) => segment.startTimeSeconds)).toEqual([
-        12.223, 12.556,
-      ])
-      expect(nudgeLrcLineTime(line, -20)).toBeNull()
-      expect(raw).toBe(`${prefix}${text}\n[offset:1000]`)
-    },
-  )
-  it('moves every clock as one edit, keeping all other characters', () => {
-    const line = getLrcTextLine(text, 20)
-    expect(nudgeLrcLineTime(line, 0.1)).toBe('[00:12.223]<00:12.223>  A\t<00:12.556>B <00:13.101>')
-    expect(replaceLrcLineTime(line, 20.123)).toBe(
-      '[00:20.123]<00:20.123>  A\t<00:20.456>B <00:21.001>',
-    )
-  })
-  it.each([1000, -1000])('inverts offset only once when stamping: %s', (offset) => {
-    const raw = `${text}\n[offset:${offset}]`
-    const changed = replaceLrcLineTime(getLrcTextLine(raw, 0), 15)!
-    const [line] = parseLrc(`${changed}\n[offset:${offset}]`)
-    expect(line.timeSeconds).toBe(15)
-    expect(line.segments?.map((word) => word.startTimeSeconds)).toEqual([15, 15.333])
-  })
-  it.each([
-    '[00:01][00:02]<00:01>a',
-    '[00:01]<00:02>a<00:01>b',
-    '[00:01]<00:60>a',
-    '<00:01>a',
-    '[00:01]<00:02',
-    '[00:00]<00:01未闭合 <00:02>歌词',
-    '[00:00]<00:00>A<-00:01>B<00:02>C',
-    '[00:00]<00:00>A<+00:01 B<00:02>C',
-    '[00:00]<00:00>A<00 :01>B<00:02>C',
-    '[00:00]<00:00>A<00：01>B<00:02>C',
-  ])('refuses ambiguous source timing without changing it: %s', (raw) => {
-    const line = getLrcTextLine(raw, 0)
-    expect(line.editable).toBe(false)
-    expect(replaceLrcLineTime(line, 4)).toBeNull()
-    expect(nudgeLrcLineTime(line, 0.1)).toBeNull()
-  })
-  it('rejects a negative or unsafe whole shift atomically', () => {
-    const line = getLrcTextLine('[00:00.050]<00:00.050>A<00:01.123>', 0)
-    expect(nudgeLrcLineTime(line, -0.1)).toBeNull()
-    expect(replaceLrcLineTime(line, Number.MAX_VALUE)).toBeNull()
-    expect(line.text).toBe('[00:00.050]<00:00.050>A<00:01.123>')
   })
 })

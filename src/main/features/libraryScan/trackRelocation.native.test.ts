@@ -87,7 +87,7 @@ async function fixture() {
 }
 
 it.each(['available', 'missing', 'case-only', 'directory-move'] as const)(
-  'keeps the ID and related rows after an actual file rename from %s',
+  'keeps the ID and associations and adopts file tags after a rename from %s',
   async (availability) => {
     const { root, oldPath, db, repo, service, send, id, snapshot } = await fixture()
     const before = snapshot()
@@ -103,7 +103,12 @@ it.each(['available', 'missing', 'case-only', 'directory-move'] as const)(
     expect(db.prepare('SELECT id,file_path,availability FROM tracks').all()).toEqual([
       { id, file_path: newPath, availability: 'available' },
     ])
-    expect(snapshot()).toEqual(before)
+    expect(snapshot().slice(0, -1)).toEqual(before.slice(0, -1))
+    expect(
+      db
+        .prepare('SELECT track_id,title,source,override_mask FROM track_metadata WHERE track_id=?')
+        .get(id),
+    ).toEqual({ track_id: id, title: 'Song', source: 'file_tag', override_mask: 0 })
     expect(repo.getFilePathById(id)).toBe(newPath)
     expect(await readFile(newPath)).toEqual(bytes)
     expect(send).toHaveBeenCalledWith('library:changed', {

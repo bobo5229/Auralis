@@ -175,17 +175,20 @@ describe('parser version migration and automatic backfill', () => {
     },
   )
 
-  it('keeps user-edited display fields while completing the backfill', async () => {
+  it('adopts file display fields while completing a historical override backfill', async () => {
     const { db, tracks, read, path } = await setup()
     db.exec(
       "UPDATE track_metadata SET title='My title',release_date='2000-01-02',source='user_edit'",
     )
-    const before = db.prepare('SELECT * FROM track_metadata').get()
     const result = await read()
-    if (result.kind !== 'tags') throw new Error('Expected tag backfill')
-    tracks.patchTrackTags([result.patch])
-    expect(db.prepare('SELECT * FROM track_metadata').get()).toEqual(before)
-    expect(tracks.getAll()[0]).toMatchObject({ title: 'My title', releaseDate: '2000-01-02' })
+    if (result.kind !== 'track') throw new Error('Expected complete historical recovery read')
+    tracks.upsertMany([result.track])
+    expect(db.prepare('SELECT title,source,override_mask FROM track_metadata').get()).toEqual({
+      title: 'Song',
+      source: 'file_tag',
+      override_mask: 0,
+    })
+    expect(tracks.getAll()[0]).toMatchObject({ title: 'Song', releaseDate: '2012-09-30' })
     expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
   })
 

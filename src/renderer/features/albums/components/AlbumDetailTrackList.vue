@@ -153,7 +153,7 @@ watch(
 watch(() => props.highlightedTrackId, goToTrack, { immediate: true, flush: 'sync' })
 
 function formatDisplayArtist(artist: string | null | undefined): string {
-  if (!artist || artist === 'Unknown Artist') return t('library.unknownArtist')
+  if (!artist || artist === 'Unknown Artist') return t('library.missing.artist')
   return songValues(artist)
 }
 </script>

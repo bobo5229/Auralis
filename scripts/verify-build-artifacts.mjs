@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { listPackage } from '@electron/asar'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -109,7 +110,7 @@ function verifyArtifacts(targetDir) {
 
   // 3. 校验 resources 目录及 app.asar
   const resourcesDir = path.join(resolvedDir, 'resources')
-  for (const executable of ['mpv.exe', 'ffmpeg.exe', 'auralis-file-replace.exe']) {
+  for (const executable of ['mpv.exe', 'ffmpeg.exe']) {
     const runtimePath = path.join(resourcesDir, 'audio', executable)
     const available =
       fs.existsSync(runtimePath) &&
@@ -121,8 +122,22 @@ function verifyArtifacts(targetDir) {
       available ? '已随应用打包' : '缺失或为空文件',
     )
   }
+  const removedHelpers = findRecursive(resourcesDir, (name) => /^auralis-file-replace/i.test(name))
+  recordCheck(
+    '已移除的文件替换工具',
+    removedHelpers.length === 0,
+    removedHelpers.length ? '仍有残留' : '未包含',
+  )
   const asarPath = path.join(resourcesDir, 'app.asar')
   if (fs.existsSync(asarPath)) {
+    const removedDependencies = listPackage(asarPath).filter((entry) =>
+      /node-taglib-sharp|auralis-file-replace/i.test(entry),
+    )
+    recordCheck(
+      '已移除的标签写入依赖',
+      removedDependencies.length === 0,
+      removedDependencies.length ? '仍有残留' : '未包含',
+    )
     const stat = fs.statSync(asarPath)
     if (stat.size > 1024 * 1024) {
       recordCheck('主应用包 (app.asar)', true, `存在且非空 (${formatBytes(stat.size)})`)

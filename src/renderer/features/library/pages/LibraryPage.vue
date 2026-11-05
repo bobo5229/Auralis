@@ -40,9 +40,6 @@ import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { useAlbumMetadataEditor } from '@renderer/shared/albumMetadataEditor'
-import { useTrackEditor } from '@renderer/shared/trackEditor'
-import type { LibraryMetadataFocusTarget } from '../composables/useLibraryMetadataEditor'
 import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
@@ -63,23 +60,6 @@ const {
 } = usePageSearchTools('songs')
 
 const playback = usePlayback()
-const albumMetadataEditor = useAlbumMetadataEditor()
-function editWholeContextAlbum(): void {
-  const trackId = contextMenu.value?.trackId
-  const group = trackId ? getAlbumGroupByTrackId(trackId) : null
-  if (group)
-    albumMetadataEditor?.open({
-      album: {
-        title: group.album || 'Unknown Album',
-        artist: group.albumArtist || 'Unknown Artist',
-      },
-      returnFocusTo: document.activeElement as HTMLElement,
-    })
-  closeContextMenu()
-}
-const trackEditor = useTrackEditor()
-const isMetadataEditorOpen = computed(() => !!trackEditor?.request.value)
-let metadataReturnTarget: LibraryMetadataFocusTarget | null = null
 const route = useRoute()
 const router = useRouter()
 const instanceRouteName = route.name
@@ -421,7 +401,6 @@ const focusSession = useLibraryFocusSession({
   getAlbumGroupByTrackId,
   isInteractiveTarget,
   isContextMenuOpen: () => contextMenu.value !== null,
-  isMetadataEditorOpen: () => isMetadataEditorOpen.value,
   selectTrack: (trackId) => playback.selectTrack(trackId),
   playTrack: (trackId) => onPlay(trackId),
 })
@@ -579,7 +558,6 @@ const {
   onOpenAlbumArtworkContextMenu,
   onContextMenuPlay,
   onContextMenuInsert,
-  onEditMetadataFromContextMenu,
   onLocateCurrentTrack,
   onAddContextTracksToPlaylist,
   onCreatePlaylistAndAddContextTracks,
@@ -606,24 +584,6 @@ const {
   insertTrackAfterCurrent: (track) => playback.insertTrackAfterCurrent(track),
   insertTracksAfterCurrent: (albumTracks) => playback.insertTracksAfterCurrent(albumTracks),
   scrollToTrackById,
-  openMetadataEditor: (trackId) => {
-    const target = metadataReturnTarget
-    trackEditor?.open({
-      trackId,
-      initialTab: 'metadata',
-      artworkCacheKey: libraryDerivedIndex.value.trackById.get(trackId)?.artworkCacheKey ?? null,
-      returnFocusTo: document.activeElement as HTMLElement,
-      restoreFocus: async () => {
-        if (isPageUnmounted || hasLeftInstanceRoute) return false
-        await restoreLibraryFocus(target ?? { trackId, source: 'track' })
-        return true
-      },
-    })
-    metadataReturnTarget = null
-  },
-  setMetadataReturnTarget: (target) => {
-    metadataReturnTarget = target
-  },
   setViewSwitchReturnTarget,
   restoreFocus: (target, scroll) =>
     flatColumnMenu.value ? Promise.resolve() : restoreLibraryFocus(target, scroll),
@@ -1323,8 +1283,6 @@ onBeforeUnmount(() => {
       @add-to-playlist="onAddContextTracksToPlaylist"
       @create-playlist="onCreatePlaylistAndAddContextTracks"
       @open-in-explorer="onRevealInExplorer"
-      @edit-metadata="onEditMetadataFromContextMenu"
-      @edit-album="editWholeContextAlbum"
       @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
     />
 

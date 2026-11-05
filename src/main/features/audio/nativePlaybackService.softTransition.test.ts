@@ -4,39 +4,10 @@ import { SoftTransitionPreparer, type SoftTransition } from './softTransition'
 import { openMpvClient, type MpvMessage } from './mpvClient'
 import type { NativePlaybackEvent } from '../../../shared/ipc/contracts'
 import type { PlaybackCoordinator } from './nativePlaybackTypes'
-import type { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 import { LiveSilenceAnalyzer } from './liveSilence'
 
 vi.mock('./mpvClient', () => ({ openMpvClient: vi.fn() }))
 afterEach(() => vi.restoreAllMocks())
-
-it('drains file analysis for saving and resumes deferred refinement without rebuilding its playlist', async () => {
-  const test = await setup()
-  await test.schedule()
-  expect(test.prepare).toHaveBeenCalledOnce()
-  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
-  let drained = false
-  const suspended = scheduler.suspendMetadataAnalysis().then((resume) => {
-    drained = true
-    return resume
-  })
-  await Promise.resolve()
-  expect(drained).toBe(false)
-  test.resolve(null)
-  const resume = await suspended
-  await test.schedule(3)
-  expect(test.prepare).toHaveBeenCalledOnce()
-  const commands = test.command.mock.calls.length
-  resume()
-  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledTimes(2))
-  expect(
-    test.command.mock.calls
-      .slice(commands)
-      .some(([name]) => name === 'playlist-clear' || name === 'loadfile'),
-  ).toBe(false)
-  expect(test.state.playlist.map((entry) => entry.path)).toEqual(['1.flac', '3.flac'])
-  await test.service.dispose()
-})
 
 async function setup(coordinator?: PlaybackCoordinator) {
   const liveBoundary = vi.spyOn(LiveSilenceAnalyzer.prototype, 'boundary').mockResolvedValue(null)
@@ -710,43 +681,6 @@ it('retains a duration update deferred behind an in-flight transport command dur
   await test.service.dispose()
 })
 
-it('retains a new duration request when cancellation waits behind transport during a tag write', async () => {
-  const test = await setup()
-  const tags = (test.service as unknown as { tags: { isActive(): boolean } }).tags
-  const active = vi.spyOn(tags, 'isActive').mockReturnValue(true)
-  let release!: () => void
-  let blocked = false
-  const gate = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  test.state.before = async (name, args) => {
-    if (name === 'set_property' && args[0] === 'volume' && args[1] === 50) {
-      blocked = true
-      await gate
-    }
-  }
-  const volume = test.service.command({ action: 'volume', session: 1, volume: 0.5, muted: false })
-  await vi.waitFor(() => expect(blocked).toBe(true))
-  const cancel = test.service.command({ action: 'cancel-next', session: 1 })
-  await test.schedule(3, 6)
-  release()
-  await Promise.all([volume, cancel])
-  active.mockReturnValue(false)
-  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
-  scheduler.restoreDeferredNext()
-  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledOnce())
-  expect(test.prepare).toHaveBeenLastCalledWith(
-    '1.flac',
-    '3.flac',
-    false,
-    expect.any(AbortSignal),
-    6,
-  )
-  test.resolve(null)
-  await scheduler.drainAnalysis()
-  await test.service.dispose()
-})
-
 it.each([
   [true, true],
   [true, false],
@@ -781,20 +715,6 @@ it('honors disabled soft transitions without starting Live analysis', async () =
     softTransition: false,
   })
   expect(test.liveBoundary).not.toHaveBeenCalled()
-  expect(test.prepare).not.toHaveBeenCalled()
-  await test.service.dispose()
-})
-
-it('reads updated album classification when a metadata write releases deferred analysis', async () => {
-  const test = await setup()
-  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
-  const resume = await scheduler.suspendMetadataAnalysis()
-  await test.schedule()
-  expect(test.isLiveAlbum).not.toHaveBeenCalled()
-  test.isLiveAlbum.mockReturnValue(true)
-  resume()
-  await vi.waitFor(() => expect(test.statuses).toContain('unchanged'))
-  expect(test.isLiveAlbum.mock.calls.map(([id]) => id)).toEqual([1, 2])
   expect(test.prepare).not.toHaveBeenCalled()
   await test.service.dispose()
 })

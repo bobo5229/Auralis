@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createRenderer, h, nextTick } from 'vue'
+import { createRenderer, h, nextTick, ref } from 'vue'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumCard from './AlbumCard.vue'
@@ -83,6 +83,8 @@ function textContent(element: TestNode | undefined): string {
 }
 
 function mountCard(sourceAlbum = album) {
+  const highlighted = ref(false)
+  const highlightRevision = ref(0)
   const open = vi.fn()
   const play = vi.fn()
   const openContextMenu = vi.fn()
@@ -91,6 +93,8 @@ function mountCard(sourceAlbum = album) {
     render: () =>
       h(AlbumCard, {
         album: sourceAlbum,
+        highlighted: highlighted.value,
+        highlightRevision: highlightRevision.value,
         onOpen: open,
         onPlay: play,
         onOpenContextMenu: openContextMenu,
@@ -99,8 +103,49 @@ function mountCard(sourceAlbum = album) {
   app.directive('tooltip', {})
   app.mount(container)
   cleanups.push(() => app.unmount())
-  return { root: container, open, play, openContextMenu }
+  return { root: container, open, play, openContextMenu, highlighted, highlightRevision }
 }
+
+describe('AlbumCard search hint', () => {
+  it('replays a repeated match without remounting the cover and cancels on clear', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    const card = mountCard()
+    const cover = findByClass(card.root, 'cover-stage')!
+    const first = { cancel: vi.fn(), onfinish: null }
+    const second = { cancel: vi.fn(), onfinish: null }
+    const animate = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second)
+    Object.assign(cover, { animate })
+    card.highlighted.value = true
+    card.highlightRevision.value++
+    await nextTick()
+    expect(animate).toHaveBeenCalledTimes(1)
+    expect(animate.mock.calls[0]?.[1]).toEqual({ duration: 800, composite: 'add' })
+    card.highlightRevision.value++
+    await nextTick()
+    expect(first.cancel).toHaveBeenCalledOnce()
+    expect(animate).toHaveBeenCalledTimes(2)
+    expect(findByClass(card.root, 'cover-stage')).toBe(cover)
+    card.highlighted.value = false
+    await nextTick()
+    expect(second.cancel).toHaveBeenCalledOnce()
+    expect(card.play).not.toHaveBeenCalled()
+    expect(card.open).not.toHaveBeenCalled()
+  })
+
+  it('uses a temporary static outline for reduced motion and clears on unmount', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    const card = mountCard()
+    const cue = { cancel: vi.fn(), onfinish: null }
+    const animate = vi.fn(() => cue)
+    Object.assign(findByClass(card.root, 'cover-stage')!, { animate })
+    card.highlighted.value = true
+    await nextTick()
+    const [frames] = animate.mock.calls[0] as unknown as [Keyframe[]]
+    expect(frames[0]).toEqual(frames[1])
+    cleanups.pop()?.()
+    expect(cue.cancel).toHaveBeenCalledOnce()
+  })
+})
 
 describe('AlbumCard play control', () => {
   it('updates album metadata while keeping the source identity and emitted album intact', async () => {

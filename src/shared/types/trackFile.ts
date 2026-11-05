@@ -27,6 +27,8 @@ export interface KnownTrackFile {
   lyricsFormat: string | null
   lyricsCheckedMtimeMs: number | null
   lyricsSidecarFingerprint?: string | null
+  /** Historical recovery must bypass text-only scan backfills. */
+  requiresFullMetadataRead?: boolean
   metadataCheckedMtimeMs: number | null
   metadataParserVersion?: string | null
   /** Stored duration reused when an unchanged file only rereads text tags. */

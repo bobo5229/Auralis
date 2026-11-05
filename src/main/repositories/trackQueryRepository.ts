@@ -322,13 +322,17 @@ export class TrackQueryRepository extends BaseRepository {
                 t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,
                 t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs,
                 t.metadata_parser_version AS metadataParserVersion,
-                t.duration_seconds AS durationSeconds
+                t.duration_seconds AS durationSeconds,
+                (EXISTS(SELECT 1 FROM track_metadata m WHERE m.track_id=t.id
+                  AND (m.source IN ('user_edit','legacy_user_edit') OR m.override_mask<>0))
+                  OR EXISTS(SELECT 1 FROM pending_tag_recovery_refresh p WHERE p.track_id=t.id)) AS needsFullRead
          FROM tracks t
          LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
       )
-      .all() as Array<KnownTrackFile & { storedFingerprint: string | null }>
-    return rows.map(({ storedFingerprint, ...row }) => ({
+      .all() as Array<KnownTrackFile & { storedFingerprint: string | null; needsFullRead: number }>
+    return rows.map(({ storedFingerprint, needsFullRead, ...row }) => ({
       ...row,
+      requiresFullMetadataRead: Boolean(needsFullRead),
       fileFingerprint: decodeScanFileFingerprint(storedFingerprint),
     }))
   }

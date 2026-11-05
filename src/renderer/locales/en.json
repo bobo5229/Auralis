@@ -19,68 +19,6 @@
     "saturationBrightnessValue": "Saturation: {saturation}%, brightness: {brightness}%",
     "presetListLabel": "Choose a preset color"
   },
-  "trackEditor": {
-    "title": "Edit song",
-    "metadata": "Song information",
-    "lyrics": "Lyrics",
-    "conflict": "The file has changed. Your draft is preserved. Keep a copy, then close and reopen the editor.",
-    "unsavedPages": "Unsaved: {pages}. Return to each page to save.",
-    "discardAll": "Discard all changes"
-  },
-  "lyricsEditor": {
-    "title": "Edit lyrics",
-    "unknownTitle": "Unknown track",
-    "unknownArtist": "Unknown artist",
-    "unsaved": "Unsaved",
-    "noChanges": "Unchanged",
-    "lineNumber": "Line {number}",
-    "lineTimingHint": "Timing changes apply to the current line.",
-    "playLine": "Play from line",
-    "playLineHint": "Start at this line and continue playing.",
-    "noLineTime": "This line has no playable timestamp.",
-    "playbackMismatch": "Another track is playing. Preview and timestamp insertion are unavailable.",
-    "tagTtmlProtected": "Embedded TTML is protected. Save your edits as an LRC file instead.",
-    "close": "Close lyrics editor",
-    "updateTime": "Update time",
-    "insertTime": "Insert time",
-    "earlier": "−0.1 sec",
-    "later": "+0.1 sec",
-    "updateTimeTooltip": "Update this line’s timestamp to the playback position",
-    "insertTimeTooltip": "Insert the playback position on this line",
-    "earlierTooltip": "Move this line 0.1 seconds earlier",
-    "laterTooltip": "Move this line 0.1 seconds later",
-    "enhancedShiftHint": "Line timing changes also move all inline timestamps.",
-    "enhancedManualHint": "This line has ambiguous or invalid timing. Edit the source text directly.",
-    "cannotShift": "Cannot move the whole line to that time. The lyrics are unchanged.",
-    "undo": "Undo",
-    "redo": "Redo",
-    "play": "Play",
-    "pause": "Pause",
-    "position": "Playback position",
-    "text": "LRC text",
-    "loading": "Loading lyrics…",
-    "reload": "Reload",
-    "tag": "Save to track tags",
-    "file": "Save as LRC file",
-    "save": "Save",
-    "saving": "Saving…",
-    "saved": "Saved",
-    "cachePending": "Lyrics were written; the player cache still needs updating.",
-    "writeWarning": "Lyrics were written, but playback recovery or cache updating did not complete. Check playback.",
-    "otherSource": "Saved. The player is still using a higher-priority lyrics source.",
-    "saveChanges": "Save lyric changes?",
-    "continue": "Keep editing",
-    "discard": "Discard changes",
-    "saveClose": "Save and close",
-    "errors": {
-      "unsupportedDocument": "The lyrics exceed the editing size limit.",
-      "lrcOnly": "Only LRC or plain-text lyrics can be edited.",
-      "changed": "The file changed or the session expired. Keep your edits, then close and reload.",
-      "busy": "A write is in progress. Please retry shortly.",
-      "unavailable": "The track is unavailable; lyrics could not be loaded.",
-      "failed": "The operation did not complete. Your edits are retained. Retry and keep any recovery backup."
-    }
-  },
   "dialog": {
     "close": "Close dialog"
   },
@@ -750,7 +688,6 @@
       "label": "Lyrics display",
       "simplified": "Switch to Simplified Chinese",
       "traditional": "Switch to Traditional Chinese",
-      "editLyrics": "Edit lyrics",
       "persistFailed": "This change is active, but could not be saved. It may reset after restarting."
     }
   },
@@ -858,9 +795,11 @@
     },
     "search": {
       "ariaLabel": "Search albums and album artists",
-      "placeholder": "Search albums and album artists",
+      "placeholder": "Start of an album or album artist name",
+      "locateHint": "Enter to locate",
+      "clear": "Clear search",
       "matched": "{index} / {total}",
-      "wrapped": "Back to the first match ({index} of {total})",
+      "wrapped": "Back to start",
       "notFound": "No matching albums"
     },
     "contextMenu": {
@@ -887,7 +826,31 @@
   "library": {
     "playCount": "{count} plays | {count} play | {count} plays",
     "recentAdded": {
-      "empty": "No music has been added yet"
+      "empty": "No music has been added yet",
+      "carousel": "Recently added albums",
+      "carouselRole": "carousel",
+      "previous": "Previous album",
+      "next": "Next album",
+      "pause": "Pause slideshow",
+      "resume": "Resume slideshow",
+      "collectionDescription": "Make room for the music you have just discovered.",
+      "collectionTitle": "Your collection, over time",
+      "albumCount": "{count} albums",
+      "heroEyebrow": "NEW IN YOUR COLLECTION",
+      "playAlbum": "Play album",
+      "previewTracks": "Browse tracks",
+      "inspectAlbum": "Browse tracks on {title}",
+      "tracks": "{count} tracks",
+      "days": "Last {count} days",
+      "undated": "Earlier additions",
+      "search": "Search albums or artists",
+      "noSearchResults": "No matching albums",
+      "clearSearch": "Clear search",
+      "closePreview": "Close track preview",
+      "fullAlbum": "View full album",
+      "loadMore": "Browse earlier additions",
+      "emptyRange": "No albums were added during this period.",
+      "actionError": "The action could not be completed. Try again."
     },
     "columns": {
       "artwork": "Cover",
@@ -917,7 +880,6 @@
       "insertAlbum": "Play album {album} next",
       "addToPlaylist": "Add to playlist",
       "createPlaylist": "New playlist",
-      "editMetadata": "Edit metadata",
       "switchToCover": "Switch to album covers",
       "switchToFlat": "Switch to track list",
       "openInExplorer": "Open in File Explorer",
@@ -936,72 +898,6 @@
       "tracksUnavailable": "No new tracks added. Unavailable tracks could not be added.",
       "playlistNotFound": "This playlist was deleted. Choose another playlist.",
       "playlistAddError": "Could not add tracks. Try again."
-    },
-    "metadataEditor": {
-      "title": "Edit metadata",
-      "fields": {
-        "title": "Title",
-        "artist": "Artist",
-        "album": "Albums",
-        "albumArtist": "Album artist",
-        "genre": "Genre",
-        "releaseDate": "Release date"
-      },
-      "placeholders": {
-        "title": "Enter track title",
-        "artist": "Enter artist name",
-        "album": "Enter album title",
-        "albumArtist": "Enter album artist name",
-        "genre": "Enter genre",
-        "releaseDate": "e.g. 2024-05-20"
-      },
-      "actions": {
-        "cancel": "Cancel",
-        "save": "Save",
-        "saving": "Saving…",
-        "saved": "Saved"
-      },
-      "validation": {
-        "dateInvalid": "Enter a valid date in YYYY, YYYY-MM, or YYYY-MM-DD format."
-      },
-      "status": {
-        "checking": "Checking editing status…",
-        "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
-        "preloadInUse": "This track is preloaded. Metadata cannot be edited right now.",
-        "queryFailed": "Could not check editing status. Try again.",
-        "loading": "Loading track information…",
-        "retry": "Try again"
-      },
-      "errors": {
-        "saveFailed": "Could not save metadata. Try again.",
-        "tagPreservationFailed": "Saving would discard existing tags, so the write was cancelled. Your edits are retained.",
-        "tagVerificationFailed": "The written tags do not match your edits. Saving did not complete. Reload the track information to check.",
-        "unsupportedDatePrecision": "This format cannot save a year and month without a day. Use a year or a full date.",
-        "legacyDateConflict": "The existing year and release date disagree. To protect the existing data, change the release date before saving.",
-        "tagWriteFailed": "Could not prepare the updated tag file. Your edits are retained. Try again.",
-        "fileChanged": "Another operation changed the audio file, so this save was cancelled. Reload its information and retry.",
-        "diskFull": "There is not enough disk space to complete the save. Free some space and retry.",
-        "permissionDenied": "Write access was denied or another program locked the file. Check file access and retry.",
-        "fileNotFound": "The audio file could not be found. Check whether it was moved or deleted.",
-        "loadFailed": "Could not load track information. Try again.",
-        "writeInProgress": "This file is being saved. Please wait.",
-        "bufferPreparationFailed": "Unable to save during playback right now. Your edits are retained. Retry or save after switching tracks.",
-        "fileInUse": "Unable to write the file. Your edits are retained. Check file access and free disk space, then retry.",
-        "playbackRestoreFailed": "Unable to restore playback. The file may have been updated. Reload its metadata to check.",
-        "playbackChanged": "Playback changed before this save completed. Your edits are retained. Check the file and retry.",
-        "metadataConflict": "The file or tags changed. Your input is preserved. Reopen the editor to compare before saving.",
-        "legacyMetadataUnresolved": "Choose how to resolve the saved metadata first."
-      },
-      "legacy": {
-        "title": "Review saved metadata",
-        "description": "The library retains edits from an earlier version. Use file tags updates only the library. Write saved values changes the music file and removes the override after saving.",
-        "field": "Field",
-        "file": "File tags",
-        "saved": "Saved values",
-        "year": "Year",
-        "adopt": "Use file tags",
-        "write": "Write saved values to file"
-      }
     },
     "status": {
       "loading": "Loading music library…",
@@ -1231,126 +1127,5 @@
     "songsList": "Track list",
     "songsCover": "Album covers",
     "albums": "Album page parameters"
-  },
-  "metadataEditorExtra": {
-    "targets": "{count} tracks",
-    "conflict": "File tags changed. Your draft is preserved. Read the latest tags to compare.",
-    "reload": "Read latest tags and compare",
-    "savedRefreshPending": "Tags saved. Library refresh is still pending.",
-    "retryRefresh": "Retry refresh only",
-    "choose": "Choose a source",
-    "fileValue": "Latest file value",
-    "legacyValue": "Preserved value",
-    "myValue": "My input",
-    "mergeLegacy": "Continue with selected values",
-    "chooseConflicts": "Both the file and your draft changed these fields. Choose each value.",
-    "fieldUnsupported": "This file format does not support editing this field.",
-    "multiHint": "Separate artists, album artists, genres and composers with a semicolon and space, e.g. Artist A; Artist B. AC/DC and R&B/Soul remain single values.",
-    "dateHint": "Date formats: YYYY, YYYY-MM or YYYY-MM-DD.",
-    "monthUnsupported": "This file cannot store month-only dates. Enter a year or a full date.",
-    "numberInvalid": "Numbers and totals must be integers from 1 to 65535. Numbers cannot exceed totals.",
-    "numbering": "Track and disc numbers",
-    "moreTags": "More tags",
-    "reset": "Reset",
-    "resetConfirm": "Discard current input and restore the most recently saved tags?",
-    "fields": {
-      "title": "Title",
-      "artistDisplay": "Artists",
-      "albumTitle": "Album",
-      "albumArtistDisplay": "Album artists",
-      "genreDisplay": "Genres",
-      "releaseDate": "Release date",
-      "trackNo": "Track number",
-      "trackTotal": "Track total",
-      "discNo": "Disc number",
-      "discTotal": "Disc total",
-      "composer": "Composers",
-      "copyright": "Copyright",
-      "isrc": "ISRC"
-    },
-    "previousDraft": "Previous unsaved input (select to copy)"
-  },
-  "albumMetadataEditor": {
-    "title": "Edit entire album",
-    "editAlbum": "Edit entire album",
-    "editTrack": "Edit current track",
-    "viewTask": "View album edit task",
-    "mixed": "Mixed values",
-    "background": "The task continues when this panel closes or the page changes. Cancellation waits for the current track to finish safely.",
-    "skipBlocked": "Skip uneditable tracks ({count})",
-    "targets": "Show / hide all targets and differences",
-    "previous": "Previous",
-    "next": "Next",
-    "cancel": "Cancel task",
-    "preview": "Preview changes",
-    "save": "Confirm and save",
-    "retryFailed": "Prepare failed tracks only",
-    "prepareRequested": "Prepare selected album again",
-    "states": {
-      "preparing": "Reading tags",
-      "ready": "Ready",
-      "running": "Saving",
-      "completed": "Completed",
-      "cancelled": "Cancelled",
-      "failed": "Failed"
-    },
-    "itemStates": {
-      "pending": "Pending",
-      "ready": "Ready",
-      "blocked": "Uneditable",
-      "succeeded": "Succeeded",
-      "failed": "Failed",
-      "skipped": "Skipped",
-      "unexecuted": "Not executed"
-    },
-    "modes": {
-      "keep": "Keep original",
-      "replace": "Replace",
-      "clear": "Clear",
-      "add": "Add values",
-      "remove": "Remove values"
-    },
-    "errors": {
-      "busy": "An edit task exists. Finish or release it first.",
-      "too-many-tracks": "More than 5000 tracks. Narrow the album target.",
-      "expired": "Preparation expired. Prepare again.",
-      "not-found": "Tracks or task not found.",
-      "blocked": "Resolve uneditable tracks or explicitly choose to skip them.",
-      "invalid": "The operation did not complete. Check the input and retry."
-    }
-  },
-  "metadataArtwork": {
-    "title": "Embedded artwork",
-    "manage": "Manage embedded artwork",
-    "currentHint": "Manage embedded images here. Click the artwork in the header to open it.",
-    "pending": "These image changes will be written when song information is saved.",
-    "loading": "Reading images…",
-    "fallback": "Fallback after removing the final image: ",
-    "sources": {
-      "directory": "Directory cover.jpg",
-      "album": "Available artwork from the album",
-      "none": "No artwork"
-    },
-    "add": "Add image",
-    "replace": "Replace selected image",
-    "remove": "Remove selected image",
-    "discard": "Discard image edits and reload",
-    "unsupported": "Embedded image editing is unavailable for this format.",
-    "confirmRemove": "Remove the selected embedded image? Other images will be retained.",
-    "stale": "The file changed. Image edits remain visible for comparison. Import the images again before saving.",
-    "undo": "Undo this operation",
-    "operations": {
-      "add": "Add image",
-      "replace": "Replace image",
-      "remove": "Remove image"
-    },
-    "errors": {
-      "metadata-conflict": "The file changed. Read the latest tags.",
-      "unsupported-format": "This format does not support image editing.",
-      "invalid-image": "Choose a valid JPEG or PNG image.",
-      "image-too-large": "Images must be at most 20 MiB and 40 million pixels.",
-      "limit-exceeded": "Too many images or unreleased imports. Close and reopen the editor.",
-      "unavailable": "The image operation did not complete. Try again."
-    }
   }
 }

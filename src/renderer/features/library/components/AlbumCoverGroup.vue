@@ -138,7 +138,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
         :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
         :aria-label="
           t('library.a11y.albumArtwork', {
-            album: songText(group.album) || t('library.unknownAlbum'),
+            album: songText(group.album) || t('library.missing.album'),
           })
         "
         @contextmenu.prevent="onArtworkContextMenu"
@@ -163,10 +163,10 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
       <div class="album-cover-meta min-w-0">
         <p
-          v-tooltip.overflow="songText(group.album) || t('library.unknownAlbum')"
+          v-tooltip.overflow="songText(group.album) || t('library.missing.album')"
           class="album-cover-meta-title"
         >
-          {{ songText(group.album) || t('library.unknownAlbum') }}
+          {{ songText(group.album) || t('library.missing.album') }}
         </p>
         <p
           v-tooltip.overflow="

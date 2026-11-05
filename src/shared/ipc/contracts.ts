@@ -15,7 +15,6 @@ import type {
   TrackListItem,
   TrackLyrics,
   MetadataRefreshFailure,
-  EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
@@ -47,13 +46,6 @@ import type {
   DailyTopAlbum,
   DailyTopTrack,
 } from '@shared/types/listeningArchive'
-import type {
-  LyricsEditorResult,
-  LrcEditorState,
-  SaveLrcEditor,
-  LrcEditorSaved,
-} from '@shared/types/lyricsEditor'
-
 export type { LibraryChangedEvent, LibraryChangedReason } from '@shared/types/libraryEvents'
 
 export interface MetadataRefreshProgressEvent {
@@ -112,7 +104,6 @@ export interface IpcSendContract {
 
 export interface IpcEventContract {
   'app:prepare-shutdown': void
-  'metadata:album-edit-progress': import('../types/albumMetadataEdit').AlbumEditProgress
   'archive:badge-achievements-changed': void
   'playlists:changed': PlaylistChangedEvent
   'playback:spectrum-frame': PlaybackSpectrumFrame
@@ -123,52 +114,7 @@ export interface IpcEventContract {
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
   'metadata:refresh-progress': MetadataRefreshProgressEvent
-  'metadata:track-edit-state-changed': TrackEditStateChangedEvent
 }
-
-export type TrackEditStatus =
-  | 'editable'
-  | 'playback-editable'
-  | 'playback-in-use'
-  | 'preload-in-use'
-  | 'write-in-progress'
-
-export interface TrackEditStateResult {
-  trackId: number
-  status: TrackEditStatus
-  version: number
-}
-
-export interface TrackEditStateChangedEvent {
-  trackId: number
-  status: TrackEditStatus
-  version: number
-}
-
-export type UpdateTrackMetadataResult =
-  | { ok: true; libraryRevision?: string }
-  | {
-      ok: false
-      reason:
-        | 'metadata-conflict'
-        | 'legacy-metadata-unresolved'
-        | 'playback-in-use'
-        | 'write-in-progress'
-        | 'buffer-preparation-failed'
-        | 'file-in-use'
-        | 'playback-restore-failed'
-        | 'playback-changed'
-        | 'tag-preservation-failed'
-        | 'tag-verification-failed'
-        | 'unsupported-date-precision'
-        | 'legacy-date-conflict'
-        | 'tag-write-failed'
-        | 'file-changed'
-        | 'disk-full'
-        | 'permission-denied'
-        | 'file-not-found'
-        | 'save-failed'
-    }
 
 export type IpcEventChannel = keyof IpcEventContract
 export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
@@ -372,18 +318,6 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: TrackLyrics | null
   }
-  'lyrics:open-lrc-editor': {
-    request: { trackId: number }
-    response: LyricsEditorResult<LrcEditorState>
-  }
-  'lyrics:save-lrc-editor': {
-    request: SaveLrcEditor
-    response: LyricsEditorResult<LrcEditorSaved>
-  }
-  'lyrics:close-lrc-editor': {
-    request: { sessionId: string }
-    response: LyricsEditorResult<null>
-  }
   'playback:get-track': {
     request: { trackId: number }
     response: PlaybackTrackDto | null
@@ -482,63 +416,6 @@ export interface IpcInvokeContract {
     request: void
     response: { deletedCount: number }
   }
-  'metadata:get-track-metadata': {
-    request: { trackId: number }
-    response: EditableTrackMetadata | null
-  }
-  'metadata:get-track-edit-snapshot': {
-    request: { trackId: number }
-    response: TrackMetadataEditSnapshot | null
-  }
-  'metadata:get-track-edit-state': {
-    request: { trackId: number }
-    response: TrackEditStateResult
-  }
-  'metadata:prepare-album-edit': {
-    request: import('../types/albumMetadataEdit').AlbumEditPrepareRequest
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:preview-album-edit': {
-    request: {
-      taskId: string
-      operations: import('../types/albumMetadataEdit').AlbumEditOperations
-      skipBlocked: boolean
-    }
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:start-album-edit': {
-    request: { taskId: string }
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:get-album-edit': {
-    request: void
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:cancel-album-edit': {
-    request: { taskId: string }
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:release-album-edit': {
-    request: { taskId: string }
-    response: import('../types/albumMetadataEdit').AlbumEditReply
-  }
-  'metadata:get-artwork-edit': {
-    request: { trackId: number; editToken: string }
-    response: import('../types/metadataArtworkEdit').ArtworkEditorReply<
-      import('../types/metadataArtworkEdit').MetadataArtworkSnapshot
-    >
-  }
-  'metadata:import-artwork-edit': {
-    request: { trackId: number; editToken: string }
-    response: import('../types/metadataArtworkEdit').ArtworkEditorReply<
-      import('../types/metadataArtworkEdit').ImportedMetadataArtwork | null
-    >
-  }
-  'metadata:release-edit': { request: { editToken: string }; response: { ok: true } }
-  'metadata:update-track-metadata': {
-    request: UpdateTrackMetadataRequest
-    response: UpdateTrackMetadataResult
-  }
   'window:control': {
     request: { action: 'minimize' | 'toggle-maximize' | 'close' }
     response: { isMaximized: boolean }
@@ -566,4 +443,3 @@ export type IpcInvokeChannel = keyof IpcInvokeContract
 export type IpcRequest<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['request']
 
 export type IpcResponse<TChannel extends IpcInvokeChannel> = IpcInvokeContract[TChannel]['response']
-import type { TrackMetadataEditSnapshot, UpdateTrackMetadataRequest } from '../types/trackMetadata'

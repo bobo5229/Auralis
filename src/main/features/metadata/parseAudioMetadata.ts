@@ -1,7 +1,7 @@
 import { open } from 'node:fs/promises'
 import { inflateSync } from 'node:zlib'
 import { parseFile, type IAudioMetadata, type IOptions } from 'music-metadata'
-import { normalizeEditableReleaseDate } from '@main/shared/editableMetadataValidation'
+import { normalizeReleaseDate } from '@shared/utils/releaseDate'
 
 const MAX_TAG_BYTES = 64 * 1024 * 1024
 const MAX_TEXT_BYTES = 1024 * 1024
@@ -19,7 +19,7 @@ type TextField = (typeof TEXT_FIELDS)[keyof typeof TEXT_FIELDS]
 function decodeId3v23Date(metadata: IAudioMetadata): void {
   if (metadata.common.date) {
     try {
-      normalizeEditableReleaseDate(metadata.common.date)
+      normalizeReleaseDate(metadata.common.date)
     } catch {
       metadata.quality.warnings.push({ message: 'Invalid release date in audio tags' })
     }
@@ -37,7 +37,7 @@ function decodeId3v23Date(metadata: IAudioMetadata): void {
     if (metadata.common.year !== undefined && metadata.common.year !== Number(value.slice(0, 4)))
       continue
     try {
-      metadata.common.date = normalizeEditableReleaseDate(value) ?? undefined
+      metadata.common.date = normalizeReleaseDate(value) ?? undefined
       return
     } catch {
       metadata.quality.warnings.push({ message: 'Invalid ID3v2.3 TYER release date' })
@@ -56,7 +56,7 @@ function decodeId3v23Date(metadata: IAudioMetadata): void {
   const normalizedDayMonth = dayMonth.trim()
   try {
     metadata.common.date =
-      normalizeEditableReleaseDate(
+      normalizeReleaseDate(
         `${normalizedYear}-${normalizedDayMonth.slice(2)}-${normalizedDayMonth.slice(0, 2)}`,
       ) ?? undefined
   } catch {

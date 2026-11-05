@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PENDING_LYRICS_BACKUP_MARKER } from '../lyrics/lyricsEditorFiles'
+const PENDING_LYRICS_BACKUP_MARKER = '.auralis-write-pending'
 import { recoverTagWriteArtifacts, runTagWriteRecovery } from './tagWriteRecovery'
 
 function makeWorkspace(): string {

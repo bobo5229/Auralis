@@ -28,7 +28,6 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  editLyrics: [trigger: HTMLElement | null]
   resizePointerDown: [event: PointerEvent]
   resizeKeyDown: [event: KeyboardEvent]
   resetWidth: []
@@ -83,7 +82,6 @@ const contentStyle = computed<CSSProperties>(() => ({
         ref="lyricsPanelRef"
         :active="!isCollapsed"
         :interactive="isInteractive && !isWidthResizing"
-        @edit-lyrics="emit('editLyrics', $event)"
       />
     </div>
   </aside>

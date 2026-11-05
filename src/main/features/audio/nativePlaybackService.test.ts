@@ -445,8 +445,6 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
     const original = await readFile(path)
     const coordinator = new PlaybackFileCoordinator({
       getTrackFilePath: () => path,
-      getTrackIdsByFilePath: () => [1],
-      trackEditStateChanged: () => {},
     })
     const service = new NativePlaybackService({
       mpvPath,
@@ -460,11 +458,8 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
     services.push(service)
     await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
     await service.command({ action: 'pause', session: 1 })
-    expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
     await service.command({ action: 'stop', session: 2 })
-    const write = coordinator.tryAcquireWriteLease(path)
-    if (!write.ok) throw new Error('File remained locked after stop')
-    try {
+    {
       await rename(path, backup)
       try {
         await writeFile(path, original)
@@ -472,8 +467,6 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         await rename(backup, path)
       }
       expect((await readFile(path)).equals(original)).toBe(true)
-    } finally {
-      coordinator.releaseWriteLease(write.leaseId)
     }
   })
 })

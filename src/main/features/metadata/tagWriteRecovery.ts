@@ -3,7 +3,7 @@ import type { Dirent } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { logger } from '@main/logging/logger'
 import { isPathUnderAnyRoot } from '../audio/audioPathGuard'
-import { PENDING_LYRICS_BACKUP_MARKER } from '../lyrics/lyricsEditorFiles'
+const PENDING_LYRICS_BACKUP_MARKER = '.auralis-write-pending'
 import { isLyricSidecar, resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 
 /**

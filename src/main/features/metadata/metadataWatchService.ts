@@ -16,8 +16,6 @@ import { MetadataWatchRecovery } from './metadataWatchRecovery'
 import { win32 } from 'node:path'
 
 const WATCH_DEBOUNCE_MS = 1200
-/** Suppress watch-triggered metadata refresh after a successful user tag write. */
-const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
 
 export class MetadataWatchService {
   private readonly state = createMetadataWatchState()
@@ -58,7 +56,6 @@ export class MetadataWatchService {
       libraryChanged,
       {
         isStopped: () => this.state.stopped,
-        isPathBusy: (filePath) => metadataRefreshService.isWritingFile?.(filePath) ?? false,
         isPaused: () => this.state.flushPaused,
         isPathActive: (filePath) => this.isCurrentPath(filePath),
         runOperation: (operation) => this.runOperation(operation),
@@ -71,7 +68,6 @@ export class MetadataWatchService {
       missingConfirmation: this.missingConfirmation,
       isCurrentPath: (filePath) => this.isCurrentPath(filePath),
       scheduleFlush: (delay) => this.scheduleFlush(delay),
-      hasScheduledFlush: () => this.flushTimer !== null,
     })
     this.recovery = new MetadataWatchRecovery(this.state, {
       trackRepository,
@@ -93,7 +89,6 @@ export class MetadataWatchService {
     this.rootWatchers.close()
     this.recovery.clear()
     this.state.statRetries.clear()
-    this.state.suppressRefreshUntil.clear()
     this.state.flushPaused = true
 
     if (this.flushTimer) {
@@ -144,17 +139,6 @@ export class MetadataWatchService {
     this.recovery.resume()
   }
 
-  /**
-   * After a successful tag write, ignore watch-driven metadata refresh for this
-   * path briefly so the write mtime change cannot clobber user_edit via refresh.
-   */
-  suppressRefreshForPath(filePath: string, durationMs = TAG_WRITE_REFRESH_SUPPRESS_MS): void {
-    const normalizedPath = normalizeAudioFilePath(filePath)
-    this.state.suppressRefreshUntil.set(normalizedPath, Date.now() + durationMs)
-    // Keep both file events and sidecar intent: suppression delays reconciliation
-    // but cannot discard external changes observed around the tag write.
-  }
-
   syncRoots(): void {
     if (this.state.stopped) return
     if (this.rootWatchers.sync(this.libraryRootRepository.list().map((root) => root.path))) {
@@ -167,7 +151,6 @@ export class MetadataWatchService {
       this.state.pendingLyricsIntentPaths,
       this.state.pendingExplicitRefreshPaths,
       this.state.statRetries,
-      this.state.suppressRefreshUntil,
     ]) {
       for (const filePath of paths.keys()) {
         if (!this.isCurrentPath(filePath)) paths.delete(filePath)

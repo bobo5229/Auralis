@@ -9,12 +9,17 @@ on accounts, streaming services, recommendations, or cloud storage.
 ## Current Capabilities
 
 - Full and incremental library scanning in worker threads, with filesystem change monitoring
-- Metadata, artwork, and lyrics extraction, plus metadata editing and audio tag write-back
+- Read-only metadata, artwork, and lyrics extraction, with manual refresh and external file synchronization
 - Track, album, playlist, and smart-playlist browsing
 - Local playback, queue management, listening statistics, and gapless playback support
-- The Archive route is currently a placeholder; playback statistics are still recorded and can be reset
+- Annual listening archive with a playback activity heatmap, date-specific albums, and annual
+  summaries; playback statistics can be reset
 - In-app and fullscreen player experiences
 - Simplified Chinese and English UI, with separate simplified/traditional text display for songs and lyrics
+
+Use an external tagger such as foobar2000 to edit music files. Auralis synchronizes those changes;
+its built-in track, album, artwork, and lyrics editors have been removed. It does not write audio tags
+or save LRC files. Historical interrupted-write backups are still recovered without overwriting existing files.
 
 Feature status is determined by the current source, routes, and tests. Design documents under
 [Documentation](docs/README.md) includes topic designs and historical decisions; these are not a
@@ -74,10 +79,19 @@ src/
   preload/    Sandboxed CommonJS context-bridge APIs
   renderer/   Vue application and feature modules
   shared/     Cross-process types and IPC contracts
+demo/         Standalone UI and interaction prototypes; see demo/README.md
+docs/         Architecture, product topics, project records, reviews, and working rules
+scripts/      Development, asset, diagnostic, and validation utilities
+resources/    Application assets and native runtime resources
 ```
 
-Generated or local-only directories such as `out/`, `release/`, `data/`, `.electron-home/`,
-`.electron-gyp/`, `.npm-cache/`, and `node_modules/` are not source code.
+For document navigation, start at [docs/README.md](docs/README.md); its [catalog](docs/CATALOG.md)
+indexes individual records. The demo catalog distinguishes current explorations, archived prototypes,
+and machine-local drafts.
+
+Generated or machine-local directories such as `out/`, `release/`, `data/`, `.electron-home/`,
+`.electron-gyp/`, `.npm-cache/`, and `node_modules/` are not source code. Build and capture outputs
+are kept under their task-specific output directories.
 
 Standalone UI prototypes are grouped under [demo/](demo/README.md). App icons and the local audio
 runtime setup are documented under [resources/](resources/README.md).

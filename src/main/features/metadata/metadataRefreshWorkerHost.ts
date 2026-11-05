@@ -18,11 +18,6 @@ function getWorkerPath(): string {
 
 export type { MetadataRefreshProgress } from './metadataRefreshTypes'
 
-interface MetadataWriteState {
-  generationFor: (trackId: number) => number
-  isWriting: (trackId: number) => boolean
-}
-
 export class MetadataRefreshWorkerHost {
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
@@ -32,7 +27,6 @@ export class MetadataRefreshWorkerHost {
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly events: MetadataRefreshEvents,
-    private readonly writes: MetadataWriteState,
     private readonly onIdle: () => void,
   ) {}
 
@@ -62,13 +56,6 @@ export class MetadataRefreshWorkerHost {
   }
 
   start(input: MetadataRefreshWorkerInput): void {
-    input = {
-      ...input,
-      tracks: input.tracks.map((track) => ({
-        ...track,
-        generation: this.writes.generationFor(track.trackId),
-      })),
-    }
     const changedReason = this.getChangedReason(input.jobId)
     const worker = new Worker(getWorkerPath(), {
       workerData: input,
@@ -150,9 +137,6 @@ export class MetadataRefreshWorkerHost {
             const matches = () =>
               r.jobId === input.jobId &&
               expectedTracks.get(r.trackId)?.filePath === r.sourceFilePath &&
-              expectedTracks.get(r.trackId)?.generation === r.generation &&
-              r.generation === this.writes.generationFor(r.trackId) &&
-              !this.writes.isWriting(r.trackId) &&
               this.activeWorker === worker &&
               (input.writeMode === 'legacy-ttml'
                 ? this.repository.getLegacyTtmlFilePath(r.trackId)
@@ -193,8 +177,6 @@ export class MetadataRefreshWorkerHost {
           const matches = () =>
             this.activeWorker === worker &&
             this.activeJobId === input.jobId &&
-            source.generation === this.writes.generationFor(f.trackId) &&
-            !this.writes.isWriting(f.trackId) &&
             this.repository.getTrackFilePath(f.trackId) === f.filePath
           if (
             input.writeMode !== 'legacy-ttml' &&

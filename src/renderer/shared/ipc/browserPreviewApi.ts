@@ -46,30 +46,10 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'playback.getRandomAlbumTracks':
     case 'playback.getAlbumTracks':
     case 'lyrics.getByTrackId':
-    case 'metadata.getMetadataArtwork':
-    case 'metadata.importMetadataArtwork':
-      return { ok: false, reason: 'unavailable' }
-    case 'metadata.releaseMetadataEdit':
-      return { ok: true }
-    case 'metadata.getAlbumEdit':
-    case 'metadata.releaseAlbumEdit':
-      return { ok: true, task: null }
-    case 'metadata.prepareAlbumEdit':
-    case 'metadata.previewAlbumEdit':
-    case 'metadata.startAlbumEdit':
-    case 'metadata.cancelAlbumEdit':
-      return { ok: false, reason: 'not-found' }
-    case 'metadata.getTrackMetadata':
-    case 'metadata.getTrackEditSnapshot':
     case 'metadata.getRefreshStatus':
     case 'smartPlaylists.getDetail':
     case 'playlists.getDetail':
       return null
-    case 'lyrics.openLrcEditor':
-    case 'lyrics.saveLrcEditor':
-      return { ok: false, code: 'track-unavailable' }
-    case 'lyrics.closeLrcEditor':
-      return { ok: true, value: null }
     case 'archive.getBadgeAchievements':
       return {
         epoch: 0,

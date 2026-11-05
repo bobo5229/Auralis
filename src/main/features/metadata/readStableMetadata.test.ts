@@ -3,8 +3,6 @@ import { stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
 import { writeArtworkToCache } from '../artwork/artworkCache'
 import { readStableMetadata } from './readStableMetadata'
-import { verifyWrittenMetadata } from './verifyWrittenMetadata'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 
 vi.mock('node:fs/promises', () => ({ stat: vi.fn() }))
 vi.mock('music-metadata', () => ({ parseFile: vi.fn() }))
@@ -46,39 +44,6 @@ describe('stable metadata reading', () => {
     expect(serialize).not.toHaveBeenCalled()
     expect(result).not.toHaveProperty('rawCommonJson')
     expect(result).not.toHaveProperty('rawNativeJson')
-  })
-
-  it('verifies actual tags including ID3v2.3 dates and rejects mismatched edits', async () => {
-    const metadata = await parseFile('fixture')
-    metadata.common.year = 2026
-    metadata.native = {
-      'ID3v2.3': [
-        { id: 'TYER', value: '2026' },
-        { id: 'TDAT', value: '2209' },
-      ],
-    }
-    vi.mocked(parseFile).mockResolvedValue(metadata)
-    const edit: EditableTrackMetadata = {
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: 'Artist',
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: 2026,
-      releaseDate: '2026-09-22',
-    }
-    const verify = vi.fn((actual) => verifyWrittenMetadata(edit, actual))
-    await readStableMetadata(1, 'isolated.flac', 'cache', verify)
-    expect(verify).toHaveBeenCalledWith(metadata)
-    edit.title = 'Different title'
-    await expect(readStableMetadata(1, 'isolated.flac', 'cache', verify)).rejects.toThrow(
-      'Written audio tags do not match',
-    )
-    // Display normalization supplies a filename fallback, but validation must see missing tags.
-    delete metadata.common.title
-    edit.title = null
-    await expect(readStableMetadata(1, 'isolated.flac', 'cache', verify)).resolves.toBeDefined()
   })
 
   it('returns the fingerprint of a stable full parse', async () => {

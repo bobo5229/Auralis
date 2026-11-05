@@ -1,20 +1,10 @@
+import { rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { mkdtemp, rm, stat, writeFile, readFile } from 'node:fs/promises'
-import * as fileOperations from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import type Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { migrateDatabase } from '../database/schema'
 import { MetadataRefreshRepository, type RefreshedTrackMetadata } from './metadataRefreshRepository'
 import { resolveWatchRefreshPaths } from '../features/metadata/metadataFileChangeFilter'
-import { MetadataRefreshService } from '../features/metadata/metadataRefreshService'
-import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
-import { readStableMetadata } from '../features/metadata/readStableMetadata'
-import { resolveAudioRuntimePaths } from '../features/audio/audioRuntimePaths'
 import { TrackRepository } from './trackRepository'
 import { resolveTagRecoveryTrackIds } from '../features/metadata/tagWriteRecovery'
 
@@ -28,11 +18,6 @@ const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
 ) => Database.Database
 const databases: Database.Database[] = []
 const roots: string[] = []
-const { ffmpegPath } = resolveAudioRuntimePaths({
-  isPackaged: false,
-  appPath: fileURLToPath(new URL('../../../', import.meta.url)),
-  resourcesPath: '',
-})
 const path = 'C:\\isolated\\song.flac'
 function setup(filePath = path) {
   const db = new DatabaseCtor(':memory:')
@@ -94,16 +79,6 @@ function stored(db: Database.Database) {
     lyrics: string | null
   }
 }
-const edit = {
-  trackId: 1,
-  title: 'User title',
-  artistDisplay: 'Artist',
-  albumTitle: 'Album',
-  albumArtistDisplay: 'Artist',
-  genreDisplay: 'Pop',
-  year: 2026,
-  releaseDate: '2026',
-}
 afterEach(async () => {
   vi.restoreAllMocks()
   for (const db of databases.splice(0)) db.close()
@@ -125,7 +100,20 @@ it('persists recovery refresh for a mixed-case audio path until metadata commits
   expect(restarted.listPendingTagRecoveryPaths()).toEqual([filePath])
   expect(() => restarted.updateTrackMetadata(result({ sourceFilePath: 'wrong-path' }))).toThrow()
   expect(restarted.listPendingTagRecoveryPaths()).toEqual([filePath])
-  restarted.updateTrackMetadata(result({ sourceFilePath: filePath }))
+  restarted.updateTrackMetadata(
+    result({
+      sourceFilePath: filePath,
+      fileTags: {
+        title: 'New',
+        artistDisplay: 'Artist',
+        albumTitle: 'Album',
+        albumArtistDisplay: 'Artist',
+        genreDisplay: 'Pop',
+        year: 2026,
+        releaseDate: '2026',
+      },
+    }),
+  )
   expect(restarted.listPendingTagRecoveryPaths()).toEqual([])
 })
 
@@ -154,24 +142,6 @@ describe('metadata fingerprint transactions', () => {
       path,
     ])
   })
-  it('preserves user display/source while advancing technical fields and fingerprint', () => {
-    const { db, repo } = setup()
-    repo.updateUserEditedMetadata(edit)
-    repo.updateTrackMetadata(result())
-    expect(stored(db)).toMatchObject({
-      title: edit.title,
-      size: 20,
-      mtime: 200.25,
-      metadataChecked: 200.25,
-    })
-    expect(db.prepare('SELECT source, title FROM track_metadata').get()).toEqual({
-      source: 'legacy_user_edit',
-      title: edit.title,
-    })
-    expect(
-      new TrackRepository(db).getFileFingerprintsByFilePaths([path]).get(path)?.fileFingerprint,
-    ).toEqual(result().fileFingerprint)
-  })
   it('rolls back metadata, fingerprints and related rows on a later SQL failure', () => {
     const { db, repo } = setup()
     db.exec(
@@ -191,7 +161,7 @@ describe('metadata fingerprint transactions', () => {
     expect(() => repo.updateTrackMetadata(result())).toThrow('identity')
     expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
   })
-  it('lyrics-only preserves full metadata checks when unchanged, but upgrades changed audio', () => {
+  it('lyrics-only preserves metadata checks and rejects changed audio', () => {
     const { db, repo } = setup()
     repo.updateTrackLyrics(result({ fileSize: 10, fileMtimeMs: 100 }))
     expect(stored(db)).toMatchObject({
@@ -200,8 +170,8 @@ describe('metadata fingerprint transactions', () => {
       lyricsChecked: 100,
       lyrics: 'new lyrics',
     })
-    repo.updateTrackLyrics(result())
-    expect(stored(db)).toMatchObject({ title: 'New', mtime: 200.25, metadataChecked: 200.25 })
+    expect(() => repo.updateTrackLyrics(result())).toThrow('fingerprint changed')
+    expect(stored(db)).toMatchObject({ title: 'Old', mtime: 100, metadataChecked: 100 })
   })
   it('rolls back both lyrics tables when the second write fails', () => {
     const { db, repo } = setup()
@@ -214,243 +184,4 @@ describe('metadata fingerprint transactions', () => {
     )
     expect(stored(db).lyrics).toBe('new lyrics')
   })
-  it('rolls back user edits if fingerprint/technical commit fails', () => {
-    const { db, repo } = setup()
-    db.exec(
-      `CREATE TRIGGER reject_fingerprint BEFORE UPDATE OF file_size ON tracks BEGIN SELECT RAISE(ABORT, 'fingerprint failure'); END`,
-    )
-    expect(() => repo.commitVerifiedUserEdit(edit, result())).toThrow('fingerprint failure')
-    expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100 })
-    expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
-  })
-})
-
-describe('isolated FFmpeg tag write and stable readback', () => {
-  it('leaves file bytes and database unchanged when a date is invalid', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'auralis-invalid-tag-'))
-    roots.push(root)
-    const filePath = join(root, 'sample.flac')
-    const original = Buffer.from('file must never be opened by the tag writer')
-    await writeFile(filePath, original)
-    const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(
-      repo,
-      root,
-      createMetadataRefreshEvents(vi.fn()),
-      ffmpegPath,
-    )
-    const suppress = vi.fn()
-    service.setTagWriteSuccessHandler(suppress)
-    await expect(
-      service.updateTrackMetadata({ ...edit, releaseDate: '2025-02-31' }),
-    ).rejects.toThrow('Release Date')
-    expect(await readFile(filePath)).toEqual(original)
-    expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100 })
-    expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
-    expect(suppress).not.toHaveBeenCalled()
-  })
-
-  it('preserves an external update made while FFmpeg was preparing replacement tags', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'auralis-tag-external-'))
-    roots.push(root)
-    const filePath = join(root, 'sample.flac')
-    await promisify(execFile)(
-      ffmpegPath,
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-f',
-        'lavfi',
-        '-i',
-        'sine=frequency=440:duration=0.1',
-        '-c:a',
-        'flac',
-        filePath,
-      ],
-      { windowsHide: true },
-    )
-    const originalCopy = fileOperations.copyFile
-    vi.spyOn(fileOperations, 'copyFile').mockImplementation(async (source, target, mode) => {
-      if (String(target).includes('.auralis-replacement-'))
-        await writeFile(filePath, 'external replacement', 'utf8')
-      await originalCopy(source, target, mode)
-    })
-    const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(
-      repo,
-      root,
-      createMetadataRefreshEvents(vi.fn()),
-      ffmpegPath,
-    )
-    vi.spyOn(service, 'refreshTracksFromFileChanges').mockReturnValue({ jobId: 999 })
-    await expect(service.updateTrackMetadata(edit)).rejects.toThrow('changed during tag writing')
-    expect(await readFile(filePath, 'utf8')).toBe('external replacement')
-    expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100 })
-  }, 20000)
-  it.each(['flac', 'mp3', 'm4a'])(
-    'writes actual %s tags, verifies readback and atomically commits user_edit with its fingerprint',
-    async (extension) => {
-      const root = await mkdtemp(join(tmpdir(), 'auralis-tag-fingerprint-'))
-      roots.push(root)
-      const filePath = join(root, `sample.${extension}`)
-      await promisify(execFile)(
-        ffmpegPath,
-        [
-          '-hide_banner',
-          '-loglevel',
-          'error',
-          '-f',
-          'lavfi',
-          '-i',
-          'sine=frequency=440:duration=0.1',
-          filePath,
-        ],
-        { windowsHide: true },
-      )
-      const { db, repo } = setup(filePath)
-      const service = new MetadataRefreshService(
-        repo,
-        root,
-        createMetadataRefreshEvents(vi.fn()),
-        ffmpegPath,
-      )
-      const suppress = vi.fn()
-      service.setTagWriteSuccessHandler(suppress)
-      const reconcile = vi
-        .spyOn(service, 'refreshTracksFromFileChanges')
-        .mockReturnValue({ jobId: 999 })
-      const datedEdit = { ...edit, releaseDate: '2026-09-21' }
-      expect(await service.updateTrackMetadata(datedEdit)).toEqual({ ok: true })
-      const fingerprint = await stat(filePath)
-      expect(stored(db)).toMatchObject({
-        title: edit.title,
-        size: fingerprint.size,
-        mtime: fingerprint.mtimeMs,
-        metadataChecked: fingerprint.mtimeMs,
-        lyricsChecked: fingerprint.mtimeMs,
-      })
-      const parsed = await readStableMetadata(1, filePath, root)
-      expect(parsed.title).toBe(edit.title)
-      if (extension === 'flac') {
-        // Sidecar changes carry lyrics intent even though the audio fingerprint stays identical.
-        await writeFile(join(root, 'sample.lrc'), '[00:00.00]Updated sidecar', 'utf8')
-        const lyrics = await readStableMetadata(1, filePath, root)
-        expect(lyrics.fileMtimeMs).toBe(fingerprint.mtimeMs)
-        repo.updateTrackLyrics(lyrics)
-        expect(stored(db)).toMatchObject({
-          lyrics: '[00:00.00]Updated sidecar',
-          metadataChecked: fingerprint.mtimeMs,
-        })
-      }
-      expect(suppress).toHaveBeenCalledWith(filePath)
-      expect(reconcile).not.toHaveBeenCalled()
-      const savedRow = stored(db)
-      const savedEdit = repo.getEditableTrackMetadata(1)!
-      suppress.mockClear()
-      const copy = vi.spyOn(fileOperations, 'copyFile').mockClear()
-      expect(await service.updateTrackMetadata(savedEdit)).toEqual({ ok: true })
-      expect(copy).not.toHaveBeenCalled()
-      expect((await stat(filePath)).mtimeMs).toBe(fingerprint.mtimeMs)
-      expect(stored(db)).toEqual(savedRow)
-      expect(suppress).not.toHaveBeenCalled()
-    },
-    20000,
-  )
-  it('preserves an unpublished failed write without marking it checked or scheduling reconciliation', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'auralis-tag-failure-'))
-    roots.push(root)
-    const filePath = join(root, 'corrupt.flac')
-    await writeFile(filePath, 'invalid audio', 'utf8')
-    const { db, repo } = setup(filePath)
-    const originalRow = stored(db)
-    const originalFingerprint = await stat(filePath)
-    const send = vi.fn()
-    const service = new MetadataRefreshService(
-      repo,
-      root,
-      createMetadataRefreshEvents(send),
-      ffmpegPath,
-    )
-    const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
-    const reconcile = vi
-      .spyOn(service, 'refreshTracksFromFileChanges')
-      .mockReturnValue({ jobId: 999 })
-    await expect(service.updateTrackMetadata(edit)).rejects.toThrow()
-    // FFmpeg failed before publishing a replacement. Also drain shutdown work so
-    // a delayed reconciliation cannot silently change the row or its fingerprint.
-    await service.shutdown()
-    expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100, metadataChecked: 100 })
-    expect(stored(db)).toEqual(originalRow)
-    expect(await readFile(filePath, 'utf8')).toBe('invalid audio')
-    const fingerprint = await stat(filePath)
-    expect(fingerprint.size).toBe(originalFingerprint.size)
-    expect(fingerprint.mtimeMs).toBe(originalFingerprint.mtimeMs)
-    expect(commit).not.toHaveBeenCalled()
-    expect(reconcile).not.toHaveBeenCalled()
-    expect(send).not.toHaveBeenCalled()
-  }, 20000)
-
-  it('reconciles a published real write after a SQLite commit failure', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'auralis-tag-reconcile-'))
-    roots.push(root)
-    const filePath = join(root, 'sample.flac')
-    await promisify(execFile)(
-      ffmpegPath,
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-f',
-        'lavfi',
-        '-i',
-        'sine=frequency=440:duration=0.1',
-        filePath,
-      ],
-      { windowsHide: true },
-    )
-    const { db, repo } = setup(filePath)
-    const originalRow = stored(db)
-    const send = vi.fn()
-    const service = new MetadataRefreshService(
-      repo,
-      root,
-      createMetadataRefreshEvents(send),
-      ffmpegPath,
-    )
-    const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
-    // Hold background reconciliation until the failed transaction is inspected.
-    const busy = vi.spyOn(service, 'hasActiveJob').mockReturnValue(true)
-    db.exec(`CREATE TRIGGER reject_tag_fingerprint BEFORE UPDATE OF file_size ON tracks
-      BEGIN SELECT RAISE(FAIL, 'injected fingerprint commit failure'); END;`)
-    try {
-      await expect(service.updateTrackMetadata(edit)).rejects.toThrow(
-        'injected fingerprint commit failure',
-      )
-      expect(commit).toHaveBeenCalledOnce()
-      expect(stored(db)).toEqual(originalRow)
-      expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
-      expect(send).not.toHaveBeenCalled()
-      // The accepted tags are already on disk despite the rolled-back SQLite edit.
-      expect((await readStableMetadata(1, filePath, root)).title).toBe(edit.title)
-    } finally {
-      db.exec('DROP TRIGGER IF EXISTS reject_tag_fingerprint')
-      busy.mockRestore()
-      await service.shutdown()
-    }
-    const fingerprint = await stat(filePath)
-    expect(commit).toHaveBeenCalledTimes(2)
-    expect(stored(db)).toMatchObject({
-      title: edit.title,
-      size: fingerprint.size,
-      mtime: fingerprint.mtimeMs,
-      metadataChecked: fingerprint.mtimeMs,
-      lyricsChecked: fingerprint.mtimeMs,
-    })
-    expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
-      reason: 'metadata-refresh',
-      trackIds: [1],
-      filePaths: [filePath],
-    })
-  }, 20000)
 })

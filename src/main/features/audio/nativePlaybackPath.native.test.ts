@@ -110,8 +110,6 @@ async function fixture(rootAlias = false) {
   const id = await importFile(oldPath)
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (id) => tracks.getFilePathById(id),
-    getTrackIdsByFilePath: (path) => tracks.getTrackIdsByPlaybackPath(path),
-    trackEditStateChanged: () => {},
   })
   // Retain the production probe/lease sequence; only transport timing is controlled.
   const resolveTrack = async (id: number) => {
@@ -233,11 +231,7 @@ describe.skipIf(!available)('native playback catalog paths (isolated FLAC and SQ
       }
       expect(await result).toEqual(new Error('Playback track path changed before loading'))
       expect(f.events.some((event) => event.kind === 'error')).toBe(true)
-      const replacement = f.tracks.getTrackIdsByFilePaths([f.oldPath])[0]!
-      await vi.waitFor(() => {
-        expect(f.coordinator.getTrackState(f.id).status).toBe('editable')
-        expect(f.coordinator.getTrackState(replacement).status).toBe('editable')
-      })
+      await f.service.dispose()
       // A later explicit start resolves the new path and still loads the original recording.
       let client: MpvClient | undefined
       vi.mocked(openMpvClient).mockImplementationOnce(async (...args) => {
@@ -251,19 +245,15 @@ describe.skipIf(!available)('native playback catalog paths (isolated FLAC and SQ
     },
   )
 
-  it('rejects a moved binding after waiting for a real writer lease', async () => {
+  it('rejects a moved binding after awaiting a read lease', async () => {
     const f = await fixture()
     const waiting = deferred()
     const acquire = f.coordinator.acquireReadLease.bind(f.coordinator)
-    let writerId: string | undefined
+    const resumed = deferred()
     vi.spyOn(f.coordinator, 'acquireReadLease').mockImplementation((path, source, signal) => {
       if (source === 'mpv-current') {
-        const writer = f.coordinator.tryAcquireWriteLease(path)
-        if (!writer.ok) throw new Error('Expected writer lease')
-        writerId = writer.leaseId
-        const pending = acquire(path, source, signal)
         waiting.resolve()
-        return pending
+        return resumed.promise.then(() => acquire(path, source, signal))
       }
       return acquire(path, source, signal)
     })
@@ -272,13 +262,10 @@ describe.skipIf(!available)('native playback catalog paths (isolated FLAC and SQ
       await waiting.promise
       await f.moveAndReuse()
     } finally {
-      if (writerId) f.coordinator.releaseWriteLease(writerId)
+      resumed.resolve()
     }
     expect(await result).toEqual(new Error('Playback track path changed before loading'))
     await f.service.dispose()
-    const write = f.coordinator.tryAcquireWriteLease(f.oldPath)
-    expect(write.ok).toBe(true)
-    if (write.ok) f.coordinator.releaseWriteLease(write.leaseId)
   })
 
   it.each(['start', 'next'] as const)(
@@ -335,9 +322,6 @@ describe.skipIf(!available)('native playback catalog paths (isolated FLAC and SQ
         expect(await command('get_property', 'path')).toBe(stablePath)
         expect(await command('get_property', 'playlist-count')).toBe(1)
         expect(f.events.filter((event) => event.kind === 'error')).toEqual([])
-        const write = f.coordinator.tryAcquireWriteLease(f.oldPath)
-        expect(write.ok).toBe(true)
-        if (write.ok) f.coordinator.releaseWriteLease(write.leaseId)
       }
       expect(calls.filter(([name]) => name === 'loadfile')).toEqual([])
     },

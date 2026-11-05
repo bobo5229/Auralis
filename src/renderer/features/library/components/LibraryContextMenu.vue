@@ -37,8 +37,6 @@ const emit = defineEmits<{
   (e: 'insertAfterCurrent'): void
   (e: 'addToPlaylist', playlist: SidebarPlaylistItem): void
   (e: 'createPlaylist'): void
-  (e: 'editMetadata'): void
-  (e: 'editAlbum'): void
   (e: 'switchView', mode: LibraryViewMode): void
   (e: 'openInExplorer'): void
 }>()
@@ -134,23 +132,6 @@ const menuItems = computed<MenuItemDef[]>(() => {
     },
   })
 
-  list.push({
-    id: 'editMetadata',
-    action: () => {
-      emit('editMetadata')
-      // Note: do not emit close here immediately if metadata dialog takes focus return responsibility
-      emit('close')
-    },
-  })
-
-  list.push({
-    id: 'editAlbum',
-    disabled: props.source !== 'album-artwork',
-    action: () => {
-      emit('editAlbum')
-      emit('close')
-    },
-  })
   list.push({
     id: 'openInExplorer',
     action: () => {
@@ -607,37 +588,6 @@ onBeforeUnmount(() => {
             :tabindex="activeIndex === 5 ? 0 : -1"
             @click="activateMainItem(5)"
             @mouseenter="activeIndex = 5"
-          >
-            <span class="i-lucide-pencil"></span>
-            <span class="library-context-menu-text truncate">{{
-              source === 'album-artwork'
-                ? t('albumMetadataEditor.editTrack')
-                : t('library.contextMenu.editMetadata')
-            }}</span>
-          </button>
-
-          <button
-            v-if="source === 'album-artwork'"
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            data-context-main-item
-            data-context-main-index="6"
-            :tabindex="activeIndex === 6 ? 0 : -1"
-            @click="activateMainItem(6)"
-            @mouseenter="activeIndex = 6"
-          >
-            <span class="i-lucide-pencil" /><span>{{ t('albumMetadataEditor.editAlbum') }}</span>
-          </button>
-          <button
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            data-context-main-item
-            data-context-main-index="7"
-            :tabindex="activeIndex === 7 ? 0 : -1"
-            @click="activateMainItem(7)"
-            @mouseenter="activeIndex = 7"
           >
             <span class="i-lucide-folder-open"></span>
             <span class="library-context-menu-text truncate">{{

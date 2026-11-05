@@ -2,13 +2,11 @@ import type { EventEmitter } from 'node:events'
 import { stat } from 'node:fs/promises'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMetadataRefreshEvents } from '@main/ipc/metadataRefreshEvents'
-import { MetadataRefreshService, type MetadataWriteCoordinator } from './metadataRefreshService'
+import { MetadataRefreshService } from './metadataRefreshService'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
-import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
-import { writeAudioTags } from './audioTagWriteService'
+import { assertMetadataFingerprint } from './readStableMetadata'
 import * as lyricsSidecars from './resolveLyricsForFile'
-import type { PlaybackMetadataTagWrite } from './metadataTagWriteCoordinator'
 
 const workers = vi.hoisted(() => [] as EventEmitter[])
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -32,14 +30,11 @@ vi.mock('node:worker_threads', async () => {
 })
 vi.mock('./readStableMetadata', () => ({
   assertMetadataFingerprint: vi.fn(async () => undefined),
-  readStableMetadata: vi.fn(),
 }))
-vi.mock('./audioTagWriteService', () => ({ writeAudioTags: vi.fn() }))
 vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn() } }))
 
 const payload = {
   jobId: 1,
-  generation: 0,
   trackId: 1,
   sourceFilePath: 'isolated.flac',
   fileSize: 20,
@@ -52,7 +47,7 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
-function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () => string) {
+function setup() {
   let job = 0
   const repo = {
     markInterruptedJobs: vi.fn(),
@@ -65,16 +60,12 @@ function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () 
     createJob: vi.fn(() => ++job),
     getTrackFilePath: vi.fn<MetadataRefreshRepository['getTrackFilePath']>(() => 'isolated.flac'),
     getLegacyTtmlFilePath: vi.fn(() => 'isolated.flac'),
-    getEditableTrackMetadata: vi.fn(
-      () => null as import('@shared/types/libraryScan').EditableTrackMetadata | null,
-    ),
     updateTrackMetadata: vi.fn(),
     updateTrackLyrics: vi.fn(),
     addFailure: vi.fn(),
     updateJobProgress: vi.fn(),
     completeJob: vi.fn(),
     getJobById: vi.fn(() => ({ scope: 'tracks' })),
-    commitVerifiedUserEdit: vi.fn(),
     markTrackMissing: vi.fn(),
   }
   const send = vi.fn()
@@ -82,9 +73,6 @@ function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () 
     repo as unknown as MetadataRefreshRepository,
     'cache',
     createMetadataRefreshEvents(send),
-    'isolated-bin/ffmpeg.exe',
-    coordinator,
-    readLibraryRevision,
   )
   return { repo, service, send }
 }
@@ -98,362 +86,6 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
-  it.each([
-    [2024, null, '2024'],
-    [2001, '2024-05-20', '2024-05-20'],
-  ])('does not rewrite an unchanged legacy date', async (year, oldDate, shownDate) => {
-    const { service, repo } = setup()
-    const existing = {
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year,
-      releaseDate: oldDate,
-    }
-    repo.getEditableTrackMetadata.mockReturnValue(existing)
-    expect(
-      await service.updateTrackMetadata({ ...existing, year: 2024, releaseDate: shownDate }),
-    ).toEqual({ ok: true })
-    expect(writeAudioTags).not.toHaveBeenCalled()
-    await service.shutdown()
-  })
-
-  it('preserves a conflicting legacy year when another field is edited', async () => {
-    const { service, repo } = setup()
-    const existing = {
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: 2001,
-      releaseDate: '2024-05-20',
-    }
-    repo.getEditableTrackMetadata.mockReturnValue(existing)
-    expect(await service.updateTrackMetadata({ ...existing, title: 'Changed' })).toEqual({
-      ok: false,
-      reason: 'legacy-date-conflict',
-    })
-    expect(writeAudioTags).not.toHaveBeenCalled()
-    await service.shutdown()
-  })
-  it('writes the old database value when a failed save has already published another value', async () => {
-    const { service, repo } = setup()
-    const old = {
-      trackId: 1,
-      title: 'Old',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    }
-    repo.getEditableTrackMetadata.mockReturnValue(old)
-    service.refreshTrack(1) // Defer reconciliation while the user retries.
-    vi.mocked(readStableMetadata).mockResolvedValue(payload)
-    repo.commitVerifiedUserEdit.mockImplementationOnce(() => {
-      throw new Error('SQL failed')
-    })
-    await expect(service.updateTrackMetadata({ ...old, title: 'Published' })).rejects.toThrow(
-      'SQL failed',
-    )
-    expect(await service.updateTrackMetadata(old)).toEqual({ ok: true })
-    expect(writeAudioTags).toHaveBeenCalledTimes(2)
-    expect(writeAudioTags).toHaveBeenLastCalledWith('isolated.flac', old, 'isolated-bin/ffmpeg.exe')
-    expect(repo.commitVerifiedUserEdit).toHaveBeenLastCalledWith(old, payload)
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2)
-  })
-
-  it('drains a published failure added while another track is reconciling', async () => {
-    const { service, repo, send } = setup()
-    const gate = deferred<MetadataRefreshWorkerResult>()
-    const firstAttempts = new Set([1, 2])
-    repo.getTrackFilePath.mockImplementation((id) => `isolated-${id}.flac`)
-    repo.commitVerifiedUserEdit.mockImplementation((metadata) => {
-      if (firstAttempts.delete(metadata.trackId)) throw new Error('SQL failed')
-    })
-    let firstReads = 0
-    vi.mocked(readStableMetadata).mockImplementation(async (id, path) => {
-      if (id === 1 && ++firstReads === 2) return gate.promise
-      return { ...payload, trackId: id, sourceFilePath: path }
-    })
-    const edit = (trackId: number) => ({
-      trackId,
-      title: 'Published',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    })
-    await expect(service.updateTrackMetadata(edit(1))).rejects.toThrow('SQL failed')
-    await expect(service.updateTrackMetadata(edit(2))).rejects.toThrow('SQL failed')
-    gate.resolve({ ...payload, sourceFilePath: 'isolated-1.flac' })
-    await vi.waitFor(() => expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(4))
-    expect(
-      send.mock.calls
-        .filter(([channel]) => channel === 'library:changed')
-        .map(([, event]) => event.trackIds),
-    ).toEqual([[1], [2]])
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(4)
-  })
-
-  it('does not let an older reconciliation commit or remove a newer failed write', async () => {
-    const { service, repo } = setup()
-    const gate = deferred<MetadataRefreshWorkerResult>()
-    vi.mocked(readStableMetadata)
-      .mockReset()
-      .mockResolvedValue(payload)
-      .mockResolvedValueOnce(payload)
-      .mockReturnValueOnce(gate.promise)
-    repo.commitVerifiedUserEdit
-      .mockImplementationOnce(() => {
-        throw new Error('SQL failed')
-      })
-      .mockImplementationOnce(() => {
-        throw new Error('SQL failed')
-      })
-    const old = {
-      trackId: 1,
-      title: 'First',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    }
-    await expect(service.updateTrackMetadata(old)).rejects.toThrow('SQL failed')
-    const latest = { ...old, title: 'Latest' }
-    await expect(service.updateTrackMetadata(latest)).rejects.toThrow('SQL failed')
-    gate.resolve(payload)
-    await vi.waitFor(() => expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(3))
-    expect(repo.commitVerifiedUserEdit.mock.calls.map(([metadata]) => metadata.title)).toEqual([
-      'First',
-      'Latest',
-      'Latest',
-    ])
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(3)
-  })
-
-  it('does not spin on a persistent reconciliation failure', async () => {
-    const { service, repo } = setup()
-    vi.mocked(readStableMetadata).mockReset().mockResolvedValue(payload)
-    repo.commitVerifiedUserEdit.mockImplementation(() => {
-      throw new Error('SQL unavailable')
-    })
-    await expect(
-      service.updateTrackMetadata({
-        trackId: 1,
-        title: 'Published',
-        artistDisplay: null,
-        albumTitle: null,
-        albumArtistDisplay: null,
-        genreDisplay: null,
-        year: null,
-        releaseDate: null,
-      }),
-    ).rejects.toThrow('SQL unavailable')
-    await new Promise((resolve) => setImmediate(resolve))
-    await new Promise((resolve) => setImmediate(resolve))
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2)
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(3)
-  })
-
-  it('returns the exact committed revision carried by the success notification', async () => {
-    const readRevision = vi.fn(() => '12:1')
-    const { service, repo, send } = setup(undefined, readRevision)
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    const result = await service.updateTrackMetadata({
-      trackId: 1,
-      title: 'Changed',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    })
-    expect(result).toEqual({ ok: true, libraryRevision: '12:1' })
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-    expect(readRevision).toHaveBeenCalledOnce()
-    expect(repo.commitVerifiedUserEdit.mock.invocationCallOrder[0]).toBeLessThan(
-      readRevision.mock.invocationCallOrder[0],
-    )
-    expect(send).toHaveBeenCalledWith('library:changed', {
-      reason: 'metadata-refresh',
-      trackIds: [1],
-      filePaths: ['isolated.flac'],
-      libraryRevision: '12:1',
-    })
-    await service.shutdown()
-  })
-
-  it('routes lyric-only edits through the playback writer even when other fields are unchanged', async () => {
-    const { service, repo } = setup({
-      tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
-      releaseWriteLease: vi.fn(),
-    })
-    repo.getEditableTrackMetadata.mockReturnValue({
-      trackId: 1,
-      title: 'Before',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    })
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    const commit = vi.fn(async () => undefined)
-    const guard = vi.fn(async () => undefined)
-    const committed = vi.fn()
-    const writer = vi.fn<PlaybackMetadataTagWrite>(async (_path, metadata, reconcile) => {
-      expect(metadata.lyricsText).toBe('[00:01.20]Edited')
-      await reconcile(commit)
-      return { ok: true as const }
-    })
-    service.setPlaybackTagWriteHandler(writer)
-    expect(await service.updateTrackLyrics(1, '[00:01.20]Edited', guard, committed)).toEqual({
-      ok: true,
-    })
-    expect(writer).toHaveBeenCalledOnce()
-    expect(guard).toHaveBeenCalledOnce()
-    expect(commit).toHaveBeenCalledOnce()
-    expect(committed).toHaveBeenCalledOnce()
-    expect(repo.updateTrackLyrics).toHaveBeenCalledWith(payload)
-    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-  })
-  it('reconciles a published file after the database commit fails and notifies from accepted disk data', async () => {
-    const { service, repo, send } = setup()
-    const metadata = {
-      trackId: 1,
-      title: 'Published',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    }
-    repo.commitVerifiedUserEdit.mockImplementationOnce(() => {
-      throw new Error('SQL failed')
-    })
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload).mockResolvedValueOnce(payload)
-    await expect(service.updateTrackMetadata(metadata)).rejects.toThrow('SQL failed')
-    expect(service.isWritingFile('isolated.flac')).toBe(false)
-    await vi.waitFor(() => expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2))
-    expect(repo.commitVerifiedUserEdit).toHaveBeenNthCalledWith(1, metadata, payload)
-    expect(repo.commitVerifiedUserEdit).toHaveBeenNthCalledWith(2, metadata, payload)
-    expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
-    expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toEqual([
-      [
-        'library:changed',
-        {
-          reason: 'metadata-refresh',
-          trackIds: [1],
-          filePaths: ['isolated.flac'],
-        },
-      ],
-    ])
-    expect(workers).toHaveLength(0)
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2)
-    expect(workers).toHaveLength(0)
-  })
-
-  it('cancels deferred failed-save reconciliation after a successful retry', async () => {
-    const { service, repo } = setup()
-    service.refreshTrack(1)
-    const metadata = {
-      trackId: 1,
-      title: 'Retry',
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    }
-    vi.mocked(writeAudioTags).mockRejectedValueOnce(new Error('save failed'))
-    await expect(service.updateTrackMetadata(metadata)).rejects.toThrow('save failed')
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    expect(await service.updateTrackMetadata(metadata)).toEqual({ ok: true })
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-    workers[0].emit('message', { type: 'complete' })
-    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
-    expect(workers).toHaveLength(1)
-    await service.shutdown()
-  })
-  it('skips an unchanged canonical edit before acquiring a lease, suppressing watchers or mutating data', async () => {
-    const coordinator = { tryAcquireWriteLease: vi.fn(), releaseWriteLease: vi.fn() }
-    const { service, repo } = setup(coordinator)
-    const metadata = {
-      trackId: 1,
-      title: 'Title',
-      artistDisplay: 'A; B',
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: 2026,
-      releaseDate: '2026',
-    }
-    repo.getEditableTrackMetadata.mockReturnValue(metadata)
-    const suppress = vi.fn()
-    service.setTagWriteSuccessHandler(suppress)
-    expect(
-      await service.updateTrackMetadata({
-        ...metadata,
-        title: ' Title ',
-        artistDisplay: 'A; B; a',
-        albumTitle: '  ',
-      }),
-    ).toEqual({ ok: true })
-    expect(coordinator.tryAcquireWriteLease).not.toHaveBeenCalled()
-    expect(writeAudioTags).not.toHaveBeenCalled()
-    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-    expect(suppress).not.toHaveBeenCalled()
-    expect(workers).toHaveLength(0)
-  })
-  it('passes the same canonical request to file writing and database commit', async () => {
-    const { service, repo } = setup()
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    const metadata = {
-      trackId: 1,
-      title: ' Title ',
-      artistDisplay: ' A;  ; B; a ',
-      albumTitle: ' Album ',
-      albumArtistDisplay: 'C; D; c',
-      genreDisplay: 'Pop; Live; pop',
-      year: null,
-      releaseDate: null,
-    }
-    await service.updateTrackMetadata(metadata)
-    const canonical = {
-      ...metadata,
-      title: 'Title',
-      artistDisplay: 'A; B',
-      albumTitle: 'Album',
-      albumArtistDisplay: 'C; D',
-      genreDisplay: 'Pop; Live',
-    }
-    expect(writeAudioTags).toHaveBeenCalledWith(
-      'isolated.flac',
-      canonical,
-      'isolated-bin/ffmpeg.exe',
-    )
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledWith(canonical, payload)
-  })
   it('drains an in-flight fingerprint check before finishing shutdown', async () => {
     const { service, repo } = setup()
     const gate = deferred<void>()
@@ -477,60 +109,6 @@ describe('metadata result acceptance', () => {
     await Promise.resolve()
     expect(repo.completeJob).not.toHaveBeenCalled()
   })
-
-  it('waits for a user file write and its verified database commit', async () => {
-    const { service, repo } = setup()
-    const gate = deferred<void>()
-    vi.mocked(writeAudioTags).mockReturnValueOnce(gate.promise)
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    const save = service.updateTrackMetadata({
-      trackId: 1,
-      title: null,
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    })
-    let stopped = false
-    const shutdown = service.shutdown().then(() => {
-      stopped = true
-    })
-    await Promise.resolve()
-    expect(stopped).toBe(false)
-    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-    gate.resolve()
-    await Promise.all([save, shutdown])
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-    expect(writeAudioTags).toHaveBeenCalledWith(
-      'isolated.flac',
-      expect.any(Object),
-      'isolated-bin/ffmpeg.exe',
-    )
-  })
-
-  it.each(['2025-02-31', '2025-04-31', '2025-13', '2025-00-01'])(
-    'rejects %s before touching the audio file',
-    async (releaseDate) => {
-      const { service, repo } = setup()
-      await expect(
-        service.updateTrackMetadata({
-          trackId: 1,
-          title: null,
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: 2025,
-          releaseDate,
-        }),
-      ).rejects.toThrow('Release Date')
-      expect(writeAudioTags).not.toHaveBeenCalled()
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-      expect(workers).toHaveLength(0)
-    },
-  )
 
   it('publishes missing tracks immediately even if the worker later fails', async () => {
     const { service, repo, send } = setup()
@@ -574,7 +152,7 @@ describe('metadata result acceptance', () => {
     },
   )
 
-  it.each(['path', 'generation', 'shutdown'] as const)(
+  it.each(['path', 'shutdown'] as const)(
     'rechecks identity and lifecycle after awaiting missing confirmation: %s',
     async (boundary) => {
       const { service, repo, send } = setup()
@@ -591,20 +169,6 @@ describe('metadata result acceptance', () => {
       await vi.waitFor(() => expect(stat).toHaveBeenCalledOnce())
       let shutdown: Promise<void> | undefined
       if (boundary === 'path') repo.getTrackFilePath.mockReturnValue('moved.flac')
-      if (boundary === 'generation') {
-        vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-        vi.mocked(writeAudioTags).mockResolvedValueOnce()
-        await service.updateTrackMetadata({
-          trackId: 1,
-          title: 'Saved',
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: null,
-          releaseDate: null,
-        })
-      }
       if (boundary === 'shutdown') shutdown = service.shutdown()
       gate.resolve()
       if (shutdown) await shutdown
@@ -663,7 +227,7 @@ describe('metadata result acceptance', () => {
     expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 1, 0)
     expect(send).toHaveBeenCalledWith('library:changed', expect.objectContaining({ trackIds: [1] }))
   })
-  it.each(['stat', 'sql', 'path', 'generation', 'job'] as const)(
+  it.each(['stat', 'sql', 'path', 'job'] as const)(
     'rejects %s failures and counts commits instead of worker progress',
     async (failure) => {
       const { service, repo, send } = setup()
@@ -679,7 +243,6 @@ describe('metadata result acceptance', () => {
         type: 'result',
         payload: {
           ...payload,
-          generation: failure === 'generation' ? 4 : 0,
           jobId: failure === 'job' ? 2 : 1,
         },
       })
@@ -718,199 +281,6 @@ describe('metadata result acceptance', () => {
     workers[0].emit('message', { type: 'complete' })
     await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalled())
     expect(repo.updateTrackLyrics).toHaveBeenCalledWith(payload)
-  })
-  it('a user write invalidates an already-parsed worker result and keeps a failed database commit for direct reconciliation', async () => {
-    const { service, repo } = setup()
-    vi.mocked(readStableMetadata)
-      .mockRejectedValueOnce(new Error('Written tags do not match'))
-      .mockRejectedValueOnce(new Error('reconcile unread'))
-      .mockResolvedValueOnce(payload)
-    const gate = deferred<void>()
-    vi.mocked(writeAudioTags).mockReturnValueOnce(gate.promise)
-    service.refreshTrack(1)
-    const save = service.updateTrackMetadata({
-      trackId: 1,
-      title: null,
-      artistDisplay: null,
-      albumTitle: null,
-      albumArtistDisplay: null,
-      genreDisplay: null,
-      year: null,
-      releaseDate: null,
-    })
-    expect(service.hasActiveArtworkWrites()).toBe(true)
-    const rejected = expect(save).rejects.toThrow()
-    workers[0].emit('message', { type: 'result', payload })
-    workers[0].emit('message', { type: 'complete' })
-    await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalled())
-    expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
-    gate.resolve()
-    await rejected
-    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-    expect(workers).toHaveLength(1)
-    await service.shutdown()
-    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-    expect(workers).toHaveLength(1)
-  })
-
-  describe('playback and write coordination', () => {
-    it('returns playback-in-use without calling writeAudioTags, modifying repo, or queuing reconciliation', async () => {
-      const coordinator = {
-        tryAcquireWriteLease: vi.fn(() => ({
-          ok: false as const,
-          reason: 'playback-in-use' as const,
-        })),
-        releaseWriteLease: vi.fn(),
-      }
-      const { service, repo } = setup(coordinator)
-
-      const result = await service.updateTrackMetadata({
-        trackId: 1,
-        title: 'New Title',
-        artistDisplay: null,
-        albumTitle: null,
-        albumArtistDisplay: null,
-        genreDisplay: null,
-        year: null,
-        releaseDate: null,
-      })
-
-      expect(result).toEqual({ ok: false, reason: 'playback-in-use' })
-      expect(coordinator.tryAcquireWriteLease).toHaveBeenCalledWith('isolated.flac', 'track-1')
-      expect(writeAudioTags).not.toHaveBeenCalled()
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-      expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
-      expect(coordinator.releaseWriteLease).not.toHaveBeenCalled()
-      expect(service.hasActiveArtworkWrites()).toBe(false)
-    })
-
-    it('acquires write lease on success and releases it in finally', async () => {
-      const coordinator = {
-        tryAcquireWriteLease: vi.fn(() => ({ ok: true as const, leaseId: 'lease_test_write' })),
-        releaseWriteLease: vi.fn(),
-      }
-      const { service, repo } = setup(coordinator)
-      vi.mocked(writeAudioTags).mockResolvedValueOnce(undefined as never)
-      vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-
-      const result = await service.updateTrackMetadata({
-        trackId: 1,
-        title: 'New Title',
-        artistDisplay: null,
-        albumTitle: null,
-        albumArtistDisplay: null,
-        genreDisplay: null,
-        year: null,
-        releaseDate: null,
-      })
-
-      expect(result).toEqual({ ok: true })
-      expect(coordinator.tryAcquireWriteLease).toHaveBeenCalledWith('isolated.flac', 'track-1')
-      expect(writeAudioTags).toHaveBeenCalledOnce()
-      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-      expect(coordinator.releaseWriteLease).toHaveBeenCalledWith('lease_test_write')
-    })
-
-    it('does not reconcile a playback restore failure after the database commit', async () => {
-      const { service, repo } = setup({
-        tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
-        releaseWriteLease: vi.fn(),
-      })
-      vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-      service.setPlaybackTagWriteHandler(async (_filePath, _metadata, reconcile) => {
-        await reconcile(async () => undefined)
-        return { ok: false, reason: 'playback-restore-failed' }
-      })
-      await expect(
-        service.updateTrackMetadata({
-          trackId: 1,
-          title: 'Published',
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: null,
-          releaseDate: null,
-        }),
-      ).resolves.toEqual({ ok: false, reason: 'playback-restore-failed' })
-      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-      expect(workers).toHaveLength(0)
-      await service.shutdown()
-      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-      expect(workers).toHaveLength(0)
-    })
-
-    it('does not reconcile playback-in-use returned before commit', async () => {
-      const { service, repo } = setup({
-        tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
-        releaseWriteLease: vi.fn(),
-      })
-      service.setPlaybackTagWriteHandler(async () => ({ ok: false, reason: 'playback-in-use' }))
-      await expect(
-        service.updateTrackMetadata({
-          trackId: 1,
-          title: 'Published',
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: null,
-          releaseDate: null,
-        }),
-      ).resolves.toEqual({ ok: false, reason: 'playback-in-use' })
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-      expect(readStableMetadata).not.toHaveBeenCalled()
-      expect(workers).toHaveLength(0)
-      await service.shutdown()
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-    })
-
-    it('reconciles a published file on shutdown when the first stable read fails', async () => {
-      const { service, repo } = setup()
-      vi.mocked(writeAudioTags).mockResolvedValueOnce(undefined as never)
-      vi.mocked(readStableMetadata)
-        .mockRejectedValueOnce(new Error('Written tags do not match'))
-        .mockRejectedValueOnce(new Error('reconcile unread'))
-        .mockResolvedValueOnce(payload)
-      await expect(
-        service.updateTrackMetadata({
-          trackId: 1,
-          title: 'Published',
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: null,
-          releaseDate: null,
-        }),
-      ).rejects.toThrow('Written tags do not match')
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-      expect(workers).toHaveLength(0)
-      await service.shutdown()
-      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
-      expect(workers).toHaveLength(0)
-    })
-
-    it('does not reconcile a commit that fails before the file is published', async () => {
-      const { service, repo } = setup()
-      vi.mocked(writeAudioTags).mockRejectedValueOnce(new Error('save failed'))
-      await expect(
-        service.updateTrackMetadata({
-          trackId: 1,
-          title: 'Published',
-          artistDisplay: null,
-          albumTitle: null,
-          albumArtistDisplay: null,
-          genreDisplay: null,
-          year: null,
-          releaseDate: null,
-        }),
-      ).rejects.toThrow('save failed')
-      await service.shutdown()
-      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-      expect(readStableMetadata).not.toHaveBeenCalled()
-      expect(workers).toHaveLength(0)
-    })
   })
 })
 
@@ -1153,6 +523,12 @@ describe('legacy lyric cache recovery', () => {
     expect(service.hasActiveJob()).toBe(true)
     expect(() => service.refreshLyricsForMissing()).toThrow('already running')
     const shuttingDown = service.shutdown()
+    let shutdownSettled = false
+    void shuttingDown.then(() => {
+      shutdownSettled = true
+    })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(shutdownSettled).toBe(false)
     gate.resolve(1)
     await Promise.all([paused, shuttingDown])
     expect(workers).toHaveLength(1)

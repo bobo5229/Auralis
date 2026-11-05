@@ -96,7 +96,7 @@ function onMoreAlbumsScroll(event: Event): void {
 }
 
 function formatDisplayAlbumTitle(title: string): string {
-  return title === 'Unknown Album' ? t('library.unknownAlbum') : songText(title)
+  return title === 'Unknown Album' ? t('library.missing.album') : songText(title)
 }
 
 async function refreshMoreAlbumsScrollState(): Promise<void> {

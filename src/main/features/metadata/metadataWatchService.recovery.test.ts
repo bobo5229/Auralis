@@ -66,7 +66,6 @@ function setup() {
   const query = vi.fn(() => known)
   const missing = vi.fn(() => [4])
   const refresh = vi.fn()
-  const isWritingFile = vi.fn<(filePath: string) => boolean>(() => false)
   const imports = vi.fn(
     async (paths: string[]): Promise<ImportResult> => ({
       imported: paths,
@@ -93,7 +92,7 @@ function setup() {
       markAvailableByFilePaths: () => [],
       markMissingByFilePaths: missing,
     } as unknown as TrackRepository,
-    { refreshTracksFromFileChanges: refresh, isWritingFile } as unknown as MetadataRefreshService,
+    { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
     { importFiles: imports } as unknown as LibraryIncrementalImportService,
     () => {},
   )
@@ -105,7 +104,6 @@ function setup() {
     imports,
     missing,
     refresh,
-    isWritingFile,
     notify: (filename: string) => notify('change', filename),
     fail: () => error(new Error('Disconnected')),
     sync: (paths: string[]) => {
@@ -166,17 +164,6 @@ it('defers recovery through a full scan pause, and cancels it on stop', async ()
   await vi.advanceTimersByTimeAsync(60000)
   expect(h.imports).toHaveBeenCalledOnce()
   expect(vi.getTimerCount()).toBe(0)
-})
-
-it('defers files owned by a tag save and honors post-save suppression during recovery', async () => {
-  const h = setup()
-  h.isWritingFile.mockImplementation((value) => value === path('changed'))
-  h.service.suppressRefreshForPath(path('lyrics'), 4000)
-  await vi.advanceTimersByTimeAsync(1000)
-  expect(h.refresh).not.toHaveBeenCalled()
-  h.isWritingFile.mockReturnValue(false)
-  await vi.advanceTimersByTimeAsync(5000)
-  expect(h.refresh.mock.calls.flatMap(([ids]) => ids)).toEqual(expect.arrayContaining([2, 3]))
 })
 
 it.each(['pause', 'remove'] as const)(

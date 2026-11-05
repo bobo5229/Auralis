@@ -19,16 +19,6 @@ export interface PlaybackCoordinator {
   /** Synchronous catalog check immediately before opening a leased decoder path. */
   isReadLeaseForTrack: (leaseId: string, trackId: number, filePath: string) => boolean
   markReadLeaseCurrent?: (leaseId: string) => void
-  reserveWriteIntent?: (filePath: string) => string | null
-  promoteWriteIntent?: (leaseId: string) => void
-  reserveFileReplacement?: (filePath: string) => string | null
-  promoteFileReplacement?: (leaseId: string) => void
-  releaseWriteLease?: (leaseId: string) => void
-  refreshPlaybackCapability?: (filePath: string) => void
-  handoffWriteLeaseToRead?: (
-    leaseId: string,
-    sourceId: string,
-  ) => { leaseId: string; version: number }
 }
 
 export interface NativePlaybackOptions {
@@ -43,7 +33,6 @@ export interface NativePlaybackOptions {
   onBoundaryStatus?: (event: { trackId: number; status: BoundaryStatus }) => void
   /** Isolated tests can select a null or PCM audio output. */
   mpvArgs?: string[]
-  suspendFileReaders?: (filePath: string) => Promise<() => void>
 }
 
 /** A fresh read of the facade's logical song, never a mutable shared snapshot. */

@@ -163,7 +163,7 @@ describe('audio codec persistence', () => {
   })
 
   it.each([false, true])(
-    'refreshes technical codec data while preserving user edits: %s',
+    'refreshes codec data and adopts complete file tags (historical override: %s',
     async (userEdit) => {
       const { db, tracks, refresh } = setup()
       const path = join(root, 'lossless.flac')
@@ -187,9 +187,10 @@ describe('audio codec persistence', () => {
         codec: 'previous',
         metadata_parser_version: 'old',
       })
+      expect(tracks.getAll()[0].title).toBe(userEdit ? 'My title' : 'Song')
       refresh.updateTrackMetadata(metadata)
       expect(db.prepare('SELECT codec FROM tracks').pluck().get()).toBe('FLAC')
-      expect(tracks.getAll()[0].title).toBe(userEdit ? 'My title' : 'Song')
+      expect(tracks.getAll()[0].title).toBe('Song')
       refresh.updateTrackMetadata({ ...metadata, codec: null })
       expect(db.prepare('SELECT codec FROM tracks').pluck().get()).toBeNull()
       expect(

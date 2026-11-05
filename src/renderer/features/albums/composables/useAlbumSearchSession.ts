@@ -44,6 +44,8 @@ export function useAlbumSearchSession({
 
   const highlightedAlbumKey = ref<string | null>(null)
 
+  const searchHighlightRevision = ref(0)
+
   const searchOutcome = ref<'idle' | 'matched' | 'wrapped' | 'not-found'>('idle')
 
   const searchMatchPosition = ref(0)
@@ -56,13 +58,12 @@ export function useAlbumSearchSession({
 
   let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
 
+  let searchWrapTimeout: ReturnType<typeof setTimeout> | null = null
+
   const searchFeedback = computed(() => {
     if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
     if (searchOutcome.value === 'wrapped') {
-      return t('albums.search.wrapped', {
-        index: String(searchMatchPosition.value).padStart(2, '0'),
-        total: String(searchMatchTotal.value).padStart(2, '0'),
-      })
+      return t('albums.search.wrapped')
     }
     if (searchOutcome.value === 'matched') {
       return t('albums.search.matched', {
@@ -81,11 +82,17 @@ export function useAlbumSearchSession({
 
   function resetSearchOutcome(): void {
     clearSearchHighlight()
+    clearWrapNotice()
     searchOutcome.value = 'idle'
     searchMatchPosition.value = 0
     searchMatchTotal.value = 0
     lastSearchQuery = ''
     lastMatchedAlbumIndex = -1
+  }
+
+  function clearWrapNotice(): void {
+    if (searchWrapTimeout) clearTimeout(searchWrapTimeout)
+    searchWrapTimeout = null
   }
 
   watch(searchQuery, () => {
@@ -127,6 +134,7 @@ export function useAlbumSearchSession({
   })
 
   function locateNextSearchResult(): void {
+    clearWrapNotice()
     const query = searchQuery.value.trim()
     if (!query) {
       searchOutcome.value = 'idle'
@@ -155,11 +163,18 @@ export function useAlbumSearchSession({
     searchOutcome.value = match.wrapped ? 'wrapped' : 'matched'
     scrollToAlbum(index)
     highlightedAlbumKey.value = album.key
+    searchHighlightRevision.value++
     if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
     searchHighlightTimeout = setTimeout(() => {
       highlightedAlbumKey.value = null
       searchHighlightTimeout = null
-    }, 1800)
+    }, 900)
+    if (match.wrapped) {
+      searchWrapTimeout = setTimeout(() => {
+        searchOutcome.value = 'matched'
+        searchWrapTimeout = null
+      }, 1200)
+    }
   }
 
   async function openSearch(): Promise<void> {
@@ -278,6 +293,9 @@ export function useAlbumSearchSession({
     document.addEventListener('keydown', onPageSearchShortcut)
   }
   function deactivate() {
+    clearSearchHighlight()
+    clearWrapNotice()
+    if (searchOutcome.value === 'wrapped') searchOutcome.value = 'matched'
     isSearchFocused.value = false
     isSearchOpen.value = false
     searchReturnFocus = null
@@ -287,7 +305,6 @@ export function useAlbumSearchSession({
   }
   function dispose() {
     deactivate()
-    if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
   }
   return {
     searchOutcome,
@@ -295,6 +312,7 @@ export function useAlbumSearchSession({
     searchInputRef,
     searchRootRef,
     highlightedAlbumKey,
+    searchHighlightRevision,
     searchFeedback,
     onSearchBlur,
     clearSearch,

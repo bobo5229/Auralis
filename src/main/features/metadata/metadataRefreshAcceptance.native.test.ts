@@ -112,7 +112,7 @@ async function fixture() {
   db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(?,7)').run(id)
   const repo = new MetadataRefreshRepository(db)
   const send = vi.fn()
-  const service = new MetadataRefreshService(repo, cache, createMetadataRefreshEvents(send), ffmpeg)
+  const service = new MetadataRefreshService(repo, cache, createMetadataRefreshEvents(send))
   owned.service = service
   return { directory, root, source, cache, db, tracks, id, repo, send, service }
 }
@@ -206,9 +206,7 @@ it.each(['atomic', 'in-place'] as const)(
       true,
     )
     expect((await readStableMetadata(f.id, f.source, f.cache)).title).toBe('Current2')
-    workers
-      .at(-1)!
-      .emit('message', { type: 'result', payload: { ...result, jobId, generation: 0 } })
+    workers.at(-1)!.emit('message', { type: 'result', payload: { ...result, jobId } })
     await completeRefresh(f, jobId)
     expect(f.repo.getJobById(jobId)?.failedTracks).toBe(1)
     expect(f.tracks.getAll()[0].title).toBe('Cached before refresh')
@@ -251,7 +249,7 @@ it.each(['returned', 'still missing'] as const)(
 )
 
 it.each(['lyrics', 'tags', 'track'] as const)(
-  'preserves a verified newer save against buffered scan %s data',
+  'rejects an external file update against buffered scan %s data',
   async (mode) => {
     const f = await fixture()
     f.db
@@ -265,19 +263,27 @@ it.each(['lyrics', 'tags', 'track'] as const)(
           ({ lyrics: 'trackLyrics', tags: 'trackTags', track: 'tracks' } as const)[mode],
       ),
     ).toBe(true)
-    const saved =
-      mode === 'tags'
-        ? await f.service.updateTrackMetadata({
-            ...f.repo.getEditableTrackMetadata(f.id)!,
-            title: 'Edited after scan',
-          })
-        : await f.service.updateTrackLyrics(
-            f.id,
-            'Newly saved lyrics',
-            async () => {},
-            () => {},
-          )
-    expect(saved.ok).toBe(true)
+    const replacement = join(f.root, 'external.flac')
+    await promisify(execFile)(
+      ffmpeg,
+      [
+        '-y',
+        '-v',
+        'error',
+        '-i',
+        f.source,
+        '-c',
+        'copy',
+        '-metadata',
+        'title=Edited after scan',
+        '-metadata',
+        'lyrics=Newly saved lyrics',
+        replacement,
+      ],
+      { windowsHide: true },
+    )
+    renameSync(replacement, f.source)
+    f.repo.updateTrackMetadata(await readStableMetadata(f.id, f.source, f.cache))
     const before = f.db.prepare('SELECT * FROM tracks WHERE id=?').get(f.id)
     f.send.mockClear()
     scan.deliver()
@@ -336,7 +342,7 @@ it('commits an unchanged real refresh result', async () => {
   const f = await fixture()
   const { jobId } = f.service.refreshTrack(f.id)
   const result = await readStableMetadata(f.id, f.source, f.cache)
-  workers.at(-1)!.emit('message', { type: 'result', payload: { ...result, jobId, generation: 0 } })
+  workers.at(-1)!.emit('message', { type: 'result', payload: { ...result, jobId } })
   await completeRefresh(f, jobId)
   expect(f.repo.getJobById(jobId)?.failedTracks).toBe(0)
   expect(f.tracks.getAll()[0].title).toBe('Current1')
@@ -395,7 +401,7 @@ it('recovers a legacy cached lyric from real files and notifies the player', asy
   expect(parsed.lyricsText).toBe('[00:01]Fallback')
   emitRefreshMessage({
     type: 'result',
-    payload: { ...parsed, jobId, generation: 0, lyricsSidecarFingerprint },
+    payload: { ...parsed, jobId, lyricsSidecarFingerprint },
   })
   await completeRefresh(f, jobId)
   expect(f.tracks.getLyricsByTrackId(f.id)).toMatchObject({
@@ -426,7 +432,7 @@ it('keeps legacy cache when the LRC changes before recovery commit', async () =>
   writeFileSync(lrc, '[00:02]Changed externally')
   emitRefreshMessage({
     type: 'result',
-    payload: { ...parsed, jobId, generation: 0, lyricsSidecarFingerprint },
+    payload: { ...parsed, jobId, lyricsSidecarFingerprint },
   })
   await completeRefresh(f, jobId)
   expect(f.tracks.getLyricsByTrackId(f.id)).toMatchObject({

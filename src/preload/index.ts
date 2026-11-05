@@ -116,9 +116,6 @@ export const auralisApi: AuralisApi = {
   },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
-    openLrcEditor: (trackId) => invoke(ipcChannels.lyrics.openLrcEditor, { trackId }),
-    saveLrcEditor: (request) => invoke(ipcChannels.lyrics.saveLrcEditor, request),
-    closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
   },
   playback: {
     getListeningEpoch: () => invoke(ipcChannels.playback.getListeningEpoch),
@@ -158,17 +155,6 @@ export const auralisApi: AuralisApi = {
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
-    getMetadataArtwork: (request) => invoke(ipcChannels.metadata.getMetadataArtwork, request),
-    importMetadataArtwork: (request) => invoke(ipcChannels.metadata.importMetadataArtwork, request),
-    releaseMetadataEdit: (editToken) =>
-      invoke(ipcChannels.metadata.releaseMetadataEdit, { editToken }),
-    prepareAlbumEdit: (request) => invoke(ipcChannels.metadata.prepareAlbumEdit, request),
-    previewAlbumEdit: (request) => invoke(ipcChannels.metadata.previewAlbumEdit, request),
-    startAlbumEdit: (taskId) => invoke(ipcChannels.metadata.startAlbumEdit, { taskId }),
-    getAlbumEdit: () => invoke(ipcChannels.metadata.getAlbumEdit),
-    cancelAlbumEdit: (taskId) => invoke(ipcChannels.metadata.cancelAlbumEdit, { taskId }),
-    releaseAlbumEdit: (taskId) => invoke(ipcChannels.metadata.releaseAlbumEdit, { taskId }),
-    onAlbumEditProgress: (callback) => on(ipcChannels.metadata.albumEditProgress, callback),
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
     refreshTracks: (trackIds) => invoke(ipcChannels.metadata.refreshTracks, { trackIds }),
     refreshLyricsMissing: (limit) => invoke(ipcChannels.metadata.refreshLyricsMissing, { limit }),
@@ -176,13 +162,7 @@ export const auralisApi: AuralisApi = {
     listRefreshFailures: (limit) =>
       invoke(ipcChannels.metadata.listRefreshFailures, limit ? { limit } : undefined),
     clearRefreshFailures: () => invoke(ipcChannels.metadata.clearRefreshFailures),
-    getTrackMetadata: (trackId) => invoke(ipcChannels.metadata.getTrackMetadata, { trackId }),
-    getTrackEditSnapshot: (trackId) =>
-      invoke(ipcChannels.metadata.getTrackEditSnapshot, { trackId }),
-    getTrackEditState: (trackId) => invoke(ipcChannels.metadata.getTrackEditState, { trackId }),
-    updateTrackMetadata: (metadata) => invoke(ipcChannels.metadata.updateTrackMetadata, metadata),
     onRefreshProgress: (callback) => on(ipcChannels.metadata.refreshProgress, callback),
-    onTrackEditStateChanged: (callback) => on(ipcChannels.metadata.trackEditStateChanged, callback),
   },
   window: {
     getCloseBehavior: () => invoke(ipcChannels.window.getCloseBehavior),

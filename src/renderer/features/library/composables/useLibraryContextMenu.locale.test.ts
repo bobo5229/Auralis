@@ -34,8 +34,6 @@ describe('localized library menu feedback', () => {
       insertTrackAfterCurrent: vi.fn(),
       insertTracksAfterCurrent: vi.fn(),
       scrollToTrackById: async () => undefined,
-      openMetadataEditor: vi.fn(),
-      setMetadataReturnTarget: vi.fn(),
       setViewSwitchReturnTarget: vi.fn(),
       restoreFocus: async () => undefined,
       t: (key, values) => i18n.global.t(key, values ?? {}),

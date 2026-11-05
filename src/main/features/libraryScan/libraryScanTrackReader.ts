@@ -78,6 +78,7 @@ export class LibraryScanTrackReader {
       knownFile.fileSize === fileSize &&
       knownFile.fileMtimeMs === fileMtimeMs &&
       hasSameScanFileFingerprint(fileStat, knownFile.fileFingerprint)
+    const requiresFullMetadataRead = Boolean(knownFile?.requiresFullMetadataRead)
     const metadataChecked =
       knownFile?.metadataCheckedMtimeMs !== null &&
       knownFile?.metadataCheckedMtimeMs === fileMtimeMs &&
@@ -107,12 +108,18 @@ export class LibraryScanTrackReader {
 
       // Audio and sidecar fingerprints are independent. Old rows without a
       // sidecar fingerprint get one lyrics backfill before the fast path applies.
-      if (fileUnchanged && artworkChecked && !needsLyricsBackfill && !needsMetadataBackfill) {
+      if (
+        fileUnchanged &&
+        artworkChecked &&
+        !needsLyricsBackfill &&
+        !needsMetadataBackfill &&
+        !requiresFullMetadataRead
+      ) {
         return { kind: 'skip' }
       }
 
-      // A changed file still needs duration and artwork. An unchanged file only rereads text.
-      if (!fileUnchanged) {
+      // Historical recovery needs the complete parser even when the file is unchanged.
+      if (!fileUnchanged || requiresFullMetadataRead) {
         const result = await this.readFullTrack(filePath, fileStat)
         await this.assertArtworkUnchanged(filePath, result)
         await this.assertUnchanged(filePath, fileStat)

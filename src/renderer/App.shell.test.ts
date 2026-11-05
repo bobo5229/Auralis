@@ -40,7 +40,6 @@ const fixture = vi.hoisted(() => ({
   finish: vi.fn(async () => {}),
   cancel: vi.fn(),
   prepareDisplay: vi.fn(async () => {}),
-  requestClose: vi.fn(),
   syncCd: vi.fn(),
   paletteReady: null as unknown as Ref<boolean>,
   detailCover: false,
@@ -180,22 +179,11 @@ vi.mock('./app/layout/PlayerBar.vue', () => ({
   },
 }))
 vi.mock('./app/layout/FullscreenPlayerOverlay.vue', () => ({ default: { render: () => null } }))
-vi.mock('./features/library/components/AlbumMetadataEditDialog.vue', () => ({
-  default: { render: () => null },
-}))
 vi.mock('./features/settings/components/SettingsDialog.vue', () => ({
   default: { render: () => null },
 }))
 vi.mock('./app/layout/PageParameterPanel.vue', () => ({
   default: { render: () => h('div', { class: 'test-parameters' }) },
-}))
-vi.mock('./app/layout/TrackEditorDialog.vue', () => ({
-  default: {
-    setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
-      expose({ requestClose: fixture.requestClose })
-      return () => h('div', { class: 'test-editor' })
-    },
-  },
 }))
 vi.mock('./features/albums/components/CdViewSwitch.vue', () => ({
   default: {
@@ -836,46 +824,24 @@ describe('App shell composition', () => {
     expect(shell.style['--auralis-lyrics-column-width']).toBe('0px')
   })
 
-  it('requests editor closure without discarding it, and blocks page parameters across overlays', async () => {
+  it('blocks page parameters across settings, fullscreen and startup overlays', async () => {
     await mount()
+    const parameters = find('.test-parameters').props.controller as { supported: Ref<boolean> }
+    expect(parameters.supported.value).toBe(true)
     settings.openSettings()
     await flush()
-    const trigger = new ShellTestElement('button')
-    ;(find('.now-playing-panel').props.onEditLyrics as (node: unknown) => void)(trigger)
+    expect(parameters.supported.value).toBe(false)
+    display.showFullscreenPlayer()
     await flush()
     expect(settings.isSettingsOpen.value).toBe(false)
-    expect((find('.test-editor').props.request as { returnFocusTo: unknown }).returnFocusTo).toBe(
-      trigger,
-    )
-    expect((find('.test-editor').props.request as { initialTab: string }).initialTab).toBe('lyrics')
-    expect(
-      (find('.test-editor').props.request as { artworkCacheKey: string }).artworkCacheKey,
-    ).toBe('playing-cover')
-    const parameters = find('.test-parameters').props.controller as { supported: Ref<boolean> }
+    expect(display.displayMode.value).toBe('fullscreen')
     expect(parameters.supported.value).toBe(false)
-    settings.openSettings()
-    await flush()
-    expect(fixture.requestClose).toHaveBeenCalledOnce()
-    expect(find('.test-editor').props.request).not.toBeNull()
-    await navigate('albums')
-    expect(fixture.requestClose).toHaveBeenCalledTimes(2)
-    ;(find('.test-editor').props.onClose as () => void)()
+    display.showNormalPlayer()
     await flush()
     expect(parameters.supported.value).toBe(true)
     fixture.startup.value = true
     await flush()
     expect(parameters.supported.value).toBe(false)
-  })
-
-  it('keeps an editor that declines closure visible when fullscreen is requested', async () => {
-    await mount()
-    ;(find('.now-playing-panel').props.onEditLyrics as (node: unknown) => void)(null)
-    await flush()
-    display.showFullscreenPlayer()
-    await flush()
-    expect(display.displayMode.value).toBe('normal')
-    expect(fixture.requestClose).toHaveBeenCalledOnce()
-    expect(find('.test-editor').props.request).not.toBeNull()
   })
 
   it('ignores failed navigation and stale route completion while restoring the latest focus', async () => {

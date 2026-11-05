@@ -37,7 +37,6 @@ function setup() {
   const markAvailable = vi.fn((): number[] => [])
   const refresh = vi.fn()
   const send = vi.fn()
-  const isWritingFile = vi.fn(() => false)
   let fileFingerprint: typeof fileStat | null = fileStat
   const service = new MetadataWatchService(
     { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
@@ -52,7 +51,7 @@ function setup() {
       markMissingByFilePaths: markMissing,
       markAvailableByFilePaths: markAvailable,
     } as unknown as TrackRepository,
-    { refreshTracksFromFileChanges: refresh, isWritingFile } as unknown as MetadataRefreshService,
+    { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
     { importFiles: vi.fn() } as unknown as LibraryIncrementalImportService,
     (event) => send('library:changed', event),
   )
@@ -64,7 +63,6 @@ function setup() {
     markAvailable,
     refresh,
     send,
-    isWritingFile,
     setFingerprint: (value: typeof fileStat | null) => {
       fileFingerprint = value
     },
@@ -116,24 +114,6 @@ describe('metadata watcher component boundaries', () => {
     expect(refresh).toHaveBeenCalledOnce()
     await service.stop()
   })
-  it('defers transient absence and a pending missing confirmation while a tag save owns the path', async () => {
-    const { service, notify, isWritingFile, markMissing, refresh } = setup()
-    vi.mocked(stat).mockRejectedValue(absent())
-    notify('rename', 'sample.flac')
-    await vi.advanceTimersByTimeAsync(1200)
-    isWritingFile.mockReturnValue(true)
-    await vi.advanceTimersByTimeAsync(5000)
-    expect(markMissing).not.toHaveBeenCalled()
-    notify('rename', 'sample.flac')
-    await vi.advanceTimersByTimeAsync(6000)
-    expect(markMissing).not.toHaveBeenCalled()
-    expect(refresh).not.toHaveBeenCalled()
-    vi.mocked(stat).mockResolvedValue(fileStat)
-    isWritingFile.mockReturnValue(false)
-    await vi.advanceTimersByTimeAsync(6000)
-    expect(markMissing).not.toHaveBeenCalled()
-    await service.stop()
-  })
   it('restores confirmed missing unchanged audio without refreshing or duplicate notifications', async () => {
     vi.mocked(stat).mockRejectedValue(absent())
     const { service, notify, markMissing, markAvailable, refresh, send } = setup()
@@ -156,11 +136,10 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it('keeps a queued restoration when tag-write suppression begins', async () => {
+  it('keeps a queued restoration without forcing an unchanged-file refresh', async () => {
     const { service, notify, markAvailable, refresh, send } = setup()
     markAvailable.mockReturnValueOnce([1])
     notify('rename', 'sample.flac')
-    service.suppressRefreshForPath(path)
     await vi.advanceTimersByTimeAsync(1200)
     expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
     expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
@@ -227,47 +206,6 @@ describe('metadata watcher component boundaries', () => {
     await service.pauseFlush()
     expect(markMissing).toHaveBeenCalledExactlyOnceWith([otherPath])
     service.resumeFlush()
-    expect(vi.getTimerCount()).toBe(0)
-    await service.stop()
-  })
-
-  it('restores changed audio immediately and refreshes it after suppression expires', async () => {
-    vi.mocked(stat).mockResolvedValue({ ...fileStat, size: 20 })
-    const { service, notify, markAvailable, refresh, send } = setup()
-    markAvailable.mockReturnValueOnce([1])
-    service.suppressRefreshForPath(path)
-    notify('rename', 'sample.flac')
-    await vi.advanceTimersByTimeAsync(1200)
-    expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
-    expect(send).toHaveBeenCalledOnce()
-    expect(refresh).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(8000)
-    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
-    expect(send).toHaveBeenCalledOnce()
-    expect(vi.getTimerCount()).toBe(0)
-    await service.stop()
-  })
-
-  it('rechecks suppressed events without refreshing an unchanged saved audio file', async () => {
-    const { service, notify, refresh } = setup()
-    service.suppressRefreshForPath(path)
-    notify('change', 'sample.flac')
-    await vi.advanceTimersByTimeAsync(10000)
-    expect(refresh).not.toHaveBeenCalled()
-    expect(vi.getTimerCount()).toBe(0)
-    await service.stop()
-  })
-
-  it('preserves queued sidecar intent when suppression starts and is extended', async () => {
-    const { service, notify, refresh } = setup()
-    notify('change', 'sample.lrc')
-    service.suppressRefreshForPath(path)
-    await vi.advanceTimersByTimeAsync(1200)
-    service.suppressRefreshForPath(path)
-    await vi.advanceTimersByTimeAsync(6800)
-    expect(refresh).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(1200)
-    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
     expect(vi.getTimerCount()).toBe(0)
     await service.stop()
   })
@@ -392,23 +330,6 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it.each(['lrc'])(
-    'refreshes unchanged audio on %s sidecar intent only after tag-write suppression expires',
-    async (extension) => {
-      const { service, notify, refresh } = setup()
-      service.suppressRefreshForPath(path)
-      notify('change', `sample.${extension}`)
-      await vi.advanceTimersByTimeAsync(1200)
-      expect(refresh).not.toHaveBeenCalled()
-      await vi.advanceTimersByTimeAsync(8000)
-      expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
-      notify('change', `sample.${extension}`)
-      await vi.advanceTimersByTimeAsync(1200)
-      expect(refresh).toHaveBeenCalledTimes(2)
-      await service.stop()
-    },
-  )
-
   it.each(['ttml', 'TTML'])('ignores %s sidecar events', async (extension) => {
     const { service, notify, refresh } = setup()
     notify('change', `sample.${extension}`)
@@ -417,7 +338,7 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it('adopts a Windows case-only path and keeps suppression on that file', async () => {
+  it('adopts a Windows case-only path before refreshing the file', async () => {
     const stored = path
     const eventPath = normalize(`${root}/Sample.FLAC`)
     const adoptPlaybackPath = vi.fn(() => true)
@@ -446,19 +367,15 @@ describe('metadata watcher component boundaries', () => {
       } as unknown as TrackRepository,
       {
         refreshTracksFromFileChanges: refresh,
-        isWritingFile: () => false,
       } as unknown as MetadataRefreshService,
       { importFiles } as unknown as LibraryIncrementalImportService,
       vi.fn(),
     )
     service.start()
-    service.suppressRefreshForPath(stored)
     notify('rename', 'Sample.FLAC')
     await vi.advanceTimersByTimeAsync(1200)
     expect(adoptPlaybackPath).toHaveBeenCalledExactlyOnceWith(1, stored, eventPath)
     expect(importFiles).not.toHaveBeenCalled()
-    expect(refresh).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(8000)
     expect(getTrackIdsByFilePaths).toHaveBeenCalledWith([eventPath])
     expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
     await service.stop()
@@ -495,7 +412,6 @@ describe('metadata watcher component boundaries', () => {
       } as unknown as TrackRepository,
       {
         refreshTracksFromFileChanges: refresh,
-        isWritingFile: () => false,
       } as unknown as MetadataRefreshService,
       { importFiles } as unknown as LibraryIncrementalImportService,
       vi.fn(),

@@ -6,7 +6,7 @@ import {
   resolveKeyboardMoveIndex,
   type LibraryKeyboardMoveDirection,
 } from '../utils/libraryKeyboardFocus'
-import type { LibraryMetadataFocusTarget } from './useLibraryMetadataEditor'
+import type { LibraryFocusTarget } from '../types/libraryInteraction'
 import type { useLibraryViewport } from './useLibraryViewport'
 
 interface UseLibraryFocusSessionOptions {
@@ -22,7 +22,6 @@ interface UseLibraryFocusSessionOptions {
   getAlbumGroupByTrackId: (trackId: number) => { key: string } | null
   isInteractiveTarget: (target: EventTarget | null) => boolean
   isContextMenuOpen: () => boolean
-  isMetadataEditorOpen: () => boolean
   selectTrack: (trackId: number) => void
   playTrack: (trackId: number) => void
 }
@@ -30,14 +29,14 @@ interface UseLibraryFocusSessionOptions {
 /** Shares the page's viewport and playback actions; owns only transient focus. */
 export function useLibraryFocusSession(options: UseLibraryFocusSessionOptions) {
   const keyboardFocusTrackId = ref<number | null>(null)
-  let pendingViewSwitchReturnTarget: LibraryMetadataFocusTarget | null = null
+  let pendingViewSwitchReturnTarget: LibraryFocusTarget | null = null
 
   function onRowFocus(trackId: number): void {
     keyboardFocusTrackId.value = trackId
   }
 
   async function restoreLibraryFocus(
-    target: LibraryMetadataFocusTarget | null,
+    target: LibraryFocusTarget | null,
     scroll = true,
   ): Promise<void> {
     if (!target) return
@@ -147,7 +146,7 @@ export function useLibraryFocusSession(options: UseLibraryFocusSessionOptions) {
     // 曲目行已经处理的 Enter/Space 不再冒泡触发第二次播放或选择。
     if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
     if (options.isInteractiveTarget(event.target)) return
-    if (options.isContextMenuOpen() || options.isMetadataEditorOpen()) return
+    if (options.isContextMenuOpen()) return
 
     if (event.key === 'ArrowDown') {
       event.preventDefault()
@@ -176,7 +175,7 @@ export function useLibraryFocusSession(options: UseLibraryFocusSessionOptions) {
     }
   }
 
-  function setViewSwitchReturnTarget(target: LibraryMetadataFocusTarget): void {
+  function setViewSwitchReturnTarget(target: LibraryFocusTarget): void {
     pendingViewSwitchReturnTarget = target
   }
 

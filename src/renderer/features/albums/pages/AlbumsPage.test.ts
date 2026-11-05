@@ -319,6 +319,7 @@ afterEach(() => {
     frames.clear()
     useChineseTextDisplay().setSongInfoScript('simplified')
     vi.restoreAllMocks()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   }
 })
@@ -526,6 +527,65 @@ describe('AlbumsPage keyboard search', () => {
       } as TrackListItem,
     ]
   })
+  it('shows the Enter hint and clears from the button without changing scroll or playback', async () => {
+    await mountPage()
+    expect(find('album-search-hint')?.text).toBe('albums.search.locateHint')
+    expect(find('album-search-clear')).toBeUndefined()
+    const input = find('library-search-input')!
+    input.focus()
+    setSearchQuery(input, 'Album')
+    await settle()
+    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
+    await settle()
+    expect(find('album-card')?.props.highlighted).toBe(true)
+    expect(find('album-search-hint')).toBeUndefined()
+    const scroll = find('albums-scroll')!
+    scroll.scrollTop = 420
+    const clear = find('album-search-clear')!
+    expect(clear.props['aria-label']).toBe('albums.search.clear')
+    clear.focus()
+    ;(clear.props.onClick as (event: object) => void)({ stopPropagation: vi.fn() })
+    await settle()
+    expect(input.value).toBe('')
+    expect(doc.activeElement).toBe(input)
+    expect(scroll.scrollTop).toBe(420)
+    expect(find('album-search-clear')).toBeUndefined()
+    expect(find('library-search-outcome')).toBeUndefined()
+    expect(find('album-card')?.props.highlighted).toBe(false)
+    expect(find('album-search-hint')).toBeDefined()
+    expect(fixture.play).not.toHaveBeenCalled()
+  })
+
+  it('replays the same album and restores the counter after the brief wrap notice', async () => {
+    await mountPage()
+    vi.useFakeTimers()
+    const input = find('library-search-input')!
+    setSearchQuery(input, 'Album')
+    await settle()
+    const enter = () =>
+      (input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
+    enter()
+    await settle()
+    const firstRevision = find('album-card')?.props['highlight-revision']
+    expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
+    enter()
+    await settle()
+    expect(find('album-card')?.props['highlight-revision']).toBe(Number(firstRevision) + 1)
+    expect(find('library-search-outcome')?.text).toBe('albums.search.wrapped')
+    await vi.advanceTimersByTimeAsync(1200)
+    await settle()
+    expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
+    expect(find('album-card')?.props.highlighted).toBe(false)
+    enter()
+    await settle()
+    setSearchQuery(input, 'Missing')
+    await settle()
+    await vi.advanceTimersByTimeAsync(1200)
+    await settle()
+    expect(find('library-search-outcome')).toBeUndefined()
+    expect(find('album-card')?.props.highlighted).toBe(false)
+  })
+
   it('ignores hidden dialogs while yielding to visible dialogs', async () => {
     await mountPage()
     const panel = new TestElement('section')
@@ -898,7 +958,6 @@ describe('AlbumsPage context menu grouping', () => {
       'locate',
       'open-in-cd',
       '|',
-      'edit-album',
       'open-in-explorer',
     ])
     expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
@@ -909,27 +968,11 @@ describe('AlbumsPage context menu grouping', () => {
     fixture.playbackState!.currentTrackId = null
     await settle()
     expect(doc.activeElement.dataset.albumMenuAction).toBe('play')
-    expect(rows(menu)).toEqual([
-      'play',
-      'insert',
-      '|',
-      'open-in-cd',
-      '|',
-      'edit-album',
-      'open-in-explorer',
-    ])
+    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
   })
   it('skips unavailable playback actions and preserves the play event', async () => {
     const menu = await openMenu()
-    expect(rows(menu)).toEqual([
-      'play',
-      'insert',
-      '|',
-      'open-in-cd',
-      '|',
-      'edit-album',
-      'open-in-explorer',
-    ])
+    expect(rows(menu)).toEqual(['play', 'insert', '|', 'open-in-cd', '|', 'open-in-explorer'])
     await key(menu, 'ArrowDown')
     expect(doc.activeElement.dataset.albumMenuAction).toBe('open-in-cd')
     await key(menu, 'End')

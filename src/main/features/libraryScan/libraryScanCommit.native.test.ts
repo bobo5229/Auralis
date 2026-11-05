@@ -204,14 +204,19 @@ it.each([null, 'USAAA2600001'])(
 )
 
 it.each(['move', 'ISRC move', 'case-only rename'])(
-  'preserves identity, user edits and associations for a stable %s',
+  'preserves identity and associations while adopting file tags for a stable %s',
   async (scenario) => {
     const f = await fixture(scenario === 'ISRC move' ? 'USAAA2600001' : null, {
       alias: scenario === 'case-only rename',
     })
     f.complete()
     expect(f.tracks.getFilePathById(f.id)).toBe(f.incoming)
-    expect(f.associations()).toEqual(f.beforeAssociations)
+    expect(f.associations().slice(0, 2)).toEqual(f.beforeAssociations.slice(0, 2))
+    expect(
+      f.db
+        .prepare('SELECT track_id,title,source,override_mask FROM track_metadata WHERE track_id=?')
+        .get(f.id),
+    ).toEqual({ track_id: f.id, title: 'Identity', source: 'file_tag', override_mask: 0 })
     expect(f.db.prepare('SELECT COUNT(*) FROM tracks').pluck().get()).toBe(1)
     expect(f.jobs.getById(f.job.jobId)).toMatchObject({ status: 'completed', failedFiles: 0 })
     expect(f.send).toHaveBeenCalledWith(

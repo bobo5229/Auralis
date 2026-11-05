@@ -105,9 +105,6 @@ export interface AuralisApi {
     getByTrackId: (
       trackId: Req<'lyrics:get-by-track-id'>['trackId'],
     ) => Result<'lyrics:get-by-track-id'>
-    openLrcEditor: (trackId: number) => Result<'lyrics:open-lrc-editor'>
-    saveLrcEditor: (request: Req<'lyrics:save-lrc-editor'>) => Result<'lyrics:save-lrc-editor'>
-    closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
   }
   playback: {
     getListeningEpoch: () => Result<'playback:get-listening-epoch'>
@@ -170,26 +167,6 @@ export interface AuralisApi {
     ) => Result<'archive:get-day-top-albums'>
   }
   metadata: {
-    getMetadataArtwork: (
-      request: Req<'metadata:get-artwork-edit'>,
-    ) => Result<'metadata:get-artwork-edit'>
-    importMetadataArtwork: (
-      request: Req<'metadata:import-artwork-edit'>,
-    ) => Result<'metadata:import-artwork-edit'>
-    releaseMetadataEdit: (editToken: string) => Result<'metadata:release-edit'>
-    prepareAlbumEdit: (
-      request: Req<'metadata:prepare-album-edit'>,
-    ) => Result<'metadata:prepare-album-edit'>
-    previewAlbumEdit: (
-      request: Req<'metadata:preview-album-edit'>,
-    ) => Result<'metadata:preview-album-edit'>
-    startAlbumEdit: (taskId: string) => Result<'metadata:start-album-edit'>
-    getAlbumEdit: () => Result<'metadata:get-album-edit'>
-    cancelAlbumEdit: (taskId: string) => Result<'metadata:cancel-album-edit'>
-    releaseAlbumEdit: (taskId: string) => Result<'metadata:release-album-edit'>
-    onAlbumEditProgress: (
-      callback: (event: IpcEventPayload<'metadata:album-edit-progress'>) => void,
-    ) => () => void
     refreshTrack: (
       trackId: Req<'metadata:refresh-track'>['trackId'],
     ) => Result<'metadata:refresh-track'>
@@ -206,23 +183,8 @@ export interface AuralisApi {
       limit?: Req<'metadata:list-refresh-failures'>['limit'],
     ) => Result<'metadata:list-refresh-failures'>
     clearRefreshFailures: () => Result<'metadata:clear-refresh-failures'>
-    getTrackMetadata: (
-      trackId: Req<'metadata:get-track-metadata'>['trackId'],
-    ) => Result<'metadata:get-track-metadata'>
-    getTrackEditSnapshot: (
-      trackId: Req<'metadata:get-track-edit-snapshot'>['trackId'],
-    ) => Result<'metadata:get-track-edit-snapshot'>
-    getTrackEditState: (
-      trackId: Req<'metadata:get-track-edit-state'>['trackId'],
-    ) => Result<'metadata:get-track-edit-state'>
-    updateTrackMetadata: (
-      metadata: Req<'metadata:update-track-metadata'>,
-    ) => Result<'metadata:update-track-metadata'>
     onRefreshProgress: (
       callback: (progress: IpcEventPayload<'metadata:refresh-progress'>) => void,
-    ) => () => void
-    onTrackEditStateChanged: (
-      callback: (event: IpcEventPayload<'metadata:track-edit-state-changed'>) => void,
     ) => () => void
   }
   window: {

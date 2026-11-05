@@ -17,9 +17,6 @@ const props = withDefaults(defineProps<{ active?: boolean; interactive?: boolean
   active: true,
   interactive: true,
 })
-const emit = defineEmits<{
-  editLyrics: [trigger: HTMLElement | null]
-}>()
 const { displayMode } = usePlayerDisplayMode()
 const { lyricsScript, setLyricsScript, lyricsPersistFailed } = useChineseTextDisplay()
 const {
@@ -66,12 +63,6 @@ function onMenuClose(reason: string): void {
 function selectScript(script: ChineseScript): void {
   setLyricsScript(script)
   closeMenu(true)
-}
-
-function onEditLyrics(): void {
-  const trigger = scrollElement()
-  closeMenu()
-  emit('editLyrics', trigger)
 }
 
 function openMenu(clientX?: number, clientY?: number): void {
@@ -187,9 +178,7 @@ defineExpose({ prepareForDisplay })
           :open="menuOpen"
           :anchor="anchor"
           :current-script="lyricsScript"
-          :show-edit-lyrics="true"
           @select="selectScript"
-          @edit-lyrics="onEditLyrics"
           @close="onMenuClose"
         />
       </div>

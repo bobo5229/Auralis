@@ -30,7 +30,6 @@ import { createLibraryScanEvents } from './libraryScanEvents'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
-import { LrcEditorService } from '@main/features/lyrics/lrcEditorService'
 import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
@@ -42,7 +41,6 @@ import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryService } from '@main/services/libraryService'
-import { LrcEditorMetadataService } from '@main/services/lrcEditorMetadataService'
 import { PlaybackResourceService } from '@main/services/playbackResourceService'
 import { PlaylistService } from '@main/services/playlistService'
 import { PlayStatsService } from '@main/services/playStatsService'
@@ -50,10 +48,7 @@ import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
 import type { WindowBehaviorController } from '@main/app/windowBehaviorController'
 import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
-import { registerAlbumMetadataEditIpcHandlers } from './registerAlbumMetadataEditIpcHandlers'
-import { registerMetadataArtworkIpcHandlers } from './registerMetadataArtworkIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
-import { registerLyricsEditorIpcHandlers } from './registerLyricsEditorIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
 import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
 import { createRendererEventSender } from './rendererEvents'
@@ -85,6 +80,7 @@ export async function registerIpcHandlers(
         ),
       ),
   )
+  metadataRepository.queueLegacyMetadataRecovery()
   const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
   const audioPaths = resolveAudioRuntimePaths({
     isPackaged: app.isPackaged,
@@ -102,17 +98,11 @@ export async function registerIpcHandlers(
   )
   const playbackFileCoordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (trackId) => trackRepository.getFilePathById(trackId),
-    getTrackIdsByFilePath: (filePath) => trackRepository.getTrackIdsByPlaybackPath(filePath),
-    trackEditStateChanged: (event) =>
-      sendToRenderer(ipcChannels.metadata.trackEditStateChanged, event),
   })
   const metadataRefreshService = new MetadataRefreshService(
     metadataRepository,
     artworkCacheDir,
     createMetadataRefreshEvents(sendToRenderer),
-    audioPaths.ffmpegPath,
-    playbackFileCoordinator,
-    () => trackRepository.getChangeToken(),
   )
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,
@@ -141,33 +131,12 @@ export async function registerIpcHandlers(
     (event) => sendToRenderer(ipcChannels.library.changed, event),
   )
 
-  const lrcEditorMetadata = new LrcEditorMetadataService({
-    tracks: trackRepository,
-    metadata: metadataRefreshService,
-    files: playbackFileCoordinator,
-    libraryChanged: (event) => sendToRenderer(ipcChannels.library.changed, event),
-  })
-  const lrcEditorService = new LrcEditorService({
-    getFilePath: (id) => trackRepository.getFilePathById(id),
-    getRoots: () => libraryRootRepository.list().map((root) => root.path),
-    readSource: (filePath) => lrcEditorMetadata.readSource(filePath),
-    writeTag: (trackId, text, beforeCommit) =>
-      lrcEditorMetadata.writeTag(trackId, text, beforeCommit),
-    reconcile: (trackId, filePath, text) => lrcEditorMetadata.reconcile(trackId, filePath, text),
-  })
-
-  // After user tag writes, suppress watch-driven refresh so mtime churn cannot
-  // immediately re-parse and clobber user_edit metadata.
-  metadataRefreshService.setTagWriteSuccessHandler((filePath) => {
-    metadataWatchService.suppressRefreshForPath(filePath)
-  })
-
   const artworkMaintenanceService = new ArtworkCacheMaintenanceService(
     new ArtworkCacheMigrationService(db, artworkCacheDir),
     new ArtworkCacheGarbageCollector(db, artworkCacheDir),
     {
       isScanActive: () => libraryScanService.isScanActive(),
-      isRefreshActive: () => metadataRefreshService.hasActiveArtworkWrites(),
+      isRefreshActive: () => metadataRefreshService.hasActiveJob(),
       isImportActive: () => incrementalImportService.isImportActive(),
     },
   )
@@ -284,7 +253,6 @@ export async function registerIpcHandlers(
     isLiveAlbum: (trackId) => trackRepository.isLiveAlbum(trackId),
     resolveTrack: resolvePlaybackTrack,
     coordinator: playbackFileCoordinator,
-    suspendFileReaders: (filePath) => spectrum.suspendFileReaders(filePath),
     emit: (event) => {
       sendToRenderer(ipcChannels.playback.nativeEvent, event)
       spectrum.syncNative(nativePlayback.getSpectrumSource())
@@ -292,18 +260,6 @@ export async function registerIpcHandlers(
     warn: (error) => logger.warn({ error }, 'Native playback operation failed'),
     onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
   })
-  playbackFileCoordinator.setMetadataWriteActivity((filePath) =>
-    metadataRefreshService.isWritingFile(filePath),
-  )
-  playbackFileCoordinator.setBufferedWriteCapability((filePath) =>
-    nativePlayback.canWriteMetadata(filePath),
-  )
-  playbackFileCoordinator.setFileReplacementCapability((filePath) =>
-    nativePlayback.canReplaceMetadata(filePath),
-  )
-  metadataRefreshService.setPlaybackTagWriteHandler((filePath, metadata, commitAndReconcile) =>
-    nativePlayback.writeMetadata(filePath, metadata, commitAndReconcile),
-  )
   const nativeOwners = new WeakSet<Electron.WebContents>()
   electronIpcRegistrar.handle(ipcChannels.playback.nativeAvailability, () => {
     const available = existsSync(audioPaths.mpvPath)
@@ -450,7 +406,6 @@ export async function registerIpcHandlers(
       openPath: (directoryPath) => shell.openPath(directoryPath),
     },
   })
-  registerLyricsEditorIpcHandlers(electronIpcRegistrar, lrcEditorService)
   registerPlaylistIpcHandlers(electronIpcRegistrar, {
     playlistService,
     smartPlaylistService,
@@ -465,11 +420,8 @@ export async function registerIpcHandlers(
     getAudioUrl,
     notifyLibraryChanged,
   })
-  registerMetadataArtworkIpcHandlers(electronIpcRegistrar, metadataRefreshService)
-  registerAlbumMetadataEditIpcHandlers(electronIpcRegistrar, metadataRefreshService.albumEdits)
   registerMetadataIpcHandlers(electronIpcRegistrar, {
     metadataRefreshService,
-    playbackFileCoordinator,
   })
 
   return {
@@ -498,7 +450,6 @@ export async function registerIpcHandlers(
         spectrum.dispose(),
         Promise.resolve().then(() => nativePlayback.dispose()),
       ])
-      lrcEditorService.dispose()
       const failures = [...early, ...library, ...playback].filter(
         (result) => result.status === 'rejected',
       )

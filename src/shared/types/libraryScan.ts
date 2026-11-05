@@ -2,7 +2,6 @@ import type { TrackFileFingerprint } from './trackFile'
 import type { FileMetadataSnapshot } from './trackMetadata'
 
 export type { TrackFileFingerprint } from './trackFile'
-export type { EditableTrackMetadata } from './trackMetadata'
 
 export type TrackAvailability = 'available' | 'missing'
 

@@ -16,8 +16,6 @@ function setup() {
   const path = 'D:/Music/Next.flac'
   const coordinator = new PlaybackFileCoordinator({
     getTrackFilePath: () => path,
-    getTrackIdsByFilePath: () => [1],
-    trackEditStateChanged: () => {},
   })
   const service = new NativePlaybackService({
     mpvPath: '',
@@ -45,10 +43,11 @@ it('protects a preload until playlist-clear is acknowledged', async () => {
   const client = { command: () => cleared.promise, close: async () => {} } as MpvClient
   state.runtime.client = client
   const pending = state.scheduler.cancelNext(client)
-  expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+  expect(state.runtime.nextLeaseId ?? state.runtime.currentLeaseId).not.toBeNull()
   cleared.resolve()
   await pending
-  expect(coordinator.getTrackState(1).status).toBe('editable')
+  expect(state.runtime.nextLeaseId).toBeNull()
+  expect(state.runtime.currentLeaseId).toBeNull()
   await service.dispose()
 })
 
@@ -64,35 +63,34 @@ it('keeps the lease of an item entering playback while cancellation awaits', asy
   cleared.resolve()
   await pending
   expect(state.runtime.nextLeaseId).toBe(lease.leaseId)
-  expect(coordinator.getTrackState(1).status).toBe('preload-in-use')
+  expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, path)).toBe(true)
   await service.dispose()
 })
 
-it('changes the preload notice to playback usage when the next lease becomes current', async () => {
+it('transfers ownership when the next lease becomes current', async () => {
   const { path, coordinator, state, service } = setup()
   const next = await coordinator.acquireReadLease(path, 'mpv-next')
   state.runtime.holdNextLease(next.leaseId)
-  const before = coordinator.getTrackState(1)
-  expect(before.status).toBe('preload-in-use')
   state.runtime.advanceLease()
-  const after = coordinator.getTrackState(1)
-  expect(after.status).toBe('playback-in-use')
-  expect(after.version).toBeGreaterThan(before.version)
+  expect(coordinator.isReadLeaseForTrack(next.leaseId, 1, path)).toBe(true)
   expect(state.runtime.currentLeaseId).toBe(next.leaseId)
-  expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+  expect(state.runtime.nextLeaseId ?? state.runtime.currentLeaseId).not.toBeNull()
   await service.dispose()
 })
 
 it('holds the read lease until the mpv process exits on stop', async () => {
   const { path, coordinator, state, service } = setup()
-  state.runtime.holdCurrentLease((await coordinator.acquireReadLease(path, 'mpv-current')).leaseId)
+  const lease = await coordinator.acquireReadLease(path, 'mpv-current')
+  state.runtime.holdCurrentLease(lease.leaseId)
   const exited = deferred()
   state.runtime.client = { close: vi.fn(() => exited.promise) } as unknown as MpvClient
   const stopped = service.command({ action: 'stop', session: 1 })
-  expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+  expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, path)).toBe(true)
   exited.resolve()
   await stopped
-  expect(coordinator.getTrackState(1).status).toBe('editable')
+  expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, path)).toBe(false)
+  expect(state.runtime.nextLeaseId).toBeNull()
+  expect(state.runtime.currentLeaseId).toBeNull()
 })
 
 it('releases only the old decoder lease when its exit arrives after a replacement session', async () => {
@@ -108,7 +106,8 @@ it('releases only the old decoder lease when its exit arrives after a replacemen
   exited.resolve()
   await stopped
   expect(state.runtime.currentLeaseId).toBe(replacement.leaseId)
-  expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+  expect(state.runtime.nextLeaseId ?? state.runtime.currentLeaseId).not.toBeNull()
   await service.dispose()
-  expect(coordinator.getTrackState(1).status).toBe('editable')
+  expect(state.runtime.nextLeaseId).toBeNull()
+  expect(state.runtime.currentLeaseId).toBeNull()
 })

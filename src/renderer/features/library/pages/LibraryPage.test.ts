@@ -14,7 +14,6 @@ import {
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import LibraryPage from './LibraryPage.vue'
-import { provideTrackEditor } from '@renderer/shared/trackEditor'
 import zhHans from '../../../locales/zh-Hans.json'
 import en from '../../../locales/en.json'
 
@@ -76,11 +75,6 @@ vi.mock('@renderer/shared/ipc/client', () => ({
       onChanged: () => () => undefined,
     },
     playlists: { onChanged: () => () => undefined, listSidebarItems: async () => [] },
-    metadata: {
-      getTrackMetadata: async () => null,
-      getTrackEditState: async () => ({ status: 'editable', version: 1 }),
-      onTrackEditStateChanged: () => () => undefined,
-    },
   },
 }))
 vi.mock('@vueuse/core', async () => {
@@ -121,12 +115,11 @@ vi.mock('@tanstack/vue-virtual', async () => {
 vi.mock('../components/LibraryContextMenu.vue', () => ({
   default: {
     props: ['open'],
-    emits: ['close', 'edit-metadata', 'switch-view'],
+    emits: ['close', 'switch-view'],
     render(this: { open: boolean; $emit: (event: string, ...args: unknown[]) => void }) {
       return this.open
         ? h('div', { class: 'test-menu', role: 'menu' }, [
             h('button', { class: 'test-close-menu', onClick: () => this.$emit('close') }),
-            h('button', { class: 'test-edit', onClick: () => this.$emit('edit-metadata') }),
             h('button', {
               class: 'test-switch',
               onClick: () => this.$emit('switch-view', 'cover'),
@@ -232,22 +225,7 @@ async function mount(withParameters = false) {
         parameters = createPageParameters(ref(fixture.route.name), ref(false))
         providePageParameters(parameters)
       }
-      const editor = provideTrackEditor(() => {})
-      return () =>
-        h('div', [
-          h(LibraryPage as Component),
-          editor.request.value
-            ? h('button', {
-                class: 'test-editor',
-                'data-artwork-key': editor.request.value.artworkCacheKey,
-                onClick: () => {
-                  const request = editor.request.value
-                  editor.close()
-                  void request?.restoreFocus?.()
-                },
-              })
-            : null,
-        ])
+      return () => h(LibraryPage as Component)
     },
   })
   app.directive('tooltip', {})
@@ -291,6 +269,7 @@ beforeEach(() => {
       cancelAnimationFrame: (id: number) => frames.delete(id),
       setTimeout,
       clearTimeout,
+      matchMedia: () => ({ matches: false }),
     }),
   )
   vi.stubGlobal('localStorage', {
@@ -479,22 +458,6 @@ describe('LibraryPage focus wiring', () => {
     expect(doc.activeElement).toBe(row(2))
     expect(scroll.scrollTop).toBe(190)
     expect(fixture.state.selectedTrackId).toBeNull()
-  })
-  it('hands menu focus to the editor and restores it after close without activating playback', async () => {
-    fixture.tracks[2].artworkCacheKey = 'selected-track-cover'
-    await mount()
-    context(row(3))
-    await settle()
-    fire(find('.test-edit'), 'onClick')
-    await settle()
-    expect(find('.test-editor')).toBeTruthy()
-    expect(find('.test-editor').props['data-artwork-key']).toBe('selected-track-cover')
-    expect(key(find('.library-list-shell'), 'Enter').defaultPrevented).toBe(false)
-    fire(find('.test-editor'), 'onClick')
-    await settle()
-    expect(doc.activeElement).toBe(row(3))
-    expect(fixture.play).not.toHaveBeenCalled()
-    expect(fixture.select).not.toHaveBeenCalled()
   })
   it('updates the real cover row focus and plays the full queue on Enter', async () => {
     storage.set('auralis-library-view-mode', 'cover')

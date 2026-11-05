@@ -5,5 +5,4 @@ import type { MetadataRefreshProgress } from './metadataRefreshTypes'
 export interface MetadataRefreshEvents {
   libraryChanged(event: LibraryChangedEvent): void
   refreshProgress(progress: MetadataRefreshProgress): void
-  albumEditProgress?(progress: import('@shared/types/albumMetadataEdit').AlbumEditProgress): void
 }

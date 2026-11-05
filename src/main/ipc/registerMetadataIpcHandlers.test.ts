@@ -1,67 +1,36 @@
-import { describe, expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
-import { MetadataSaveError } from '../features/metadata/metadataSaveError'
 
-const edit = { trackId: 1, editToken: 'test-token', changes: { title: 'Title' } }
-
-describe('metadata save failure transport', () => {
-  it('passes the successful public library revision through the existing save IPC', async () => {
-    const handlers = new Map<string, (...args: unknown[]) => unknown>()
-    const service = {
-      saveTrackMetadata: vi.fn(async () => ({ ok: true as const, libraryRevision: '12:1' })),
-    }
-    registerMetadataIpcHandlers(
-      {
-        handle: (channel, handler) =>
-          handlers.set(channel, handler as (...args: unknown[]) => unknown),
-      } as IpcHandlerRegistrar,
-      { metadataRefreshService: service, playbackFileCoordinator: {} } as unknown as Parameters<
-        typeof registerMetadataIpcHandlers
-      >[1],
-    )
-    expect(await handlers.get('metadata:update-track-metadata')!(null, edit)).toEqual({
-      ok: true,
-      libraryRevision: '12:1',
-    })
-    expect(service.saveTrackMetadata).toHaveBeenCalledWith(edit)
+it('registers metadata reads and refreshes without exposing editing capabilities', async () => {
+  const handlers = new Map<string, (...args: unknown[]) => unknown>()
+  const service = {
+    refreshTrack: vi.fn(() => ({ jobId: 1 })),
+    refreshTracks: vi.fn(() => ({ jobId: 2 })),
+    refreshLyricsForMissing: vi.fn(() => ({ jobId: 3 })),
+    getJobStatus: vi.fn(() => null),
+    listFailures: vi.fn(() => []),
+    clearFailures: vi.fn(() => ({ deletedCount: 0 })),
+  }
+  registerMetadataIpcHandlers(
+    {
+      handle: (channel, handler) =>
+        handlers.set(channel, handler as (...args: unknown[]) => unknown),
+    } as IpcHandlerRegistrar,
+    { metadataRefreshService: service },
+  )
+  expect([...handlers.keys()]).toEqual([
+    'metadata:refresh-track',
+    'metadata:refresh-tracks',
+    'metadata:refresh-lyrics-missing',
+    'metadata:get-refresh-status',
+    'metadata:list-refresh-failures',
+    'metadata:clear-refresh-failures',
+  ])
+  expect(await handlers.get('metadata:refresh-track')!(null, { trackId: 9 })).toEqual({ jobId: 1 })
+  expect(service.refreshTrack).toHaveBeenCalledWith(9)
+  expect(await handlers.get('metadata:refresh-tracks')!(null, { trackIds: [2, 9] })).toEqual({
+    jobId: 2,
   })
-
-  it.each([
-    [
-      new MetadataSaveError('tag-preservation-failed', 'Private /path/song.m4a'),
-      'tag-preservation-failed',
-    ],
-    [new MetadataSaveError('tag-verification-failed', 'Raw tags'), 'tag-verification-failed'],
-    [new MetadataSaveError('file-changed', 'Private path'), 'file-changed'],
-    [
-      Object.assign(new MetadataSaveError('tag-write-failed', 'Private path'), { code: 'ENOSPC' }),
-      'disk-full',
-    ],
-    [Object.assign(new Error('Private path'), { code: 'EPERM' }), 'permission-denied'],
-    [Object.assign(new Error('Private path'), { code: 'EBUSY' }), 'file-in-use'],
-    [Object.assign(new Error('Private path'), { code: 'ENOENT' }), 'file-not-found'],
-    [new Error('Internal SQLite or tool detail'), 'save-failed'],
-  ])('returns a safe reason for %s', async (error, reason) => {
-    const handlers = new Map<string, (...args: unknown[]) => unknown>()
-    const service = {
-      saveTrackMetadata: vi.fn(async () => {
-        throw error
-      }),
-    }
-    registerMetadataIpcHandlers(
-      {
-        handle: (channel, handler) =>
-          handlers.set(channel, handler as (...args: unknown[]) => unknown),
-      } as IpcHandlerRegistrar,
-      { metadataRefreshService: service, playbackFileCoordinator: {} } as unknown as Parameters<
-        typeof registerMetadataIpcHandlers
-      >[1],
-    )
-    expect(await handlers.get('metadata:update-track-metadata')!(null, edit)).toEqual({
-      ok: false,
-      reason,
-    })
-    expect(service.saveTrackMetadata).toHaveBeenCalledWith(edit)
-  })
+  expect(service.refreshTracks).toHaveBeenCalledWith([2, 9])
 })

@@ -311,8 +311,8 @@ describe('useLibraryCatalogLoader', () => {
     returned.dispose()
   })
 
-  it.each(['notification-first', 'save-first'])(
-    'commits one refresh for the same save revision when %s is in flight',
+  it.each(['notification-first', 'refresh-first'])(
+    'commits one refresh for the same refresh revision when %s is in flight',
     async (order) => {
       const gate = deferred<LibraryTrackPage>()
       const getTrackPage = vi.fn(() => gate.promise)
@@ -322,10 +322,10 @@ describe('useLibraryCatalogLoader', () => {
       const first =
         order === 'notification-first'
           ? emitLibraryChanged('metadata-refresh', '12:1')
-          : loader.loadLibraryData('metadata-save', '12:1')
+          : loader.loadLibraryData('background', '12:1')
       const second =
         order === 'notification-first'
-          ? loader.loadLibraryData('metadata-save', '12:1')
+          ? loader.loadLibraryData('background', '12:1')
           : emitLibraryChanged('metadata-refresh', '12:1')
       gate.resolve(createPage([createTrack(9)]))
       await Promise.all([first, second])
@@ -336,16 +336,16 @@ describe('useLibraryCatalogLoader', () => {
     },
   )
 
-  it.each(['notification-first', 'save-first'])(
+  it.each(['notification-first', 'refresh-first'])(
     'reuses an already committed view for the same revision when %s completes first',
     async (order) => {
       const { loader, emitLibraryChanged, getTrackPage, onSnapshotCommitted } = createLoader()
       loader.subscribeLibraryEvents()
       if (order === 'notification-first') {
         await emitLibraryChanged('metadata-refresh', '12:1')
-        expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+        expect(await loader.loadLibraryData('background', '12:1')).toBe('committed')
       } else {
-        expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+        expect(await loader.loadLibraryData('background', '12:1')).toBe('committed')
         await emitLibraryChanged('metadata-refresh', '12:1')
       }
       expect(getTrackPage).toHaveBeenCalledOnce()
@@ -354,18 +354,18 @@ describe('useLibraryCatalogLoader', () => {
     },
   )
 
-  it('does not reuse a commit across an unversioned change or a second save', async () => {
+  it('does not reuse a commit across an unversioned change or a second revision', async () => {
     const { loader, emitLibraryChanged, getTrackPage } = createLoader()
     loader.subscribeLibraryEvents()
-    await loader.loadLibraryData('metadata-save', '12:1')
+    await loader.loadLibraryData('background', '12:1')
     await emitLibraryChanged('file-change')
-    await loader.loadLibraryData('metadata-save', '12:1')
-    await loader.loadLibraryData('metadata-save', '13:1')
+    await loader.loadLibraryData('background', '12:1')
+    await loader.loadLibraryData('background', '13:1')
     expect(getTrackPage).toHaveBeenCalledTimes(4)
     loader.dispose()
   })
 
-  it('retries a failed notification refresh before reporting a save refresh as committed', async () => {
+  it('retries a failed notification refresh before reporting a revision refresh as committed', async () => {
     const getTrackPage = vi
       .fn()
       .mockRejectedValueOnce(new Error('query failed'))
@@ -373,7 +373,7 @@ describe('useLibraryCatalogLoader', () => {
     const { loader, emitLibraryChanged, onSnapshotCommitted } = createLoader({ getTrackPage })
     loader.subscribeLibraryEvents()
     await emitLibraryChanged('metadata-refresh', '12:1')
-    expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+    expect(await loader.loadLibraryData('background', '12:1')).toBe('committed')
     expect(getTrackPage).toHaveBeenCalledTimes(2)
     expect(onSnapshotCommitted).toHaveBeenCalledOnce()
     loader.dispose()
@@ -398,9 +398,9 @@ describe('useLibraryCatalogLoader', () => {
       captureRouteScope: () => scope,
       getPlaylistDetail,
     })
-    await loader.loadLibraryData('metadata-save', '12:1')
+    await loader.loadLibraryData('background', '12:1')
     scope = { kind: 'playlist', id: 8 }
-    expect(await loader.loadLibraryData('metadata-save', '12:1')).toBe('committed')
+    expect(await loader.loadLibraryData('background', '12:1')).toBe('committed')
     expect(getPlaylistDetail).toHaveBeenCalledOnce()
     expect(onSnapshotCommitted).toHaveBeenCalledTimes(2)
     loader.dispose()
@@ -800,27 +800,6 @@ describe('useLibraryCatalogLoader', () => {
       expect(tracks.value.map((track) => track.id)).toEqual([3])
     })
     expect(onSnapshotCommitted).toHaveBeenCalledTimes(2)
-  })
-
-  it('waits for the active foreground request before starting metadata-save', async () => {
-    const gate = deferred<LibraryTrackPage>()
-    const getTrackPage = vi
-      .fn()
-      .mockImplementationOnce(() => gate.promise)
-      .mockResolvedValueOnce(createPage([createTrack(9)]))
-    const { loader, tracks } = createLoader({ getTrackPage })
-
-    const foreground = loader.loadLibraryData('foreground')
-    await Promise.resolve()
-    const metadataSave = loader.loadLibraryData('metadata-save')
-    await Promise.resolve()
-    expect(getTrackPage).toHaveBeenCalledOnce()
-
-    gate.resolve(createPage([createTrack(1)]))
-    expect(await foreground).toBe('committed')
-    expect(await metadataSave).toBe('committed')
-    expect(getTrackPage).toHaveBeenCalledTimes(2)
-    expect(tracks.value.map((track) => track.id)).toEqual([9])
   })
 
   it('does not reload on play-stats library events', async () => {

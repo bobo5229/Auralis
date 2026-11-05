@@ -6,8 +6,6 @@ export interface MetadataWatchState {
   readonly pendingExplicitRefreshPaths: Set<string>
   /** Shared with missing confirmation so retries keep the same budget. */
   readonly statRetries: Map<string, number>
-  /** Normalized audio path → suppress refresh until epoch ms. */
-  readonly suppressRefreshUntil: Map<string, number>
   flushPaused: boolean
   stopped: boolean
   rootsVersion: number
@@ -19,7 +17,6 @@ export function createMetadataWatchState(): MetadataWatchState {
     pendingLyricsIntentPaths: new Set(),
     pendingExplicitRefreshPaths: new Set(),
     statRetries: new Map(),
-    suppressRefreshUntil: new Map(),
     flushPaused: false,
     stopped: false,
     rootsVersion: 0,

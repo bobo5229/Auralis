@@ -30,7 +30,6 @@ async function run(): Promise<void> {
           ...result,
           lyricsSidecarFingerprint: before,
           jobId: input.jobId,
-          generation: track.generation ?? 0,
         },
       })
       processed++
