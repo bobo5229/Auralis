@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>专辑封面入场动效 · Auralis Demo</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="demo">
+    <header class="intro">
+      <div><span class="eyebrow">AURALIS · MOTION STUDY</span><h1>让封面自然地进入详情</h1><p>点击专辑封面，体验安静而自然的详情页入场。</p></div>
+      <div class="controls" aria-label="动效设置">
+        <div class="switch" role="group" aria-label="动效方案">
+          <button type="button" data-mode="blend" aria-pressed="true">优化方案</button><button type="button" data-mode="current" aria-pressed="false">当前效果</button>
+        </div>
+        <button class="speed" type="button" aria-pressed="false">慢速观察 <span>×0.4</span></button>
+        <button class="replay" type="button">↻ 重播</button>
+      </div>
+    </header>
+    <div class="window">
+      <aside class="sidebar"><div class="brand"><span class="brand-mark">◒</span> Auralis</div><div class="side-label">音乐</div><div class="side-item">♫ <span>歌曲</span></div><div class="side-item active">▦ <span>专辑</span></div><div class="side-item">♧ <span>艺术家</span></div><div class="side-label second">歌单</div><div class="side-item">◷ <span>最近播放</span></div><div class="side-item">≡ <span>我喜欢的音乐</span></div><div class="side-bottom">◉ <span>正在聆听</span></div></aside>
+      <section class="viewport" aria-label="专辑入场预览">
+        <div class="list view">
+          <div class="page-head"><div><span class="overline">YOUR COLLECTION</span><h2>专辑</h2><p>收藏的声音，随时重温</p></div><span class="count">6 张专辑</span></div>
+          <div class="grid">
+            <button class="album" type="button" aria-label="打开专辑 A Quiet Place"><span class="cover cover-one"><img src="../assets/album-sleeve-cover.webp" alt=""></span><strong>A Quiet Place</strong><small>Juniper</small></button>
+            <button class="album" type="button" aria-label="打开专辑 Lover"><span class="cover"><img src="../selection-patch/lover.jpg" alt=""></span><strong>Lover</strong><small>Taylor Swift</small></button>
+            <button class="album" type="button" aria-label="打开专辑 Scarlet"><span class="cover"><img src="../selection-patch/doja.jpg" alt=""></span><strong>Scarlet</strong><small>Doja Cat</small></button>
+            <div class="album decor"><span class="cover art-a"><i>OCEAN<br>LIGHT</i></span><strong>Ocean Light</strong><small>Hollow Coves</small></div><div class="album decor"><span class="cover art-b"><i>STILL<br>HERE</i></span><strong>Still Here</strong><small>Night Drive</small></div><div class="album decor"><span class="cover art-c"><i>AFTER<br>THE RAIN</i></span><strong>After the Rain</strong><small>Soft Echo</small></div>
+          </div>
+        </div>
+        <div class="detail view" aria-hidden="true">
+          <button class="back" type="button">← <span>返回专辑</span></button>
+          <div class="hero">
+            <div class="destination"><img src="../assets/album-sleeve-cover.webp" alt=""></div>
+            <div class="hero-content"><span class="overline detail-label">ALBUM · 2024</span><h2>A Quiet Place</h2><p class="artist">Juniper</p><p class="meta">10 首歌曲 <span>·</span> 38 分钟</p><div class="hero-actions"><button type="button" class="play">▶ <span>播放专辑</span></button><button type="button" class="shuffle" aria-label="随机播放">⤨</button></div></div>
+          </div>
+          <div class="tracklist"><div class="track-head"><span>曲目</span><span>时长</span></div><div class="track"><b>01</b><span>First Light<small>Juniper</small></span><time>3:42</time></div><div class="track"><b>02</b><span>Somewhere in Between<small>Juniper</small></span><time>4:06</time></div><div class="track"><b>03</b><span>Home Again<small>Juniper</small></span><time>3:28</time></div><div class="track"><b>04</b><span>Quiet Place<small>Juniper</small></span><time>4:18</time></div></div>
+        </div>
+      </section>
+      <div class="player"><div class="now"><span class="mini-art"></span><span><strong>First Light</strong><small>Juniper</small></span></div><div class="player-mid"><div>⤨ &nbsp; ◀ &nbsp; <b>▶</b> &nbsp; ▶ &nbsp; ↻</div><div class="progress"><i></i></div></div><span class="volume">◖)) &nbsp; ━━━━━</span></div>
+    </div>
+    <footer><p><span class="dot"></span><strong class="mode-label">优化方案</strong><span class="description">页面缓慢叠化，渐隐封面静静显现。</span></p><span>点击封面开始 · 返回后可再次体验</span></footer>
+  </main>
+  <script src="./script.js"></script>
+</body>
+</html>

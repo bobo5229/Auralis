@@ -27,6 +27,10 @@ app
           '\n' +
           read('src/renderer/features/albums/styles/albumDetail.more-gallery.css') +
           '\n' +
+          read('src/renderer/features/albums/styles/albumDetail.track-list.css') +
+          '\n' +
+          read('src/renderer/shared/styles/trackRowDivider.css') +
+          '\n' +
           detailCss,
       )
       const bundle = buildSync({
@@ -49,7 +53,8 @@ app
       const shell = document.querySelector('.app-shell'), main = document.querySelector('.app-main')
       const side = document.querySelector('.app-sidebar'), lyrics = document.querySelector('.now-playing-panel')
       const clock = document.querySelector('.album-more-color-clock'), lyricsClock = document.querySelector('.album-lyrics-color-clock'), hero = document.querySelector('.album-hero-content-stage'), gallery = document.querySelector('.existing')
-      const dispose = AlbumSurfaceTest.createAlbumSurfaceSynchronization(shell)
+      const readiness = []
+      const dispose = AlbumSurfaceTest.createAlbumSurfaceSynchronization(shell, value => readiness.push(value))
       const color = el => getComputedStyle(el).backgroundColor
       const animation = el => el.getAnimations().find(a => a.transitionProperty === '--album-surface-color')
       const apply = () => properties.forEach((property, i) => shell.style.setProperty(property, targets[i]))
@@ -62,6 +67,7 @@ app
       color(main); getComputedStyle(clock).getPropertyValue('--album-surface-color'); getComputedStyle(lyricsClock).getPropertyValue('--album-surface-color'); await frame(); await frame()
       apply(); shell.classList.add('has-album-detail-color')
       await frame(); await frame(); assertTimeline()
+      check(readiness.some(value => value && Number.isFinite(value.readyAt) && Number.isFinite(value.target.r)), 'Missing main foreground readiness signal')
       await wait(80)
       lyrics.classList.add('now-playing-panel--collapsed')
       await wait(50)
@@ -129,17 +135,26 @@ app
       document.documentElement.dataset.reducedMotion = 'false'
       await frame(); await frame()
       apply(); shell.classList.add('has-album-detail-color')
+      const trackList = document.createElement('div')
+      trackList.className = 'album-tracklist-panel'
+      trackList.innerHTML = '<div class="album-detail-track-list"><button class="album-detail-track auralis-track-row-divider"><span class="album-detail-track-title">Track</span></button><button class="album-detail-track auralis-track-row-divider"><span class="album-detail-track-title">Next</span></button></div>'
+      main.append(trackList)
+      const title = trackList.querySelector('.album-detail-track-title')
+      const secondTrack = trackList.querySelectorAll('.album-detail-track')[1]
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
       const ctx = canvas.getContext('2d', {willReadFrequently: true})
       const rgb = (value, backdrop) => { ctx.clearRect(0,0,1,1);if(backdrop){ctx.fillStyle=backdrop;ctx.fillRect(0,0,1,1)}ctx.fillStyle=value;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3) }
       const lum = color => color.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0)
       const ratio = (a,b) => { const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05) }
-      let minMain = Infinity, minLyrics = Infinity, minSidebar = Infinity, minMore = Infinity, worstLyrics = null, lyricFrames = null, worstSidebar = null
+      let minMain = Infinity, minTrack = Infinity, minLyrics = Infinity, minSidebar = Infinity, minMore = Infinity, worstLyrics = null, lyricFrames = null, worstSidebar = null
       const start = performance.now()
       while(performance.now()-start<620) {
         await frame()
         if (!lyricFrames) lyricFrames = lyricsClock.getAnimations().map(a=>a.effect.getKeyframes())
         minMain = Math.min(minMain, ratio(rgb(getComputedStyle(main).getPropertyValue('--auralis-text')), rgb(color(main))))
+        const trackColor = getComputedStyle(title).color
+        minTrack = Math.min(minTrack, ratio(rgb(trackColor), rgb(color(main))))
+        check(trackColor === getComputedStyle(secondTrack, '::before').borderTopColor, 'Track text and row divider differ during transition')
         const sideRatio = ratio(rgb(getComputedStyle(side).getPropertyValue('--auralis-text')), rgb(color(side)))
         if (sideRatio < minSidebar) { minSidebar = sideRatio; worstSidebar = {at:performance.now()-start, fg:getComputedStyle(side).getPropertyValue('--auralis-text'), bg:color(side)} }
         minMore = Math.min(minMore, ratio(rgb(getComputedStyle(gallery).getPropertyValue('--album-detail-more-text')), rgb(color(gallery))))
@@ -149,6 +164,7 @@ app
       }
       check(minLyrics >= 4.5, 'Lyrics foreground was unreadable during transition: '+minLyrics+' '+JSON.stringify(worstLyrics)+' '+JSON.stringify(lyricFrames))
       check(minMain >= 4.5, 'Main foreground was unreadable during transition: '+minMain)
+      check(minTrack >= 4.5, 'Track text was unreadable during transition: '+minTrack)
       check(minSidebar >= 4.5, 'Sidebar foreground was unreadable during transition: '+minSidebar+' '+JSON.stringify(worstSidebar))
       check(minMore >= 4.5, 'Recommendation foreground was unreadable during transition: '+minMore)
       await wait(700)

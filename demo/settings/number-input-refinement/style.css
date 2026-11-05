@@ -1,0 +1,33 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+main { min-height: 100vh; background: #121212; color: #f3eee6; --auralis-text: #f3eee6; --auralis-text-muted: #afb4bc; --auralis-text-disabled: rgba(175,180,188,.35); --auralis-border-subtle: rgba(225,221,214,.08); --auralis-sidebar-active-indicator: #1dd55f; --auralis-control-hover-bg: rgba(255,255,255,.08); --auralis-control-pressed-bg: rgba(255,255,255,.15); --auralis-type-caption-size: 12px; --auralis-type-caption-line-height: 18px; --surface: #202020; --line: rgba(225,221,214,.09); --secondary: #afb4bc; --accent: #8ecf9d; }
+main[data-theme='light'] { background: #f0f1f2; color: #292b2d; --auralis-text: #292b2d; --auralis-text-muted: #60656a; --auralis-text-disabled: #a8adb2; --auralis-border-subtle: rgba(41,43,45,.06); --auralis-sidebar-active-indicator: #585b5f; --auralis-control-hover-bg: rgba(41,43,45,.08); --auralis-control-pressed-bg: rgba(41,43,45,.14); --surface: #f8f9fa; --line: rgba(41,43,45,.10); --secondary: #60656a; --accent: #526b56; }
+.content { max-width: 1050px; margin: 0 auto; padding: 48px 28px 64px; }
+.eyebrow { margin: 0 0 10px; font-size: 11px; color: var(--accent); letter-spacing: .12em; font-weight: 700; }
+h1 { font-size: 28px; line-height: 1.3; margin: 0 0 10px; }
+.intro { color: var(--secondary); font-size: 14px; line-height: 1.7; margin: 0; }
+.toolbar { display: flex; gap: 8px; margin: 22px 0 34px; }
+.toolbar button { padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.toolbar button:hover { background: var(--auralis-control-hover-bg); }
+.toolbar button:focus-visible { outline: 2px solid var(--auralis-sidebar-active-indicator); outline-offset: 2px; }
+.comparison { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 28px; }
+.column-heading { display: flex; align-items: end; justify-content: space-between; }
+.index { color: var(--secondary); font-size: 11px; letter-spacing: .08em; font-weight: 650; }
+h2 { font-size: 18px; margin: 4px 0 0; }
+.tag { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 99px; padding: 3px 9px; font-size: 11px; color: var(--accent); }
+.description { color: var(--secondary); font-size: 12px; min-height: 20px; margin: 8px 0 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px 22px 8px; box-shadow: 0 12px 32px rgba(0,0,0,.12); }
+.panel-head { display: flex; align-items: start; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 16px; margin: 0 0 5px; }
+.panel-head p { font-size: 12px; color: var(--secondary); margin: 0; }
+.panel-dots { font-weight: 700; color: var(--secondary); font-size: 20px; line-height: 1; }
+.group-title { margin: 19px 0 3px; font-size: 12px; font-weight: 600; color: var(--secondary); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 67px; border-bottom: 1px solid var(--line); }
+.row:last-child { border: 0; }
+.row label { display: block; font-size: 13px; font-weight: 600; }
+.row small { display: block; color: var(--secondary); font-size: 11px; margin-top: 5px; }
+.footnote { color: var(--secondary); font-size: 12px; line-height: 1.7; margin: 24px 0 0; }
+.i-lucide-minus,.i-lucide-plus { display: inline-block; background: currentColor; mask-repeat: no-repeat; mask-position: center; mask-size: contain; }
+.i-lucide-minus { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E"); }
+.i-lucide-plus { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14M12 5v14'/%3E%3C/svg%3E"); }
+@media (max-width: 760px) { .content { padding: 28px 16px 48px; } .comparison { grid-template-columns: 1fr; } }

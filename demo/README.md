@@ -1,47 +1,153 @@
-# 界面原型
+# 原型索引
 
-每日票夹：[演唱会纸质票形式的每日 Top1 专辑纪念票](archive/concert-ticket/README.md)。运行 `node demo/archive/concert-ticket/preview.cjs --show`；支持领取盖章、票夹历史浏览、日期回看与补领、今日预览和深浅主题。附 Beatles、Michael Jackson、Taylor Swift 纸票调研与通用模板建议，使用本地示例素材，未接入真实聆听档案。
+这里收录独立 HTML、Vue 和 Electron 原型，供设计探索与交互复现使用；它们不代表播放器当前界面或已接入功能。判断现状请以源码、路由和适用测试为准。
 
-歌词强调：[普通 LRC 整行 / 增强 LRC 计时片段](lyrics/emphasis/README.md)。运行 `node demo/lyrics/emphasis/serve.mjs` 后打开 <http://127.0.0.1:4196/demo/lyrics/emphasis/>；支持点选、试听本行、浮起/缩放/光晕、撤销与本地标记保存，可加载自己的歌曲和 LRC。附原创合成伴奏，未接入正式曲库。
+## 按主题浏览
 
-徽章收藏盒：[铝盒外框、海绵内胆与徽章检视](archive/badge-case-material/README.md)。运行 `node demo/archive/badge-case-material/serve.mjs` 后打开 <http://127.0.0.1:4198/>；单击徽章移动放大并绕竖轴翻转，悬停观察 GLSL 反光，空白或 Esc 放回；支持分类、横向浏览、残留压痕与深浅展示环境。
+| 主题                  | 内容                                       |
+| --------------------- | ------------------------------------------ |
+| [专辑](#专辑)         | 封面、唱片、专辑详情与网格交互             |
+| [播放](#播放)         | 播放栏材质、封面取色、静音检测及播放器图标 |
+| [曲库](#曲库)         | 最近添加、时间沉积封面与歌曲文字排版       |
+| [歌词](#歌词)         | LRC 编辑与歌词强调交互                     |
+| [品牌](#品牌)         | Logo、字标与开屏动效                       |
+| [界面外壳](#界面外壳) | 侧栏及页脚探索                             |
+| [智能歌单](#智能歌单) | 智能歌单编辑器                             |
+| [唱片机](#唱片机)     | 换片视觉原型                               |
+| [共享素材](#共享素材) | 尚未归属到单个原型的素材                   |
+| [归档原型](#归档原型) | 已结束迭代的早期探索，保留供回看           |
+| [本机草稿](#本机草稿) | Git 忽略的本地设计资料                     |
 
-封面取色比较：[Wu / 调整后的 Wu / OKLab K-means](playback/palette-comparison/index.html)，离线打开；内置代表性封面，支持三列并排、全样本总览、本地封面导入与单列放大，统一背景适配规则，未接入正式界面。[说明与验证](playback/palette-comparison/README.md)。
+需要启动方式和隔离验证说明时，优先打开对应目录的 `README.md`。独立原型目录以 index.html 为入口；通常可直接在浏览器打开，部分页面依赖仓库内脚本或资源。
 
-侧立专辑：[2.5D 专辑侧放](archive/album-spines/index.html)，离线打开；接近侧面的窄封面与书脊排列，悬停向前抽出、转正，离开归位，支持明暗主题和角度调节。[原型说明](archive/album-spines/README.md)。
+## 专辑
 
-专辑详情控件：[拉丝金属 / 阳极氧化 / 内页纸 / 钢琴漆](albums/album-detail-control-materials.html)，离线打开；深浅底并排，可切换绿色与浅色默认灰强调色。悬停和按下可看高光与内凹。未接入正式界面。续稿：[搪瓷 / 丝印油墨 / 喷砂 / 扁平](albums/album-detail-control-materials-more.html)，扁平没有边、阴影和高光。
+### 独立原型目录
 
-金属品牌图标：[渐变金属 A](brand/enamel-icon.html)，直接在浏览器打开；沿用正式图标轮廓，提供钛蓝、银铬、香槟金三种渐变、原版对照、32/64/128px 尺寸预览及高光、倒角、渐变方向调节。独立 SVG 材质原型，未替换正式应用图标。
+| 原型             | 入口                                                                                                                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.5D 专辑预览    | [打开](albums/album-2.5d-preview/index.html)                                                                                                                                                                     |
+| 专辑详情配色     | [打开](albums/album-detail-color-demo/index.html)                                                                                                                                                                |
+| 专辑详情控件材质 | [主稿](albums/album-detail-control-materials/index.html)、[续稿](albums/album-detail-control-materials-more/index.html)                                                                                          |
+| 专辑详情拆分布局 | [打开](albums/album-detail-split-layout/index.html)                                                                                                                                                              |
+| 专辑展开过渡     | [打开](albums/album-open-transition/index.html)                                                                                                                                                                  |
+| 专辑封套 Hero    | [打开](albums/album-sleeve-hero/index.html)                                                                                                                                                                      |
+| CD 聚焦          | [打开](albums/cd-focus-demo/index.html)                                                                                                                                                                          |
+| CD 动效          | [打开](albums/cd-motion-demo/index.html)                                                                                                                                                                         |
+| CD 常规动效      | [打开](albums/cd-normal-motion/index.html)                                                                                                                                                                       |
+| CD 进度环        | [静态](albums/cd-progress-rings-static/index.html)、[诗意](albums/cd-progress-rings-poetic/index.html)、[动效](albums/cd-progress-rings-motion/index.html)、[扩展](albums/cd-progress-rings-extended/index.html) |
+| CD 频谱          | [打开](albums/cd-spectrum-live/index.html)                                                                                                                                                                       |
+| CD 启动          | [打开](albums/cd-startup-demo/index.html)                                                                                                                                                                        |
+| 鲜艳专辑配色     | [打开](albums/vibrant-album-demo/index.html)                                                                                                                                                                     |
 
-季节拨盘：[四季聆听档案](archive/season-dial/index.html)，直接在浏览器打开；左侧拨盘切换春夏秋冬，右侧展示示例歌曲，支持明暗主题，不连接后端。[原型说明](archive/season-dial/README.md)。
+### 独立目录原型
 
-独立 HTML 原型统一按主题放在本目录，可直接在浏览器打开。它们记录设计探索；
-自动化测试仍与源码相邻，使用 `src/**/*.test.ts`。
+- [专辑拖放](albums/album-drop/README.md)
+- [封面颜色族研究](albums/color-family-study/README.md)
+- [唱片材质与正式页面隔离预览](albums/disc-material/README.md)
+- [扁平播放按钮](albums/flat-play-button/index.html)
+- [专辑网格重排](albums/grid-reflow/README.md)
+- [封面取色算法比较](albums/palette-study/README.md)
+- [代表色算法研究](albums/representative-color-study/index.html)
+- [专辑选择补丁](albums/selection-patch/README.md)
 
-| 目录               | 内容与入口                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `albums/`          | [控件材质](albums/album-detail-control-materials.html)、[控件材质续](albums/album-detail-control-materials-more.html)、[专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html)、[2.5D 专辑预览](albums/album-2.5d-preview.html)（[目标参考图](albums/user-target-reference.png)） |
-| `assets/`          | [test-cover.png](assets/test-cover.png)：保留的封面图片，归属尚未确认                                                                                                                                                                                                                                                                                                                        |
-| `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)、[包装袋撕开交互](archive/pouch-tear.html)                                                                                                                                                                            |
-| `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)、[Deepika Liquid Glass](playback/deepika-liquid-glass/index.html)                                                                                                                                                                                             |
-| `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                                                                                                                                                                                                                                                |
-| `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗；[时间沉积歌单封面](library/recent-added-time-sediment.html)：自有 WebGL 方形封面、分范围配色与深浅主题（离线可用）                                                                                                                                                                                          |
-| `brand/`           | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意；[品牌动效](brand/brand-motion.html)                                                                                                                                                                                                                                                              |
-| `shell/`           | [侧边栏收起交互](shell/sidebar-collapse.html)                                                                                                                                                                                                                                                                                                                                                |
-| `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                                                                                                                                                                                                                                                 |
-| `local/archive/`   | 年度总结与唱片封套草稿                                                                                                                                                                                                                                                                                                                                                                       |
-| `local/playback/`  | [动态流光](local/playback/apple-music-flow-demo.html)、[幕布转场](local/playback/fullscreen-curtain-transition-demo.html)                                                                                                                                                                                                                                                                    |
-| `local/shell/`     | 主题切换转场草稿                                                                                                                                                                                                                                                                                                                                                                             |
+## 播放
 
-声迹星空交互：[星空与光标](archive/starfield-cursor-demo.html)，离线打开；双击中央圆点进行约 5 秒穿梭（加速 0.6 秒、巡航 3.6 秒、减速 0.8 秒），远处持续补充多色星光，镜头随速度震动；抵达时拖尾收束为星点，保留最终位置并切换星系配色。移动光标产生视差与星点响应，点击背景产生光波。
+### 独立原型目录
 
-中文字体对照：[MiSans / HarmonyOS Sans SC / 思源黑体](local/shell/chinese-fonts.html)，支持深浅主题和自定义文字。
+- [歌词倒计时](playback/lyrics-countdown/index.html)
+- [正在播放图标](playback/now-playing-icons/index.html)
+- [Playbar Liquid Glass 材质](playback/playbar-liquid-glass-material-demo/index.html)
+- [Playbar 竖向音量浮层](playback/playbar-vertical-volume-popover-demo/index.html)
+- [历史 Playbar 草稿](playback/auralis-playbar-prototype/index.html)
 
-`local/` 收纳原 `test/` 和 `docs/demos/` 中的本地资料，继续由 Git 忽略；其他主题目录
-用于共享原型。新原型沿用对应主题目录。关联脚本随原型放置，跨主题共享素材通过相对路径引用。
-部分旧原型使用在线示例图片，离线时这些图片可能不可用。
+### 独立目录原型
 
-像素旅途：[原型说明](playback/pixel-journey/README.md)。运行 `node demo/playback/pixel-journey/serve.mjs` 后打开 `http://127.0.0.1:4188/demo/playback/pixel-journey/`；支持音乐播放驱动奔跑、暂停待机、进度跳转、常驻音量及小窗口提示。
+- [Deepika Liquid Glass](playback/deepika-liquid-glass/index.html)
+- [封面调色算法比较](playback/palette-comparison/README.md)
+- [静音区间检测](playback/silence-detection/README.md)
+- `playback/liquid-metal/`、`playback/liquid-metal-comparison/`、`playback/liquid-metal-refinement/`：实验素材与忽略配置，当前没有独立入口页。
 
-浅色强调色对照：[灰玫瑰 / 酒红 / 灰紫 / 当前鼠尾草](local/shell/light-accent-colors.html)，沿用当前播放器浅色底色。
+## 曲库
+
+- [最近添加时间范围](library/recent-added-range/index.html)
+- [最近添加时间沉积封面](library/recent-added-time-sediment/index.html)，附[说明](library/recent-added-time-sediment/README.md)
+- [歌曲平面排版](library/song-flat-typography/index.html)
+
+## 歌词
+
+- [LRC 编辑器历史原型](lyrics/lrc-editor/index.html)，[说明](lyrics/lrc-editor/README.md)；正式应用已移除编辑与保存功能。
+- [歌词强调交互](lyrics/emphasis/README.md)
+
+## 品牌
+
+- [品牌动效](brand/brand-motion/index.html)
+- [字标动效](brand/brand-text-motion/index.html)
+- [珐琅金属 A 图标](brand/enamel-icon/index.html)
+- [Logo 探索比较](brand/logo-exploration/index.html)，[说明与素材索引](brand/README.md)
+- [开屏动效](brand/splash-motion/index.html)
+- [字标探索](brand/wordmark-exploration/index.html)
+
+## 界面外壳
+
+- [侧栏收起交互](shell/sidebar-collapse/index.html)
+- [侧栏页脚优化草稿](shell/sidebar-footer-optimized/index.html)
+- [侧栏页脚重设计草稿](shell/sidebar-footer-redesign/index.html)
+
+## 智能歌单
+
+- [智能歌单编辑器](smart-playlists/smart-playlist-builder/index.html)
+
+## 唱片机
+
+- [换片视觉原型](turntable/index.html)，[运行方式与交互说明](turntable/README.md)
+
+## 共享素材
+
+- [test-cover.png](assets/test-cover.png)：旧封面测试图，当前归属和用途尚未确认。
+- [OPPO Sans 4.0](assets/fonts/OPPO_Sans_4.0.woff2)：本地字体文件。
+
+## 归档原型
+
+这些原型已停止作为当前设计入口继续迭代。归档表示保留历史探索，不代表其中方案已实现或仍是产品方向。
+
+### 音乐归档与物件
+
+- [经典 Macintosh](archive/classic-mac/index.html)
+- [软盘材质](archive/floppy-material-prototype/index.html)
+- [软盘与花卉](archive/floppy-putty/index.html)
+- [日期软盘交互（Macintosh）](archive/mac-diskbox-demo/index.html)
+- [Mac 磁盘盒（早期版本）](archive/mac-diskbox-original-study/index.html)
+- [新归档页草稿](archive/new-archive-prototype/index.html)
+- [夜井星空](archive/night-well/index.html)
+- [包装袋撕开交互](archive/pouch-tear/index.html)
+- [雨窗原型](archive/rainy-window-prototype/index.html)
+- [星际光标交互](archive/starfield-cursor-demo/index.html)
+- [季节拨盘](archive/season-dial/README.md)
+
+### 已独立成目录的原型
+
+- [2.5D 专辑侧立](archive/album-spines/README.md)
+- [Aluminum Radio](archive/Aluminum-Radio/index.html)
+- [徽章收藏盒材质](archive/badge-case-material/README.md)
+- [每日演唱会纪念票](archive/concert-ticket/README.md)
+- [珐琅徽章材质](archive/enamel-milestone/glsl/README.md)
+
+归档素材集中在 [archive/assets/](archive/assets)；品牌素材见 [brand/assets/](brand/assets)，专辑素材见 [albums/assets/](albums/assets) 和各专辑原型目录。
+
+## 本机草稿
+
+`local/` 收纳仅在本机保留的设计草稿，并由 Git 忽略。索引收录不代表这些文件会随检出同步。
+
+### 专辑
+
+- [专辑布局方案入口](local/albums/album-layout-index/index.html)
+- [专辑高亮流派](local/albums/album-highlighted-genres/index.html)
+
+### 界面外壳
+
+- [中文字体对照](local/shell/chinese-fonts/index.html)
+- [浅色强调色对照](local/shell/light-accent-colors/index.html)
+- [氛围交叉淡化](local/shell/style-transition-atmospheric-crossfade-demo/index.html)
+- [幕布展开](local/shell/style-transition-curtain-unfurl-demo/index.html)
+- [墨迹显现](local/shell/style-transition-ink-reveal-demo/index.html)
