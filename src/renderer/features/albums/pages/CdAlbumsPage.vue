@@ -7,10 +7,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { formatArtist } from '@renderer/shared/media/formatArtist'
 import { splitDelimitedValues } from '@renderer/shared/media/formatDelimitedValues'
-import {
-  formatPlaybackClock,
-  PLAYBACK_CLOCK_EMPTY,
-} from '@renderer/features/playback/utils/formatPlaybackClock'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import { useCdAlbumLoadSession } from '../composables/useCdAlbumLoadSession'
 import { useCdRoomScene } from '../composables/useCdRoomScene'
@@ -30,6 +26,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { useCdVibration } from '../composables/useCdVibration'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
+import CdPlaybackInfo from '../components/CdPlaybackInfo.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
@@ -52,7 +49,6 @@ const themeToggleLabel = computed(() =>
   t(cdCanvasTheme.value === 'dark' ? 'albums.cd.theme.toLight' : 'albums.cd.theme.toDark'),
 )
 const themeTooltip = computed(() => t(`albums.cd.theme.${cdCanvasTheme.value}`))
-const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
   useCdVibration()
 const vibrationToggleLabel = computed(() =>
@@ -205,15 +201,13 @@ const playbackInformation = computed(() => {
   const title = track.title?.trim() || t('albums.detail.unknownTitle')
   const artist = formatArtist(track.artist)
   return {
-    song: artist ? `${title} - ${artist}` : title,
+    id: track.id,
+    title,
+    artist,
     album: track.album?.trim() ?? '',
   }
 })
 const browsingPlayback = computed(() => (focused.value ? null : playbackInformation.value))
-const browsingPlaybackCurrentTime = computed(() => formatPlaybackClock(playback.state.currentTime))
-const browsingPlaybackDuration = computed(() =>
-  playback.state.duration > 0 ? formatPlaybackClock(playback.state.duration) : PLAYBACK_CLOCK_EMPTY,
-)
 const focusedPlaybackIdentity = computed(() => {
   const track = playback.state.currentTrack
   const album = focusedAlbum.value
@@ -236,69 +230,7 @@ const focusedPlaybackIdentity = computed(() => {
 const focusedPlayback = computed(() =>
   focusedPlaybackIdentity.value === null ? null : playbackInformation.value,
 )
-const browsingPlaybackProgress = computed(() => {
-  const duration = playback.state.duration
-  const currentTime = playback.state.currentTime
-  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime)) return 0
-  return Math.min(1, Math.max(0, currentTime / duration))
-})
-const browsingPlaybackProgressPath = [
-  'M 2 6.2 C 18 6.4, 22 4.8, 39 5.1',
-  'C 55 5.4, 61 7, 78 6.4 C 96 5.6, 102 4.4, 119 5',
-  'C 135 5.7, 144 6.9, 160 6.1 C 178 5.2, 182 4.7, 198 5.4',
-  'C 214 6.2, 226 6.7, 238 5.7',
-].join(' ')
 const browsingPlaybackRef = ref<HTMLElement | null>(null)
-const focusedPlaybackInfoVisible = ref(false)
-let focusedPlaybackInfoTimer: ReturnType<typeof setTimeout> | null = null
-
-function clearFocusedPlaybackInfoTimer(): void {
-  if (focusedPlaybackInfoTimer !== null) {
-    clearTimeout(focusedPlaybackInfoTimer)
-    focusedPlaybackInfoTimer = null
-  }
-}
-
-function showFocusedPlaybackInfo(duration: number | null): void {
-  const identity = focusedPlaybackIdentity.value
-  if (identity === null) return
-  clearFocusedPlaybackInfoTimer()
-  focusedPlaybackInfoVisible.value = true
-  if (duration === null) return
-  focusedPlaybackInfoTimer = setTimeout(() => {
-    focusedPlaybackInfoTimer = null
-    if (!disposed && focusedPlaybackIdentity.value === identity) {
-      focusedPlaybackInfoVisible.value = false
-    }
-  }, duration)
-}
-
-function toggleFocusedPlaybackInfo(): void {
-  if (focusedPlaybackInfoVisible.value) {
-    clearFocusedPlaybackInfoTimer()
-    focusedPlaybackInfoVisible.value = false
-    return
-  }
-  showFocusedPlaybackInfo(null)
-}
-
-watch(focusedPlaybackIdentity, async (identity) => {
-  clearFocusedPlaybackInfoTimer()
-  if (identity === null) {
-    focusedPlaybackInfoVisible.value = false
-    return
-  }
-  focusedPlaybackInfoVisible.value = false
-  await nextTick()
-  if (!disposed && focusedPlaybackIdentity.value === identity) {
-    if (reducedMotion.matches) {
-      showFocusedPlaybackInfo(4_000)
-    } else {
-      focusedPlaybackFrameRef.value?.getBoundingClientRect()
-      showFocusedPlaybackInfo(4_000)
-    }
-  }
-})
 
 let cancelBrowsingPlaybackAnimation: (() => void) | null = null
 let unsubscribe: (() => void) | null = null
@@ -379,7 +311,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true
   stopVibration()
-  clearFocusedPlaybackInfoTimer()
   unsubscribe?.()
   const routeName = router.currentRoute.value.name
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
@@ -509,71 +440,16 @@ onBeforeUnmount(() => {
         "
         ref="browsingPlaybackRef"
         class="cd-browsing-playback"
-        role="status"
       >
-        <div class="cd-browsing-playback-heading">
-          <button
-            v-tooltip="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
-            type="button"
-            class="cd-browsing-playback-toggle"
-            :aria-label="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
-            @click="playback.togglePlayPause()"
-          >
-            <span
-              :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-              class="h-3.5 w-3.5"
-              aria-hidden="true"
-            ></span>
-          </button>
-          <span
-            v-tooltip.overflow="browsingPlayback.song"
-            class="cd-browsing-playback-song"
-            dir="auto"
-            >{{ browsingPlayback.song }}</span
-          >
-        </div>
-        <button
-          v-if="browsingPlayback.album"
-          v-tooltip.fast="browsingPlayback.album"
-          type="button"
-          class="cd-browsing-playback-album"
-          :disabled="browsingPlaybackAlbumIndex < 0"
-          @click="focusBrowsingPlaybackAlbum"
-        >
-          <span class="cd-browsing-playback-album-name" dir="auto">{{
-            browsingPlayback.album
-          }}</span>
-          <span class="i-lucide-arrow-up-right h-3 w-3 shrink-0" aria-hidden="true"></span>
-        </button>
-        <div class="cd-browsing-playback-timeline">
-          <span class="cd-browsing-playback-time" dir="ltr">{{ browsingPlaybackCurrentTime }}</span>
-          <svg
-            class="cd-browsing-playback-progress"
-            viewBox="0 0 240 12"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              :d="browsingPlaybackProgressPath"
-              fill="none"
-              stroke="var(--cd-border-row)"
-              stroke-width="1.4"
-              stroke-linecap="round"
-            />
-            <path
-              :d="browsingPlaybackProgressPath"
-              pathLength="100"
-              :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
-              fill="none"
-              stroke="var(--cd-progress-fill)"
-              stroke-width="1.7"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span class="cd-browsing-playback-time cd-browsing-playback-time--duration" dir="ltr">{{
-            browsingPlaybackDuration
-          }}</span>
-        </div>
+        <CdPlaybackInfo
+          :information="browsingPlayback"
+          :is-playing="playback.state.isPlaying"
+          :current-time="playback.state.currentTime"
+          :duration="playback.state.duration"
+          :album-available="browsingPlaybackAlbumIndex >= 0"
+          @toggle-playback="playback.togglePlayPause()"
+          @locate-album="focusBrowsingPlaybackAlbum"
+        />
       </div>
       <div
         ref="stageRef"
@@ -612,61 +488,15 @@ onBeforeUnmount(() => {
         :information="infoRef"
         :tracks="trackPanelRef"
       />
-      <div
+      <CdPlaybackInfo
         v-if="focusedPlayback"
-        ref="focusedPlaybackFrameRef"
-        class="cd-focused-playback"
-        :class="{ 'cd-focused-playback--expanded': focusedPlaybackInfoVisible }"
-      >
-        <button
-          v-tooltip="t('playback.nowPlaying')"
-          type="button"
-          class="cd-focused-playback-handle"
-          :aria-label="t('playback.nowPlaying')"
-          :aria-expanded="focusedPlaybackInfoVisible"
-          @click="toggleFocusedPlaybackInfo"
-        >
-          <span
-            class="cd-focused-playback-chevron i-lucide-chevron-right h-4 w-4"
-            aria-hidden="true"
-          ></span>
-        </button>
-        <Transition name="cd-focused-playback-fade" appear>
-          <div
-            v-if="focusedPlaybackInfoVisible"
-            class="cd-focused-playback-info"
-            :aria-hidden="!focusedPlaybackInfoVisible"
-            role="status"
-          >
-            <span class="cd-browsing-playback-song" dir="auto">{{ focusedPlayback.song }}</span>
-            <span class="cd-focused-playback-album" dir="auto">{{ focusedPlayback.album }}</span>
-            <svg
-              class="cd-browsing-playback-progress cd-focused-playback-progress"
-              viewBox="1.15 3.4 237.7 4.6"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                :d="browsingPlaybackProgressPath"
-                fill="none"
-                stroke="var(--cd-border-row)"
-                stroke-width="1.4"
-                stroke-linecap="round"
-              />
-              <path
-                :d="browsingPlaybackProgressPath"
-                pathLength="100"
-                :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
-                fill="none"
-                stroke="var(--cd-progress-fill)"
-                stroke-width="1.7"
-                stroke-linecap="round"
-              />
-            </svg>
-          </div>
-        </Transition>
-      </div>
+        :information="focusedPlayback"
+        :identity="focusedPlaybackIdentity ?? undefined"
+        focused
+        :is-playing="playback.state.isPlaying"
+        :current-time="playback.state.currentTime"
+        :duration="playback.state.duration"
+      />
       <div v-if="loading || failed || !count" class="cd-status" role="status">
         <template v-if="failed">
           <p>{{ t('albums.status.loadError') }}</p>
@@ -1092,273 +922,10 @@ onBeforeUnmount(() => {
   position: absolute;
   right: clamp(16px, 2.3cqw, 32px);
   bottom: 24px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
   width: min(320px, calc(40cqw - 32px));
   max-width: calc(100% - 32px);
   z-index: 4;
-  align-items: stretch;
-  gap: 8px;
-  margin: 0;
-  font-family: var(--cd-font-display);
-  font-size: var(--cd-type-playback-size);
-  line-height: var(--cd-type-playback-line-height);
-  color: var(--cd-text-browsing);
-  white-space: nowrap;
   pointer-events: none;
-}
-.cd-browsing-playback-heading {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.cd-browsing-playback-heading .cd-browsing-playback-song {
-  text-align: right;
-}
-.cd-page .cd-browsing-playback-toggle {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--cd-text-browsing);
-  pointer-events: auto;
-}
-.cd-page .cd-browsing-playback-toggle:hover {
-  background: transparent;
-  color: var(--cd-text);
-}
-.cd-browsing-playback-toggle:focus-visible {
-  outline: 2px solid var(--cd-focus-ring);
-  outline-offset: 2px;
-}
-.cd-focused-playback {
-  --cd-focused-playback-info-width: min(
-    356px,
-    max(0px, calc(31cqw - 24px)),
-    max(0px, calc(32cqw - 84px))
-  );
-  position: absolute;
-  left: 0;
-  bottom: 32px;
-  z-index: 7;
-  box-sizing: border-box;
-  width: 24px;
-  height: 60px;
-  overflow: hidden;
-  border: 1px solid var(--cd-border-row);
-  border-left: 0;
-  pointer-events: none;
-  transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cd-focused-playback--expanded {
-  width: calc(var(--cd-focused-playback-info-width) + 48px);
-}
-.cd-focused-playback-chevron {
-  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cd-focused-playback--expanded .cd-focused-playback-chevron {
-  transform: rotate(180deg);
-}
-.cd-page .cd-focused-playback-handle {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 60px;
-  box-sizing: border-box;
-  width: 24px;
-  min-width: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--cd-text-muted);
-  pointer-events: auto;
-}
-.cd-page .cd-focused-playback-handle:hover:not(:disabled) {
-  background: transparent;
-  box-shadow: none;
-  color: var(--cd-text);
-}
-.cd-page .cd-focused-playback-handle:focus-visible {
-  outline-offset: 2px;
-}
-.cd-focused-playback-info {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--cd-type-focus-rows);
-  align-content: space-between;
-  height: 60px;
-  padding: 8px 0;
-  /* Keep the left column clear of the focused disc as the canvas narrows. */
-  width: var(--cd-focused-playback-info-width);
-  min-width: 0;
-  margin: 0;
-  font-family: var(--cd-font-display);
-  color: var(--cd-text-browsing);
-  pointer-events: none;
-}
-.cd-focused-playback-fade-enter-active,
-.cd-focused-playback-fade-leave-active {
-  transition: opacity 180ms ease;
-}
-.cd-focused-playback-fade-enter-active {
-  transition: opacity 460ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cd-focused-playback-fade-enter-from,
-.cd-focused-playback-fade-leave-to {
-  opacity: 0;
-}
-.cd-focused-playback-info .cd-browsing-playback-song {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  height: var(--cd-type-focus-song-line-height);
-  line-height: var(--cd-type-focus-song-line-height);
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-  font-size: var(--cd-type-focus-song-size);
-  font-family: var(--cd-font-display);
-}
-.cd-focused-playback-album {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  height: var(--cd-type-focus-album-line-height);
-  line-height: var(--cd-type-focus-album-line-height);
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--cd-font-display);
-  font-size: var(--cd-type-focus-album-size);
-  font-weight: 400;
-  font-style: italic;
-  font-synthesis: none;
-  text-align: center;
-  color: var(--cd-text-album);
-}
-.cd-focused-playback-info .cd-browsing-playback-progress {
-  display: block;
-  width: 72%;
-  height: 5px;
-  justify-self: center;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
-}
-:where([data-reduced-motion='true']) .cd-focused-playback-fade-enter-active,
-:where([data-reduced-motion='true']) .cd-focused-playback-fade-leave-active {
-  transition: none;
-}
-:where([data-reduced-motion='true']) .cd-focused-playback {
-  transition: none;
-}
-:where([data-reduced-motion='true']) .cd-focused-playback-chevron {
-  transition: none;
-}
-.cd-browsing-playback-timeline {
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: 16px;
-  line-height: var(--cd-type-time-line-height);
-}
-.cd-browsing-playback-time {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--cd-text-muted);
-  font-family: var(--cd-font-number);
-  font-size: var(--cd-type-time-size);
-  font-variant-numeric: tabular-nums;
-  line-height: var(--cd-type-time-line-height);
-  white-space: nowrap;
-}
-.cd-browsing-playback-time--duration {
-  text-align: right;
-}
-.cd-browsing-playback-timeline .cd-browsing-playback-progress {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  height: auto;
-  margin: 0;
-}
-.cd-browsing-playback-song {
-  width: 100%;
-  min-width: 0;
-  flex: 0 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center;
-}
-.cd-page .cd-browsing-playback-album {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: auto;
-  cursor: pointer;
-  font-family: var(--cd-font-display);
-  font-size: var(--cd-type-playback-size);
-  font-weight: 400;
-  font-style: italic;
-  font-synthesis: none;
-  line-height: var(--cd-type-playback-album-line-height);
-  text-align: right;
-  color: var(--cd-text-album);
-}
-.cd-browsing-playback-album-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cd-page .cd-browsing-playback-album:hover:not(:disabled) {
-  background: transparent;
-  box-shadow: none;
-  color: var(--cd-text);
-  text-decoration: none;
-}
-.cd-browsing-playback-album:focus-visible:not(:disabled) {
-  color: var(--cd-text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.cd-browsing-playback-album:disabled {
-  cursor: default;
-}
-.cd-browsing-playback-progress {
-  display: block;
-  flex: none;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  margin-top: 4px;
-  overflow: visible;
 }
 .cd-info-row {
   position: relative;
@@ -1403,14 +970,6 @@ onBeforeUnmount(() => {
   .cd-info {
     left: 24px;
     width: min(300px, 31vw);
-  }
-  .cd-focused-playback {
-    left: 0;
-    --cd-focused-playback-info-width: min(
-      276px,
-      max(0px, calc(31cqw - 24px)),
-      max(0px, calc(32cqw - 84px))
-    );
   }
   .cd-info-title {
     font-size: var(--cd-type-title-compact-size);
@@ -1771,8 +1330,7 @@ onBeforeUnmount(() => {
   font-family: var(--cd-font-number);
   font-variant-numeric: lining-nums tabular-nums;
 }
-.cd-info-count,
-.cd-browsing-playback-time {
+.cd-info-count {
   font-variant-numeric: lining-nums tabular-nums;
 }
 </style>

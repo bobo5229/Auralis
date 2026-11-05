@@ -167,13 +167,12 @@
   --cd-type-playing-line-height: 1.3;
   --cd-type-playback-size: 16px;
   --cd-type-playback-line-height: 1.3;
-  --cd-type-playback-album-line-height: 1.25;
+  --cd-type-playback-artist-size: var(--cd-type-note-size);
+  --cd-type-playback-artist-line-height: 18px;
   --cd-type-focus-song-size: var(--cd-type-body-size);
-  --cd-type-focus-song-line-height: 17px;
-  --cd-type-focus-album-size: var(--cd-type-note-size);
-  --cd-type-focus-album-line-height: 15px;
-  --cd-type-focus-rows: var(--cd-type-focus-song-line-height) var(--cd-type-focus-album-line-height)
-    5px;
+  --cd-type-focus-song-line-height: 20px;
+  --cd-type-focus-artist-size: var(--cd-type-note-size);
+  --cd-type-focus-artist-line-height: 16px;
   --cd-type-time-size: var(--cd-type-caption-size);
   --cd-type-time-line-height: 16px;
   /* SVG lyrics use glyph metrics, perspective and available arc length, not CSS line boxes. */

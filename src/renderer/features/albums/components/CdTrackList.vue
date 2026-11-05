@@ -215,6 +215,19 @@ h2 {
 .cd-track-panel .cd-track + .cd-track {
   border-top-color: var(--cd-border-track, #aaa9a333);
 }
+.cd-track-panel .cd-track[aria-current='true'] {
+  background: color-mix(in srgb, var(--cd-text, #292929) 5%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--cd-text-muted, #62625b) 45%, transparent);
+}
+.cd-track-panel .cd-track[aria-current='true']:hover {
+  background: color-mix(in srgb, var(--cd-text, #292929) 8%, transparent);
+}
+.cd-track[aria-current='true'] .cd-track-title {
+  font-weight: 500;
+}
+.cd-track[aria-current='true'] .cd-playing-bars {
+  color: var(--cd-text, #292929);
+}
 .cd-track-index {
   position: relative;
   display: block;
