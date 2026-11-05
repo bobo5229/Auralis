@@ -1,8 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/colorMath'
-import { albumDetailColors, albumDetailSourceColor, readableAlbumText } from './albumDetailColors'
+import { albumDetailColors, readableAlbumText } from './albumDetailColors'
+import { legacyAlbumDetailSourceColor as albumDetailSourceColor } from './albumColorLegacyMigration'
 
 describe('album detail colors', () => {
+  it('uses the light green background only for the identified Your Wedding artwork', () => {
+    const key = 'v2-cc83d2eb92cc289bfd2fdd8637819af67f9a5d444466bd3cc1c1315691095a3d.webp'
+    const name = '你的婚礼 电影原声带'
+    const dominant = { r: 126, g: 106, b: 67 }
+    const chosen = albumDetailSourceColor(name, name, key, dominant)
+    expect(chosen).toEqual({ r: 207, g: 255, b: 196 })
+    const colors = albumDetailColors(chosen)
+    expect(colors.main.g).toBeGreaterThan(colors.main.r)
+    expect(colors.main.g).toBeGreaterThan(colors.main.b)
+    expect(getRelativeLuminance(colors.side)).toBeLessThan(getRelativeLuminance(colors.main))
+    expect(getContrastRatio(colors.mainText, colors.main)).toBeGreaterThanOrEqual(4.5)
+    expect(getContrastRatio(colors.lyricsActive, colors.side)).toBeGreaterThanOrEqual(4.5)
+    expect(getContrastRatio(colors.lyricsInactive, colors.side)).toBeGreaterThanOrEqual(4.5)
+    expect(colors.divider).toEqual(colors.mainText)
+    expect(albumDetailSourceColor(name, name, 'other-artwork', dominant)).toBe(dominant)
+    expect(albumDetailSourceColor('Other artist', name, key, dominant)).toBe(dominant)
+    expect(albumDetailSourceColor(name, 'Other album', key, dominant)).toBe(dominant)
+  })
   it('limits the Supernatural override to the identified artwork and album', () => {
     const key = 'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
     const dominant = { r: 214, g: 82, b: 151 }

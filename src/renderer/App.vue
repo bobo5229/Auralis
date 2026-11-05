@@ -28,10 +28,12 @@ import { useSidebarLayout } from '@renderer/features/appearance/composables/useS
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
 import {
-  albumDetailColors,
-  albumDetailSourceColor,
-  cssAlbumColor,
-} from '@renderer/features/albums/albumDetailColors'
+  getAlbumColorPreference,
+  migrateAlbumColorPreference,
+  type AlbumColorAnchor,
+} from '@renderer/features/albums/albumColorPreferences'
+import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
+import { legacyAlbumDetailSourceColor } from '@renderer/features/albums/albumColorLegacyMigration'
 
 const {
   active: startupAlbumActive,
@@ -48,41 +50,53 @@ provideAlbumMetadataEditor({
 })
 const route = useRoute()
 const detailArtworkKey = ref<string | null>(null)
+const detailAnchors = ref<AlbumColorAnchor[]>([])
+const detailIdentity = ref<{ artist: string; title: string } | null>(null)
 let detailArtworkOwner: symbol | null = null
 provideAlbumDetailArtwork({
-  set: (owner, key) => {
+  set: (owner, key, anchors = [], identity) => {
     detailArtworkOwner = owner
     detailArtworkKey.value = key
+    detailAnchors.value = anchors
+    detailIdentity.value = identity ?? null
   },
   clear: (owner) => {
     if (detailArtworkOwner !== owner) return
     detailArtworkOwner = null
     detailArtworkKey.value = null
+    detailAnchors.value = []
+    detailIdentity.value = null
   },
 })
 const detailPaletteEnabled = computed(() => route.name === 'album-detail')
 const { palette: detailPalette } = useArtworkPalette(detailArtworkKey, {
   enabled: detailPaletteEnabled,
 })
+watch(
+  [detailArtworkKey, detailAnchors, () => route.query.artist, () => route.query.title],
+  ([key, anchors, artist, title]) => {
+    if (!key || !anchors.length) return
+    const sentinel = { r: 0, g: 0, b: 0 }
+    const legacy = legacyAlbumDetailSourceColor(artist, title, key, sentinel)
+    if (legacy !== sentinel) migrateAlbumColorPreference(anchors, key, legacy)
+  },
+  { immediate: true },
+)
 const detailColorStyle = computed<CSSProperties>(() => {
   const palette = detailPalette.value
-  if (
-    !detailPaletteEnabled.value ||
-    !albumDetailColorReady.value ||
-    !detailArtworkKey.value ||
-    palette.key !== detailArtworkKey.value ||
-    palette.quality === 'fallback' ||
-    !palette.dominant
-  )
-    return {}
-  const c = albumDetailColors(
-    albumDetailSourceColor(
-      route.query.artist,
-      route.query.title,
-      detailArtworkKey.value,
-      palette.dominant,
-    ),
-  )
+  if (!detailPaletteEnabled.value || !albumDetailColorReady.value) return {}
+  const identityMatches =
+    detailIdentity.value?.artist === route.query.artist &&
+    detailIdentity.value?.title === route.query.title
+  const selected =
+    (identityMatches ? getAlbumColorPreference(detailAnchors.value) : null) ??
+    (detailArtworkKey.value &&
+    palette.key === detailArtworkKey.value &&
+    palette.quality !== 'fallback'
+      ? palette.dominant
+      : undefined)
+  if (!selected) return {}
+  const c = albumDetailColors(selected)
   return {
     '--album-detail-main': cssAlbumColor(c.main),
     '--album-detail-divider': cssAlbumColor(c.divider),

@@ -22,6 +22,25 @@
   right: 12px;
   border-top: 1px solid var(--auralis-cover-track-divider);
   pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.album-detail-track-list:has(
+    > .album-detail-track:first-child:is(
+        :hover,
+        .album-detail-track--selected,
+        .album-detail-track--playing,
+        .album-detail-track--search-highlight
+      ),
+    > .album-detail-disc-header:first-child
+      + .album-detail-track:is(
+        :hover,
+        .album-detail-track--selected,
+        .album-detail-track--playing,
+        .album-detail-track--search-highlight
+      )
+  )::before {
+  opacity: 0;
 }
 
 .album-detail-disc-header {
@@ -132,12 +151,14 @@
 }
 
 :where([data-reduced-motion='true']) .album-detail-track + .album-detail-track::before,
+:where([data-reduced-motion='true']) .album-detail-track-list::before,
 :where([data-reduced-motion='true']) .album-detail-track--disc-end::after {
   transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .album-detail-track + .album-detail-track::before,
+  .album-detail-track-list::before,
   .album-detail-track--disc-end::after {
     transition: none;
   }

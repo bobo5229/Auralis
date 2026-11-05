@@ -5,7 +5,8 @@ import {
   type ArtworkColor,
 } from '@renderer/shared/artwork/artworkAnalysis'
 import { refineArtworkPalette } from '@renderer/shared/artwork/refineArtworkPalette'
-import { oklabToRgb, getOklabChroma } from '@renderer/shared/color/colorMath'
+import { oklabToRgb, getOklabChroma, getOklabDistance } from '@renderer/shared/color/colorMath'
+import { compareArtworkColors } from '@renderer/shared/artwork/representativeArtworkColor'
 import { FALLBACK_PALETTE } from './artworkPaletteDefaults'
 
 export { FALLBACK_PALETTE } from './artworkPaletteDefaults'
@@ -54,7 +55,21 @@ function selectAccents(selected: ArtworkColor[]): PaletteColor[] {
 export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): ArtworkPalette {
   const base = analyzeArtworkColors(pixels)
   if (!base) return { ...FALLBACK_PALETTE, key }
-  const analysis = refineArtworkPalette(pixels, base)
+  const refined = refineArtworkPalette(pixels, base)
+  const comparison = compareArtworkColors(pixels, base, refined.dominant)
+  const proposed = comparison?.proposed ?? refined.dominant
+  const analysis =
+    proposed === refined.dominant
+      ? refined
+      : {
+          dominant: proposed,
+          colors: [
+            proposed,
+            ...refined.colors.filter(
+              (color) => getOklabDistance(color.oklab, proposed.oklab) >= 0.05,
+            ),
+          ].slice(0, MAX_ARTWORK_COLORS),
+        }
   const accents = selectAccents(analysis.colors)
   const dominant = analysis.dominant
   const backgroundOklab = fitDisplayColor(

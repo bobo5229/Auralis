@@ -8,28 +8,6 @@ const mix = (a: RgbColor, b: RgbColor, t: number): RgbColor => ({
   b: Math.round(a.b + (b.b - a.b) * t),
 })
 
-// This cover has a black background and several equally prominent hues. A single
-// petal is not representative of its overall surface; keep the override local to
-// this exact artwork and album, leaving the shared palette and other versions intact.
-const SUPERNATURAL_ARTWORK_KEY =
-  'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
-
-export function albumDetailSourceColor(
-  artist: unknown,
-  title: unknown,
-  artworkKey: string,
-  dominant: RgbColor,
-): RgbColor {
-  if (
-    artist === 'NewJeans' &&
-    title === 'Supernatural' &&
-    artworkKey === SUPERNATURAL_ARTWORK_KEY
-  ) {
-    return rgb(36)
-  }
-  return dominant
-}
-
 /** Keep the preferred neutral when readable, otherwise move toward a readable extreme. */
 export function readableAlbumText(source: RgbColor, background: RgbColor): RgbColor {
   if (getContrastRatio(source, background) >= 4.5) return source

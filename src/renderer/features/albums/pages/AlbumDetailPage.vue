@@ -16,6 +16,7 @@ import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
 import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 import { useAlbumDetailArtworkPublisher } from '../albumDetailArtwork'
+import { getAlbumColorPreference, setAlbumColorPreference } from '../albumColorPreferences'
 
 const props = withDefaults(
   defineProps<{
@@ -102,7 +103,34 @@ const artworkCacheKey = computed(
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const publishArtwork = useAlbumDetailArtworkPublisher()
 const artworkOwner = Symbol('album-detail')
-watch(artworkCacheKey, (key) => publishArtwork?.set(artworkOwner, key), { immediate: true })
+const colorAnchors = computed(() =>
+  albumTracks.value.map(({ id, createdAt }) => ({ id, createdAt })),
+)
+const colorPreference = computed(() => getAlbumColorPreference(colorAnchors.value))
+const colorError = ref(false)
+const colorHex = computed(() => {
+  const value = colorPreference.value ?? { r: 128, g: 128, b: 128 }
+  return `#${[value.r, value.g, value.b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+})
+function updateAlbumColor(event: Event): void {
+  const value = (event.target as HTMLInputElement).value
+  if (!/^#[0-9a-f]{6}$/i.test(value)) return
+  const color = {
+    r: parseInt(value.slice(1, 3), 16),
+    g: parseInt(value.slice(3, 5), 16),
+    b: parseInt(value.slice(5, 7), 16),
+  }
+  colorError.value = !setAlbumColorPreference(colorAnchors.value, color)
+}
+function resetAlbumColor(): void {
+  colorError.value = !setAlbumColorPreference(colorAnchors.value, null)
+}
+watch(
+  [artworkCacheKey, colorAnchors, albumArtist, albumTitle],
+  ([key, anchors, artist, title]) =>
+    publishArtwork?.set(artworkOwner, key, anchors, { artist, title }),
+  { immediate: true },
+)
 
 const isGenreGallery = computed(() => moreAlbumsByArtist.value.length === 0)
 const galleryAlbums = computed(() =>
@@ -337,6 +365,20 @@ onBeforeUnmount(() => {
                     <span class="i-lucide-shuffle h-4 w-4"></span>
                   </span>
                 </button>
+              </div>
+              <div class="album-color-preference">
+                <label
+                  >{{ t('albums.detail.colorPreference') }}
+                  <input
+                    type="color"
+                    :value="colorHex"
+                    :aria-label="t('albums.detail.colorPreference')"
+                    @input="updateAlbumColor"
+                /></label>
+                <button v-if="colorPreference" type="button" @click="resetAlbumColor">
+                  {{ t('albums.detail.colorReset') }}
+                </button>
+                <span v-if="colorError" role="alert">{{ t('albums.detail.colorSaveError') }}</span>
               </div>
             </div>
           </div>
@@ -677,6 +719,32 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+
+.album-color-preference {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+}
+.album-color-preference label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.album-color-preference input {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.album-color-preference button {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .album-hero-play-btn,

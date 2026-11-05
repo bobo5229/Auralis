@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { h, nextTick, type Ref } from 'vue'
+import { h, nextTick, watchEffect, type Ref } from 'vue'
 import App from './App.vue'
 import { useLyricsPanelVisibility } from './features/appearance/composables/useLyricsPanelVisibility'
 import { useLyricsPanelMode } from './features/appearance/composables/useLyricsPanelMode'
@@ -9,6 +9,7 @@ import { usePlayerDisplayMode } from './features/playback/composables/usePlayerD
 import { useSettingsDialog } from './features/settings/composables/useSettingsDialog'
 import { useTheme } from './features/appearance/composables/useTheme'
 import { useAlbumDetailArtworkPublisher } from './features/albums/albumDetailArtwork'
+import { setAlbumColorPreference } from './features/albums/albumColorPreferences'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
@@ -39,6 +40,7 @@ const fixture = vi.hoisted(() => ({
   syncCd: vi.fn(),
   detailCover: false,
   detailCoverKey: 'test-cover',
+  publishDetailCover: null as null | ((key: string) => void),
 }))
 vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () => {
   const { computed } = await import('vue')
@@ -65,7 +67,18 @@ vi.mock('vue-router', async () => {
     setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
       const publishArtwork = useAlbumDetailArtworkPublisher()
       if (fixture.detailCover && fixture.route.name === 'album-detail') {
-        publishArtwork?.set(Symbol('test-detail'), fixture.detailCoverKey)
+        const owner = Symbol('test-detail')
+        fixture.publishDetailCover = (key) =>
+          publishArtwork?.set(owner, key, [{ id: 7, createdAt: '2024-01-01' }], {
+            artist: fixture.route.query.artist ?? '',
+            title: fixture.route.query.title ?? '',
+          })
+        watchEffect(() =>
+          publishArtwork?.set(owner, fixture.detailCoverKey, [{ id: 7, createdAt: '2024-01-01' }], {
+            artist: fixture.route.query.artist ?? '',
+            title: fixture.route.query.title ?? '',
+          }),
+        )
       }
       expose({
         prepareLyricsLayoutTransition: fixture.prepare,
@@ -295,11 +308,16 @@ beforeEach(() => {
     return frameId
   })
   vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id))
-  vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() })
+  const storage = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+  })
   fixture.width.value = 1600
   fixture.startup.value = false
   fixture.detailCover = false
   fixture.detailCoverKey = 'test-cover'
+  fixture.publishDetailCover = null
   lyrics.setLyricsPanelExpanded(true)
   mode.setMode('split')
   widths.setLyricsPanelWidth(0)
@@ -318,6 +336,31 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
+  it('applies the Your Wedding override to the detail and lyrics surfaces', async () => {
+    fixture.detailCover = true
+    fixture.detailCoverKey =
+      'v2-cc83d2eb92cc289bfd2fdd8637819af67f9a5d444466bd3cc1c1315691095a3d.webp'
+    await mount('album-detail')
+    const name = '你的婚礼 电影原声带'
+    fixture.route.query = { artist: name, title: name }
+    await flush()
+    const shell = find('.app-shell')
+    const main = shell.style.getPropertyValue('--album-detail-main')
+    const side = shell.style.getPropertyValue('--album-detail-side')
+    const channels = main.match(/\d+/g)?.map(Number) ?? []
+    expect(channels[1]).toBeGreaterThan(channels[0])
+    expect(channels[1]).toBeGreaterThan(channels[2])
+    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBe(side)
+    expect(shell.style.getPropertyValue('--album-detail-divider')).toBe(
+      shell.style.getPropertyValue('--album-detail-main-text'),
+    )
+    fixture.route.query = { artist: name, title: 'Another album' }
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(main)
+    fixture.publishDetailCover?.('replaced-cover')
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(main)
+  })
   it('applies the Supernatural cover override to the shared detail surfaces', async () => {
     fixture.detailCover = true
     fixture.detailCoverKey =
@@ -331,7 +374,26 @@ describe('App shell composition', () => {
     expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBe('rgb(31 31 31)')
     fixture.route.query = { artist: 'NewJeans', title: 'Different album' }
     await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).not.toBe('rgb(51 51 51)')
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
+  })
+  it('does not reapply a migrated override after the user restores automatic color', async () => {
+    fixture.detailCover = true
+    fixture.detailCoverKey =
+      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
+    await mount('album-detail')
+    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
+    await flush()
+    const shell = find('.app-shell')
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
+    expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], null)).toBe(true)
+    await flush()
+    const automatic = shell.style.getPropertyValue('--album-detail-main')
+    expect(automatic).not.toBe('rgb(51 51 51)')
+    fixture.route.query = { artist: 'NewJeans', title: 'Another album' }
+    await flush()
+    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
   })
   it('starts the album colors together when the list-to-detail animation starts', async () => {
     fixture.detailCover = true

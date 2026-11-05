@@ -841,7 +841,10 @@
       "loadError": "Could not load the album",
       "notFound": "Album not found",
       "retry": "Try again",
-      "returnToAlbums": "Back to albums"
+      "returnToAlbums": "Back to albums",
+      "colorPreference": "Album color",
+      "colorReset": "Restore automatic color",
+      "colorSaveError": "Unable to save color preference"
     },
     "search": {
       "ariaLabel": "Search albums and album artists",

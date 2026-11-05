@@ -841,7 +841,10 @@
       "loadError": "读取专辑失败",
       "notFound": "未找到专辑",
       "retry": "重试",
-      "returnToAlbums": "返回专辑目录"
+      "returnToAlbums": "返回专辑目录",
+      "colorPreference": "专辑颜色",
+      "colorReset": "恢复自动取色",
+      "colorSaveError": "无法保存颜色偏好"
     },
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",

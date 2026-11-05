@@ -136,9 +136,11 @@ function byClass(root: TestNode, className: string): TestNode {
 
 async function mountAlbum(stored: string | null) {
   vi.resetModules()
+  const storage = new Map<string, string>()
+  if (stored) storage.set('auralis-control-style', stored)
   vi.stubGlobal('localStorage', {
-    getItem: (key: string) => (key === 'auralis-control-style' ? stored : null),
-    setItem: vi.fn(),
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
   })
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     callback(0)
@@ -156,7 +158,7 @@ async function mountAlbum(stored: string | null) {
   const { nextTick } = await import('vue')
   await nextTick()
   await nextTick()
-  return { root }
+  return { root, storage }
 }
 
 it('keeps album playback actions available regardless of the old material preference', async () => {
@@ -165,4 +167,19 @@ it('keeps album playback actions available regardless of the old material prefer
   ;(byClass(root, 'album-hero-shuffle-btn').props.onClick as () => void)()
   expect(playbackActions.playAlbum).toHaveBeenCalledTimes(1)
   expect(playbackActions.playAlbumShuffle).toHaveBeenCalledTimes(1)
+})
+
+it('saves a chosen album color and restores automatic color on request', async () => {
+  const { root, storage } = await mountAlbum(null)
+  const preference = byClass(root, 'album-color-preference')
+  const input = find(preference, (node) => node.type === 'input')!
+  ;(input.props.onInput as (event: unknown) => void)({ target: { value: '#cfffc4' } })
+  const { nextTick } = await import('vue')
+  await nextTick()
+  const saved = JSON.parse(storage.get('auralis-album-color-preferences-v1')!)
+  expect(saved.preferences[0].color).toEqual({ r: 207, g: 255, b: 196 })
+  const reset = find(preference, (node) => node.type === 'button')!
+  ;(reset.props.onClick as () => void)()
+  await nextTick()
+  expect(JSON.parse(storage.get('auralis-album-color-preferences-v1')!).preferences).toEqual([])
 })
