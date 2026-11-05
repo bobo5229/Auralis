@@ -79,4 +79,4 @@
 
 每轮失败使用独立输出目录或运行编号，保留启动条件、最后阶段、错误和结果；将最新通过结果单独索引。本轮多次覆盖同名日志，增加了回顾成本，后续应在首次失败时就保留证据。
 
-本轮最终在 Electron 38.8.6、NVIDIA RTX 5060 Laptop / ANGLE D3D11、GPU 沙箱开启的条件下通过隔离验收。最终报告与画面位于[本地验证目录](../../output/enamel-glsl-validation/)；代码和验证入口见[历史原型说明](../../demo/archive/enamel-milestone/glsl/README.md)，徽章后续维护使用[通用 GLSL 工具](../../scripts/badges/README.md)。这些结果说明本次原型可运行，不能替代其他徽章或其他机器的验证。
+本轮最终在 Electron 38.8.6、NVIDIA RTX 5060 Laptop / ANGLE D3D11、GPU 沙箱开启的条件下通过隔离验收。最终报告与画面位于[本地验证目录](../../output/enamel-glsl-validation)；代码和验证入口见[历史原型说明](../../demo/archive/enamel-milestone/glsl/README.md)，徽章后续维护使用[通用 GLSL 工具](../../scripts/badges/README.md)。这些结果说明本次原型可运行，不能替代其他徽章或其他机器的验证。

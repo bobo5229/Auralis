@@ -6,6 +6,9 @@
 
 ## 架构与重构
 
+- [后端模块优化建议](2026-11-06-backend-module-optimization-review.md)：元数据刷新与曲库分页快照的改进项、代码依据和验收方式。
+- [后端模块性能与行为优化建议](2026-11-06-backend-optimization-review.md)：持续汇总频谱分析、播放资源解析等模块的问题、证据、改进方案与验收条件。
+- [后端模块改进建议](2026-11-06-backend-optimization-notes.md)：曲库快照与全量扫描的优化机会、保留边界和验证记录，后续模块持续追加。
 - [P1–P2 重构汇报](2026-10-23-p1-p2-refactor-report.md)：该轮交付与剩余项的汇总快照。
 - [高复杂度单文件重构待办：P2–P3](2026-10-23-complexity-refactor-backlog.md)：原审计排序、指标和拆分边界，结合交付汇报阅读。
 - [2026-10-16 代码审计](2026-10-16-1742-code-audit.md)：限定版本与工作区差异的只读审计。
@@ -29,7 +32,7 @@
 
 - [Electron 启动崩溃与安装目录 ACL](2026-09-28-electron-startup-acl-crash.md)：当次环境对照、权限证据和验证边界；相似启动现象也可参考[徽章原型排查复盘](../lessons/2026-10-24-enamel-glsl-debugging-lessons.md)。
 - [mpv 播放中标签保存](2026-10-08-mpv-buffered-tag-write.md)。
-- [主题与颜色体系审计](播放器主题配色审计报告.md)。
+- [主题与颜色体系审计](%E6%92%AD%E6%94%BE%E5%99%A8%E4%B8%BB%E9%A2%98%E9%85%8D%E8%89%B2%E5%AE%A1%E8%AE%A1%E6%8A%A5%E5%91%8A.md)。
 - [专辑列表页 UI 审查](2026-07-25-albums-page-ui-audit-fixes.md)。
 - [桌面歌词窗口生命周期审查](REVIEW-desktop-lyrics-window-lifecycle.md)：历史窗口行为记录。
 
@@ -40,12 +43,5 @@
 - [第二批冗余筛查与清理记录](2026-10-06-redundancy-second-pass.md)
 
 具体处理边界留在上述记录，可复用判断方法见[UI 冗余清理经验](../lessons/2026-10-06-ui-cleanup-lessons.md)。
-
-## 教学示例
-
-- [示范审查入口](2026-08-05-demo-audit/README.md)
-- [Round 0：IPC／进程边界](2026-08-05-demo-audit/round-00-定尺-IPC边界.md)
-- [Round 1：歌曲页](2026-08-05-demo-audit/round-01-模块-歌曲页.md)
-- [示范评分卡](2026-08-05-demo-audit/scorecard-demo.md)
 
 新增记录仍按日期与主题命名，并更新本页和完整索引；可复用方法另归入 `lessons/`。

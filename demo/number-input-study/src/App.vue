@@ -17,4 +17,3 @@ function reset() { reka.value = prime.value = element.value = 14 }
     </section><footer>示例值仅在此页面生效。组件的默认主题与定制主题不同；此处以融入 Auralis 的效果为重点，具体输入提交时机与滚轮行为需在正式接入前核对。</footer>
   </main>
 </template>
-

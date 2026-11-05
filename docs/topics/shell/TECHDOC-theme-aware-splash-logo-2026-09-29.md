@@ -1,7 +1,9 @@
 # TECHDOC：跟随主题的 Logo 开屏动画
 
-日期：2026-09-29  
-状态：技术方案，待实施。
+日期：2026-09-29
+
+> 状态说明（2026-11-05）：本文是当时的开屏施工方案快照。开屏动画现已接入；默认主题色与部分时序细节后来调整。下文的颜色值和目标数值仅描述原方案，当前行为以 [`splashController.ts`](../../../src/renderer/app/splash/splashController.ts)、[`splash.css`](../../../src/renderer/public/splash/splash.css) 和 [`createWindow.ts`](../../../src/main/app/createWindow.ts) 为准。
+状态：历史技术方案；开屏动画已实现，当前细节以源码为准。
 
 2026-10-04 品牌形态更新：已选定原创「共鸣 A」。单色源文件为
 [`auralis-mark.svg`](../../../resources/icons/auralis-mark.svg)，侧栏、启动页与桌面图标复用同一构形。
@@ -18,10 +20,10 @@
 
 本功能只在应用冷启动的新主窗口播放。窗口最小化后恢复、路由切换和主题切换均不重播。开屏覆盖左上角窗口控制区，退场后正常显示主界面及红绿灯按钮。开屏期间主界面不可获得焦点，但系统级关闭窗口操作仍由 Electron/操作系统处理。
 
-## 当前实现与切入点
+## 方案制定时的实现基线（2026-09-29）
 
 - [`resources/icons/auralis-icon.svg`](../../../resources/icons/auralis-icon.svg) 包含一条从左到右连续的 Lucide 波形路径；方形底板和旧蓝色不进入开屏。侧边栏的 `i-ph-waveform` 是五条独立竖线，不能作为这次光点的运动轨道。
-- [`src/renderer/composables/useTheme.ts`](../../../src/renderer/composables/useTheme.ts) 将 `light` / `dark` 写入 `localStorage` 的 `auralis-theme`。默认值为 `dark`。[`src/renderer/main.ts`](../../../src/renderer/main.ts) 在加载应用组件前调用 `initTheme()`，为 `documentElement` 设置 `data-theme` 和 `color-scheme`。
+- [`src/renderer/features/appearance/composables/useTheme.ts`](../../../src/renderer/features/appearance/composables/useTheme.ts) 将 `light` / `dark` 写入 `localStorage` 的 `auralis-theme`。默认值为 `dark`。[`src/renderer/main.ts`](../../../src/renderer/main.ts) 在加载应用组件前调用 `initTheme()`，为 `documentElement` 设置 `data-theme` 和 `color-scheme`。
 - [`src/renderer/app/styles/main.css`](../../../src/renderer/app/styles/main.css) 当前深色 `--auralis-bg: #121212`、`--auralis-theme-accent: #f472b6`、`--auralis-text: #f3eee6`；浅色对应 `#f0f1f2`、`#585b5f`、`#292b2d`。开屏使用同义的背景、强调色与正文色，不另定品牌色。
 - [`src/main/app/createWindow.ts`](../../../src/main/app/createWindow.ts) 创建隐藏的 BrowserWindow，目前等待 `app:renderer-ready` 后才显示，另有 5 秒超时兜底；原生 `backgroundColor` 固定为深色。仅在 Vue 挂载后叠加开屏无法覆盖主界面加载较慢的阶段，也会让 1.5 秒动画可能在窗口显示前已经结束。
 - [`src/renderer/index.html`](../../../src/renderer/index.html) 当前只有 `#app`。现有 CSP 的 `script-src 'self'` 不允许内联启动脚本，早期主题脚本应作为同源静态资源加载。

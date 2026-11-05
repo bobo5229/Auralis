@@ -58,7 +58,7 @@
 - [Renderer 分页聚合器](../../../src/renderer/features/library/utils/loadLibraryCatalogSnapshot.ts)
 - [现有请求协调器](../../../src/renderer/features/library/utils/libraryRequestCoordinator.ts)
 - [主列表](../../../src/renderer/features/library/pages/LibraryPage.vue)
-- [智能歌单模块](../../../src/renderer/features/smartPlaylists/)
+- [智能歌单模块](../../../src/renderer/features/smartPlaylists)
 
 ## 实施与验收
 

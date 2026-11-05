@@ -3,7 +3,7 @@
 **执行日期**：2026-08-09  
 **分支**：`script-skin-dev`  
 **TECHDOC**：[`TECHDOC.md`](../TECHDOC.md)  
-**截图目录**：[`screenshots/`](./screenshots/)
+**截图目录**：[`screenshots/`](screenshots)
 
 ### 验收提交范围
 

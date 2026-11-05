@@ -29,7 +29,7 @@
 | [resolvePlaybarAccent.ts](../../../src/renderer/features/playback/utils/resolvePlaybarAccent.ts)   | 深浅主题强调色回退和对比度计算                                             | 回退 RGB 与 CSS、调色板模块重复维护                                |
 | [extractArtworkPalette.ts](../../../src/renderer/features/playback/utils/extractArtworkPalette.ts) | 提取调色板及 `FALLBACK_PALETTE`                                            | 统一同语义强调色来源，保留算法背景回退的独立职责                   |
 
-截至本文迁移时，[useTheme.ts](../../../src/renderer/composables/useTheme.ts) 支持 `light` 和 `dark`；PlayerBar 将 `isDark` 传入强调色解析函数。MiniPlayer 当时在局部设置 `color-scheme: dark` 并覆盖基础颜色；全屏播放器在自身根节点定义固定配色。
+截至本文迁移时，[useTheme.ts](../../../src/renderer/features/appearance/composables/useTheme.ts) 支持 `light` 和 `dark`；PlayerBar 将 `isDark` 传入强调色解析函数。MiniPlayer 当时在局部设置 `color-scheme: dark` 并覆盖基础颜色；全屏播放器在自身根节点定义固定配色。
 
 历史文档中的 dark-only、旧材质模式和浅色建议值属于历史背景。本方案以当前源码和实施前的计算样式为迁移基线。Renderer 规则中“PlayerBar 使用深色磨砂”的描述与当前浅色实现存在差异，变量整理沿用当前深浅分支，主题策略变更另行决策。
 

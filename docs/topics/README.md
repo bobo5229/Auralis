@@ -4,15 +4,15 @@
 
 这里按产品主题收拢独立方案。目录位置仅说明主题，不表示方案已选用、正在实施或已经完成。
 
-| 主题                                               | 内容                                                                  |
-| -------------------------------------------------- | --------------------------------------------------------------------- |
-| [albums：专辑](../CATALOG.md#albums专辑)           | 专辑目录、详情页、唱片室排版、控件样式与页面过渡                      |
-| [archive：音乐归档](../CATALOG.md#archive音乐归档) | 归档页面的设计参考；独立材质与交互实验见 [demo](../../demo/README.md) |
-| [artwork：封面](../CATALOG.md#artwork封面)         | 封面加载与缓存优化                                                    |
-| [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化                        |
-| [metadata：元数据](../CATALOG.md#metadata元数据)   | 多值元数据、流派分类、文件指纹与播放占用下的编辑策略                  |
-| [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、同窗全屏覆盖层与历史方案                     |
-| [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar、浅色配色预设、品牌与工具区、界面语言           |
+| 主题                                               | 内容                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| [albums：专辑](../CATALOG.md#albums专辑)           | 专辑目录、详情页、唱片室排版、控件样式与页面过渡                          |
+| [archive：音乐归档](../CATALOG.md#archive音乐归档) | 聆听成就与归档页面设计；独立材质与交互实验见 [demo](../../demo/README.md) |
+| [artwork：封面](../CATALOG.md#artwork封面)         | 封面加载与缓存优化                                                        |
+| [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化                            |
+| [metadata：元数据](../CATALOG.md#metadata元数据)   | 外部同步、历史覆盖读回、多值元数据、文件指纹与历史编辑方案                |
+| [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、同窗全屏覆盖层与历史方案                         |
+| [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar、浅色配色预设、品牌与工具区、界面语言               |
 
 多阶段手稿皮肤和曲库页面编排材料见[项目档案](../projects/README.md)；早期同主题资料仍保留在[历史批次](../history/README.md)。
 
@@ -23,8 +23,10 @@
 - [歌曲改名与移动后的路径找回](library/TECHDOC-track-path-relocation-2026-10-04.md)记录唯一匹配时保留歌曲身份及关联数据的处理方案、扫描与监听实现和验证范围。
 - [确认删除文件后的曲库清理](library/TECHDOC-deleted-track-cleanup-2026-10-04.md)记录全量扫描后的曲库、歌单与收听历史处理，以及当时的实现和验证证据。
 - [曲库流派上层统计](metadata/REPORT-genre-upper-classification-2026-10-04.md)保存 2026-10-04 的样本统计和映射草案，数值不代表实时曲库。
+- [聆听纪念成就](archive/TECHDOC-badge-achievements.md)记录播放时长、聆听日与专辑完成度的判定及生命周期。
+- [外部元数据同步](metadata/TECHDOC-external-metadata-sync-2026-11-06.md)记录移除内置编辑后的文件读取、历史恢复和播放边界。
 - [元数据体系优化技术方案](metadata/TECHDOC-metadata-system-optimization-2026-10-28.md)承接 2026-10-28 审计，规划文件值、历史覆盖、日期、多值写回与封面来源的统一；附 S1–S5 实施与独立验收记录。
-- [元数据编辑面板扩展技术方案](metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md)承接面板功能审计，规划编辑恢复、编号、专辑批量和内嵌封面等 E1–E6 阶段；待实施。
+- [元数据编辑面板扩展技术方案](metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md)记录编辑恢复、编号、专辑批量和内嵌封面等 E1–E6 阶段；截至 2026-10-29 已实现并通过独立验收。
 - [音乐来源路径优先布局](library/TECHDOC-music-source-path-priority-2026-09-28.md)记录来源行布局与当时的源码核对范围。
 - [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录字重配置在设置页、歌曲列表与封面视图中的设计和证据边界。
 - [历史：MiniPlayer 弹层可用性与窗口状态同步修复](playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)记录弹层裁切、状态乱序、开关失配和极小工作区越界的修复方案与定向验收；迷你播放器已于 2026-09-28 移除。
@@ -35,7 +37,7 @@
 - [深色主题中性黑与霓虹玫红配色](shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)记录该轮黑灰层级、强调色与普通 PlayerBar 动态染色的设计边界。
 - [更多作品封面内部悬停反馈](albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)记录卡片触发、封面缩放与压暗、提示淡入及封面切换之间的衔接。
 - 2026-09-21 审查的三项后续方案分别见[曲库分页并发](library/TECHDOC-catalog-concurrent-load-2026-09-21.md)、[无缝解码预算](playback/TECHDOC-gapless-memory-budget-2026-09-21.md)和[元数据文件指纹](metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)。结合原文的复现证据与未测量风险阅读，不从索引推断实施进度。
-- AlbumsPage 的 Liquid Aurora、Obsidian Shelf、Recessed Metal 三组草案并存。选用、替代及实现关系待核实；不能按文件顺序判定最新版，也不能把三套叠加成一个实施要求。
+- AlbumsPage 的 Liquid Aurora、Obsidian Shelf、Recessed Metal 三组文档草案并存。选用、替代及实现关系待核实；不能按文件顺序判定最新版，也不能把三套叠加成一个实施要求。对应本机 HTML 原型已于 2026-11-05 按 90 天清理范围移除。
 - [旧无框窗口壳 TECHDOC](shell/techdoc-auralis-native-window-chrome.md)原文已标注废弃；其替代方向见[系统原生标题栏方案](shell/plan-native-window-chrome.md)。不要按旧壳文档恢复自绘无框主窗口。
 - [播放按钮 PRD](playback/PRD-playerbar-matte-depth-2026-08-29.md)与[TECHDOC](playback/TECHDOC-playerbar-matte-depth-2026-08-29.md)已用“纽扣式内凹”取代“浅凸哑光”设计。保留 `matte-depth` 文件名仅为稳定引用，不应据文件名还原旧方向；文档方案不代表已实现。
 - [`usePlayback` 播放编排拆分](playback/TECHDOC-use-playback-architecture-split-2026-08-30.md)是保持公开门面和现有播放语义不变的内部架构方案，不授权建立第二套 player store。
@@ -46,6 +48,6 @@
   规定两者共享材质语言但保留浮层几何与 elevation，并限定实现范围和视觉验收矩阵。
 - [全局浅色配色预设](shell/light-theme-color-presets.md) 以 CD 浏览页为视觉依据，整理浅色 token
   建议值与现有 `--auralis-*` 映射；文档本身不代表已切换主题或已改代码。深色阶段背景见
-  [播放器主题配色审计报告](../reviews/播放器主题配色审计报告.md)。
+  [播放器主题配色审计报告](../reviews/%E6%92%AD%E6%94%BE%E5%99%A8%E4%B8%BB%E9%A2%98%E9%85%8D%E8%89%B2%E5%AE%A1%E8%AE%A1%E6%8A%A5%E5%91%8A.md)。
 
 以上仅列出已知关系与歧义，不替每篇文档重判状态。开始实际工作前，先确认用户本次范围，再核对源码与对应方案。

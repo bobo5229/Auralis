@@ -2,7 +2,7 @@
 
 日期：2026-10-02
 
-状态：施工方案，待实现。本文依据当前工作树和用户提供的开源调研制定；本轮交付文档。
+状态：历史提案，已由[浅色与深色强调色独立配置施工文档](IMPLEMENTATION-light-dark-theme-accent-2026-10-04.md)替代。本文保留最初的深色单主题设计；当前交互、默认值和实现状态以该实施记录及源码为准。
 
 ## 1. 目标与施工范围
 
@@ -20,7 +20,7 @@
 
 | 位置                                                                                                | 当前行为                                                                             | 本轮工作                                                   |
 | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| [useTheme.ts](../../../src/renderer/composables/useTheme.ts)                                        | `light / dark` 状态；读取并写入 `auralis-theme`；设置 `data-theme` 与 `color-scheme` | 沿用主题切换，确保强调色状态与深浅切换正确配合             |
+| [useTheme.ts](../../../src/renderer/features/appearance/composables/useTheme.ts)                                        | `light / dark` 状态；读取并写入 `auralis-theme`；设置 `data-theme` 与 `color-scheme` | 沿用主题切换，确保强调色状态与深浅切换正确配合             |
 | [main.ts](../../../src/renderer/main.ts)                                                            | 应用挂载前执行 `initTheme()`                                                         | 同阶段初始化强调色，衔接首帧引导结果                       |
 | [AppearanceSettings.vue](../../../src/renderer/features/settings/components/AppearanceSettings.vue) | 外观设置、主题选项、侧边栏布局等                                                     | 在主题选项附近接入强调色设置组件                           |
 | [main.css](../../../src/renderer/app/styles/main.css)                                               | 根主题、主窗口/overlay、PlayerBar 三处声明固定玫红，关联背景包含固定 RGBA            | 将这些深色声明统一接到动态来源，迁移对应状态背景及按钮前景 |
@@ -196,7 +196,7 @@
 - 颜色规则：默认值不变、合法大小写规范化、非法/透明输入拒绝、黑/白/饱和蓝/灰的派生结果、实际状态背景下的对比度、按钮前景。
 - 偏好：缺失或损坏存储的默认行为、有效选择保存、刷新/重建状态恢复、恢复默认、读写失败、失败后的相同值重试、无效编辑保持上一值。
 - 第三方适配：使用实际包的颜色事件验证 Alpha 校验及受控值同步；不能把取色组件替换成永远输出合法 HEX 的模拟后宣称完成集成验收。
-- [useTheme.test.ts](../../../src/renderer/composables/useTheme.test.ts)：已有主题切换继续成立；补充深色偏好保留和浅色 token 隔离的必要行为检查。
+- [useTheme.test.ts](../../../src/renderer/features/appearance/composables/useTheme.test.ts)：已有主题切换继续成立；补充深色偏好保留和浅色 token 隔离的必要行为检查。
 - [themeBoot.test.ts](../../../src/renderer/app/splash/themeBoot.test.ts)：执行真实首帧脚本，按不同键分别返回存储值，补充选色、异常与刷新场景。现有始终返回 `light` 的存储模拟应改成按键读取。
 - [splashContract.test.ts](../../../src/renderer/app/splash/splashContract.test.ts)：将“强调色必须是 HEX 字面量”的旧静态断言改为动态来源、默认回退及首帧结果一致的契约；保留轨迹、字体、时长与光点辨识度检查。如果光点改用动态对比色，将其固定填充断言更新为默认与近白强调色下的结果检查。
 - [splashController.test.ts](../../../src/renderer/app/splash/splashController.test.ts)：复用或运行现有冷启动/刷新跳过检查；只有改变控制器行为时新增场景。

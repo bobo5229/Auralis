@@ -9,7 +9,7 @@
 - [Playbar Liquid Glass 隔离原型](2026-10-15-playbar-liquid-glass-prototype-construction.md)
 - [Playbar 毛玻璃与样式切换接入](2026-10-15-playbar-material-switch-construction.md)
 - [最近添加固定资料库入口](2026-10-15-recent-added-library-6lunamax.md)
-- [2026-09-12 曲库滚动条布局修复](20260912修复1.md)
+- [2026-09-12 曲库滚动条布局修复](20260912%E4%BF%AE%E5%A4%8D1.md)
 
 ## 标签写回与播放衔接
 

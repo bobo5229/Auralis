@@ -40,7 +40,7 @@
 | `src/renderer/features/appearance/utils/resolveDarkAccent.ts`      | 不透明六位 HEX 校验、深色提亮、前景色与对比度             | 保留深色算法，复用其规范化函数 |
 | `src/renderer/features/settings/components/DarkAccentSettings.vue` | SketchPicker、辅助标签、焦点方式、折叠、预览              | 改为双主题编辑器               |
 | `src/renderer/features/settings/components/AppearanceSettings.vue` | 主题切换及强调色组件装配                                  | 更新组件导入                   |
-| `src/renderer/composables/useTheme.ts`                             | 应用主题唯一状态来源                                      | 供编辑器读取当前主题           |
+| `src/renderer/features/appearance/composables/useTheme.ts`                             | 应用主题唯一状态来源                                      | 供编辑器读取当前主题           |
 | `src/renderer/main.ts`                                             | 挂载前初始化主题与深色强调色                              | 添加浅色初始化                 |
 | `src/renderer/app/styles/main.css`                                 | 深色动态强调色；浅色固定强调色与浅填充                    | 接入浅色动态变量               |
 | `src/renderer/public/splash/theme-boot.js`                         | 首帧同步读取主题、深色强调色、动效偏好                    | 添加浅色独立读取与解析         |
@@ -238,7 +238,7 @@ SketchPicker 使用 `:key="theme"` 重建内部输入草稿。`pickerBinding` �
 先检查当前 `package.json` 脚本及 pre/post 钩子，采用最终代码状态对应的定向检查。以下是本方案基于当前入口的命令，执行者按实际新增测试名称补齐：
 
 ```powershell
-npx.cmd vitest run src/renderer/features/appearance/utils/resolveDarkAccent.test.ts src/renderer/features/appearance/utils/resolveLightAccent.test.ts src/renderer/features/appearance/composables/useDarkAccent.test.ts src/renderer/features/appearance/composables/useLightAccent.test.ts src/renderer/composables/useTheme.test.ts src/renderer/app/splash/themeBoot.test.ts src/renderer/app/splash/splashContract.test.ts src/renderer/features/settings/components/ThemeAccentSettings.test.ts
+npx.cmd vitest run src/renderer/features/appearance/utils/resolveDarkAccent.test.ts src/renderer/features/appearance/utils/resolveLightAccent.test.ts src/renderer/features/appearance/composables/useDarkAccent.test.ts src/renderer/features/appearance/composables/useLightAccent.test.ts src/renderer/features/appearance/composables/useTheme.test.ts src/renderer/app/splash/themeBoot.test.ts src/renderer/app/splash/splashContract.test.ts src/renderer/features/settings/components/ThemeAccentSettings.test.ts
 npm.cmd run build
 git diff --check
 ```

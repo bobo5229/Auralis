@@ -6,8 +6,8 @@
 
 | 项目                         | 主要入口                                                                                                                                                                |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 架构减重（本地资料）         | [Phase 1 方案](architecture-simplification/Auralis%20目标架构与%20Phase%201%20IPC%20重构方案.md)、[Phase 2～4 提示词](../CATALOG.md#架构减重)                           |
-| AMDL 接入（本地资料）        | [阶段计划](amdl-integration/AMDL施工PHASE.md)、[Phase 0 确认记录](amdl-integration/Gemini关于Phase0的回复.md)                                                           |
+| 架构减重（本地资料）         | [Phase 1 方案](architecture-simplification/Auralis%20%E7%9B%AE%E6%A0%87%E6%9E%B6%E6%9E%84%E4%B8%8E%20Phase%201%20IPC%20%E9%87%8D%E6%9E%84%E6%96%B9%E6%A1%88.md)、[Phase 2～4 提示词](../CATALOG.md#架构减重)                           |
+| AMDL 接入（本地资料）        | [阶段计划](amdl-integration/AMDL%E6%96%BD%E5%B7%A5PHASE.md)、[Phase 0 确认记录](amdl-integration/Gemini%E5%85%B3%E4%BA%8EPhase0%E7%9A%84%E5%9B%9E%E5%A4%8D.md)                                                           |
 | 播放栏可见性恢复（本地资料） | [技术方案](playerbar-visibility-recovery/TECHDOC.md)                                                                                                                    |
 | 手稿皮肤（归档）             | [总体技术方案](library-manuscript-skin-mvp/TECHDOC.md)、[交付路线图](library-manuscript-skin-mvp/DELIVERY-ROADMAP.md)、[阶段材料](../CATALOG.md#手稿皮肤已移除历史归档) |
 | 曲库页面编排                 | [技术方案](library-page-orchestration/TECHDOC.md)、[实现报告](library-page-orchestration/IMPLEMENTATION-REPORT.md)、[审查记录](library-page-orchestration/REVIEW.md)    |

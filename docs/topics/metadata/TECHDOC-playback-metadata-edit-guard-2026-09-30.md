@@ -1,6 +1,10 @@
 # TECHDOC：播放器占用歌曲的元数据编辑限制
 
+> 2026-11-06：正式应用已移除内置标签、专辑、封面与歌词编辑及音乐文件写回。本页保留历史设计与验证记录；当前行为见[外部元数据同步](TECHDOC-external-metadata-sync-2026-11-06.md)。
+
 状态：已接管修复并完成定向自测，待独立复验。日期：2026-09-30。
+
+> 状态范围：上面的状态是 2026-09-30 接管时的记录；后续补充运行验证仍属于该轮自测，本文没有记录独立复验结论。下文“施工前源码检查”描述的是修复前状态。当前曲目编辑入口为 [TrackEditorDialog.vue](../../../src/renderer/app/layout/TrackEditorDialog.vue) 与 [MetadataEditPage.vue](../../../src/renderer/features/library/components/MetadataEditPage.vue)，播放文件使用权由 `src/main/features/audio/playbackFileCoordinator.ts` 等模块协同管理。
 
 ## 接管修复记录（2026-09-30）
 
@@ -31,7 +35,7 @@ npm.cmd run typecheck
 
 本轮覆盖歌曲页现有元数据编辑入口及保存链路，保留现有排版、标签校验、文件替换回滚和曲库刷新行为。采用显式保存，播放过程中不自动停播或排队写标签。
 
-## 当前实现与问题
+## 施工前源码检查（2026-09-30）
 
 - `MetadataEditDialog.vue` 目前仅根据 `saving` 禁用输入与按钮，没有播放占用提示。
 - `useLibraryMetadataEditor.ts` 调用保存接口后刷新曲库；错误统一映射为保存失败。

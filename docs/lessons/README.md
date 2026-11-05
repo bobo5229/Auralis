@@ -9,6 +9,7 @@
 | UI 需求收缩、原型交付、空间与配色联动、动效及开源复用         | [CD 浏览页开发复盘](2026-10-04-cd-browser-development-lessons.md)                         |
 | 侧边栏图标与对齐、长文案轮播、状态表达、配色与材质迭代        | [侧边栏 UI 迭代经验](2026-10-14-sidebar-ui-iteration-lessons.md)                          |
 | Electron 原型启动排查、验收脚本时序、异步输入、DPR 与法线精度 | [珐琅徽章 GLSL 原型排查复盘](2026-10-24-enamel-glsl-debugging-lessons.md)                 |
+| 主题切换卡顿、继承颜色变量、强制样式求值、颜色序列化与性能测量 | [深浅主题切换性能优化复盘](2026-11-06-theme-transition-performance-lessons.md)             |
 
 ## 清理证据档案
 

@@ -3,7 +3,7 @@
 [返回文档入口](README.md)
 
 按用途、产品主题与项目阶段组织；日期目录只在历史批次中保留，不使用 Windows 创建时间排序。
-独立 HTML 原型统一见[原型目录](../demo/README.md)；本页保留文档分类与历史演示入口。
+独立 HTML 原型统一见[原型目录](../demo/README.md)；本页保留文档分类与现存演示入口。
 
 索引同时包含共享文档和本地研究资料；Git 检出不保证全部目标存在，缺资料不等于已删除。
 当前忽略策略以仓库 `.gitignore` 为准；目录归类和收录不代表文件已提交或已同步。
@@ -55,13 +55,11 @@
 - [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 目录全量顺序播放](topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md)
 - [TECHDOC：CD 聚焦状态与双目标返回](topics/albums/TECHDOC-cd-focus-return-navigation-2026-09-25.md)
-- [PRD：专辑详情页 Banner 模块视觉与交互重构](topics/albums/PRD：专辑详情页%20Banner%20模块视觉与交互重构.md)
+- [PRD：专辑详情页 Banner 模块视觉与交互重构](topics/albums/PRD%EF%BC%9A%E4%B8%93%E8%BE%91%E8%AF%A6%E6%83%85%E9%A1%B5%20Banner%20%E6%A8%A1%E5%9D%97%E8%A7%86%E8%A7%89%E4%B8%8E%E4%BA%A4%E4%BA%92%E9%87%8D%E6%9E%84.md)
 - [TECHDOC：专辑列表进入详情的交叉淡入淡出](topics/albums/techdoc-album-detail-enter-transition-motion.md)
 - [TECHDOC：专辑列表虚拟行定位与视觉动效解耦](topics/albums/techdoc-albums-virtual-row-transition-fix.md)
 - [TECHDOC：专辑详情页本地分类兜底画廊](topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md)
-- [专辑详情页重构 MVP 实施计划 (Album Detail Page Redesign MVP Plan)](topics/albums/2026-07-25-album-detail-redesign-plan.md)
 - [历史 PRD：专辑详情页退出景深沉降过渡](topics/albums/prd-album-detail-exit-transition.md)
-- [产品需求文档 (PRD)：专辑详情页热门单曲右下角入口与物理推移联动](topics/albums/prd-album-detail-top-tracks-push.md)
 - [产品需求文档 (PRD)：专辑列表页独立动态液态极光 Header 展架](topics/albums/prd-albums-page-liquid-aurora-header.md)
 - [产品需求文档 (PRD)：专辑列表页 Hi-Fi 发烧唱片馆藏与黑曜石控制架](topics/albums/prd-albums-page-obsidian-shelf.md)
 - [产品需求文档 (PRD)：专辑列表页阳极氧化拉丝金属内凹 Header 展架](topics/albums/prd-albums-page-recessed-metal-header.md)
@@ -76,6 +74,7 @@
 
 ### archive：音乐归档
 
+- [聆听纪念成就判定与生命周期](topics/archive/TECHDOC-badge-achievements.md) — 按有效播放、日历日和完整专辑进度派生成就，不持久化点亮状态。
 - [珐琅徽章浅肌理复用方案](topics/archive/TECHDOC-enamel-badge-surface-texture.md) — 同色微浮雕、参数模板、确定性几何生成、旧徽章适配与新徽章制作。
 
 - [珐琅徽章 GLSL 美化工作流](topics/archive/WORKFLOW-enamel-badge-glsl.md) — 全部 11 枚徽章的通用配置、材质生成、共享渲染、预览导出与验证；命令见[工具说明](../scripts/badges/README.md)。
@@ -95,13 +94,14 @@
 - [TECHDOC：封面视图当前播放曲目的动态音柱](topics/library/TECHDOC-cover-track-playing-indicator-2026-09-28.md)
 
 - [TECHDOC：曲库分页并发加载与快照生命周期](topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md)
-- [修复 Library 歌曲列表滚动掉帧](topics/library/fix-song-row-scroll-jank.md)
 - [TECHDOC：播放后歌曲列表视口被拽回当前曲](topics/library/techdoc-library-playback-viewport-restore.md)
 - [TECHDOC：曲库初次加载文件夹扫描性能优化方案](topics/library/techdoc-library-initial-scan-performance-optimization.md)
 
 ### metadata：元数据
 
-- [TECHDOC：元数据编辑面板扩展技术方案](topics/metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md) — E1–E6 规划：编辑恢复、编号、专辑批量、内嵌封面、更多标签与历史值逐字段合并；待实施。
+- [TECHDOC：外部元数据同步](topics/metadata/TECHDOC-external-metadata-sync-2026-11-06.md) — 当前只读文件边界、历史覆盖读回、备份恢复及播放读租约。
+
+- [TECHDOC：元数据编辑面板扩展技术方案](topics/metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md) — E1–E6 的交付快照；2026-10-29 已实现并通过独立验收。
 - [TECHDOC：元数据体系优化技术方案](topics/metadata/TECHDOC-metadata-system-optimization-2026-10-28.md) — 审计发现、数据权威与历史覆盖、日期与格式适配、编辑契约、封面来源及分阶段验收；含 2026-10-28 实施与独立验收记录。
 - [REPORT：当前曲库流派上层统计与映射草案](topics/metadata/REPORT-genre-upper-classification-2026-10-04.md)
 - [TECHDOC：多值元数据统一处理规则](topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)
@@ -130,7 +130,6 @@
 - [TECHDOC：全局悬浮播放条交互与空间自适应重构](topics/playback/techdoc-playerbar-floating-adaptive.md)
 - [PRD：PlayerBar 纽扣式内凹播放按钮](topics/playback/PRD-playerbar-matte-depth-2026-08-29.md)
 - [全屏播放界面动态流体背景 TECHDOC](topics/playback/techdoc-fullscreen-album-palette-background.md)
-- [全屏播放器动态流光背景 TECHDOC](topics/playback/techdoc-fullscreen-fluid-gradient.md)
 - [TECHDOC：modern PlayerBar 纽扣式内凹播放按钮](topics/playback/TECHDOC-playerbar-matte-depth-2026-08-29.md)
 - [Modern PlayerBar 播放按钮：取色与可用状态](topics/playback/TECHDOC-playerbar-modern-play-button-2026-08-28.md)
 - [TECHDOC：modern PlayerBar 外壳圆角增大](topics/playback/TECHDOC-playerbar-radius-2026-08-29.md)
@@ -142,21 +141,17 @@
 
 - [施工文档：英文与数字字体统一，Georgia 仅用于碟片标题](topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md) — 顺序分批迁移通用界面、CD、歌词、声迹 DOM 与 Canvas，保留现有中文字体。
 
-- [TECHDOC：深色模式自定义强调色](topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md) — SketchPicker 接入、本地偏好、显示色与对比度、开屏首帧及定向验收。
-- [TECHDOC：跟随主题的 Logo 开屏动画](topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md)
+- [历史：TECHDOC 深色模式自定义强调色](topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md) — 原深色单主题提案；已由后续浅色与深色双主题实施记录替代。
+- [TECHDOC：跟随主题的 Logo 开屏动画](topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md) — 2026-09-29 施工方案快照；开屏已接入，后续默认色与时序以当前源码为准。
 - [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)
 - [TECHDOC：主界面歌词面板收起与展开](topics/shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)
 - [TECHDOC：深色主题中性黑与霓虹玫红配色](topics/shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)
 - [全局浅色配色预设](topics/shell/light-theme-color-presets.md)
 - [主窗口改用 Electron 原生标题栏方案](topics/shell/plan-native-window-chrome.md)
-- [Sidebar 品牌区：仅保留「Auralis」完整显示](topics/shell/plan-sidebar-brand-auralis-only.md)
 - [Sidebar 品牌区方案 A：品牌与工具分行](topics/shell/plan-sidebar-brand-two-row-header.md)
-- [PRD: 侧边栏头部与工具栏重构 (Sidebar Header & Toolbar Redesign)](topics/shell/prd-sidebar-header-redesign.md)
 - [Auralis 原生窗口壳（无框 + 专辑色融入）TECHDOC](topics/shell/techdoc-auralis-native-window-chrome.md)
 - [TECHDOC：Sidebar 首次路由切换预热](topics/shell/techdoc-sidebar-first-navigation-warmup.md)
-- [TECHDOC: 侧边栏头部与工具栏重构技术设计文档](topics/shell/techdoc-sidebar-header-redesign.md)
 - [Sidebar 工具簇：雾面薄壳 TECHDOC](topics/shell/techdoc-sidebar-tool-cluster-mist-capsule.md)
-- [UI 界面语言：简 / 繁 / 英 TECHDOC](topics/shell/techdoc-ui-locale-zh-hans-hant-en.md)
 
 ## 项目档案
 
@@ -164,15 +159,15 @@
 
 以下为同一轮项目的方案和阶段提示词，按 Phase 顺序阅读。原文状态对应当时的工作快照。
 
-- [目标架构与 Phase 1 IPC 重构方案](projects/architecture-simplification/Auralis%20目标架构与%20Phase%201%20IPC%20重构方案.md)
-- [Phase 2：PlaybackController 精修提示词](projects/architecture-simplification/Auralis%20Phase%202%20PlaybackController%20精修提示词.md)
-- [Phase 3：Renderer 大组件减重提示词](projects/architecture-simplification/Auralis%20Phase%203%20Renderer%20大组件减重提示词.md)
-- [Phase 4：Gate Review 提示词](projects/architecture-simplification/Auralis%20Phase%204%20Gate%20Review%20提示词.md)
+- [目标架构与 Phase 1 IPC 重构方案](projects/architecture-simplification/Auralis%20%E7%9B%AE%E6%A0%87%E6%9E%B6%E6%9E%84%E4%B8%8E%20Phase%201%20IPC%20%E9%87%8D%E6%9E%84%E6%96%B9%E6%A1%88.md)
+- [Phase 2：PlaybackController 精修提示词](projects/architecture-simplification/Auralis%20Phase%202%20PlaybackController%20%E7%B2%BE%E4%BF%AE%E6%8F%90%E7%A4%BA%E8%AF%8D.md)
+- [Phase 3：Renderer 大组件减重提示词](projects/architecture-simplification/Auralis%20Phase%203%20Renderer%20%E5%A4%A7%E7%BB%84%E4%BB%B6%E5%87%8F%E9%87%8D%E6%8F%90%E7%A4%BA%E8%AF%8D.md)
+- [Phase 4：Gate Review 提示词](projects/architecture-simplification/Auralis%20Phase%204%20Gate%20Review%20%E6%8F%90%E7%A4%BA%E8%AF%8D.md)
 
 ### AMDL 接入
 
-- [AMDL 施工阶段计划](projects/amdl-integration/AMDL施工PHASE.md)
-- [AMDL Phase 0 架构确认记录](projects/amdl-integration/Gemini关于Phase0的回复.md)
+- [AMDL 施工阶段计划](projects/amdl-integration/AMDL%E6%96%BD%E5%B7%A5PHASE.md)
+- [AMDL Phase 0 架构确认记录](projects/amdl-integration/Gemini%E5%85%B3%E4%BA%8EPhase0%E7%9A%84%E5%9B%9E%E5%A4%8D.md)
 
 ### 播放栏可见性恢复
 
@@ -294,89 +289,22 @@
 
 ## 历史批次
 
-保留原批次及其内部主题结构；历史不等于废弃，也不表示任务继续生效。
-
-### 批次 2026-06-24
-
-#### 01-曲库加载
-
-- [播放功能代码改动.md](history/2026-06-24/01-曲库加载/播放功能代码改动.md)
-- [歌曲列表 UI 修复方案.md](history/2026-06-24/01-曲库加载/歌曲列表%20UI%20修复方案.md)
-- [扫描内 Album Artwork Cache 改动记录](history/2026-06-24/01-曲库加载/扫描内%20Album%20Artwork%20Cache%20改动记录.md)
-- [Auralis 播放次数记录模块 PRD](history/2026-06-24/01-曲库加载/Auralis%20播放次数记录模块%20PRD.md)
-- [Auralis 播放次数记录模块 TECHDOC](history/2026-06-24/01-曲库加载/Auralis%20播放次数记录模块%20TECHDOC.md)
-- [Auralis 播放功能第一版 PRD](history/2026-06-24/01-曲库加载/Auralis%20播放功能第一版%20PRD.md)
-- [Auralis 播放功能第一版技术设计文档](history/2026-06-24/01-曲库加载/Auralis%20播放功能第一版技术设计文档.md)
-- [Auralis 年份与完整日期 Metadata 技术设计](history/2026-06-24/01-曲库加载/Auralis%20年份与完整日期%20Metadata%20技术设计.md)
-- [Auralis 年份与完整日期 Metadata PRD](history/2026-06-24/01-曲库加载/Auralis%20年份与完整日期%20Metadata%20PRD.md)
-- [Auralis 曲库加载 PRD](history/2026-06-24/01-曲库加载/Auralis%20曲库加载%20PRD.md)
-- [Auralis 曲库加载技术设计](history/2026-06-24/01-曲库加载/Auralis%20曲库加载技术设计.md)
-- [Auralis 扫描内 Album Artwork Cache 技术设计](history/2026-06-24/01-曲库加载/Auralis%20扫描内%20Album%20Artwork%20Cache%20技术设计.md)
-- [Auralis 悬浮 Playbar 技术设计](history/2026-06-24/01-曲库加载/Auralis%20悬浮%20Playbar%20技术设计.md)
-- [Auralis 悬浮 Playbar PRD](history/2026-06-24/01-曲库加载/Auralis%20悬浮%20Playbar%20PRD.md)
-- [Auralis 专辑封面加载系统 PRD](history/2026-06-24/01-曲库加载/Auralis%20专辑封面加载系统%20PRD.md)
-- [Auralis 专辑封面加载系统技术设计](history/2026-06-24/01-曲库加载/Auralis%20专辑封面加载系统技术设计.md)
-- [Auralis Library 封面视图 PRD.md](history/2026-06-24/01-曲库加载/Auralis%20Library%20封面视图%20PRD.md)
-- [Auralis Library 封面视图 TECHDOC.md](history/2026-06-24/01-曲库加载/Auralis%20Library%20封面视图%20TECHDOC.md)
-- [Auralis Library 歌曲列表 UI/UX 文档](history/2026-06-24/01-曲库加载/Auralis%20Library%20歌曲列表%20UI%20&%20UX%20文档.md)
-- [Auralis Library 歌曲列表轻量搜索定位 TECHDOC](history/2026-06-24/01-曲库加载/Auralis%20Library%20歌曲列表轻量搜索定位%20TECHDOC.md)
-- [Auralis Library 原生滚动歌曲列表 TECHDOC](history/2026-06-24/01-曲库加载/Auralis%20Library%20原生滚动歌曲列表%20TECHDOC.md)
-- [Auralis Playbar 播放队列浮层 TECHDOC](history/2026-06-24/01-曲库加载/Auralis%20Playbar%20播放队列浮层%20TECHDOC.md)
-- [Auralis Playbar 播放模式切换 TECHDOC](history/2026-06-24/01-曲库加载/Auralis%20Playbar%20播放模式切换%20TECHDOC.md)
-- [Auralis Playbar 下方空白修复方案](history/2026-06-24/01-曲库加载/Auralis%20Playbar%20下方空白修复方案.md)
-
-#### 02-主题与Sidebar
-
-- [基础主题底色与 Sidebar 悬浮化 — 实现 Review](history/2026-06-24/02-主题与Sidebar/基础主题底色与Sidebar悬浮化%20—%20实现Review.md)
-- [右侧歌词面板改动记录](history/2026-06-24/02-主题与Sidebar/右侧歌词面板改动记录.md)
-- [Auralis 基础主题底色与 Sidebar 悬浮化 PRD](history/2026-06-24/02-主题与Sidebar/Auralis%20基础主题底色与%20Sidebar%20悬浮化%20PRD.md)
-- [Auralis 基础主题底色与 Sidebar 悬浮化技术设计](history/2026-06-24/02-主题与Sidebar/Auralis%20基础主题底色与%20Sidebar%20悬浮化技术设计.md)
-- [Auralis 深浅色主题切换按钮 PRD](history/2026-06-24/02-主题与Sidebar/Auralis%20深浅色主题切换按钮%20PRD.md)
-- [Auralis 深浅色主题切换按钮技术设计](history/2026-06-24/02-主题与Sidebar/Auralis%20深浅色主题切换按钮技术设计.md)
-- [Auralis 深浅色主题切换柔边墙纸覆盖 TECHDOC.md](history/2026-06-24/02-主题与Sidebar/Auralis%20深浅色主题切换柔边墙纸覆盖%20TECHDOC.md)
-- [Auralis 深浅色主题切换柔和过渡 TECHDOC](history/2026-06-24/02-主题与Sidebar/Auralis%20深浅色主题切换柔和过渡%20TECHDOC.md)
-- [Auralis 右侧歌词面板 PRD](history/2026-06-24/02-主题与Sidebar/Auralis%20右侧歌词面板%20PRD.md)
-- [Auralis 右侧歌词面板技术设计](history/2026-06-24/02-主题与Sidebar/Auralis%20右侧歌词面板技术设计.md)
-- [Auralis 自定义应用 Title Bar TECHDOC](history/2026-06-24/02-主题与Sidebar/Auralis%20自定义应用%20Title%20Bar%20TECHDOC.md)
-- [Auralis AppShell 低饱和径向环境光背景 TECHDOC](history/2026-06-24/02-主题与Sidebar/Auralis%20AppShell%20低饱和径向环境光背景%20TECHDOC.md)
-
-#### 03-Metadata系统
-
-- [Auralis 自动库同步：删除、恢复、移动识别 Task 拆解](history/2026-06-24/03-Metadata系统/Auralis%20自动库同步%20删除恢复移动识别%20Task%20拆解.md)
-- [Auralis Metadata System 技术设计](history/2026-06-24/03-Metadata系统/Auralis%20Metadata%20System%20技术设计.md)
-- [Auralis Metadata System PRD](history/2026-06-24/03-Metadata系统/Auralis%20Metadata%20System%20PRD.md)
-- [Metadata System 与自动入库改动记录](history/2026-06-24/03-Metadata系统/Metadata%20System%20与自动入库改动记录.md)
-
-### 批次 2026-07-01
-
-#### 02-主题与Sidebar
-
-- [Auralis Wallpaper Switch 径向主题切换 TECHDOC](history/2026-07-01/02-主题与Sidebar/Auralis%20Wallpaper%20Switch%20径向主题切换%20TECHDOC.md)
-
-### 批次 2026-07-18
-
-- [Auralis 专辑漫游（Roam）MVP 技术设计](history/2026-07-18/Auralis%20专辑漫游%20MVP%20TECHDOC.md)
-- [Auralis Android — Agent 交接与启动指南](history/2026-07-18/Auralis-Android-Agent-HANDOFF.md)
-- [2026-07-18 会话工作与经验沉淀（摘要重建）](history/2026-07-18/session-notes.md)
-
-### 批次 2026-07-23
-
-- [Auralis 专辑详情页布局技术设计](history/2026-07-23/Auralis%20专辑详情页布局%20TECHDOC.md)
+仅索引仍保留的较新批次；历史不等于废弃，也不表示任务继续生效。
 
 ### 批次 2026-08-14
 
 #### 01-Playbar-layout
 
-- [Auralis manuscript Playbar 布局优化 PRD](history/2026-08-14/01-Playbar-layout/Auralis%20manuscript%20Playbar%20布局优化%20PRD.md)
-- [Auralis manuscript Playbar 布局优化技术设计](history/2026-08-14/01-Playbar-layout/Auralis%20manuscript%20Playbar%20布局优化技术设计.md)
+- [Auralis manuscript Playbar 布局优化 PRD](history/2026-08-14/01-Playbar-layout/Auralis%20manuscript%20Playbar%20%E5%B8%83%E5%B1%80%E4%BC%98%E5%8C%96%20PRD.md)
+- [Auralis manuscript Playbar 布局优化技术设计](history/2026-08-14/01-Playbar-layout/Auralis%20manuscript%20Playbar%20%E5%B8%83%E5%B1%80%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E8%AE%BE%E8%AE%A1.md)
 
 #### 02-modern-playbar-island
 
-- [Auralis modern Playbar 浮岛重设计](history/2026-08-14/02-modern-playbar-island/Auralis%20modern%20Playbar%20浮岛重设计.md)
+- [Auralis modern Playbar 浮岛重设计](history/2026-08-14/02-modern-playbar-island/Auralis%20modern%20Playbar%20%E6%B5%AE%E5%B2%9B%E9%87%8D%E8%AE%BE%E8%AE%A1.md)
 
 #### 03-settings-ia
 
-- [Auralis 设置页信息结构重设计](history/2026-08-14/03-settings-ia/Auralis%20设置页信息结构重设计.md)
+- [Auralis 设置页信息结构重设计](history/2026-08-14/03-settings-ia/Auralis%20%E8%AE%BE%E7%BD%AE%E9%A1%B5%E4%BF%A1%E6%81%AF%E7%BB%93%E6%9E%84%E9%87%8D%E8%AE%BE%E8%AE%A1.md)
 - [设置页信息结构重设计 Implementation Plan](history/2026-08-14/03-settings-ia/IMPLEMENTATION.md)
 
 ## 可复用经验
@@ -387,6 +315,7 @@
 - [CD 浏览页开发复盘](lessons/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
 - [侧边栏 UI 迭代经验](lessons/2026-10-14-sidebar-ui-iteration-lessons.md) — 图标重量、对齐、文案边界、状态来源与配色材质。
 - [珐琅徽章 GLSL 原型排查复盘](lessons/2026-10-24-enamel-glsl-debugging-lessons.md) — 阶段日志、验收调用时序、异步输入、DPR 与法线精度。
+- [深浅主题切换性能优化复盘](lessons/2026-11-06-theme-transition-performance-lessons.md) — 共享动效范围、继承变量、样式读写时序、同色序列化、文字对比度与可见窗口测量。
 
 ## 审查记录
 
@@ -394,6 +323,9 @@
 
 ### 架构、重构与清理
 
+- [后端模块优化建议](reviews/2026-11-06-backend-module-optimization-review.md) — 按模块持续追加代码依据、优化顺序与验收方式。
+- [后端模块性能与行为优化建议](reviews/2026-11-06-backend-optimization-review.md) — 频谱分析与播放资源解析的只读审查、优化优先级及验收条件。
+- [后端模块改进建议](reviews/2026-11-06-backend-optimization-notes.md) — 曲库快照与全量扫描，记录建议及验收边界，尚未实施。
 - [P1–P2 重构汇报](reviews/2026-10-23-p1-p2-refactor-report.md)
 - [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — 原审计排序、指标与后续拆分边界，结合交付汇报阅读。
 - [2026-10-16 代码审计](reviews/2026-10-16-1742-code-audit.md)
@@ -420,22 +352,15 @@
 - [液态玻璃参数设置项：布局审查与建议方案](reviews/2026-10-25-liquid-glass-parameter-layout-review.md) — 基于用户截图的布局问题、三列与窄屏方案、实施边界及待验收清单。
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [mpv 播放中标签保存施工交接](reviews/2026-10-08-mpv-buffered-tag-write.md)
-- [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
+- [Auralis 主题与颜色体系审计报告](reviews/%E6%92%AD%E6%94%BE%E5%99%A8%E4%B8%BB%E9%A2%98%E9%85%8D%E8%89%B2%E5%AE%A1%E8%AE%A1%E6%8A%A5%E5%91%8A.md)
 - [桌面歌词窗口生命周期审查](reviews/REVIEW-desktop-lyrics-window-lifecycle.md)
 - [专辑列表页 UI 审查与重构优化诊断报告 (Albums Page UI Audit & Optimization Spec)](reviews/2026-07-25-albums-page-ui-audit-fixes.md)
-
-### 教学示例
-
-- [示范审查（教学用）](reviews/2026-08-05-demo-audit/README.md)
-- [Round 0 — 定尺（IPC / 进程边界）](reviews/2026-08-05-demo-audit/round-00-定尺-IPC边界.md)
-- [Round 1 — 模块：歌曲页（Library）](reviews/2026-08-05-demo-audit/round-01-模块-歌曲页.md)
-- [示范评分卡（R0 + 歌曲页）](reviews/2026-08-05-demo-audit/scorecard-demo.md)
 
 ## 交接记录
 
 [按任务查找施工提示词与交接记录](handoffs/README.md)。
 
-- [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912修复1.md)
+- [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912%E4%BF%AE%E5%A4%8D1.md)
 - [Auralis 剩余优化工作交付文档](handoffs/HANDOFF-remaining-work-2026-08-28.md)
 - [标签写回、播放租约与退出对账施工提示词](handoffs/2026-10-15-tag-write-lease-shutdown-construction.md)
 - [Playbar Liquid Glass 隔离原型施工提示词](handoffs/2026-10-15-playbar-liquid-glass-prototype-construction.md)
@@ -452,7 +377,5 @@
 - [唱片材质原型](../demo/albums/disc-material/README.md) — 独立材质实验及其运行说明。
 
 - [原型目录与分类](../demo/README.md)
-- [Auralis · 动态流光取色实验](../demo/local/playback/apple-music-flow-demo.html)
-- [Auralis · 舞台幕布转场实验](../demo/local/playback/fullscreen-curtain-transition-demo.html)
 
 HTML 演示是独立探索资料，不代表应用当前外观或实现。

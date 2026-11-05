@@ -1,5 +1,7 @@
 # 增强型 LRC 首期支持技术方案
 
+> 2026-11-06：增强 LRC 显示与简繁转换继续保留。内置歌词编辑、打点及标签/LRC 保存能力已移除；下文涉及编辑的部分仅作历史记录。
+
 日期：2026-10-28  
 状态：L1 至 L4 已完成，独立复验通过；全应用 smoke 的既有字体检查阻塞见第 10 节  
 源码基准：`7b8b6ecac8f023221f9705c0ffb28c843e5600ae`
@@ -10,16 +12,16 @@
 
 ## 1 现状与改动边界
 
-| 链路         | 当前实现                                                                                                                                                                                                                               | 首期处理                                                       |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 来源与格式   | [resolveLyricsForFile.ts](../../../src/main/features/metadata/resolveLyricsForFile.ts) 按内嵌 LRC、同名外部 LRC、内嵌纯文本选择；[classifyLyrics.ts](../../../src/main/features/metadata/classifyLyrics.ts) 识别方括号时间             | 保持优先级与 `lrc` 格式值；带行首时间的增强 LRC 已能进入此链路 |
-| 行解析       | [parseLrc.ts](../../../src/renderer/features/lyrics/utils/parseLrc.ts) 支持多行首时间、长录音及 offset，行内尖括号仍留在正文                                                                                                           | 扩展行内扫描与可选片段数据，保留普通 LRC 契约                  |
-| 播放与活动行 | [useTrackLyrics.ts](../../../src/renderer/features/lyrics/composables/useTrackLyrics.ts) 为 Renderer 单例，从 `usePlayback` 读取时间                                                                                                   | 继续一次读取、一次解析，共用活动片段计算                       |
-| 普通歌词     | [SyncedLyricsView.vue](../../../src/renderer/features/lyrics/components/SyncedLyricsView.vue) 展示整行，有滚动、模糊与点击跳转                                                                                                         | 行内接入共用文本组件，保留外层交互与几何                       |
-| 全屏歌词     | [FullscreenPlayerOverlay.vue](../../../src/renderer/app/layout/FullscreenPlayerOverlay.vue) 配合 [useFullscreenLyricsPresentation.ts](../../../src/renderer/features/lyrics/composables/useFullscreenLyricsPresentation.ts) 展示可见行 | 使用相同片段规则，保留可见行裁剪和排版偏好                     |
-| 繁简投影     | [useDisplayedTrackLyrics.ts](../../../src/renderer/features/lyrics/composables/useDisplayedTrackLyrics.ts) 当前只转换整行文字                                                                                                          | 同时处理显示片段，避免文字与计时脱节                           |
-| 唱片室       | [CdFocusLyrics.vue](../../../src/renderer/features/albums/components/CdFocusLyrics.vue) 读取原始语言的当前行文本                                                                                                                       | 自动获得去除计时标签的正文；首期继续整行展示                   |
-| 编辑与保存   | [LyricsEditPanel.vue](../../../src/renderer/features/lyrics/components/LyricsEditPanel.vue) 提供原文、打点、微调、撤销；[lrcEditorService.ts](../../../src/main/features/lyrics/lrcEditorService.ts) 保护版本与写入                    | 原文继续保存；整行调时同步移动尖括号时间；不增加写入能力       |
+| 链路         | 当前实现                                                                                                                                                                                                                                     | 首期处理                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 来源与格式   | [resolveLyricsForFile.ts](../../../src/main/features/metadata/resolveLyricsForFile.ts) 按内嵌 LRC、同名外部 LRC、内嵌纯文本选择；[classifyLyrics.ts](../../../src/main/features/metadata/classifyLyrics.ts) 识别方括号时间                   | 保持优先级与 `lrc` 格式值；带行首时间的增强 LRC 已能进入此链路 |
+| 行解析       | [parseLrc.ts](../../../src/renderer/features/lyrics/utils/parseLrc.ts) 支持多行首时间、长录音及 offset，行内尖括号仍留在正文                                                                                                                 | 扩展行内扫描与可选片段数据，保留普通 LRC 契约                  |
+| 播放与活动行 | [useTrackLyrics.ts](../../../src/renderer/features/lyrics/composables/useTrackLyrics.ts) 为 Renderer 单例，从 `usePlayback` 读取时间                                                                                                         | 继续一次读取、一次解析，共用活动片段计算                       |
+| 普通歌词     | [SyncedLyricsView.vue](../../../src/renderer/features/lyrics/components/SyncedLyricsView.vue) 展示整行，有滚动、模糊与点击跳转                                                                                                               | 行内接入共用文本组件，保留外层交互与几何                       |
+| 全屏歌词     | [FullscreenPlayerOverlay.vue](../../../src/renderer/app/layout/FullscreenPlayerOverlay.vue) 配合 [useFullscreenLyricsPresentation.ts](../../../src/renderer/features/lyrics/composables/useFullscreenLyricsPresentation.ts) 展示可见行       | 使用相同片段规则，保留可见行裁剪和排版偏好                     |
+| 繁简投影     | [useDisplayedTrackLyrics.ts](../../../src/renderer/features/lyrics/composables/useDisplayedTrackLyrics.ts) 当前只转换整行文字                                                                                                                | 同时处理显示片段，避免文字与计时脱节                           |
+| 唱片室       | [CdFocusLyrics.vue](../../../src/renderer/features/albums/components/CdFocusLyrics.vue) 读取原始语言的当前行文本                                                                                                                             | 自动获得去除计时标签的正文；首期继续整行展示                   |
+| 编辑与保存   | [LyricsEditPage.vue](../../../src/renderer/features/lyrics/components/LyricsEditPage.vue)（原 `LyricsEditPanel.vue`）提供原文、打点、微调、撤销；[lrcEditorService.ts](../../../src/main/features/lyrics/lrcEditorService.ts) 保护版本与写入 | 原文继续保存；整行调时同步移动尖括号时间；不增加写入能力       |
 
 无需数据库迁移、新格式枚举或新 Preload/IPC 通道。增强数据是歌词原文的 Renderer 派生值，不写入数据库。继续使用 `.lrc` / `.LRC` 候选及既有缓存失效；不新增 `.elrc` 文件发现规则。
 
@@ -221,7 +223,7 @@ interface LyricLine {
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | L1 格式与模型 | `shared/utils/lrcTiming.ts`；歌词 `types.ts`、`parseLrc.ts`、新增活动片段纯函数及相关测试                                         | 第 3 节规则和普通 LRC 回归通过；来源与 IPC 类型不变                                  |
 | L2 两个展示面 | `useTrackLyrics.ts`、`useDisplayedTrackLyrics.ts`、新增 `LyricLineText.vue`、`SyncedLyricsView.vue`、全屏 presentation 与 overlay | 两视图真实组件与 Electron 画面通过，播放时间更新延迟有记录，繁简与唱片室相邻行为通过 |
-| L3 编辑保护   | `lrcTextEditing.ts`、`LyricsEditPanel.vue`、中英文文案，现有编辑/保存测试                                                         | 自动调时整体移动且可撤销；冲突、原文保存与标签读回通过                               |
+| L3 编辑保护   | `lrcTextEditing.ts`、`LyricsEditPage.vue`（施工时名为 `LyricsEditPanel.vue`）、中英文文案，现有编辑/保存测试                      | 自动调时整体移动且可撤销；冲突、原文保存与标签读回通过                               |
 | L4 集成验收   | 定向回归、原生隔离数据、性能与视觉证据；更新歌词模块 README 和本方案状态                                                          | 首期范围全部通过，无未解决的数据保护或同步问题                                       |
 
 施工按 L1 → L2 → L3 → L4 推进。L1 或 L2 可单独验证，但完整首期交付必须包含编辑安全适配，避免展示支持后用户调时破坏文件时间关系。实施时按最终影响选择独立验收；涉及音乐文件写回或复杂播放时序的变动须遵循[风险与验收规则](../../rules/validation.md)。

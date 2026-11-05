@@ -1,5 +1,7 @@
 # 元数据体系优化技术方案
 
+> 2026-11-06：正式应用已移除内置标签、专辑、封面与歌词编辑及音乐文件写回。本页保留历史设计与验证记录；当前行为见[外部元数据同步](TECHDOC-external-metadata-sync-2026-11-06.md)。
+
 日期：2026-10-28
 
 状态：S1–S5 已实施并完成元数据范围独立验收（2026-10-28）
@@ -35,7 +37,7 @@
 - 文件写入与验证：[audioTagWriteService.ts](../../../src/main/features/metadata/audioTagWriteService.ts)、[m4aTagWriter.ts](../../../src/main/features/metadata/m4aTagWriter.ts)、[verifyWrittenMetadata.ts](../../../src/main/features/metadata/verifyWrittenMetadata.ts)、[verifyPreservedAudioTags.ts](../../../src/main/features/metadata/verifyPreservedAudioTags.ts)。
 - 编辑协调与提交：[metadataTagWriteCoordinator.ts](../../../src/main/features/metadata/metadataTagWriteCoordinator.ts)、[metadataRefreshRepository.ts](../../../src/main/repositories/metadataRefreshRepository.ts)。
 - 数据写入与展示：[metadataTrackWriter.ts](../../../src/main/repositories/metadataTrackWriter.ts)、[userEditedMetadataWriter.ts](../../../src/main/repositories/userEditedMetadataWriter.ts)、[trackScanWriter.ts](../../../src/main/repositories/trackScanWriter.ts)、[schemaMigrations.ts](../../../src/main/database/schemaMigrations.ts)。
-- 编辑交互：[MetadataEditDialog.vue](../../../src/renderer/features/library/components/MetadataEditDialog.vue)、[useLibraryMetadataEditor.ts](../../../src/renderer/features/library/composables/useLibraryMetadataEditor.ts)。
+- 编辑交互：[MetadataEditPage.vue](../../../src/renderer/features/library/components/MetadataEditPage.vue)、[useLibraryMetadataEditor.ts](../../../src/renderer/features/library/composables/useLibraryMetadataEditor.ts)。
 
 ## 3. 数据权威与目标模型
 
@@ -289,7 +291,7 @@ S1 可先独立交付。S2 完成后的过渡期继续保留旧编辑的历史�
 - 自测使用生成的 FLAC、AAC/ALAC 等临时文件和 Electron 内存数据库，覆盖缺失字段不被写成回退文本、修改集、token 冲突与重用、历史选择、发布后数据库失败补交、日期、多值和未编辑标签保留。
 - 新增 [metadataSystem.native.test.ts](../../../src/main/features/metadata/metadataSystem.native.test.ts) 10 项与 [metadataArtwork.native.test.ts](../../../src/main/features/metadata/metadataArtwork.native.test.ts) 4 项，真实音频及封面链路已通过首轮自测；现有扫描、路径找回、事务、歌词、播放缓冲写入等定向原生回归亦已运行。
 - 独立验收首轮发现 3 项 S4 问题：目录封面转换失败被误标为缺失、只换目录封面时重扫跳过、GC 误删 Unknown 专辑回退。已修复来源状态/指纹及有效身份引用；原审查者独立复验通过，追加目录封面全生命周期、真实 Windows 文件监听和 raw/legacy GC 引用用例后共 6 项全部通过，已保留为持久回归。
-- 生产 `MetadataEditDialog` 与 `AppDialog` 已在隔离 Electron Renderer 中实际挂载，检查中英文、深浅主题、长字段滚动、操作按钮可见性、保存时禁用和普通表单提交。目录 `output/metadata-ui-check/` 保存本机截图及结果；这是隔离组件运行证据，完整应用和真实曲库未用于本轮验证。
+- 生产 `TrackEditorDialog`、`MetadataEditPage` 与 `AppDialog` 已在隔离 Electron Renderer 中实际挂载，检查中英文、深浅主题、长字段滚动、操作按钮可见性、保存时禁用和普通表单提交。目录 `output/metadata-ui-check/` 保存本机截图及结果；这是隔离组件运行证据，完整应用和真实曲库未用于本轮验证。
 - 一次并行恢复测试因进程/文件操作超出默认 5 秒失败；同文件独立重跑 11 项通过，保持测试断言和默认超时不变。
 
 最终检查结果：

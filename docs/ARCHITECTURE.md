@@ -9,7 +9,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 它面向拥有本地音乐文件、希望长期整理和回顾个人收藏的用户，
 而不是面向依赖云端曲库、社交推荐或流媒体服务的用户。
 
-主要能力包括添加并扫描本地音乐目录，提取和编辑音频标签、封面与歌词，
+主要能力包括添加并扫描本地音乐目录，读取音频标签、封面与歌词并同步外部文件变更，
 浏览曲目、专辑、普通/智能播放列表，本地播放并记录收听统计，以及显示应用内歌词。
 `/archive` 当前是文字占位页；统计仍会记录，并保留重置能力。
 
@@ -42,7 +42,8 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - `src/preload/`：受控的 context bridge；向 renderer 暴露 `window.auralis`。
 - `src/renderer/`：Vue 界面、路由、视图状态、播放元素和视觉效果。
 - `src/shared/`：跨进程 IPC 合约、领域类型和纯函数。
-- `docs/`：规则、架构说明、导航、项目档案、主题方案、历史批次、评审记录和设计演示；详细文档是否纳入版本控制由 `.gitignore` 的精确例外决定。
+- `demo/`：独立界面与交互原型；按主题索引，历史探索和本机草稿分别归档。
+- `docs/`：规则、架构说明、导航、项目档案、主题方案、历史批次、评审记录和交接；详细文档是否纳入版本控制由 `.gitignore` 的精确例外决定。
 - `data/`：开发环境用户数据；包含数据库和缓存，不是源代码。
 - `out/`：electron-vite 构建产物，不应手工编辑。
 - `release/`：electron-builder 打包产物。
@@ -119,15 +120,17 @@ Node integration。preload 构建为自包含的 CommonJS `index.cjs`。
 - 增量导入：`src/main/features/libraryScan/libraryIncrementalImportService.ts`
 - 文件变更监听：`src/main/features/metadata/metadataWatchService.ts`
 - 元数据刷新：`src/main/features/metadata/metadataRefreshService.ts`
-- 标签写回：`src/main/features/metadata/audioTagWriteService.ts`
+- 历史中断写入恢复：`src/main/features/metadata/tagWriteRecovery.ts`（仅恢复备份，不创建新写入）
 - 元数据标准化：`src/main/features/metadata/metadataNormalizer.ts`
 - 歌词解析：`src/main/features/metadata/resolveLyricsForFile.ts`
 - 封面解析与缓存：`src/main/features/artwork/`
 - 音频协议与路径校验：`src/main/features/audio/`
 
-播放与标签写回通过 `src/main/features/audio/audioRuntimePaths.ts` 共用音频工具路径：
-开发时使用 `resources/audio/`，打包后使用应用资源目录下的 `audio/`。标签写回显式接收
-随应用提供的 FFmpeg 路径；缺失时报告错误，不依赖系统 PATH。
+播放、音频分析与转场通过 `src/main/features/audio/audioRuntimePaths.ts` 获取 mpv 和 FFmpeg：
+开发时使用 `resources/audio/`，打包后使用应用资源目录下的 `audio/`，不依赖系统 PATH。
+正式应用已移除单曲、专辑、封面和歌词编辑，以及标签写入和 LRC 保存接口。
+旧覆盖通过已有恢复队列强制读回文件，完整读取通过身份与指纹校验后事务解除覆盖；
+离线、失败或过期结果保留旧显示和待处理项，歌词或封面局部更新不解除文本覆盖。
 
 ### 5.3 数据访问层
 
@@ -144,7 +147,7 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 全局布局与播放控件：`src/renderer/app/layout/`
 - 专辑：`src/renderer/features/albums/`
 - Archive：`src/renderer/features/archive/`（年度热力图与当日专辑 Top 10；统计由播放链路记录，重置能力仍保留）
-- 媒体库和标签编辑：`src/renderer/features/library/`
+- 媒体库浏览：`src/renderer/features/library/`
 - 歌词：`src/renderer/features/lyrics/`
 - 播放状态与视觉效果：`src/renderer/features/playback/`
 - 设置：`src/renderer/features/settings/`
@@ -355,7 +358,7 @@ npm.cmd run dist
   网络盘、批量重命名和编辑器原子写入很容易触发竞态。
 - 移动匹配依赖时间窗口和元数据/文件特征，存在误匹配与漏匹配风险。
 - 扫描递归与媒体解析面对超大曲库、权限/网络路径及不可信封面、歌词、标签时需谨慎验证。
-- 元数据编辑会写回用户音频文件，属于不可轻易撤销的操作，必须防止部分写入。
+- 扫描、刷新和播放只读音乐与 LRC 文件。历史备份恢复只补回缺失原文件，保留已有原文件和备份。
 - 开发环境数据路径经历过迁移，`copyLegacyDevDatabaseIfNeeded` 是兼容逻辑；
   删除前必须确认旧 `data/auralis.sqlite` 用户已完成迁移。
 - `track_artists` 等预留规范化结构的写入与读取并不完全对称。
