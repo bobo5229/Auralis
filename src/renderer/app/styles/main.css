@@ -617,25 +617,10 @@ input {
   overflow: visible;
 }
 
-/* A single inherited color transition keeps every album surface on the same timeline. */
-@property --album-detail-main {
+/* The animated value stays local to each surface, avoiding descendant invalidation. */
+@property --album-surface-color {
   syntax: '<color>';
-  inherits: true;
-  initial-value: transparent;
-}
-@property --album-detail-side {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: transparent;
-}
-@property --album-detail-lyrics-surface {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: transparent;
-}
-@property --album-detail-more {
-  syntax: '<color>';
-  inherits: true;
+  inherits: false;
   initial-value: transparent;
 }
 
@@ -648,12 +633,29 @@ input {
   --auralis-lyrics-column-width: calc(20% * var(--auralis-lyrics-progress, 1));
   /* 网格列、播放栏左边界与背景裁切共用展开宽度，收起态独立覆盖。 */
   --auralis-sidebar-width: var(--auralis-sidebar-expanded-width, 260px);
-  transition:
-    grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    --album-detail-main 650ms ease,
-    --album-detail-side 650ms ease,
-    --album-detail-lyrics-surface 650ms ease,
-    --album-detail-more 650ms ease;
+  transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The invisible clock keeps the recommendation color's transition alive before it mounts. */
+.album-more-color-clock,
+.album-lyrics-color-clock {
+  --album-surface-color: var(--album-detail-more);
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  transition: --album-surface-color 650ms ease;
+}
+
+.album-lyrics-color-clock {
+  --album-surface-color: var(--album-detail-lyrics-surface);
+}
+
+:where([data-reduced-motion='true']) .album-more-color-clock,
+:where([data-reduced-motion='true']) .album-lyrics-color-clock {
+  transition: none;
 }
 
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums) {
@@ -711,6 +713,8 @@ body.is-column-resizing * {
 
 .now-playing-panel {
   overflow: hidden;
+  --album-surface-color: var(--album-detail-lyrics-surface);
+  transition: --album-surface-color 650ms ease;
   border-left-color: color-mix(
     in srgb,
     var(--auralis-border-subtle) calc(100% * var(--auralis-lyrics-progress, 1)),
@@ -751,7 +755,7 @@ body.is-column-resizing * {
   height: 100%;
   min-width: 0;
   pointer-events: auto;
-  background: var(--album-detail-lyrics-surface);
+  background: var(--album-surface-color);
 }
 
 .app-shell.is-lyrics-floating > .now-playing-panel > .now-playing-panel-content {
@@ -768,7 +772,7 @@ body.is-column-resizing * {
   }
 
   .app-shell.is-lyrics-floating > .now-playing-panel {
-    background: var(--album-detail-lyrics-surface);
+    background: var(--album-surface-color);
     -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
     backdrop-filter: var(--auralis-frosted-surface-filter);
   }
@@ -1888,11 +1892,13 @@ input[type='range'].volume-overlay-slider {
 }
 
 .app-shell:not(.is-cd-albums) > .app-main {
+  --album-surface-color: var(--album-detail-main);
   --main-page-inset-start: 32px;
   --main-page-inset-end: 8px;
   --main-page-inset-top: 16px;
   --main-page-scrollbar-size: 12px;
-  background: var(--album-detail-main);
+  background: var(--album-surface-color);
+  transition: --album-surface-color 650ms ease;
 }
 
 .app-shell.has-album-detail-color > .app-main {
@@ -1908,7 +1914,7 @@ input[type='range'].volume-overlay-slider {
   --auralis-text: var(--album-detail-side-text);
   --auralis-text-muted: var(--album-detail-lyrics-muted);
   --auralis-text-faint: var(--album-detail-side-faint);
-  background: var(--album-detail-lyrics-surface);
+  background: var(--album-surface-color);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -1920,7 +1926,7 @@ input[type='range'].volume-overlay-slider {
 
 /* Keep the reserved lyrics surface attached to the inherited transition on exit too. */
 .app-shell:not(.is-cd-albums):not(.is-lyrics-floating) > .now-playing-panel {
-  background: var(--album-detail-lyrics-surface);
+  background: var(--album-surface-color);
 }
 
 .main-page-frame {
@@ -1938,6 +1944,7 @@ input[type='range'].volume-overlay-slider {
 
 /* Sidebar */
 .app-sidebar {
+  --album-surface-color: var(--album-detail-side);
   --sidebar-icon-size: 16px;
   --sidebar-row-gap: 2px;
   --sidebar-row-gutter: 10px;
@@ -1952,12 +1959,13 @@ input[type='range'].volume-overlay-slider {
   /* Preserve the floating card's original 12px leading / 16px trailing gutters. */
   width: calc(100% - var(--auralis-shell-edge-gap) - 16px);
   padding-bottom: 0;
-  background: var(--album-detail-side, var(--auralis-sidebar-bg)) !important;
+  background: var(--album-surface-color) !important;
   border-right: 1px solid var(--auralis-border-subtle);
   box-shadow: none;
   transition:
     border-color 0.3s ease,
-    box-shadow 0.3s ease;
+    box-shadow 0.3s ease,
+    --album-surface-color 650ms ease;
 }
 
 :where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums) > .app-main,

@@ -5,7 +5,7 @@ const DURATION_MS = 180
 const EASING = 'ease-out'
 const MAX_PREPARATION_MS = 1000
 const STABLE_FRAME_INTERVAL_MS = 34
-const REQUIRED_STABLE_INTERVALS = 4
+const REQUIRED_STABLE_INTERVALS = 2
 
 type Participant = { element: HTMLElement; restore: () => void; done?: () => void }
 

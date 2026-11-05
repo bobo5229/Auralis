@@ -1,4 +1,5 @@
 .album-more-gallery {
+  --album-surface-color: var(--album-detail-more, var(--auralis-album-detail-more-bg));
   --gallery-card-min-width: 180px;
   --gallery-card-gap: 18px;
   margin-top: 36px;
@@ -6,9 +7,14 @@
   min-width: 0;
   padding: 24px var(--album-detail-inline-padding, 32px);
   border-top: none;
-  background: var(--album-detail-more, var(--auralis-album-detail-more-bg));
+  background: var(--album-surface-color);
+  transition: --album-surface-color 650ms ease;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+:where([data-reduced-motion='true']) .album-more-gallery {
+  transition: none;
 }
 
 .album-more-gallery-title {

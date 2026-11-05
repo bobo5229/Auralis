@@ -27,6 +27,7 @@ import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
+import { createAlbumSurfaceSynchronization } from './app/layout/albumSurfaceSynchronization'
 import {
   getAlbumColorPreference,
   migrateAlbumColorPreference,
@@ -141,6 +142,9 @@ watch(displayMode, (mode) => {
   if (mode === 'fullscreen') albumEditRequest.value = null
 })
 const shellRef = ref<HTMLElement | null>(null)
+watch(shellRef, (shell, _previous, onCleanup) => {
+  if (shell) onCleanup(createAlbumSurfaceSynchronization(shell))
+})
 const mainRef = ref<HTMLElement | null>(null)
 const nowPlayingPanelRef = ref<InstanceType<typeof NowPlayingPanel> | null>(null)
 const {
@@ -229,6 +233,8 @@ const {
         :class="{ 'shell-drag-region--cd': isCdCanvas }"
         aria-hidden="true"
       />
+      <span class="album-more-color-clock" aria-hidden="true"></span>
+      <span class="album-lyrics-color-clock" aria-hidden="true"></span>
       <WindowTrafficLights
         :cd-canvas="isCdCanvas"
         :sidebar-full-height="sidebarFullHeight"

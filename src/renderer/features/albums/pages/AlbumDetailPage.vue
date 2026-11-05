@@ -1004,16 +1004,18 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-content-stage::before {
+  --album-surface-color: var(--album-detail-main, var(--auralis-main-bg));
   content: '';
   position: absolute;
   z-index: -1;
   inset: -96px 0 0;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    var(--album-detail-main, var(--auralis-main-bg)) 45%
-  );
+  background: linear-gradient(to bottom, transparent, var(--album-surface-color) 45%);
+  transition: --album-surface-color 650ms ease;
+}
+
+:where([data-reduced-motion='true']) .album-hero-content-stage::before {
+  transition: none;
 }
 
 .album-hero-zone-primary,
