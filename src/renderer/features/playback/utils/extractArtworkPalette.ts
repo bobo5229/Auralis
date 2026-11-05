@@ -4,6 +4,7 @@ import {
   MAX_ARTWORK_COLORS,
   type ArtworkColor,
 } from '@renderer/shared/artwork/artworkAnalysis'
+import { refineArtworkPalette } from '@renderer/shared/artwork/refineArtworkPalette'
 import { oklabToRgb, getOklabChroma } from '@renderer/shared/color/colorMath'
 import { FALLBACK_PALETTE } from './artworkPaletteDefaults'
 
@@ -51,8 +52,9 @@ function selectAccents(selected: ArtworkColor[]): PaletteColor[] {
 }
 
 export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): ArtworkPalette {
-  const analysis = analyzeArtworkColors(pixels)
-  if (!analysis) return { ...FALLBACK_PALETTE, key }
+  const base = analyzeArtworkColors(pixels)
+  if (!base) return { ...FALLBACK_PALETTE, key }
+  const analysis = refineArtworkPalette(pixels, base)
   const accents = selectAccents(analysis.colors)
   const dominant = analysis.dominant
   const backgroundOklab = fitDisplayColor(

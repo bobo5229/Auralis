@@ -1170,7 +1170,7 @@ onBeforeUnmount(() => {
   }
 
   .album-body-grid {
-    padding: 64px var(--album-detail-inline-padding) 28px 16px;
+    padding: 40px var(--album-detail-inline-padding) 28px 16px;
   }
 
   .album-detail-wrapper > :deep(.album-more-gallery) {

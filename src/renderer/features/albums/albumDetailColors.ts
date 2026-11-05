@@ -21,19 +21,6 @@ export function readableAlbumText(source: RgbColor, background: RgbColor): RgbCo
   return target
 }
 
-/** Use a neutral line with a restrained contrast against the album surface. */
-export function readableAlbumDivider(background: RgbColor): RgbColor {
-  for (let value = 165; value <= 255; value++) {
-    const candidate = rgb(value)
-    if (getContrastRatio(candidate, background) >= 1.7) return candidate
-  }
-  for (let value = 90; value >= 0; value--) {
-    const candidate = rgb(value)
-    if (getContrastRatio(candidate, background) >= 1.7) return candidate
-  }
-  return rgb(0)
-}
-
 /** Retain the cover's lightness and chroma while keeping side surfaces slightly darker. */
 export function albumDetailColors(source: RgbColor) {
   const { l, a, b } = rgbToOklab(source)
@@ -58,14 +45,15 @@ export function albumDetailColors(source: RgbColor) {
     inactive: { r: 81, g: 81, b: 82 },
   }
   const text = (color: RgbColor, bg: RgbColor) => readableAlbumText(color, bg)
+  const mainText = text(defaults.text, main)
   return {
     main,
-    divider: readableAlbumDivider(main),
+    divider: mainText,
     more,
     side,
     moreText: text(defaults.text, more),
     moreFaint: text(defaults.faint, more),
-    mainText: text(defaults.text, main),
+    mainText,
     mainMuted: text(defaults.muted, main),
     mainFaint: text(defaults.faint, main),
     sideText: text(defaults.text, side),

@@ -1,12 +1,10 @@
 .album-tracklist-panel {
-  --auralis-cover-track-divider: var(
-    --album-detail-divider,
-    color-mix(in srgb, var(--auralis-text) 20%, var(--auralis-main-bg))
-  );
+  --auralis-cover-track-divider: var(--album-detail-divider, var(--auralis-text));
   min-width: 0;
 }
 
 .album-detail-track-list {
+  position: relative;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -14,6 +12,16 @@
   border-radius: 0;
   padding: 4px 0;
   box-shadow: none;
+}
+
+.album-detail-track-list:has(.album-detail-track)::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 12px;
+  right: 12px;
+  border-top: 1px solid var(--auralis-cover-track-divider);
+  pointer-events: none;
 }
 
 .album-detail-disc-header {

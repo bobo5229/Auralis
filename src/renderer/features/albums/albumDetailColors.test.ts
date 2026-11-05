@@ -21,6 +21,7 @@ describe('album detail colors', () => {
   it('keeps text readable on cover-derived light and dark surfaces', () => {
     for (const source of [
       { r: 246, g: 213, b: 213 },
+      { r: 120, g: 212, b: 205 },
       { r: 240, g: 20, b: 35 },
       { r: 30, g: 100, b: 220 },
       { r: 255, g: 230, b: 0 },
@@ -30,9 +31,8 @@ describe('album detail colors', () => {
       { r: 255, g: 255, b: 255 },
     ]) {
       const c = albumDetailColors(source)
-      expect(c.divider.r).toBe(c.divider.g)
-      expect(c.divider.g).toBe(c.divider.b)
-      expect(getContrastRatio(c.divider, c.main)).toBeGreaterThanOrEqual(1.7)
+      expect(c.divider).toEqual(c.mainText)
+      expect(getContrastRatio(c.divider, c.main)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.lyricsActive, c.side)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.lyricsInactive, c.side)).toBeGreaterThanOrEqual(4.5)
       expect(getContrastRatio(c.lyricsMuted, c.side)).toBeGreaterThanOrEqual(4.5)
