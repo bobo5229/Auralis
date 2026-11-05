@@ -170,6 +170,10 @@ export function createWholeLineLyricsViewport(options: Options) {
   }
 
   function animate(element: HTMLElement, frames: Keyframe[], duration: number): Promise<void> {
+    // Unchanged text paint/scale needs no animation. Keeping those animations
+    // alive would make otherwise static lyric layers participate in every frame.
+    if (Object.keys(frames[0]).every((key) => frames[0][key] === frames[1][key]))
+      return Promise.resolve()
     const token = generation
     const animation = element.animate(frames, {
       duration,
@@ -272,15 +276,20 @@ export function createWholeLineLyricsViewport(options: Options) {
       measured[start].inkOffset = firstInkOffset(first, scale) / scale
     }
     const opening = isWholeLyricsOpening(lines, options.activeIndex.value)
-    const focalCenter = container.clientHeight * options.focalRatio
+    const viewportHeight = container.clientHeight
+    const focalCenter = viewportHeight * options.focalRatio
     let fit = 1
     let scales: number[] = []
     let layout = { offset: 0, endIndex: -1, requiredHeight: 0, anchorTop }
     elements.forEach((line) => {
       line.style.transform = 'none'
     })
-    for (let attempt = 0; attempt < 16; attempt++) {
-      track.style.setProperty('--fullscreen-whole-fit-scale', String(fit))
+    const preludeFontSize = prelude
+      ? parseFloat(getComputedStyle(first).fontSize) * options.activeScale
+      : 0
+    const layoutTrack: HTMLElement = nextTrack
+    function applyFit(): void {
+      layoutTrack.style.setProperty('--fullscreen-whole-fit-scale', String(fit))
       scales = elements.map(
         (_, index) => fit * (index === currentIndex ? 1 : 1 / options.activeScale),
       )
@@ -288,43 +297,63 @@ export function createWholeLineLyricsViewport(options: Options) {
         line.style.height = `${heights[index] * scales[index]}px`
         materials[index].style.transform = `scale(${scales[index]})`
       })
-      if (prelude)
-        prelude.style.fontSize = `${parseFloat(getComputedStyle(first).fontSize) * options.activeScale * fit}px`
-      const trackTop = track.getBoundingClientRect().top
-      const metrics = elements.map((line) => {
+      if (prelude) prelude.style.fontSize = `${preludeFontSize * fit}px`
+    }
+    function readMetrics() {
+      const trackTop = layoutTrack.getBoundingClientRect().top
+      return elements.map((line) => {
         const box = line.getBoundingClientRect()
         return { offset: box.top - trackTop, height: box.height }
       })
-      layout = resolveWholeLyricsWindow(
+    }
+    // Row heights, gaps and the countdown's font all scale together. Measure
+    // once at natural size, solve fitting in memory, then commit a single fit.
+    applyFit()
+    const naturalMetrics = readMetrics()
+    const preludeTop = prelude
+      ? prelude.getBoundingClientRect().top - track.getBoundingClientRect().top
+      : 0
+    const resolveLayout = (metrics: typeof naturalMetrics) =>
+      resolveWholeLyricsWindow(
         metrics,
         start,
         currentIndex,
         anchorTop,
-        container.clientHeight,
-        measured[start].inkOffset! * scales[start],
+        viewportHeight,
+        measured[start].inkOffset! * fit * (start === currentIndex ? 1 : 1 / options.activeScale),
         opening ? focalCenter : undefined,
       )
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const metrics = naturalMetrics.map(({ offset, height }) => ({
+        offset: offset * fit,
+        height: height * fit,
+      }))
+      layout = resolveLayout(metrics)
       let ratio: number
       if (opening) {
         const top =
-          options.showPrelude.value && prelude
-            ? prelude.getBoundingClientRect().top - trackTop + layout.offset
-            : layout.anchorTop
+          options.showPrelude.value && prelude ? preludeTop * fit + layout.offset : layout.anchorTop
         const head = focalCenter - top
         const tail = layout.anchorTop + layout.requiredHeight - focalCenter
         ratio = Math.min(
           head > 0 ? (focalCenter - anchorTop - WHOLE_LYRIC_OPENING_GAP) / head : 1,
-          tail > 0 ? (container.clientHeight - WHOLE_LYRIC_SHADOW_GAP - focalCenter) / tail : 1,
+          tail > 0 ? (viewportHeight - WHOLE_LYRIC_SHADOW_GAP - focalCenter) / tail : 1,
         )
       } else {
         ratio =
           layout.requiredHeight > 0
-            ? (container.clientHeight - layout.anchorTop - WHOLE_LYRIC_SHADOW_GAP) /
-              layout.requiredHeight
+            ? (viewportHeight - layout.anchorTop - WHOLE_LYRIC_SHADOW_GAP) / layout.requiredHeight
             : 1
       }
-      if (ratio >= 1 || ratio <= 0 || attempt === 15) break
+      // A solved boundary can round to 0.9999999999999998. Do not turn that
+      // floating-point residue into another visible 10% reduction.
+      if (ratio >= 1 - 1e-6 || ratio <= 0 || attempt === 15) break
       fit *= Math.min(0.9, ratio)
+    }
+    if (fit !== 1) {
+      applyFit()
+      // Use the browser's final subpixel rounding for visibility and anchoring.
+      layout = resolveLayout(readMetrics())
     }
     track.style.transform = `translate3d(0, ${layout.offset}px, 0)`
     const main: Promise<void>[] = []

@@ -267,6 +267,18 @@ describe('whole-sentence motion lifecycle', () => {
     ).toBe(true)
   })
 
+  it('does not animate unchanged text paint or scale during sentence movement', () => {
+    const { change, runs } = setup()
+    change(0)
+    change(1)
+    expect(runs.length).toBeGreaterThan(0)
+    expect(
+      runs.every(({ frames }) =>
+        Object.keys(frames[0]).some((key) => frames[0][key] !== frames[1][key]),
+      ),
+    ).toBe(true)
+  })
+
   it('uses one selected curve for movement, scale and paint on the next sentence', () => {
     const { change, runs, scrollPreset } = setup()
     change(0)
