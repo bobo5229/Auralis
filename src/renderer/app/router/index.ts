@@ -14,7 +14,7 @@ export const router = createRouter({
     {
       path: '/recent-added',
       name: 'recent-added',
-      component: routeLoaders.library,
+      component: routeLoaders.recentAdded,
       meta: { title: 'Recently Added' },
     },
     {

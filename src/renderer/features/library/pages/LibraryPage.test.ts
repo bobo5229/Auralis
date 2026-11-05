@@ -520,6 +520,38 @@ describe('artist index', () => {
 })
 
 describe('LibraryPage flat search entry', () => {
+  it.each(['flat', 'cover'])(
+    'cues a search result in %s view and preserves input focus and playback',
+    async (mode) => {
+      vi.stubGlobal('Document', EventTarget)
+      storage.set('auralis-library-view-mode', mode)
+      await mount()
+      if (mode === 'cover') {
+        fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+        await settle()
+      }
+      const input = find('.library-search-input')
+      Object.assign(input, { getRootNode: () => doc })
+      input.focus()
+      fire(input, 'onUpdate:modelValue', 'Track 2')
+      key(input, 'Enter')
+      // The production search index yields to the event loop before building.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      await settle()
+      expect(row(2).animations).toHaveLength(1)
+      expect(row(1).animations).toHaveLength(0)
+      expect(doc.activeElement).toBe(input)
+      expect(fixture.select).not.toHaveBeenCalled()
+      expect(fixture.play).not.toHaveBeenCalled()
+      key(input, 'Enter')
+      await settle()
+      expect(row(2).animations).toHaveLength(2)
+      expect(row(2).animations[0].cancelled).toBe(true)
+      key(input, 'Escape')
+      expect(row(2).animations[1].cancelled).toBe(true)
+    },
+  )
+
   it('keeps the search bar visible without a corner launcher', async () => {
     await mount(true)
     fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })

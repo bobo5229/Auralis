@@ -38,10 +38,10 @@ import { getLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
-import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
+import { useLibrarySearchMatchHint } from '../composables/useLibrarySearchMatchHint'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
 import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnLayout'
@@ -76,7 +76,6 @@ watch(
 
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
-const isRecentAdded = computed(() => route.name === 'recent-added')
 const { songFontWeightStyle } = useSongFontWeights()
 const { songFontSizeStyle } = useSongFontSizes()
 // All song surfaces share the song page's preferences; only the song page exposes editing.
@@ -177,7 +176,6 @@ watch(tracks, () => {
 })
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
-const RECENT_ADDED_VIEW_MODE_KEY = 'auralis-recent-added-view-mode'
 const COVER_TOP_INSET = LIBRARY_LAYOUT_METRICS.coverContentTopInset
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
@@ -189,14 +187,9 @@ const playlistId = computed(() => {
   const parsed = Number(route.params.id)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 })
-const isScopedPlaylist = computed(
-  () => isRecentAdded.value || smartPlaylistId.value !== null || playlistId.value !== null,
-)
+const isScopedPlaylist = computed(() => smartPlaylistId.value !== null || playlistId.value !== null)
 
 function captureLibraryRouteScope(): LibraryRouteScope {
-  if (isRecentAdded.value) {
-    return { kind: 'recent-added', range: parseRecentAddedLibraryRange(route.query.range) ?? 'all' }
-  }
   if (smartPlaylistId.value !== null) {
     return { kind: 'smart-playlist', id: smartPlaylistId.value }
   }
@@ -207,7 +200,7 @@ function captureLibraryRouteScope(): LibraryRouteScope {
 }
 
 function getViewModeStorageKey(): string {
-  return isRecentAdded.value ? RECENT_ADDED_VIEW_MODE_KEY : LIBRARY_VIEW_MODE_KEY
+  return LIBRARY_VIEW_MODE_KEY
 }
 
 function readPersistedViewMode(): LibraryViewMode {
@@ -217,9 +210,7 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
-const isSearchEnabled = computed(
-  () => isLibrarySurface.value && (!isRecentAdded.value || !isCoverView.value),
-)
+const isSearchEnabled = computed(() => isLibrarySurface.value)
 if (instanceRouteName === 'library') {
   usePageParameterSource(
     'songs',
@@ -619,6 +610,8 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return false
 }
 
+const searchMatchHint = useLibrarySearchMatchHint(scrollRef)
+
 const {
   searchQuery,
   isSearchFocused,
@@ -643,8 +636,24 @@ const {
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   isLibrarySurface: () => isSearchEnabled.value && !isLoading.value && tracks.value.length > 0,
   isInteractiveTarget,
-  scrollToTrackIndex,
+  scrollToTrackIndex: async (index, isRequestCurrent) => {
+    const trackId = tracks.value[index]?.id
+    if (trackId === undefined) return
+    const scrollGeneration = viewport.captureScrollGeneration()
+    await searchMatchHint.revealAfterPosition(
+      trackId,
+      () => scrollToTrackIndex(index, isRequestCurrent),
+      () =>
+        !isPageUnmounted &&
+        !hasLeftInstanceRoute &&
+        (isRequestCurrent?.() ?? true) &&
+        !viewport.isScrollInputCancelled(scrollGeneration),
+    )
+  },
 })
+
+watch(searchOutcome, searchMatchHint.clear, { flush: 'sync' })
+watch([() => route.fullPath, isCoverView], searchMatchHint.clear, { flush: 'sync' })
 
 watch(
   isSearchEnabled,
@@ -946,6 +955,7 @@ watch(
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
+  searchMatchHint.clear()
   if (flatContainerWidthFrame) window.cancelAnimationFrame(flatContainerWidthFrame)
   flatContainerWidthFrame = 0
   flatColumnMenu.value = null
@@ -1032,7 +1042,7 @@ onBeforeUnmount(() => {
                   }}
                 </template>
                 <template v-else-if="searchOutcome.kind === 'not-found'">
-                  <span class="text-[var(--auralis-danger)] font-medium">
+                  <span class="library-search-not-found text-[var(--auralis-danger)] font-medium">
                     {{ t('library.search.notFound') }}
                   </span>
                 </template>
@@ -1096,7 +1106,7 @@ onBeforeUnmount(() => {
                 }}
               </template>
               <template v-else-if="searchOutcome.kind === 'not-found'">
-                <span class="text-[var(--auralis-danger)] font-medium">
+                <span class="library-search-not-found text-[var(--auralis-danger)] font-medium">
                   {{ t('library.search.notFound') }}
                 </span>
               </template>
@@ -1125,7 +1135,6 @@ onBeforeUnmount(() => {
         :action-pending="folderActionPending"
         :is-playlist="playlistId !== null"
         :is-smart-playlist="smartPlaylistId !== null"
-        :is-recent-added="isRecentAdded"
         @select-folder="selectInitialFolder"
         @retry-scan="retryInitialScan"
         @retry-roots="refreshRootState"
@@ -1299,6 +1308,40 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.library-search-not-found {
+  display: inline-block;
+  animation: library-search-not-found-shake 320ms ease-in-out;
+}
+
+@keyframes library-search-not-found-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+:where([data-reduced-motion='true']) .library-search-not-found {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-search-not-found {
+    animation: none;
+  }
+}
+
 .library-cover-virtual-window {
   box-sizing: border-box;
   /* 为封面外描边预留 2px 线宽 + 3px 偏移，避免被滚动容器裁切。 */

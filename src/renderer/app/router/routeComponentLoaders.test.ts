@@ -6,6 +6,14 @@ import {
 } from './routeComponentLoaders'
 
 describe('routeComponentLoaders', () => {
+  it('loads recent additions independently from the shared library page', async () => {
+    const recentAdded = vi.fn().mockResolvedValue({ default: { name: 'RecentAddedPage' } })
+    const library = vi.fn()
+    const registry = createRouteLoaderRegistry({ recentAdded, library })
+    await registry.routeLoaders.recentAdded()
+    expect(recentAdded).toHaveBeenCalledOnce()
+    expect(library).not.toHaveBeenCalled()
+  })
   it('loads the annual summary on demand without adding primary warmup work', async () => {
     const archiveAnnualSummary = vi.fn().mockResolvedValue({
       default: { name: 'ArchiveAnnualSummaryPage' },

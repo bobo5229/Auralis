@@ -17,6 +17,7 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
  */
 export const rawRouteLoaders = {
   library: () => import('@renderer/features/library/pages/LibraryPage.vue'),
+  recentAdded: () => import('@renderer/features/library/pages/RecentAddedPage.vue'),
   albums: () => import('@renderer/features/albums/pages/AlbumsPage.vue'),
   cdAlbums: () => import('@renderer/features/albums/pages/CdAlbumsPage.vue'),
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
@@ -53,6 +54,7 @@ export function createRouteLoaderRegistry(
 
   const routeLoaders = {
     library: () => getOrLoad('library', loaders.library),
+    recentAdded: () => getOrLoad('recentAdded', loaders.recentAdded),
     albums: () => getOrLoad('albums', loaders.albums),
     cdAlbums: () => getOrLoad('cdAlbums', loaders.cdAlbums),
     cdAlbumIndex: () => getOrLoad('cdAlbumIndex', loaders.cdAlbumIndex),
