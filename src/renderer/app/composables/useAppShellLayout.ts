@@ -244,6 +244,7 @@ export function useAppShellLayout({
   const {
     cdIndexSlideDirection,
     isAlbumDetailEntering,
+    albumDetailColorReady,
     isAlbumRouteTransitioning,
     albumDetailTransitionHooks,
     transitionName,
@@ -365,6 +366,7 @@ export function useAppShellLayout({
     resetLyricsWidth,
     cdIndexSlideDirection,
     isAlbumDetailEntering,
+    albumDetailColorReady,
     isAlbumRouteTransitioning,
     albumDetailTransitionHooks,
     transitionName,

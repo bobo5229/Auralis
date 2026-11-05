@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/colorMath'
-import { albumDetailColors, readableAlbumText } from './albumDetailColors'
+import { albumDetailColors, albumDetailSourceColor, readableAlbumText } from './albumDetailColors'
 
 describe('album detail colors', () => {
+  it('limits the Supernatural override to the identified artwork and album', () => {
+    const key = 'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
+    const dominant = { r: 214, g: 82, b: 151 }
+    const chosen = albumDetailSourceColor('NewJeans', 'Supernatural', key, dominant)
+    expect(chosen).toEqual({ r: 36, g: 36, b: 36 })
+    const colors = albumDetailColors(chosen)
+    expect(colors.main.r).toBe(colors.main.g)
+    expect(colors.main.g).toBe(colors.main.b)
+    expect(getRelativeLuminance(colors.side)).toBeLessThan(getRelativeLuminance(colors.main))
+    expect(getContrastRatio(colors.lyricsActive, colors.side)).toBeGreaterThanOrEqual(4.5)
+    expect(albumDetailSourceColor('NewJeans', 'Supernatural', 'other-artwork', dominant)).toBe(
+      dominant,
+    )
+    expect(albumDetailSourceColor('NewJeans', 'Another album', key, dominant)).toBe(dominant)
+    expect(albumDetailSourceColor('Another artist', 'Supernatural', key, dominant)).toBe(dominant)
+  })
   it('retains the approved gentle surfaces for a light pink cover', () => {
     const colors = albumDetailColors({ r: 246, g: 213, b: 213 })
     expect(colors.main).toEqual({ r: 246, g: 213, b: 213 })

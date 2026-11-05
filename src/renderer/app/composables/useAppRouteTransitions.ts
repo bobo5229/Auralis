@@ -25,15 +25,18 @@ export function useAppRouteTransitions({
   const cdIndexSlideDirection = ref<'enter' | 'leave' | null>(null)
   /** 仅在导航成功后锁定交互，加载失败或守卫取消不产生过渡状态。 */
   const isAlbumDetailEntering = ref(false)
+  const albumDetailColorReady = ref(true)
   const isAlbumRouteTransitioning = ref(false)
   let albumRouteRevision = 0
   const enteringRevisions = new WeakMap<Element, number>()
   const leavingInertStates = new WeakMap<HTMLElement, boolean>()
   let shouldRestoreRouteFocus = false
   let albumListReturnFocus: { albumKey: string; selector: string } | null = null
-  const albumDetailEntryTransition = createAlbumDetailEntryTransition()
+  const albumDetailEntryTransition = createAlbumDetailEntryTransition(undefined, () => {
+    albumDetailColorReady.value = true
+  })
   const albumDetailTransitionHooks = computed(() =>
-    isAlbumDetailEntering.value
+    isAlbumRouteTransitioning.value
       ? {
           onBeforeEnter: albumDetailEntryTransition.beforeEnter,
           onEnter: albumDetailEntryTransition.enter,
@@ -84,6 +87,16 @@ export function useAppRouteTransitions({
     isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
     isAlbumRouteTransitioning.value =
       isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
+    albumDetailColorReady.value = !isAlbumDetailEntering.value
+    const albumRoute = isAlbumDetailEntering.value ? to : from
+    albumDetailEntryTransition.configure(
+      isAlbumRouteTransitioning.value &&
+        typeof albumRoute.query.artist === 'string' &&
+        typeof albumRoute.query.title === 'string'
+        ? albumIdentityKey(albumRoute.query.artist, albumRoute.query.title)
+        : null,
+      !isAlbumDetailEntering.value,
+    )
     shouldRestoreRouteFocus =
       (isAlbumRouteTransitioning.value && mainHasFocus) ||
       (shouldRestoreRouteFocus && (mainHasFocus || focused === document.body))
@@ -91,8 +104,7 @@ export function useAppRouteTransitions({
 
   /**
    * 路由过渡规则：
-   * 1. 专辑列表 ➔ 专辑详情：180ms 交叉淡入淡出 (album-detail-enter-fade)
-   * 2. 专辑详情 ➔ 专辑列表：180ms 对称交叉淡入淡出 (album-detail-exit-fade)
+   * 1. 列表与专辑详情之间通过 JS 动画衔接封面；不可衔接时使用短交叉淡入淡出
    * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
    * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
    * 5. 其余路由切换：不使用 CSS 过渡，立即完成
@@ -160,6 +172,7 @@ export function useAppRouteTransitions({
   function onTransitionAfterEnter(element: Element): void {
     if (enteringRevisions.get(element) !== albumRouteRevision) return
     isAlbumDetailEntering.value = false
+    albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
     void restoreRouteFocus(albumRouteRevision)
   }
@@ -168,6 +181,7 @@ export function useAppRouteTransitions({
     if (enteringRevisions.get(element) !== albumRouteRevision) return
     albumDetailEntryTransition.cancel()
     isAlbumDetailEntering.value = false
+    albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
     void restoreRouteFocus(albumRouteRevision)
   }
@@ -180,11 +194,13 @@ export function useAppRouteTransitions({
     shouldRestoreRouteFocus = false
     albumDetailEntryTransition.cancel()
     isAlbumDetailEntering.value = false
+    albumDetailColorReady.value = true
     isAlbumRouteTransitioning.value = false
   }
   return {
     cdIndexSlideDirection,
     isAlbumDetailEntering,
+    albumDetailColorReady,
     isAlbumRouteTransitioning,
     albumDetailTransitionHooks,
     transitionName,

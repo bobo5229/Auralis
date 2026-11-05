@@ -27,7 +27,11 @@ import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
-import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
+import {
+  albumDetailColors,
+  albumDetailSourceColor,
+  cssAlbumColor,
+} from '@renderer/features/albums/albumDetailColors'
 
 const {
   active: startupAlbumActive,
@@ -64,14 +68,21 @@ const detailColorStyle = computed<CSSProperties>(() => {
   const palette = detailPalette.value
   if (
     !detailPaletteEnabled.value ||
-    isAlbumDetailEntering.value ||
+    !albumDetailColorReady.value ||
     !detailArtworkKey.value ||
     palette.key !== detailArtworkKey.value ||
     palette.quality === 'fallback' ||
     !palette.dominant
   )
     return {}
-  const c = albumDetailColors(palette.dominant)
+  const c = albumDetailColors(
+    albumDetailSourceColor(
+      route.query.artist,
+      route.query.title,
+      detailArtworkKey.value,
+      palette.dominant,
+    ),
+  )
   return {
     '--album-detail-main': cssAlbumColor(c.main),
     '--album-detail-divider': cssAlbumColor(c.divider),
@@ -145,6 +156,7 @@ const {
   resetLyricsWidth,
   cdIndexSlideDirection,
   isAlbumDetailEntering,
+  albumDetailColorReady,
   isAlbumRouteTransitioning,
   albumDetailTransitionHooks,
   transitionName,
@@ -238,7 +250,7 @@ const {
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
-            :css="transitionName !== null && !isAlbumDetailEntering"
+            :css="transitionName !== null && !isAlbumRouteTransitioning"
             v-bind="albumDetailTransitionHooks"
             @before-enter="onTransitionBeforeEnter"
             @enter="onTransitionEnter"

@@ -456,10 +456,6 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.album-detail-container.album-detail-exit-fade-leave-active {
-  position: absolute;
-}
-
 .album-detail-scroll-wrapper {
   --album-detail-inline-padding: 32px;
   min-height: 0;

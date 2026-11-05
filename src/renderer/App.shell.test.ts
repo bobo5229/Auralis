@@ -38,6 +38,7 @@ const fixture = vi.hoisted(() => ({
   requestClose: vi.fn(),
   syncCd: vi.fn(),
   detailCover: false,
+  detailCoverKey: 'test-cover',
 }))
 vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () => {
   const { computed } = await import('vue')
@@ -64,7 +65,7 @@ vi.mock('vue-router', async () => {
     setup(_props: unknown, { expose }: { expose: (value: unknown) => void }) {
       const publishArtwork = useAlbumDetailArtworkPublisher()
       if (fixture.detailCover && fixture.route.name === 'album-detail') {
-        publishArtwork?.set(Symbol('test-detail'), 'test-cover')
+        publishArtwork?.set(Symbol('test-detail'), fixture.detailCoverKey)
       }
       expose({
         prepareLyricsLayoutTransition: fixture.prepare,
@@ -298,6 +299,7 @@ beforeEach(() => {
   fixture.width.value = 1600
   fixture.startup.value = false
   fixture.detailCover = false
+  fixture.detailCoverKey = 'test-cover'
   lyrics.setLyricsPanelExpanded(true)
   mode.setMode('split')
   widths.setLyricsPanelWidth(0)
@@ -316,7 +318,22 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
-  it('starts the album colors together after the list-to-detail entry completes', async () => {
+  it('applies the Supernatural cover override to the shared detail surfaces', async () => {
+    fixture.detailCover = true
+    fixture.detailCoverKey =
+      'v2-b91487d60e6713dacb4d01b24e7ed1436eeafba9b9f08171cadd10f9cc9c16e8.webp'
+    await mount('album-detail')
+    fixture.route.query = { artist: 'NewJeans', title: 'Supernatural' }
+    await flush()
+    const shell = find('.app-shell')
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBe('rgb(51 51 51)')
+    expect(shell.style.getPropertyValue('--album-detail-side')).toBe('rgb(31 31 31)')
+    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBe('rgb(31 31 31)')
+    fixture.route.query = { artist: 'NewJeans', title: 'Different album' }
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).not.toBe('rgb(51 51 51)')
+  })
+  it('starts the album colors together when the list-to-detail animation starts', async () => {
     fixture.detailCover = true
     await mount('albums')
     await navigate('album-detail')
@@ -324,6 +341,9 @@ describe('App shell composition', () => {
     expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
     const page = find('.test-page')
     hook('onBeforeEnter', page)
+    hook('onEnter', page)
+    for (let i = 0; i < 5; i++) await frame()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
     hook('onAfterEnter', page)
     await flush()
     expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()

@@ -55,6 +55,7 @@ beforeEach(() => {
     return 1
   })
   vi.stubGlobal('cancelAnimationFrame', () => (frameCallback = null))
+  vi.stubGlobal('window', new EventTarget())
 })
 afterEach(() => {
   vi.useRealTimers()

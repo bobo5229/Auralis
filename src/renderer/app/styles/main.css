@@ -3559,29 +3559,6 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-sidebar-active-bg);
 }
 
-/* 专辑详情页退出 ➔ 专辑列表页：与进入对称的原位交叉淡入淡出 */
-.album-detail-exit-fade-leave-active {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  overflow: hidden;
-  pointer-events: none;
-  transition: opacity 180ms ease-out;
-  will-change: opacity;
-  z-index: 20;
-}
-
-.album-detail-exit-fade-enter-active {
-  transition: opacity 180ms ease-out;
-  will-change: opacity;
-  z-index: 10;
-}
-
-.album-detail-exit-fade-leave-to,
-.album-detail-exit-fade-enter-from {
-  opacity: 0;
-}
-
 /* Library view switch fade */
 .library-view-fade-enter-active,
 .library-view-fade-leave-active {
@@ -3633,12 +3610,6 @@ input[type='range'].volume-overlay-slider {
 :where([data-reduced-motion='true']) .search-overlay-enter-to .page-search-tools,
 :where([data-reduced-motion='true']) .search-overlay-leave-from .page-search-tools {
   transform: translateX(-50%);
-}
-
-:where([data-reduced-motion='true']) .album-detail-exit-fade-leave-active,
-:where([data-reduced-motion='true']) .album-detail-exit-fade-enter-active {
-  transition: none;
-  will-change: auto;
 }
 
 :where([data-reduced-motion='true']) .player-bar-album-tint-previous {

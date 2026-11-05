@@ -1,4 +1,5 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
+import { animateAlbumRouteArtwork } from './albumRouteArtwork'
 
 const DURATION_MS = 180
 const EASING = 'ease-out'
@@ -23,9 +24,11 @@ function applyStyles(element: HTMLElement, styles: Record<string, string>): () =
   }
 }
 
-/** Crossfade both routes, preparing the detail's cold paint only on the first entry. */
-export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
+/** Coordinate both routes and their artwork, preparing the detail's first cold paint. */
+export function createAlbumDetailEntryTransition(onPrepared?: () => void, onStarted?: () => void) {
   let hasPrepared = false
+  let albumKey: string | null = null
+  let reverse = false
   let active: ReturnType<typeof createSession> | null = null
 
   function createSession() {
@@ -36,6 +39,7 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
     let deadline: ReturnType<typeof setTimeout> | null = null
     let settled = false
     const animations: Animation[] = []
+    let artworkCleanup: (() => void) | undefined
 
     function finish(): void {
       if (settled) return
@@ -43,7 +47,9 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
       if (frame !== null) cancelAnimationFrame(frame)
       if (deadline !== null) clearTimeout(deadline)
       preference.removeEventListener('change', finish)
+      window.removeEventListener('resize', finish)
       for (const animation of animations) animation.cancel()
+      artworkCleanup?.()
       incoming?.restore()
       outgoing?.restore()
       if (active === session) active = null
@@ -60,9 +66,22 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
         onPrepared?.()
       }
       try {
+        onStarted?.()
+        const artwork =
+          outgoing && albumKey
+            ? animateAlbumRouteArtwork(
+                reverse ? incoming.element : outgoing.element,
+                reverse ? outgoing.element : incoming.element,
+                albumKey,
+                reverse,
+              )
+            : null
+        artworkCleanup = artwork?.cleanup
+        if (artwork) animations.push(...artwork.animations)
+        const duration = artwork ? 420 : DURATION_MS
         animations.push(
           incoming.element.animate([{ opacity: 0 }, { opacity: 1 }], {
-            duration: DURATION_MS,
+            duration: artwork ? 260 : duration,
             easing: EASING,
             fill: 'forwards',
           }),
@@ -70,7 +89,7 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
         if (outgoing) {
           animations.push(
             outgoing.element.animate([{ opacity: 1 }, { opacity: 0 }], {
-              duration: DURATION_MS,
+              duration: artwork ? 260 : duration,
               easing: EASING,
               fill: 'forwards',
             }),
@@ -85,6 +104,7 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
     async function prepare(): Promise<void> {
       if (preference.matches) return finish()
       preference.addEventListener('change', finish)
+      window.addEventListener('resize', finish)
       if (hasPrepared) return animate()
       // A hidden/minimized window or a failed decode must not hold navigation indefinitely.
       deadline = setTimeout(finish, MAX_PREPARATION_MS)
@@ -157,6 +177,10 @@ export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
   }
 
   return {
+    configure: (key: string | null, isReverse: boolean) => {
+      albumKey = key
+      reverse = isReverse
+    },
     beforeEnter: (element: Element) => getSession().beforeEnter(element as HTMLElement),
     enter: (element: Element, done: () => void) => getSession().enter(element as HTMLElement, done),
     leave: (element: Element, done: () => void) => getSession().leave(element as HTMLElement, done),
