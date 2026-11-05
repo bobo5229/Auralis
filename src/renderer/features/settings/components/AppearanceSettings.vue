@@ -23,11 +23,6 @@ import {
   type PlaybarStyle,
 } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import {
-  CONTROL_STYLES,
-  useControlStyle,
-  type ControlStyle,
-} from '@renderer/features/appearance/composables/useControlStyle'
-import {
   useEnglishFont,
   type EnglishFontChoice,
 } from '@renderer/features/appearance/composables/useEnglishFont'
@@ -163,17 +158,6 @@ function formatLiquidGlassValue(field: LiquidGlassParameterField): string {
 function selectLiquidGlassParameter(field: LiquidGlassParameterField, event: Event): void {
   setLiquidGlassParameter(field, Number((event.target as HTMLInputElement).value))
 }
-const {
-  style: controlStyle,
-  persistFailed: controlStylePersistFailed,
-  setStyle: setControlStyle,
-} = useControlStyle()
-const controlStyleOptions = computed(() =>
-  CONTROL_STYLES.map((value) => ({
-    value,
-    label: t(`settings.appearance.controlStyle.${value}`),
-  })),
-)
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
 const playingIconOptions = computed(() =>
   PLAYING_ICON_PRESETS.map((value) => ({
@@ -245,10 +229,6 @@ function selectPlaybarLayout(value: PlaybarLayout): void {
 
 function selectPlaybarStyle(value: PlaybarStyle): void {
   setPlaybarStyle(value)
-}
-
-function selectControlStyle(value: ControlStyle): void {
-  setControlStyle(value)
 }
 
 function selectPlayingIconPreset(value: PlayingIconPreset): void {
@@ -393,27 +373,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               }}</output>
             </div>
           </div>
-        </div>
-        <div class="settings-row settings-row--with-desc settings-row--control-style">
-          <div>
-            <strong id="appearance-control-style-label">{{
-              t('settings.appearance.controlStyle.title')
-            }}</strong>
-            <span id="appearance-control-style-description">{{
-              t('settings.appearance.controlStyle.description')
-            }}</span>
-            <span v-if="controlStylePersistFailed" role="status">{{
-              t('settings.appearance.controlStyle.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSegmentedControl
-            id="appearance-control-style"
-            labelledby="appearance-control-style-label"
-            describedby="appearance-control-style-description"
-            :model-value="controlStyle"
-            :options="controlStyleOptions"
-            @update:model-value="selectControlStyle($event as ControlStyle)"
-          />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">
           <div>

@@ -146,7 +146,6 @@ async function mountAlbum(stored: string | null) {
   })
   const { createRenderer, h } = await import('vue')
   const { default: AlbumDetailPage } = await import('./AlbumDetailPage.vue')
-  const control = await import('@renderer/features/appearance/composables/useControlStyle')
   const root = new TestNode('div')
   const app = (
     createRenderer(rendererOptions) as { createApp: CreateAppFunction<TestNode> }
@@ -157,30 +156,13 @@ async function mountAlbum(stored: string | null) {
   const { nextTick } = await import('vue')
   await nextTick()
   await nextTick()
-  return { root, ...control }
+  return { root }
 }
 
-it('keeps brushed metal until the stored choice changes', async () => {
-  const mountedPage = await mountAlbum(null)
-  const { setStyle } = mountedPage.useControlStyle()
-  const actions = byClass(mountedPage.root, 'album-hero-actions')
-  expect(actions.props['data-control-style']).toBe('brushed')
-  expect(mountedPage.CONTROL_STYLE_KEY).toBe('auralis-control-style')
-  ;(byClass(mountedPage.root, 'album-hero-play-btn').props.onClick as () => void)()
-  ;(byClass(mountedPage.root, 'album-hero-shuffle-btn').props.onClick as () => void)()
+it('keeps album playback actions available regardless of the old material preference', async () => {
+  const { root } = await mountAlbum('anodized')
+  ;(byClass(root, 'album-hero-play-btn').props.onClick as () => void)()
+  ;(byClass(root, 'album-hero-shuffle-btn').props.onClick as () => void)()
   expect(playbackActions.playAlbum).toHaveBeenCalledTimes(1)
   expect(playbackActions.playAlbumShuffle).toHaveBeenCalledTimes(1)
-
-  setStyle('anodized')
-  const { nextTick } = await import('vue')
-  await nextTick()
-  expect(actions.props['data-control-style']).toBe('anodized')
-})
-
-it('opens on anodized metal when that choice is already stored', async () => {
-  const { root, getControlStyle } = await mountAlbum('anodized')
-  expect(getControlStyle()).toBe('anodized')
-  expect(byClass(root, 'album-hero-actions').props['data-control-style']).toBe('anodized')
-  expect(byClass(root, 'album-hero-play-btn')).toBeTruthy()
-  expect(byClass(root, 'album-hero-shuffle-btn')).toBeTruthy()
 })

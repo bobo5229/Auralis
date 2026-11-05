@@ -6,7 +6,6 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import { useControlStyle } from '@renderer/features/appearance/composables/useControlStyle'
 
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
@@ -31,7 +30,6 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const { songText, songValues, songParts } = useChineseTextDisplay()
-const { style: controlStyle } = useControlStyle()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
@@ -321,12 +319,12 @@ onBeforeUnmount(() => {
               </div>
 
               <!-- 专辑播放操作 -->
-              <div class="album-hero-actions" :data-control-style="controlStyle">
+              <div class="album-hero-actions">
                 <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                  <span class="album-hero-action-icon" aria-hidden="true">
                     <span class="i-lucide-play h-4 w-4"></span>
                   </span>
-                  <span class="album-hero-engraved-label">{{ t('albums.detail.play') }}</span>
+                  <span class="album-hero-action-label">{{ t('albums.detail.play') }}</span>
                 </button>
                 <button
                   v-tooltip="t('albums.detail.shuffle')"
@@ -335,7 +333,7 @@ onBeforeUnmount(() => {
                   :aria-label="t('albums.detail.shuffle')"
                   @click="playAlbumShuffle"
                 >
-                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                  <span class="album-hero-action-icon" aria-hidden="true">
                     <span class="i-lucide-shuffle h-4 w-4"></span>
                   </span>
                 </button>
@@ -701,182 +699,43 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-/* 播放主按钮：多重斜光拉丝电镀金属质感（以全局强调色为基底动态计算衍生，绝不硬编码） */
+/* 扁平操作：强调色主按钮与中性随机按钮。 */
 .album-hero-play-btn {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, #ffffff 38%, var(--auralis-theme-accent)) 0%,
-    var(--auralis-theme-accent) 24%,
-    color-mix(in srgb, #ffffff 42%, var(--auralis-theme-accent)) 46%,
-    color-mix(in srgb, #000000 24%, var(--auralis-theme-accent)) 72%,
-    var(--auralis-theme-accent) 100%
-  );
-  border: 1px solid color-mix(in srgb, #ffffff 45%, var(--auralis-theme-accent));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    inset 0 0 8px rgba(0, 0, 0, 0.22),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 2px 10px color-mix(in srgb, var(--auralis-theme-accent) 30%, transparent);
-  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
+  background: var(--auralis-theme-accent);
+  border: 1px solid var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
 }
 
-.album-hero-engraved-label {
-  text-shadow:
-    0 -0.5px 0 rgba(0, 0, 0, 0.4),
-    0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-/* 阴影放在图标外层，避免 Lucide 的 mask 裁掉刻痕边缘。 */
-.album-hero-engraved-icon {
+.album-hero-action-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
 }
 
-.album-hero-play-btn:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, #ffffff 46%, var(--auralis-theme-accent)) 0%,
-    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 24%,
-    color-mix(in srgb, #ffffff 50%, var(--auralis-theme-accent)) 46%,
-    color-mix(in srgb, #000000 16%, var(--auralis-theme-accent)) 72%,
-    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 100%
-  );
-  border-color: color-mix(in srgb, #ffffff 60%, var(--auralis-theme-accent));
-  box-shadow:
-    inset 0 1px 0 #ffffff,
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    inset 0 0 10px rgba(0, 0, 0, 0.15),
-    0 6px 22px rgba(0, 0, 0, 0.45),
-    0 3px 14px color-mix(in srgb, var(--auralis-theme-accent) 35%, transparent);
-  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
-  transform: none;
-}
-
-.album-hero-play-btn:active {
-  transform: translateY(0.5px);
-  box-shadow:
-    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* 抛光镀铬：窄反射带与明暗边缘，中央亮面保证凹刻图标清晰。 */
 .album-hero-shuffle-btn {
   width: 40px;
   min-width: 40px;
   padding: 0;
   flex-shrink: 0;
-  background: linear-gradient(
-    160deg,
-    #ffffff 0%,
-    #c8d0d9 16%,
-    #515b65 23%,
-    #9aa4ad 28%,
-    #f9fbfd 34%,
-    #ffffff 46%,
-    #dce2e8 61%,
-    #a0aab4 72%,
-    #49535d 79%,
-    #c5cdd5 85%,
-    #f8fafc 94%,
-    #89939d 100%
-  );
-  border: 1px solid #87919b;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
-    inset 1px 0 0 rgba(255, 255, 255, 0.5),
-    inset -1px 0 0 rgba(0, 0, 0, 0.18),
-    0 3px 8px rgba(0, 0, 0, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.28);
-  color: #121417;
-}
-
-.album-hero-shuffle-btn:hover {
-  background: linear-gradient(
-    160deg,
-    #ffffff 0%,
-    #d4dce4 16%,
-    #64707c 23%,
-    #afb9c2 28%,
-    #ffffff 34%,
-    #ffffff 46%,
-    #e8edf2 61%,
-    #b3bdc7 72%,
-    #5b6773 79%,
-    #d5dde5 85%,
-    #ffffff 94%,
-    #9aa5b0 100%
-  );
-  border-color: #a1adb8;
-  box-shadow:
-    inset 0 1px 0 #ffffff,
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    inset 1px 0 0 rgba(255, 255, 255, 0.65),
-    inset -1px 0 0 rgba(0, 0, 0, 0.15),
-    0 3px 9px rgba(0, 0, 0, 0.32),
-    0 1px 2px rgba(0, 0, 0, 0.28);
-  color: #121417;
-  transform: none;
-}
-
-.album-hero-shuffle-btn:active {
-  transform: translateY(0.5px);
-  box-shadow:
-    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* 阳极氧化只在选中时盖过上面的拉丝。两枚都是平色，上沿一条高光；播放跟强调色，随机是中性灰。 */
-.album-hero-actions[data-control-style='anodized'] {
-  --album-hero-anodized-neutral: color-mix(
-    in srgb,
-    var(--auralis-text) 18%,
-    var(--auralis-surface-raised)
-  );
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn,
-.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn {
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, #000000 24%, transparent);
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-label {
-  text-shadow: none;
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-engraved-icon {
-  filter: none;
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn {
-  background: var(--auralis-theme-accent);
-  border: 1px solid color-mix(in srgb, #ffffff 34%, var(--auralis-theme-accent));
-  color: var(--auralis-control-primary-text);
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn:hover {
-  background: color-mix(in srgb, #ffffff 12%, var(--auralis-theme-accent));
-}
-
-.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn {
-  background: var(--album-hero-anodized-neutral);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border: 1px solid transparent;
   color: var(--auralis-text);
 }
 
-.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn:hover {
-  background: color-mix(in srgb, #ffffff 14%, var(--album-hero-anodized-neutral));
+.album-hero-play-btn:hover,
+.album-hero-shuffle-btn:hover {
+  filter: brightness(1.12);
 }
 
-.album-hero-actions[data-control-style='anodized'] .album-hero-play-btn:active,
-.album-hero-actions[data-control-style='anodized'] .album-hero-shuffle-btn:active {
-  transform: translateY(0.5px);
-  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.35);
+.album-hero-play-btn:active,
+.album-hero-shuffle-btn:active {
+  opacity: 0.72;
+}
+
+.album-hero-play-btn:focus-visible,
+.album-hero-shuffle-btn:focus-visible {
+  outline: 2px solid var(--auralis-text);
+  outline-offset: 3px;
 }
 
 .album-hero-footer-stage {

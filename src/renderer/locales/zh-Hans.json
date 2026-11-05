@@ -457,13 +457,6 @@
         "restoreDefault": "恢复默认",
         "persistFailed": "参数已在本次会话中保留，保存未完成。"
       },
-      "controlStyle": {
-        "title": "组件样式",
-        "description": "选择专辑详情页播放和随机按钮的材质。",
-        "brushed": "拉丝金属",
-        "anodized": "阳极氧化",
-        "persistFailed": "本次选择未保存，请重新选择以重试。"
-      },
       "playingIcon": {
         "title": "“播放中”图标",
         "description": "选择播放状态所展示的图标符号。",

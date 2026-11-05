@@ -457,13 +457,6 @@
         "restoreDefault": "Restore default",
         "persistFailed": "These values stay for this session, but saving did not finish."
       },
-      "controlStyle": {
-        "title": "Component style",
-        "description": "Choose the material for the play and shuffle buttons on the album page.",
-        "brushed": "Brushed metal",
-        "anodized": "Anodized",
-        "persistFailed": "Your selection could not be saved. Select it again to retry."
-      },
       "playingIcon": {
         "title": "Now playing icon",
         "description": "Choose the icon symbol displayed during playback.",
