@@ -617,12 +617,43 @@ input {
   overflow: visible;
 }
 
+/* A single inherited color transition keeps every album surface on the same timeline. */
+@property --album-detail-main {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --album-detail-side {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --album-detail-lyrics-surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+@property --album-detail-more {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+
 .app-shell {
+  --album-detail-main: var(--auralis-main-bg);
+  --album-detail-side: var(--auralis-sidebar-bg);
+  --album-detail-lyrics-surface: var(--auralis-now-playing-bg);
+  --album-detail-more: var(--auralis-album-detail-more-bg);
   --auralis-lyrics-progress: 1;
   --auralis-lyrics-column-width: calc(20% * var(--auralis-lyrics-progress, 1));
   /* 网格列、播放栏左边界与背景裁切共用展开宽度，收起态独立覆盖。 */
   --auralis-sidebar-width: var(--auralis-sidebar-expanded-width, 260px);
-  transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    --album-detail-main 650ms ease,
+    --album-detail-side 650ms ease,
+    --album-detail-lyrics-surface 650ms ease,
+    --album-detail-more 650ms ease;
 }
 
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums) {
@@ -680,7 +711,6 @@ body.is-column-resizing * {
 
 .now-playing-panel {
   overflow: hidden;
-  transition: background-color 650ms ease;
   border-left-color: color-mix(
     in srgb,
     var(--auralis-border-subtle) calc(100% * var(--auralis-lyrics-progress, 1)),
@@ -721,7 +751,7 @@ body.is-column-resizing * {
   height: 100%;
   min-width: 0;
   pointer-events: auto;
-  background: var(--auralis-now-playing-bg);
+  background: var(--album-detail-lyrics-surface);
 }
 
 .app-shell.is-lyrics-floating > .now-playing-panel > .now-playing-panel-content {
@@ -729,8 +759,16 @@ body.is-column-resizing * {
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell.is-lyrics-floating {
+    --album-detail-lyrics-surface: color-mix(
+      in srgb,
+      var(--auralis-now-playing-bg) 40%,
+      transparent
+    );
+  }
+
   .app-shell.is-lyrics-floating > .now-playing-panel {
-    background: color-mix(in srgb, var(--auralis-now-playing-bg) 40%, transparent);
+    background: var(--album-detail-lyrics-surface);
     -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
     backdrop-filter: var(--auralis-frosted-surface-filter);
   }
@@ -1854,8 +1892,7 @@ input[type='range'].volume-overlay-slider {
   --main-page-inset-end: 8px;
   --main-page-inset-top: 16px;
   --main-page-scrollbar-size: 12px;
-  background: var(--album-detail-main, var(--auralis-main-bg));
-  transition: background-color 650ms ease;
+  background: var(--album-detail-main);
 }
 
 .app-shell.has-album-detail-color > .app-main {
@@ -1871,7 +1908,7 @@ input[type='range'].volume-overlay-slider {
   --auralis-text: var(--album-detail-side-text);
   --auralis-text-muted: var(--album-detail-lyrics-muted);
   --auralis-text-faint: var(--album-detail-side-faint);
-  background: var(--album-detail-side, var(--auralis-now-playing-bg));
+  background: var(--album-detail-lyrics-surface);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -1879,6 +1916,11 @@ input[type='range'].volume-overlay-slider {
 /* Album lyrics colors already account for contrast against the cover-derived surface. */
 .app-shell.has-album-detail-color > .now-playing-panel .lyric-line-blur-filter {
   opacity: 1;
+}
+
+/* Keep the reserved lyrics surface attached to the inherited transition on exit too. */
+.app-shell:not(.is-cd-albums):not(.is-lyrics-floating) > .now-playing-panel {
+  background: var(--album-detail-lyrics-surface);
 }
 
 .main-page-frame {
@@ -1915,8 +1957,7 @@ input[type='range'].volume-overlay-slider {
   box-shadow: none;
   transition:
     border-color 0.3s ease,
-    box-shadow 0.3s ease,
-    background 650ms ease;
+    box-shadow 0.3s ease;
 }
 
 :where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums) > .app-main,

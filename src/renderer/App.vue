@@ -64,6 +64,7 @@ const detailColorStyle = computed<CSSProperties>(() => {
   const palette = detailPalette.value
   if (
     !detailPaletteEnabled.value ||
+    isAlbumDetailEntering.value ||
     !detailArtworkKey.value ||
     palette.key !== detailArtworkKey.value ||
     palette.quality === 'fallback' ||
@@ -78,6 +79,7 @@ const detailColorStyle = computed<CSSProperties>(() => {
     '--album-detail-more-text': cssAlbumColor(c.moreText),
     '--album-detail-more-faint': cssAlbumColor(c.moreFaint),
     '--album-detail-side': cssAlbumColor(c.side),
+    '--album-detail-lyrics-surface': cssAlbumColor(c.side),
     '--album-detail-main-text': cssAlbumColor(c.mainText),
     '--album-detail-main-muted': cssAlbumColor(c.mainMuted),
     '--album-detail-main-faint': cssAlbumColor(c.mainFaint),

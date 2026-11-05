@@ -316,6 +316,22 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
+  it('starts the album colors together after the list-to-detail entry completes', async () => {
+    fixture.detailCover = true
+    await mount('albums')
+    await navigate('album-detail')
+    const shell = find('.app-shell')
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
+    const page = find('.test-page')
+    hook('onBeforeEnter', page)
+    hook('onAfterEnter', page)
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
+    expect(shell.style.getPropertyValue('--album-detail-side')).toBeTruthy()
+    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBeTruthy()
+    expect(shell.style.getPropertyValue('--album-detail-more')).toBeTruthy()
+  })
+
   it('keeps album canvas and text colors identical when the application theme changes', async () => {
     await useTheme().setTheme('dark')
     fixture.detailCover = true

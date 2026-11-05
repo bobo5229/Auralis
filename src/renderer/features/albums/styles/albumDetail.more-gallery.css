@@ -7,7 +7,6 @@
   padding: 24px var(--album-detail-inline-padding, 32px);
   border-top: none;
   background: var(--album-detail-more, var(--auralis-album-detail-more-bg));
-  transition: background-color 650ms ease;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
