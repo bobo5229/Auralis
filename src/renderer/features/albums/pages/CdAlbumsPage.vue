@@ -13,11 +13,7 @@ import { useCdRoomScene } from '../composables/useCdRoomScene'
 import { useCdPlaybackSession } from '../composables/useCdPlaybackSession'
 import { useCdPlaybackVibration } from '../composables/useCdPlaybackVibration'
 import { useCdInfoTransition } from '../composables/useCdInfoTransition'
-import {
-  cdFocusBackTarget,
-  isCdAlbumIndexSource,
-  shouldShowCdFocusedPlayback,
-} from '../utils/cdAlbumIndex'
+import { cdFocusBackTarget, isCdAlbumIndexSource, isSameAlbumTrack } from '../utils/cdAlbumIndex'
 import { clearCdIndexReturn } from '../utils/cdAlbumIndexReturn'
 import { useCdViewSwitchVisibility } from '../composables/useCdViewSwitchVisibility'
 import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
@@ -32,7 +28,6 @@ import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
-import { animateProgress } from '@renderer/shared/animation/motion'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -76,7 +71,6 @@ const scene = useCdRoomScene({
   hasFailed: () => failed.value,
   settleInfo: () => settleInfo(),
   setRapidBrowse: (running) => setRapidBrowse(running),
-  reduceBrowsingPlaybackMotion,
   playbackRing: () => ({
     visible: focusSettled.value && ringTrackMatches.value,
     playing: playback.state.isPlaying,
@@ -99,6 +93,8 @@ const {
   controlsRef,
   surfaceSwitchRef,
   surfaceIndicatorRef,
+  playbackInfoRef,
+  playbackInfoFocused,
   focused,
   focusSettled,
   selected,
@@ -134,19 +130,14 @@ const focusedComposer = computed(() => {
   const track = focusedAlbum.value?.tracks.find((item) => item.id === trackId)
   return presentCdTrackComposers(track?.composer)
 })
-const {
-  cdMode,
-  browsingPlaybackAlbumIndex,
-  ringTrackMatches,
-  playCdTrack,
-  cycleMode,
-  toggleCdPlayback,
-} = useCdPlaybackSession({
-  albums: albumInfo,
-  focusedAlbum,
-  playback,
-  isUnavailable: () => loading.value || failed.value,
-})
+const { cdMode, ringTrackMatches, playCdTrack, cycleMode, toggleCdPlayback } = useCdPlaybackSession(
+  {
+    albums: albumInfo,
+    focusedAlbum,
+    playback,
+    isUnavailable: () => loading.value || failed.value,
+  },
+)
 const ringArtworkKey = computed(() =>
   ringTrackMatches.value ? (playback.state.currentTrack?.artworkCacheKey ?? null) : null,
 )
@@ -172,9 +163,6 @@ function back(): void {
   clearCdIndexReturn()
   void router.push({ name: 'albums' })
 }
-function focusBrowsingPlaybackAlbum(): void {
-  scene.focusAlbum(browsingPlaybackAlbumIndex.value)
-}
 const infoRef = ref<HTMLElement | null>(null)
 useCdViewSwitchVisibility(computed(() => !focused.value && !starting.value))
 useCdCanvasColors(pageRef, cdCanvasTheme, () =>
@@ -198,41 +186,17 @@ const displayedCopyrightValues = computed(() =>
 const playbackInformation = computed(() => {
   const track = playback.state.currentTrack
   if (!track) return null
-  const title = track.title?.trim() || t('albums.detail.unknownTitle')
-  const artist = formatArtist(track.artist)
   return {
-    id: track.id,
-    title,
-    artist,
+    title: track.title?.trim() || t('albums.detail.unknownTitle'),
+    artist: formatArtist(track.artist),
     album: track.album?.trim() ?? '',
   }
 })
-const browsingPlayback = computed(() => (focused.value ? null : playbackInformation.value))
-const focusedPlaybackIdentity = computed(() => {
+const hidePlaybackAlbum = computed(() => {
   const track = playback.state.currentTrack
   const album = focusedAlbum.value
-  if (
-    !shouldShowCdFocusedPlayback(
-      focused.value,
-      focusSettled.value,
-      loading.value,
-      failed.value,
-      track,
-      album,
-    ) ||
-    !track ||
-    !album
-  ) {
-    return null
-  }
-  return `${album.key}\u0000${track.id}`
+  return Boolean(playbackInfoFocused.value && track && album && isSameAlbumTrack(track, album))
 })
-const focusedPlayback = computed(() =>
-  focusedPlaybackIdentity.value === null ? null : playbackInformation.value,
-)
-const browsingPlaybackRef = ref<HTMLElement | null>(null)
-
-let cancelBrowsingPlaybackAnimation: (() => void) | null = null
 let unsubscribe: (() => void) | null = null
 const { spectrumFrame, stopVibration } = useCdPlaybackVibration({
   focusSettled,
@@ -245,40 +209,6 @@ const { spectrumFrame, stopVibration } = useCdPlaybackVibration({
   showPreview: () => route.query.spectrum === '1',
   setOffset: scene.setVibrationOffset,
 })
-
-function reduceBrowsingPlaybackMotion(): void {
-  cancelBrowsingPlaybackAnimation?.()
-  cancelBrowsingPlaybackAnimation = null
-  if (browsingPlaybackRef.value) browsingPlaybackRef.value.style.opacity = '1'
-}
-
-watch(
-  browsingPlaybackRef,
-  (element, _, onCleanup) => {
-    if (!element) return
-    element.style.opacity = '0'
-    if (reducedMotion.matches) {
-      element.style.opacity = '1'
-      return
-    }
-    const cancel = animateProgress(
-      1500,
-      (progress) => {
-        element.style.opacity = String(progress)
-      },
-      () => {
-        element.style.opacity = '1'
-        cancelBrowsingPlaybackAnimation = null
-      },
-    )
-    cancelBrowsingPlaybackAnimation = cancel
-    onCleanup(() => {
-      cancel()
-      if (cancelBrowsingPlaybackAnimation === cancel) cancelBrowsingPlaybackAnimation = null
-    })
-  },
-  { flush: 'post' },
-)
 
 function toggleCdCanvasTheme(): void {
   const nextTheme = cdCanvasTheme.value === 'dark' ? 'light' : 'dark'
@@ -389,6 +319,7 @@ onBeforeUnmount(() => {
         :class="{
           'cd-info--suppressed': infoSuppressed,
           'cd-info--with-composer': focusedComposer,
+          'cd-info--with-playback': playbackInformation && focused,
         }"
         :aria-hidden="infoSuppressed"
         :aria-label="t('albums.cd.information')"
@@ -435,21 +366,12 @@ onBeforeUnmount(() => {
         </dl>
       </aside>
       <div
-        v-if="
-          browsingPlayback && displayedAlbum && !loading && !failed && !starting && !infoSuppressed
-        "
-        ref="browsingPlaybackRef"
-        class="cd-browsing-playback"
+        v-if="playbackInformation && !loading && !failed && !starting"
+        ref="playbackInfoRef"
+        class="cd-now-playing"
+        :class="{ 'cd-now-playing--focused': playbackInfoFocused }"
       >
-        <CdPlaybackInfo
-          :information="browsingPlayback"
-          :is-playing="playback.state.isPlaying"
-          :current-time="playback.state.currentTime"
-          :duration="playback.state.duration"
-          :album-available="browsingPlaybackAlbumIndex >= 0"
-          @toggle-playback="playback.togglePlayPause()"
-          @locate-album="focusBrowsingPlaybackAlbum"
-        />
+        <CdPlaybackInfo :information="playbackInformation" :hide-album="hidePlaybackAlbum" />
       </div>
       <div
         ref="stageRef"
@@ -487,15 +409,7 @@ onBeforeUnmount(() => {
         :stage="stageRef"
         :information="infoRef"
         :tracks="trackPanelRef"
-      />
-      <CdPlaybackInfo
-        v-if="focusedPlayback"
-        :information="focusedPlayback"
-        :identity="focusedPlaybackIdentity ?? undefined"
-        focused
-        :is-playing="playback.state.isPlaying"
-        :current-time="playback.state.currentTime"
-        :duration="playback.state.duration"
+        :playback-information="playbackInfoRef"
       />
       <div v-if="loading || failed || !count" class="cd-status" role="status">
         <template v-if="failed">
@@ -668,8 +582,6 @@ onBeforeUnmount(() => {
   --cd-text-subtle: #64645d;
   --cd-text-faint: #85857d;
   --cd-text-count: #55554f;
-  --cd-text-browsing: #42423d;
-  --cd-text-album: #6f6f67;
   --cd-border: #bdbdb9;
   --cd-border-strong: #8e8e88;
   --cd-border-row: #aaa9a3;
@@ -678,7 +590,6 @@ onBeforeUnmount(() => {
   --cd-focus-ring: #292929;
   --cd-wave-track: #b7b7b0;
   --cd-wave-progress: #62625b;
-  --cd-progress-fill: #585753;
   --cd-disc-body: #aaa;
   --cd-disc-rim: #858586;
   --cd-shadow-fill: #3a3b38;
@@ -708,8 +619,6 @@ onBeforeUnmount(() => {
   --cd-text-subtle: #a4a29c;
   --cd-text-faint: #7d7b75;
   --cd-text-count: #b3b1ab;
-  --cd-text-browsing: #d4d2cc;
-  --cd-text-album: #b0aea8;
   --cd-border: #5c6168;
   --cd-border-strong: #6e737a;
   --cd-border-row: #4a4f56;
@@ -718,7 +627,6 @@ onBeforeUnmount(() => {
   --cd-focus-ring: #d8d6d0;
   --cd-wave-track: #7c8188;
   --cd-wave-progress: #c6c4be;
-  --cd-progress-fill: #c6c4be;
   --cd-disc-body: #8a9098;
   --cd-disc-rim: #b3b9c1;
   --cd-shadow-fill: #000;
@@ -860,6 +768,27 @@ onBeforeUnmount(() => {
 .cd-info--with-composer {
   max-height: calc(100% - 40px);
 }
+.cd-info--with-playback {
+  max-height: min(48%, calc(100% - 160px));
+}
+.cd-info--with-composer.cd-info--with-playback {
+  max-height: calc(100% - 160px);
+}
+.cd-now-playing {
+  position: absolute;
+  right: 32px;
+  bottom: 24px;
+  z-index: 7;
+  width: min(320px, 31vw);
+  text-align: right;
+  pointer-events: none;
+}
+.cd-now-playing--focused {
+  left: 32px;
+  right: auto;
+  width: min(380px, 31vw);
+  text-align: left;
+}
 .cd-info-title-row {
   position: relative;
   box-sizing: border-box;
@@ -918,15 +847,6 @@ onBeforeUnmount(() => {
 .cd-info-fields {
   margin: 0;
 }
-.cd-browsing-playback {
-  position: absolute;
-  right: clamp(16px, 2.3cqw, 32px);
-  bottom: 24px;
-  width: min(320px, calc(40cqw - 32px));
-  max-width: calc(100% - 32px);
-  z-index: 4;
-  pointer-events: none;
-}
 .cd-info-row {
   position: relative;
   box-sizing: border-box;
@@ -967,6 +887,13 @@ onBeforeUnmount(() => {
   display: block;
 }
 @container (max-width: 600px) {
+  .cd-now-playing {
+    right: 24px;
+  }
+  .cd-now-playing--focused {
+    left: 24px;
+    right: auto;
+  }
   .cd-info {
     left: 24px;
     width: min(300px, 31vw);

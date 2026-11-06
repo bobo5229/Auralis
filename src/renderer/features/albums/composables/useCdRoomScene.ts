@@ -18,7 +18,6 @@ interface Options {
   hasFailed: () => boolean
   settleInfo: () => void
   setRapidBrowse: (running: boolean) => void
-  reduceBrowsingPlaybackMotion: () => void
   playbackRing: () => CdPlaybackRingState
   togglePlayback: () => boolean
   back: () => void
@@ -36,6 +35,8 @@ export function useCdRoomScene(options: Options) {
   const controlsRef = ref<HTMLElement | null>(null)
   const surfaceSwitchRef = ref<HTMLElement | null>(null)
   const surfaceIndicatorRef = ref<HTMLElement | null>(null)
+  const playbackInfoRef = ref<HTMLElement | null>(null)
+  const playbackInfoFocused = ref(false)
   const focused = ref(false)
   const focusSettled = ref(false)
   const selected = ref(0)
@@ -53,6 +54,57 @@ export function useCdRoomScene(options: Options) {
   }
   let controller: ReturnType<typeof createCdStage> | null = null
   let stopPlaybackRingWatch: (() => void) | null = null
+  let cancelPlaybackFade: (() => void) | null = null
+  let playbackFadeVersion = 0
+
+  function stopPlaybackFade(): void {
+    playbackFadeVersion++
+    cancelPlaybackFade?.()
+    cancelPlaybackFade = null
+  }
+
+  function fadePlaybackInformation(visible: boolean, complete: () => void = () => {}): void {
+    stopPlaybackFade()
+    const element = playbackInfoRef.value
+    if (!element) {
+      complete()
+      return
+    }
+    const from = element.style.opacity === '' ? 1 : Number(element.style.opacity)
+    const to = visible ? 1 : 0
+    element.inert = !visible
+    element.style.visibility = 'visible'
+    const finish = (): void => {
+      element.style.opacity = String(to)
+      element.style.visibility = visible ? 'visible' : 'hidden'
+      cancelPlaybackFade = null
+      complete()
+    }
+    if (reducedMotion.matches || from === to) {
+      finish()
+      return
+    }
+    cancelPlaybackFade = animateProgress(
+      (visible ? 220 : 140) * Math.abs(to - from),
+      (progress) => {
+        const eased = progress * progress * (3 - 2 * progress)
+        element.style.opacity = String(from + (to - from) * eased)
+      },
+      finish,
+    )
+  }
+
+  watch(
+    playbackInfoRef,
+    (element) => {
+      if (!element) return
+      const moving = focused.value && !focusSettled.value
+      element.style.opacity = moving ? '0' : '1'
+      element.style.visibility = moving ? 'hidden' : 'visible'
+      element.inert = moving
+    },
+    { flush: 'post' },
+  )
 
   async function presentAlbums(albums: CdAlbumInfo[]): Promise<void> {
     const initialEntry = !entryInitialized && albums.length > 0
@@ -96,6 +148,15 @@ export function useCdRoomScene(options: Options) {
     const wasFocused = focused.value
     focused.value = progress > 0 || !settled
     focusSettled.value = progress === 1 && settled
+    if (settled) {
+      stopPlaybackFade()
+      playbackInfoFocused.value = focused.value
+      const version = playbackFadeVersion
+      // Relocate only at zero opacity, then reveal after Vue applies the new dock.
+      void nextTick().then(() => {
+        if (!options.isDisposed() && version === playbackFadeVersion) fadePlaybackInformation(true)
+      })
+    }
     stageRef.value?.style.setProperty('--cd-focus', String(progress))
     if (!wasFocused && focused.value) settleInfo()
     const p = Math.max(0, Math.min(1, (progress - 0.72) / 0.28))
@@ -143,7 +204,6 @@ export function useCdRoomScene(options: Options) {
     motionReduced.value = reducedMotion.matches
     settleInfo()
     if (reducedMotion.matches) {
-      options.reduceBrowsingPlaybackMotion()
       setDiscSurface(discSurface.value)
       moveSurfaceIndicator(false)
     }
@@ -256,6 +316,12 @@ export function useCdRoomScene(options: Options) {
           }
         },
         change: focusChange,
+        beforeMove: (move) => {
+          fadePlaybackInformation(false, move)
+          return () => {
+            if (cancelPlaybackFade) stopPlaybackFade()
+          }
+        },
         togglePlayback: options.togglePlayback,
       },
     )
@@ -285,6 +351,7 @@ export function useCdRoomScene(options: Options) {
     }
     if (leaving && pageRef.value) pageRef.value.inert = true
     settleInfo()
+    stopPlaybackFade()
     cancelSurfaceAnimation?.()
     cancelSurfaceAnimation = null
     reducedMotion.removeEventListener('change', onMotionPreferenceChange)
@@ -303,6 +370,8 @@ export function useCdRoomScene(options: Options) {
     controlsRef,
     surfaceSwitchRef,
     surfaceIndicatorRef,
+    playbackInfoRef,
+    playbackInfoFocused,
     focused,
     focusSettled,
     selected,

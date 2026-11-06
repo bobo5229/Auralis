@@ -32,6 +32,7 @@ export default defineConfig({
         '**/CdAlbumIndexPage.test.ts',
         '**/CdViewSwitch.test.ts',
         '**/CdPlaybackInfo.test.ts',
+        '**/CdAlbumsPage.test.ts',
         '**/CdTrackList.test.ts',
         '**/AlbumsPage.test.ts',
         '**/LibraryPage.test.ts',

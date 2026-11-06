@@ -34,6 +34,7 @@ describe('CD stage lifetime', () => {
     focusChange?: (progress: number, settled: boolean) => void,
     togglePlayback?: () => boolean,
     targetChange?: (focused: boolean) => void,
+    beforeMove?: (move: () => void) => () => void,
   ) {
     const disconnect = vi.fn()
     const media = Object.assign(new EventTarget(), { matches: false })
@@ -76,6 +77,7 @@ describe('CD stage lifetime', () => {
             change: focusChange,
             togglePlayback,
             targetChange,
+            beforeMove,
           }
         : undefined,
     )
@@ -92,6 +94,34 @@ describe('CD stage lifetime', () => {
       Number(slot.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1])
     return [...stage.children].sort((first, second) => left(first) - left(second))
   }
+
+  it('holds disc geometry until preparation completes and cancels superseded preparation', () => {
+    const pending: (() => void)[] = []
+    const cancel = vi.fn()
+    const prepare = vi.fn((move: () => void) => {
+      pending.push(move)
+      return cancel
+    })
+    const change = vi.fn()
+    const { controller, stage } = setup(8, change, undefined, undefined, prepare)
+    const initial = stage.children.map((node) => node.style.transform)
+    controller.setFocused(true)
+    advance(12)
+    expect(stage.children.map((node) => node.style.transform)).toEqual(initial)
+    expect(change).not.toHaveBeenCalledWith(1, true)
+    controller.setFocused(false)
+    expect(cancel).toHaveBeenCalledOnce()
+    pending[1]()
+    settle()
+    expect(change).toHaveBeenLastCalledWith(0, true)
+    controller.setFocused(true)
+    pending[2]()
+    settle()
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    controller.setFocused(false)
+    controller.dispose()
+    expect(cancel).toHaveBeenCalledTimes(2)
+  })
 
   it('prepares coating only at rest and keeps its resolution fixed through focus zooms', () => {
     const coating = {

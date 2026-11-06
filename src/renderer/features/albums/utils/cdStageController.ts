@@ -52,6 +52,7 @@ export function createCdStage(
     geometry: () => { cx: number; cy: number; rightBoundary: number }
     change: (progress: number, settled: boolean) => void
     targetChange?: (focused: boolean) => void
+    beforeMove?: (move: () => void) => () => void
     togglePlayback?: () => boolean
   },
 ) {
@@ -327,24 +328,35 @@ export function createCdStage(
       finish()
       return
     }
-    for (const node of resources.values()) {
-      node.slot.style.willChange = 'transform, opacity'
-      node.disc.style.willChange = 'transform'
+    const move = (): void => {
+      for (const node of resources.values()) {
+        node.slot.style.willChange = 'transform, opacity'
+        node.disc.style.willChange = 'transform'
+      }
+      let elapsed = 0
+      const duration = Math.max(0.18, (open ? 0.88 : 0.72) * Math.abs(focusTarget - from))
+      cancelAnimation = animateFrames((seconds) => {
+        elapsed += seconds
+        const p = Math.min(1, elapsed / duration)
+        const eased = p * p * p * (10 + p * (-15 + 6 * p))
+        focusProgress = from + (focusTarget - from) * eased
+        const wobble = Math.sin(p * Math.PI * 7) * Math.sin(p * Math.PI) * (1 - p) ** 1.3 * 2.8
+        render(selected, wobble)
+        focusOptions.change(focusProgress, false)
+        if (p < 1) return true
+        finish()
+        return false
+      })
     }
-    let elapsed = 0
-    const duration = Math.max(0.18, (open ? 0.88 : 0.72) * Math.abs(focusTarget - from))
-    cancelAnimation = animateFrames((seconds) => {
-      elapsed += seconds
-      const p = Math.min(1, elapsed / duration)
-      const eased = p * p * p * (10 + p * (-15 + 6 * p))
-      focusProgress = from + (focusTarget - from) * eased
-      const wobble = Math.sin(p * Math.PI * 7) * Math.sin(p * Math.PI) * (1 - p) ** 1.3 * 2.8
-      render(selected, wobble)
-      focusOptions.change(focusProgress, false)
-      if (p < 1) return true
-      finish()
-      return false
-    })
+    if (focusOptions.beforeMove) {
+      // Preparation may finish synchronously when there is no visible information.
+      let started = false
+      const cancel = focusOptions.beforeMove(() => {
+        started = true
+        move()
+      })
+      if (!started) cancelAnimation = cancel
+    } else move()
   }
 
   function renderDiscDepth(node: DiscNode, x: number, y: number, z: number, visible: number): void {

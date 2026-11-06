@@ -57,8 +57,9 @@
 | `track-number`           | 11px / 1.7                     | 曲目编号                                                         |
 | `disc`                   | 11px / normal                  | 多碟专辑分组标题                                                 |
 | `playing`                | 18px / 1.3                     | 展开状态的当前播放曲名                                           |
-| `playback`               | 16px / 1.3                     | 浏览状态的播放文字；专辑文字用 `playback-album-line-height` 1.25 |
-| `focus-song`             | 14px / 17px                    | 聚焦状态的紧凑曲名                                               |
+| `playback`               | 20px / 27px                    | 浏览与聚焦状态的播放曲名，最多两行                               |
+| `playback-artist`        | 15px / 22px                    | 播放艺术家                                                       |
+| `playback-album`         | 13px / 19px                    | 播放专辑                                                         |
 | `focus-album`            | 13px / 15px                    | 聚焦状态的紧凑专辑名                                             |
 | `time`                   | 12px / 16px                    | 播放时间                                                         |
 | `lyrics` / `lyrics-flat` | 基准 24px / 20px；SVG 几何排版 | 弧形歌词 / 平面回退歌词；实际字号可随可用空间缩小                |

@@ -27,6 +27,7 @@ const props = defineProps<{
   stage: HTMLElement | null
   information: HTMLElement | null
   tracks: HTMLElement | null
+  playbackInformation: HTMLElement | null
 }>()
 const { t } = useI18n()
 const playback = usePlayback()
@@ -184,7 +185,7 @@ function projectArc(): void {
     width: stage.clientWidth - 48,
     height: stage.clientHeight - 48,
   }
-  exclusions.value = [props.information, props.tracks]
+  exclusions.value = [props.information, props.tracks, props.playbackInformation]
     .filter((element): element is HTMLElement => element !== null)
     .map((element) => rect(element, 20))
   placement.value = cdLyricsPlacement(bounds, [rect(disc, 80), ...exclusions.value])
@@ -272,13 +273,19 @@ watch(
     () => props.stage,
     () => props.information,
     () => props.tracks,
+    () => props.playbackInformation,
     () => playback.state.currentTrackId,
   ],
   (_, __, onCleanup) => {
     measure()
     if (!props.active) return
     const observer = new ResizeObserver(measure)
-    for (const element of [props.stage, props.information, props.tracks]) {
+    for (const element of [
+      props.stage,
+      props.information,
+      props.tracks,
+      props.playbackInformation,
+    ]) {
       if (element) observer.observe(element)
     }
     const transforms = new MutationObserver(projectArc)

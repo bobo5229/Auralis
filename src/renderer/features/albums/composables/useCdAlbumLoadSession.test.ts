@@ -60,7 +60,6 @@ function fixture(options: { first?: boolean; requested?: string; index?: boolean
       hasFailed: () => data.failed.value,
       settleInfo: vi.fn(),
       setRapidBrowse: vi.fn(),
-      reduceBrowsingPlaybackMotion: vi.fn(),
       playbackRing: () => ({ visible: false, playing: false, progress: 0, accent: 'red' }),
       togglePlayback: vi.fn(),
       back: vi.fn(),

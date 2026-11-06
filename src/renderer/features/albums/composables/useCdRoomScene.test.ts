@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, markRaw, nextTick, reactive, ref } from 'vue'
 import { createCdStage } from '../utils/cdStageController'
 import { useCdRoomScene } from './useCdRoomScene'
+import { stageClock } from '../utils/cdStageTestSupport'
+
+vi.mock('@renderer/shared/animation/motion', async () => {
+  const { stageClock } = await import('../utils/cdStageTestSupport')
+  return { animateProgress: stageClock.animateProgress }
+})
 
 vi.mock('../utils/cdStageController', () => ({ createCdStage: vi.fn() }))
 
@@ -41,7 +47,6 @@ function fixture() {
   const settleInfo = vi.fn()
   const back = vi.fn()
   const togglePlayback = vi.fn(() => true)
-  const reduceBrowsingPlaybackMotion = vi.fn()
   const state = { loading: false, failed: false, disposed: false }
   const stage = markRaw(new ElementStub())
   const controller = {
@@ -70,7 +75,6 @@ function fixture() {
       hasFailed: () => state.failed,
       settleInfo,
       setRapidBrowse: vi.fn(),
-      reduceBrowsingPlaybackMotion,
       playbackRing: () => ({ ...playbackRing }),
       togglePlayback,
       back,
@@ -85,6 +89,7 @@ function fixture() {
   scene.trackPanelRef.value = markRaw(new ElementStub()) as unknown as HTMLElement
   scene.controlsRef.value = markRaw(new ElementStub()) as unknown as HTMLElement
   cleanups.push(() => {
+    state.disposed = true
     scene.dispose(false)
     scope.stop()
   })
@@ -116,7 +121,6 @@ function fixture() {
     settleInfo,
     back,
     togglePlayback,
-    reduceBrowsingPlaybackMotion,
     focusOptions,
     key,
   }
@@ -124,9 +128,108 @@ function fixture() {
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup()
   vi.unstubAllGlobals()
+  stageClock.reset()
 })
 
 describe('useCdRoomScene', () => {
+  it('fades at the old dock before movement and reveals at the new dock only after settling', async () => {
+    const f = fixture()
+    const info = markRaw(new ElementStub())
+    f.scene.playbackInfoRef.value = info as unknown as HTMLElement
+    await nextTick()
+    f.reducedMotion.matches = false
+    f.scene.mount()
+    f.focusOptions().change(0.0001, false)
+    const move = vi.fn()
+    f.focusOptions().beforeMove!(move)
+    stageClock.advance(4)
+    expect(Number(info.style.opacity)).toBeGreaterThan(0)
+    expect(Number(info.style.opacity)).toBeLessThan(1)
+    expect(move).not.toHaveBeenCalled()
+    expect(f.scene.playbackInfoFocused.value).toBe(false)
+    stageClock.advance(5)
+    expect(info.style.opacity).toBe('0')
+    expect(move).toHaveBeenCalledOnce()
+    f.focusOptions().change(0.5, false)
+    expect(info.style.opacity).toBe('0')
+    f.focusOptions().change(1, true)
+    expect(f.scene.playbackInfoFocused.value).toBe(true)
+    expect(info.style.opacity).toBe('0')
+    await nextTick()
+    stageClock.advance(6)
+    expect(Number(info.style.opacity)).toBeGreaterThan(0)
+    expect(Number(info.style.opacity)).toBeLessThan(1)
+
+    // An exit during fade-in resumes from the current opacity without a flash.
+    const interrupted = info.style.opacity
+    f.focusOptions().change(1, false)
+    const exit = vi.fn()
+    f.focusOptions().beforeMove!(exit)
+    expect(info.style.opacity).toBe(interrupted)
+    stageClock.advance(9)
+    expect(exit).toHaveBeenCalledOnce()
+    expect(info.style.opacity).toBe('0')
+    expect(f.scene.playbackInfoFocused.value).toBe(true)
+    f.focusOptions().change(0, true)
+    await nextTick()
+    stageClock.advance(14)
+    expect(f.scene.playbackInfoFocused.value).toBe(false)
+    expect(info.style.opacity).toBe('1')
+  })
+
+  it('cancels preparation on reversal or disposal and skips fades under reduced motion', async () => {
+    const f = fixture()
+    const info = markRaw(new ElementStub())
+    f.scene.playbackInfoRef.value = info as unknown as HTMLElement
+    await nextTick()
+    f.scene.mount()
+    const immediate = vi.fn()
+    f.focusOptions().beforeMove!(immediate)
+    expect(immediate).toHaveBeenCalledOnce()
+    expect(stageClock.running).toBe(false)
+
+    info.style.opacity = '1'
+    f.reducedMotion.matches = false
+    const stale = vi.fn()
+    const cancel = f.focusOptions().beforeMove!(stale)
+    stageClock.advance(3)
+    cancel()
+    const latest = vi.fn()
+    f.focusOptions().beforeMove!(latest)
+    stageClock.advance(9)
+    expect(stale).not.toHaveBeenCalled()
+    expect(latest).toHaveBeenCalledOnce()
+    info.style.opacity = '1'
+    const disposed = vi.fn()
+    f.focusOptions().beforeMove!(disposed)
+    f.state.disposed = true
+    f.scene.dispose(false)
+    stageClock.advance(20)
+    expect(disposed).not.toHaveBeenCalled()
+    expect(stageClock.running).toBe(false)
+  })
+
+  it('restores information if the stage resets while waiting for fade-out', async () => {
+    const f = fixture()
+    const info = markRaw(new ElementStub())
+    f.scene.playbackInfoRef.value = info as unknown as HTMLElement
+    await nextTick()
+    f.scene.mount()
+    f.reducedMotion.matches = false
+    f.focusOptions().change(0.0001, false)
+    const move = vi.fn()
+    const cancel = f.focusOptions().beforeMove!(move)
+    stageClock.advance(4)
+    // A catalog refresh resets focus, then releases the pending preparation.
+    f.focusOptions().change(0, true)
+    cancel()
+    await nextTick()
+    stageClock.advance(14)
+    expect(move).not.toHaveBeenCalled()
+    expect(info.style.opacity).toBe('1')
+    expect(f.scene.playbackInfoFocused.value).toBe(false)
+  })
+
   it('binds the real stage contract and syncs geometry, selection, ring and material', async () => {
     const f = fixture()
     expect(f.scene.mount()).toBe(true)
