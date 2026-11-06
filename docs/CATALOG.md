@@ -325,7 +325,7 @@
 
 - [后端模块优化建议](reviews/2026-11-06-backend-module-optimization-review.md) — 按模块持续追加代码依据、优化顺序与验收方式。
 - [后端模块性能与行为优化建议](reviews/2026-11-06-backend-optimization-review.md) — 频谱分析与播放资源解析的只读审查、优化优先级及验收条件。
-- [后端模块改进建议](reviews/2026-11-06-backend-optimization-notes.md) — 曲库快照与全量扫描，记录建议及验收边界，尚未实施。
+- [后端模块改进建议](reviews/2026-11-06-backend-optimization-notes.md) — 曲库快照、全量扫描与文件监听，记录建议及验收边界，尚未实施。
 - [P1–P2 重构汇报](reviews/2026-10-23-p1-p2-refactor-report.md)
 - [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — 原审计排序、指标与后续拆分边界，结合交付汇报阅读。
 - [2026-10-16 代码审计](reviews/2026-10-16-1742-code-audit.md)
