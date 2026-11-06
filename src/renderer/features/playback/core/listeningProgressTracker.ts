@@ -34,6 +34,7 @@ export class ListeningProgressTracker {
   private disposed = false
   private closing = false
   private persistenceFailed = false
+  private shutdownTask: Promise<void> | null = null
   private inFlight: Promise<void> = Promise.resolve()
   private epochReady: Promise<void> = Promise.resolve()
   private readonly now: () => number
@@ -56,7 +57,6 @@ export class ListeningProgressTracker {
       this.epoch = epoch
       for (const batch of this.queue) if (batch.epoch === null) batch.epoch = epoch
       this.flush()
-      void this.persist()
     } catch (error) {
       this.options.onError(error)
       if (!this.disposed && !this.closing && owner === this.revision)
@@ -167,7 +167,7 @@ export class ListeningProgressTracker {
         samples: this.samples.splice(0, 32),
       })
     }
-    void this.persist()
+    if (!this.closing) void this.persist()
   }
   private persist(): Promise<void> {
     if (this.sending) return this.inFlight
@@ -184,7 +184,12 @@ export class ListeningProgressTracker {
       const result = await this.options.record(batch)
       if (revision !== this.revision) return
       if (result.epoch !== this.epoch) {
-        this.discardPendingRecords()
+        if (this.closing) {
+          // History was reset while the final batch was in flight; do not replay it.
+          this.queue = []
+          this.epoch = result.epoch
+          this.persistenceFailed = false
+        } else this.discardPendingRecords()
         return
       }
       this.persistenceFailed = !result.ok
@@ -201,9 +206,9 @@ export class ListeningProgressTracker {
       return
     } finally {
       this.sending = false
-      if (revision !== this.revision) void this.persist()
+      if (revision !== this.revision && !this.disposed && !this.closing) void this.persist()
     }
-    if (!this.disposed) void this.persist()
+    if (!this.disposed && !this.closing) void this.persist()
   }
   finish(duration: number) {
     this.sample(duration)
@@ -231,31 +236,52 @@ export class ListeningProgressTracker {
     this.resetBaseline()
     void this.refreshEpoch()
   }
-  async shutdown(): Promise<void> {
+  shutdown(): Promise<void> {
+    if (this.shutdownTask) return this.shutdownTask
+    const task = this.drainForShutdown()
+    this.shutdownTask = task
+    const clear = () => {
+      this.shutdownTask = null
+    }
+    void task.then(clear, clear)
+    return task
+  }
+  private async drainForShutdown(): Promise<void> {
+    if (this.disposed) return
+    // A previous failed attempt keeps its batches and may be retried explicitly.
+    this.persistenceFailed = false
     this.end()
     this.closing = true
     if (this.retry) clearTimeout(this.retry)
     this.retry = undefined
     let timer: ReturnType<typeof setTimeout> | undefined
+    let active = true
     try {
       await Promise.race([
-        this.drain(),
+        this.drain(() => active && !this.disposed),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error('Listening progress shutdown timed out')), 2000)
         }),
       ])
-    } finally {
-      if (timer) clearTimeout(timer)
       this.dispose()
+    } finally {
+      // A timed-out drain must not dispatch more batches when its IPC settles later.
+      active = false
+      if (timer) clearTimeout(timer)
     }
   }
-  private async drain() {
+  private async drain(isActive: () => boolean) {
     await this.epochReady
+    if (!isActive()) return
+    if (this.epoch === null && this.queue.length) await this.refreshEpoch()
+    if (!isActive()) return
     await this.inFlight
+    if (!isActive()) return
     if (this.persistenceFailed) throw new Error('Unable to save final listening progress')
     while (this.queue.length) {
       const first = this.queue[0]
       await this.persist()
+      if (!isActive()) return
       if (this.disposed || this.persistenceFailed || this.queue[0] === first)
         throw new Error('Unable to save final listening progress')
     }

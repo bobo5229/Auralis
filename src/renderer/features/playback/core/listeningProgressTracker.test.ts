@@ -236,6 +236,52 @@ it('reports a failed final save and stops retries', async () => {
   expect(record).toHaveBeenCalledTimes(1)
 })
 
+it('retains the failed final batch for explicit shutdown retries', async () => {
+  tick()
+  record.mockRejectedValueOnce(new Error('write failed'))
+  await expect(tracker.shutdown()).rejects.toThrow('Unable to save final listening progress')
+  const batch = record.mock.calls[0][0]
+  record.mockRejectedValueOnce(new Error('still unavailable'))
+  await expect(tracker.shutdown()).rejects.toThrow('Unable to save final listening progress')
+  await expect(tracker.shutdown()).resolves.toBeUndefined()
+  expect(record.mock.calls.map(([value]) => value)).toEqual([batch, batch, batch])
+  await tracker.shutdown()
+  expect(record).toHaveBeenCalledTimes(3)
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('shares an overlapping shutdown attempt without sending the batch twice', async () => {
+  tick()
+  let release!: (value: { ok: boolean; epoch: number }) => void
+  record.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const first = tracker.shutdown()
+  const second = tracker.shutdown()
+  expect(second).toBe(first)
+  release({ ok: true, epoch: 0 })
+  await Promise.all([first, second])
+  expect(record).toHaveBeenCalledOnce()
+})
+
+it('does not replay final evidence after a concurrent history reset', async () => {
+  tick()
+  record.mockResolvedValueOnce({ ok: false, epoch: 1 })
+  await expect(tracker.shutdown()).resolves.toBeUndefined()
+  expect(record).toHaveBeenCalledOnce()
+})
+
+it('allows another shutdown after the server rejects an invalid final batch', async () => {
+  tick()
+  record.mockResolvedValueOnce({ ok: false, epoch: 0 })
+  await expect(tracker.shutdown()).rejects.toThrow('Unable to save final listening progress')
+  await expect(tracker.shutdown()).resolves.toBeUndefined()
+  expect(record).toHaveBeenCalledOnce()
+})
+
 it('bounds a stalled save and does not send queued batches after timeout', async () => {
   let release!: (value: { ok: boolean; epoch: number }) => void
   record.mockImplementationOnce(
@@ -252,6 +298,80 @@ it('bounds a stalled save and does not send queued batches after timeout', async
   await settle()
   await vi.advanceTimersByTimeAsync(10000)
   expect(record).toHaveBeenCalledTimes(1)
+  await expect(tracker.shutdown()).resolves.toBeUndefined()
+  expect(record).toHaveBeenCalledTimes(2)
+  expect(record.mock.calls[1][0].samples).toHaveLength(1)
+  expect(record.mock.calls[1][0].samples[0].startSeconds).toBe(5)
+})
+
+it('retries a timed-out exit while the original save is still pending', async () => {
+  let release!: (value: { ok: boolean; epoch: number }) => void
+  record.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  for (let i = 0; i < 6; i++) tick()
+  const timedOut = expect(tracker.shutdown()).rejects.toThrow('timed out')
+  await vi.advanceTimersByTimeAsync(2000)
+  await timedOut
+  const retry = tracker.shutdown()
+  release({ ok: true, epoch: 0 })
+  await retry
+  expect(record).toHaveBeenCalledTimes(2)
+  expect(record.mock.calls.map(([batch]) => batch.sequence)).toEqual([1, 2])
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('keeps reset-era samples pending when an older save settles after exit times out', async () => {
+  let release!: (value: { ok: boolean; epoch: number }) => void
+  record.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  for (let i = 0; i < 5; i++) tick()
+  tracker.discardPendingRecords()
+  await settle()
+  tick()
+  const timedOut = expect(tracker.shutdown()).rejects.toThrow('timed out')
+  await vi.advanceTimersByTimeAsync(2000)
+  await timedOut
+  release({ ok: true, epoch: 0 })
+  await settle()
+  expect(record).toHaveBeenCalledOnce()
+  await tracker.shutdown()
+  expect(record).toHaveBeenCalledTimes(2)
+  expect(record.mock.calls[1][0].samples).toHaveLength(1)
+  expect(record.mock.calls[1][0].samples[0].startSeconds).toBe(5)
+})
+
+it('recovers an unavailable epoch on a later exit without losing the final sample', async () => {
+  tracker.dispose()
+  const getEpoch = vi
+    .fn<() => Promise<number>>()
+    .mockRejectedValueOnce(new Error('initial epoch unavailable'))
+    .mockRejectedValueOnce(new Error('still unavailable'))
+    .mockResolvedValue(0)
+  tracker = new ListeningProgressTracker({
+    getEpoch,
+    record,
+    snapshot: () => snapshot,
+    onError,
+    now: () => time,
+    epochNow: () => date,
+  })
+  await settle()
+  tracker.start(1)
+  tick()
+  await expect(tracker.shutdown()).rejects.toThrow('Unable to save final listening progress')
+  expect(record).not.toHaveBeenCalled()
+  await expect(tracker.shutdown()).resolves.toBeUndefined()
+  expect(record).toHaveBeenCalledOnce()
+  expect(record.mock.calls[0][0].samples).toHaveLength(1)
+  expect(vi.getTimerCount()).toBe(0)
 })
 
 it.each(['reset', 'retry'])(
