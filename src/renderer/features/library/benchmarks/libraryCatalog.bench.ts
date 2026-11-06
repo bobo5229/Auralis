@@ -7,7 +7,7 @@ import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { createLibraryDerivedIndex, type LibraryDerivedGroup } from '../utils/libraryDerivedIndex'
 import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
-import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
+import { loadLibraryCatalogSnapshot } from '@renderer/shared/catalog/loadLibraryCatalogSnapshot'
 
 const DATASET_SIZES = [30_000, 100_000] as const
 const TRACKS_PER_ALBUM = 12

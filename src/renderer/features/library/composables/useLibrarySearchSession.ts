@@ -8,8 +8,8 @@ import {
 } from '../utils/librarySearchIndex'
 import { createLibrarySearchScanner, type LibrarySearchRecord } from '../utils/librarySearchScan'
 import { isLibrarySearchBarHovered } from '../utils/librarySearchHover'
-import { canDismissPageSearch } from '../utils/librarySearchKeyboard'
-import { normalizeSearchText } from '../utils/normalizeSearchText'
+import { canDismissPageSearch } from '@renderer/shared/search/librarySearchKeyboard'
+import { normalizeSearchText } from '@renderer/shared/search/normalizeSearchText'
 
 const completedSearchIndexes = new WeakMap<
   readonly TrackListItem[],

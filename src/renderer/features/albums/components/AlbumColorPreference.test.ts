@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref, type Ref } from 'vue'
 import { ShellTestElement } from '@renderer/testUtils/rendererTestHost'
-import { FALLBACK_PALETTE } from '@renderer/features/playback/utils/artworkPaletteDefaults'
+import { FALLBACK_PALETTE } from '@renderer/shared/artwork/artworkPaletteDefaults'
 import { getAlbumColorPreference, setAlbumColorPreference } from '../albumColorPreferences'
 import AlbumColorPreference from './AlbumColorPreference.vue'
 
@@ -42,7 +42,7 @@ vi.mock('@renderer/shared/dialog/AppDialog.vue', async () => {
 })
 
 const worker = vi.hoisted(() => ({ extract: vi.fn() }))
-vi.mock('@renderer/features/playback/utils/artworkPaletteWorkerClient', () => ({
+vi.mock('@renderer/shared/artwork/artworkPaletteWorkerClient', () => ({
   extractArtworkPaletteInWorker: worker.extract,
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))

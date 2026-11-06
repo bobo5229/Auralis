@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { resolveAlbumTrackPresentation } from '../utils/albumTrackPresentation'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 
 const props = defineProps<{

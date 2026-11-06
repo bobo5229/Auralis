@@ -8,7 +8,7 @@ import type {
 } from '../audio/playbackAudioRuntime'
 import type { PlaybackTrack } from '../types'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { SharedLibraryCatalogLoad } from '../../library/utils/sharedLibraryCatalogLoad'
+import { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 
 function deferred<T>() {
   let resolve!: (value: T) => void

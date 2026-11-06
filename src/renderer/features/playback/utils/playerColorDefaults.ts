@@ -1,3 +1,4 @@
+import { DEFAULT_ARTWORK_ACCENT } from '../../../shared/color/artworkColorDefaults'
 export interface PlayerColorRgb {
   readonly r: number
   readonly g: number
@@ -8,11 +9,7 @@ export interface PlayerColorRgb {
  * 播放器深色主题默认强调色回退值 (#8FA7BB)
  * 供算法 (resolvePlaybarAccent, extractArtworkPalette) 与 CSS Preflight (:root) 同源消费
  */
-export const PLAYER_DEFAULT_ACCENT_DARK: PlayerColorRgb = Object.freeze({
-  r: 143,
-  g: 167,
-  b: 187,
-})
+export const PLAYER_DEFAULT_ACCENT_DARK: PlayerColorRgb = DEFAULT_ARTWORK_ACCENT
 
 /**
  * 播放器浅色主题默认强调色回退值 (#585B5F)

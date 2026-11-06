@@ -5,7 +5,7 @@ import {
   type ArtistIndexLetter,
 } from '@shared/utils/artistIndex'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import {
   albumIdentityKey,
   resolveAlbumArtist,
@@ -83,7 +83,7 @@ export function cdFocusBackTarget(focused: boolean): 'browse' | 'albums' {
 
 export function isSameAlbumTrack(
   track: Pick<TrackListItem, 'id' | 'album' | 'artist' | 'albumArtist'>,
-  album: Pick<AlbumSummary, 'key'> & { tracks?: Pick<TrackListItem, 'id'>[] },
+  album: Pick<AlbumSummary, 'key'> & { tracks?: readonly Pick<TrackListItem, 'id'>[] },
 ): boolean {
   if (album.tracks?.some((item) => item.id === track.id)) return true
   const trackArtist = resolveAlbumArtist(track)
@@ -97,7 +97,7 @@ export function shouldShowCdFocusedPlayback(
   loading: boolean,
   failed: boolean,
   track: Pick<TrackListItem, 'id' | 'album' | 'artist' | 'albumArtist'> | null,
-  album: (Pick<AlbumSummary, 'key'> & { tracks?: Pick<TrackListItem, 'id'>[] }) | null,
+  album: (Pick<AlbumSummary, 'key'> & { tracks?: readonly Pick<TrackListItem, 'id'>[] }) | null,
 ): boolean {
   if (!focused || !focusSettled || loading || failed || !track || !album) {
     return false

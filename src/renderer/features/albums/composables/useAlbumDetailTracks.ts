@@ -9,14 +9,14 @@ import {
   writeAlbumDetailSnapshot,
   type AlbumDetailSnapshot,
 } from '../albumDetailSnapshot'
-import type { AlbumSummary } from '../types'
-import { moreAlbumsByArtist, moreAlbumsByGenre } from '../utils/albumGrouping'
+import type { AlbumSummary } from '@shared/types/albumSummary'
+import { moreAlbumsByArtist, moreAlbumsByGenre } from '@shared/utils/albumGrouping'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
-import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
+import { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 
 export type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
-export { selectAlbumTracks } from '../utils/albumGrouping'
+export { selectAlbumTracks } from '@shared/utils/albumGrouping'
 
 type AlbumDetailLibraryClient = Pick<
   AuralisApi['library'],
@@ -60,7 +60,7 @@ function toAlbumSummary(summary: AlbumDetailSummary): AlbumSummary {
 function snapshotWorkingTracks(snapshot: AlbumDetailSnapshot | null): TrackListItem[] {
   if (!snapshot) return []
   if (snapshotHasCatalog(snapshot) && snapshot.catalogTracks) return snapshot.catalogTracks
-  return snapshot.tracks
+  return [...snapshot.tracks]
 }
 
 export function useAlbumDetailTracks({
@@ -71,7 +71,7 @@ export function useAlbumDetailTracks({
   const initialSnapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
   const tracks = shallowRef<TrackListItem[]>(snapshotWorkingTracks(initialSnapshot))
   const storedMoreAlbums = shallowRef<AlbumSummary[]>(
-    initialSnapshot && !snapshotHasCatalog(initialSnapshot) ? initialSnapshot.moreAlbums : [],
+    initialSnapshot && !snapshotHasCatalog(initialSnapshot) ? [...initialSnapshot.moreAlbums] : [],
   )
   const storedGenreAlbums = shallowRef<AlbumSummary[]>(initialSnapshot?.genreAlbums ?? [])
   const storedAlbumKey = ref(
@@ -92,9 +92,9 @@ export function useAlbumDetailTracks({
     previewMatchesCurrentAlbum.value ? previewReleaseValue.value : null,
   )
   let hasCatalogSnapshot = snapshotHasCatalog(initialSnapshot)
-  const albumTracks = computed(() =>
-    getAlbumCatalogIndex(tracks.value).selectTracks(albumArtist.value, albumTitle.value),
-  )
+  const albumTracks = computed(() => [
+    ...getAlbumCatalogIndex(tracks.value).selectTracks(albumArtist.value, albumTitle.value),
+  ])
   const loadState = shallowRef<AlbumDetailLoadState>(
     albumTracks.value.length > 0 ? 'ready' : 'loading',
   )
@@ -103,7 +103,7 @@ export function useAlbumDetailTracks({
       return moreAlbumsByArtist(storedMoreAlbums.value, albumArtist.value, albumTitle.value)
     }
 
-    return getAlbumCatalogIndex(tracks.value).moreAlbums(albumArtist.value, albumTitle.value)
+    return [...getAlbumCatalogIndex(tracks.value).moreAlbums(albumArtist.value, albumTitle.value)]
   })
   const genreAlbums = computed(() => {
     if (moreAlbums.value.length > 0 || albumTracks.value.length === 0) return []
@@ -173,8 +173,8 @@ export function useAlbumDetailTracks({
       storedMoreAlbums.value = []
       hasCatalogSnapshot = true
     } else if (!hasCatalogSnapshot) {
-      tracks.value = snapshot.tracks
-      storedMoreAlbums.value = snapshot.moreAlbums
+      tracks.value = [...snapshot.tracks]
+      storedMoreAlbums.value = [...snapshot.moreAlbums]
     }
 
     if (albumTracks.value.length > 0) {

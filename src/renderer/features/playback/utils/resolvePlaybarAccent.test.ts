@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getRelativeLuminance } from './resolvePlayerPrimaryButtonTextColor'
+import { getRelativeLuminance } from '@renderer/shared/color/resolveArtworkButtonTextColor'
 import {
   PLAYBAR_DARK_SURFACE_BOUND,
   PLAYBAR_LIGHT_SURFACE_BOUND,

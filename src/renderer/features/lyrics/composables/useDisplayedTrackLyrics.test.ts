@@ -19,7 +19,7 @@ const lyricsFixture = await vi.hoisted(async () => {
 vi.mock('./useTrackLyrics', () => ({ useTrackLyrics: () => lyricsFixture }))
 import { useTrackLyrics } from './useTrackLyrics'
 import { useDisplayedTrackLyrics } from './useDisplayedTrackLyrics'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 
 afterEach(() => {
   const state = useChineseTextDisplay()

@@ -1,7 +1,7 @@
 import { computed, nextTick, watch, type Ref } from 'vue'
 import { observeElementOffset, observeElementRect, useVirtualizer } from '@tanstack/vue-virtual'
-import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
-import type { AlbumSummary } from '../types'
+import { prefetchArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 
 export function useAlbumGridViewport({
   albums,

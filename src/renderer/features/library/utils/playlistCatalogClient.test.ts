@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { Playlist } from '@shared/types/playlist'
 import type { PlaylistMembership } from '@shared/types/playlistMembership'
-import { SharedLibraryCatalogLoad } from './sharedLibraryCatalogLoad'
+import { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 import { PlaylistCatalogClient } from './playlistCatalogClient'
 
 const playlist = { id: 1, name: 'Ordered', viewMode: 'flat' } as Playlist

@@ -1,4 +1,4 @@
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { formatPlaybackSubtitle } from '../utils/formatPlaybackSubtitle'
 import type { PlaybackTrack } from '../types'
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
+import type { ChineseScript } from '@renderer/shared/media/chineseText'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useDisplayedTrackLyrics } from '../composables/useDisplayedTrackLyrics'
 import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'

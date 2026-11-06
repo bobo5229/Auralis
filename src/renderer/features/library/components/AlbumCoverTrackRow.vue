@@ -7,7 +7,7 @@ import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { formatBitrate } from '../utils/formatBitrate'
 import { isMultiValueArtist } from '@renderer/shared/media/formatArtist'
 import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 
 const props = withDefaults(
   defineProps<{

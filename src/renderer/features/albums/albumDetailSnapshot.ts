@@ -1,13 +1,13 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { AlbumSummary } from './types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 
 export interface AlbumDetailSnapshot {
   albumArtist: string
   albumTitle: string
   artworkCacheKey: string | null
   releaseDate: string | null
-  tracks: TrackListItem[]
-  moreAlbums: AlbumSummary[]
+  tracks: readonly TrackListItem[]
+  moreAlbums: readonly AlbumSummary[]
   /** Absent on navigation previews; populated after a detail query. */
   genreAlbums?: AlbumSummary[]
   catalogTracks: TrackListItem[] | null

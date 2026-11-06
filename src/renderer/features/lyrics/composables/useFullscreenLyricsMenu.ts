@@ -1,6 +1,6 @@
 import { computed, nextTick, ref, watch, type Ref } from 'vue'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
+import type { ChineseScript } from '@renderer/shared/media/chineseText'
 import type { LyricsStatus } from './useTrackLyrics'
 import type { LyricLine } from '../types'
 

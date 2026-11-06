@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
 import type { LibraryFlatColumnId } from '../utils/libraryFlatColumnLayout'

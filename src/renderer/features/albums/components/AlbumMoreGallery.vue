@@ -2,10 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import { formatAlbumYear } from '../utils/formatAlbumYear'
 import { albumGalleryCapacity, updateRandomAlbumOrder } from '../utils/albumGalleryLayout'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 
 const props = defineProps<{
   albums: AlbumSummary[]

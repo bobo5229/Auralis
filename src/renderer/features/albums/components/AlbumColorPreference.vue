@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import { createCoverColorSampler } from '../utils/sampleCoverColor'
 import {

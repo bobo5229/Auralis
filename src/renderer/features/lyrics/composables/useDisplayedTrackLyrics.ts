@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { useTrackLyrics } from './useTrackLyrics'
 
 /** Opt-in display projection; the CD room continues consuming original lyrics. */

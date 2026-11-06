@@ -8,5 +8,5 @@ export interface CdAlbumInfo extends CdAlbum {
   releaseDate: string | null
   trackCount: number
   copyright: string | null
-  tracks: TrackListItem[]
+  tracks: readonly TrackListItem[]
 }

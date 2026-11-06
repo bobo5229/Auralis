@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PLAYER_DEFAULT_ACCENT_DARK, PLAYER_DEFAULT_ACCENT_LIGHT } from './playerColorDefaults'
 import { resolvePlaybarAccent } from './resolvePlaybarAccent'
-import { FALLBACK_PALETTE } from './extractArtworkPalette'
+import { FALLBACK_PALETTE } from '@renderer/shared/artwork/extractArtworkPalette'
 
 describe('playerColorDefaults', () => {
   it('defines exact RGB values for dark and light accent defaults', () => {

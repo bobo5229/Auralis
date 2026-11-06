@@ -918,6 +918,28 @@
       "date": "Unknown date",
       "genre": "Uncategorized",
       "artwork": "No artwork"
+    },
+    "journal": {
+      "all": "All",
+      "albums": "Albums",
+      "tracks": "Tracks",
+      "filterLabel": "Entry type",
+      "looseTracks": "Tracks",
+      "undated": "Unknown date",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "moreAlbums": "More albums ({count})",
+      "moreTracks": "More tracks ({count})",
+      "moreRecords": "More entries ({count})",
+      "playTrack": "Play {title}",
+      "dateNavigation": "Browse dates added",
+      "jumpToMonth": "Jump to month",
+      "newer": "Newer",
+      "older": "Older",
+      "refreshFailed": "Could not refresh. Showing the last loaded collection.",
+      "emptyRange": "No music was added in this period",
+      "emptyFilter": "No entries of this type in this period",
+      "dismiss": "Dismiss message"
     }
   },
   "archive": {

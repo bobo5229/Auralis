@@ -5,7 +5,7 @@ import WindowTrafficLights from '@renderer/shared/components/WindowTrafficLights
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { acquireModalBackground } from '@renderer/shared/focus/modalBackground'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'

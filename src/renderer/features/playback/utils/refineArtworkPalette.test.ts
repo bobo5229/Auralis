@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { analyzeArtworkColors } from '@renderer/shared/artwork/artworkAnalysis'
 import { refineArtworkPalette } from '@renderer/shared/artwork/refineArtworkPalette'
 import { getOklabChroma, rgbToOklab } from '@renderer/shared/color/colorMath'
-import { extractArtworkPalette } from './extractArtworkPalette'
+import { extractArtworkPalette } from '@renderer/shared/artwork/extractArtworkPalette'
 
 async function sample(
   name: string,

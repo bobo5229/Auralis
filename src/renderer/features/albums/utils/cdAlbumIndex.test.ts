@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import {
   buildCdAlbumIndex,
   canShareCdIndexRow,

@@ -1,6 +1,6 @@
 import { nextTick, ref, watch, type Ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { resolveMenuNavigationIndex } from '@renderer/shared/menu/menuKeyboardNavigation'
 

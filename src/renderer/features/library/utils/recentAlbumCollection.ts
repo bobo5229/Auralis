@@ -1,6 +1,6 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { AlbumSummary } from '@renderer/features/albums/types'
-import { getAlbumCatalogIndex } from '@renderer/features/albums/utils/albumCatalogIndex'
+import type { AlbumSummary } from '@shared/types/albumSummary'
+import { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex'
 import {
   parseRecentAddedLibraryTimestamp,
   type RecentAddedLibraryRange,

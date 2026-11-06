@@ -6,7 +6,7 @@ import AlbumDetailTrackList from '@renderer/features/albums/components/AlbumDeta
 
 const presentationCalls = vi.hoisted(() => ({ count: 0 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@renderer/features/appearance/composables/useChineseTextDisplay', () => ({
+vi.mock('@renderer/shared/preferences/useChineseTextDisplay', () => ({
   useChineseTextDisplay: () => ({
     songText: (value: string | null) => value ?? '',
     songValues: (value: string | null) => value ?? '',

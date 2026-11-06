@@ -7,7 +7,7 @@ import {
   snapshotHasCatalog,
   writeAlbumDetailSnapshot,
 } from './albumDetailSnapshot'
-import type { AlbumSummary } from './types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 
 function createTrack(id: number): TrackListItem {
   return {

@@ -1,6 +1,6 @@
 import type { AuralisApi } from '@shared/ipc/api'
-import type { AlbumSummary } from '../types'
-import { groupAlbums } from './albumGrouping'
+import type { AlbumSummary } from '@shared/types/albumSummary'
+import { groupAlbums } from '@shared/utils/albumGrouping'
 
 type CatalogLibrary = Pick<AuralisApi['library'], 'getTracks' | 'onChanged'>
 

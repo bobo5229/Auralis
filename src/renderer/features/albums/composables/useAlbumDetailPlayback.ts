@@ -2,7 +2,7 @@ import { onScopeDispose, watch, type Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackPublicApi } from '@renderer/features/playback/composables/usePlayback'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
+import { buildAlbumPlaybackQueue } from '@renderer/shared/catalog/albumPlaybackQueue'
 
 interface AlbumDetailPlaybackOptions {
   albumArtist: Readonly<Ref<string>>

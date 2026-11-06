@@ -13,3 +13,5 @@ export interface RandomAlbumTracksResult {
   album: string
   tracks: PlaybackTrackDto[]
 }
+
+export type PlaybackMode = 'sequential' | 'repeat-all' | 'repeat-one' | 'shuffle' | 'album-shuffle'

@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import {
   formatAlbumCoverDiscHeading,
   getAlbumCoverTrackDiscHeadings,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import { useCdAlbumLoadSession } from './useCdAlbumLoadSession'
 import { useCdRoomScene } from './useCdRoomScene'
 import { createCdStage } from '../utils/cdStageController'

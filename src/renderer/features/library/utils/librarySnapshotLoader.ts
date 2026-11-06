@@ -3,7 +3,7 @@ import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryRouteScope } from './libraryRouteScope'
-import type { SharedLibraryCatalogLoad } from './sharedLibraryCatalogLoad'
+import type { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 import type { LibraryLoadMode } from './libraryRequestCoordinator'
 import {
   createAllSongsLibrarySnapshot,
@@ -13,7 +13,7 @@ import {
   type LibraryDataSnapshot,
 } from './libraryDataSnapshot'
 
-import { getLibraryPresentationTracks } from './libraryPresentationTracks'
+import { getLibraryPresentationTracks } from '@renderer/shared/catalog/libraryPresentationTracks'
 
 export function dependsOnPlayStats(preset: string | undefined): boolean {
   return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'

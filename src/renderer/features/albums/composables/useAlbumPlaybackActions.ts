@@ -1,9 +1,9 @@
 import type { Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackPublicApi } from '@renderer/features/playback/composables/usePlayback'
-import type { AlbumSummary } from '../types'
-import type { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
-import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
+import type { AlbumSummary } from '@shared/types/albumSummary'
+import type { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex'
+import { buildAlbumPlaybackQueue } from '@renderer/shared/catalog/albumPlaybackQueue'
 
 export function useAlbumPlaybackActions({
   tracks,
@@ -20,7 +20,7 @@ export function useAlbumPlaybackActions({
   contextMenu: Readonly<Ref<{ album: AlbumSummary } | null>>
   closeContextMenu: () => void
 }) {
-  function selectAlbumPlaybackTracks(album: AlbumSummary): TrackListItem[] {
+  function selectAlbumPlaybackTracks(album: AlbumSummary): readonly TrackListItem[] {
     return catalogIndex.value.selectTracks(album.albumArtist, album.title)
   }
 

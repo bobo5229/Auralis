@@ -3,7 +3,7 @@ import { createRenderer, h, nextTick, ref, type Component } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import SongRow from './SongRow.vue'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({

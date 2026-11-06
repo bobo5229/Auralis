@@ -918,6 +918,28 @@
       "date": "日期未知",
       "genre": "未分类",
       "artwork": "无封面"
+    },
+    "journal": {
+      "all": "全部",
+      "albums": "专辑",
+      "tracks": "曲目",
+      "filterLabel": "记录类型",
+      "looseTracks": "单曲",
+      "undated": "日期未知",
+      "today": "今天",
+      "yesterday": "昨天",
+      "moreAlbums": "更多专辑（{count}）",
+      "moreTracks": "更多曲目（{count}）",
+      "moreRecords": "更多记录（{count}）",
+      "playTrack": "播放 {title}",
+      "dateNavigation": "浏览入库日期",
+      "jumpToMonth": "跳转到月份",
+      "newer": "较新",
+      "older": "更早",
+      "refreshFailed": "更新未完成，仍显示上次读取的收藏。",
+      "emptyRange": "这段时间没有新加入的音乐",
+      "emptyFilter": "这段时间没有此类记录",
+      "dismiss": "关闭提示"
     }
   },
   "archive": {

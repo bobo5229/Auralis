@@ -9,6 +9,7 @@
     "src/preload/**/*.ts",
     "src/renderer/features/smartPlaylists/utils/smartPlaylistBuilder.ts",
     "src/renderer/features/facets/utils/facetOptions.ts",
+    "src/renderer/features/playback/core/listeningProgressTracker.ts",
     "src/shared/**/*.ts"
   ],
   "compilerOptions": {

@@ -96,7 +96,7 @@ vi.mock('../composables/useCdVibration', () => ({
 vi.mock('../composables/useCdPlaybackVibration', () => ({
   useCdPlaybackVibration: () => ({ spectrumFrame: ref(null), stopVibration: vi.fn() }),
 }))
-vi.mock('@renderer/features/playback/composables/useArtworkPalette', () => ({
+vi.mock('@renderer/shared/artwork/useArtworkPalette', () => ({
   useArtworkPalette: () => ({ palette: ref({ quality: 'fallback', accents: [] }) }),
 }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({

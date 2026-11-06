@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { LibraryPageIdentity } from '../../library/types/libraryPageIdentity'
-import { SharedLibraryCatalogLoad } from '../../library/utils/sharedLibraryCatalogLoad'
+import { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 import { useLibraryCatalogLoader } from '../../library/composables/useLibraryCatalogLoader'
 import SmartPlaylistBuilderDialog from './SmartPlaylistBuilderDialog.vue'
 

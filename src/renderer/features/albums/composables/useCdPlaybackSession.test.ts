@@ -11,7 +11,7 @@ function fixture() {
     { key: 'one', tracks: [track(1), track(2)] },
     { key: 'two', tracks: [track(3), track(4)] },
     { key: 'three', tracks: [track(5)] },
-  ] as CdAlbumInfo[])
+  ] as unknown as CdAlbumInfo[])
   const focusedAlbum = shallowRef<CdAlbumInfo | null>(albums.value[1])
   const state = reactive({ currentTrackId: null as number | null, queue: [track(9)] })
   const queueSession = shallowRef<PlaybackQueueSession | null>(null)

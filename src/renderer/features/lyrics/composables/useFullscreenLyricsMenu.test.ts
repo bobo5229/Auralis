@@ -3,7 +3,7 @@ import { effectScope, nextTick, ref, shallowRef } from 'vue'
 import type { LyricsStatus } from './useTrackLyrics'
 import { useFullscreenLyricsMenu } from './useFullscreenLyricsMenu'
 const setScript = vi.hoisted(() => vi.fn())
-vi.mock('@renderer/features/appearance/composables/useChineseTextDisplay', async () => {
+vi.mock('@renderer/shared/preferences/useChineseTextDisplay', async () => {
   const { ref } = await import('vue')
   return {
     useChineseTextDisplay: () => ({

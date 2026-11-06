@@ -25,7 +25,7 @@ import {
   rememberCdIndexDeparture,
   type CdIndexReturnMarker,
 } from '../utils/cdAlbumIndexReturn'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 
 const HEADING_ROW_HEIGHT = 48
 const SHARED_HEADING_HEIGHT = 38

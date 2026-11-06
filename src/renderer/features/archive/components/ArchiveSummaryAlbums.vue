@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AnnualAlbum } from '@shared/types/listeningArchive'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import ArchiveAlbumSpines from './ArchiveAlbumSpines.vue'
 import ArchiveSummaryArtwork from './ArchiveSummaryArtwork.vue'
 

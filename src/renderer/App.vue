@@ -20,7 +20,7 @@ import { usePlayerDisplayMode } from '@renderer/features/playback/composables/us
 import { useAppOverlays } from './app/composables/useAppOverlays'
 import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
 import { createAlbumSurfaceSynchronization } from './app/layout/albumSurfaceSynchronization'
 import {

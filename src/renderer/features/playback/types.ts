@@ -8,7 +8,8 @@ export interface PlaybackTrack {
   artworkCacheKey: string | null
 }
 
-export type PlaybackMode = 'sequential' | 'repeat-all' | 'repeat-one' | 'shuffle' | 'album-shuffle'
+export type { PlaybackMode } from '@shared/types/playback'
+import type { PlaybackMode } from '@shared/types/playback'
 
 export interface ShuffleCycle {
   remaining: number[]
@@ -37,20 +38,4 @@ export interface PlaybackState {
 }
 
 export type { RgbColor, OklabColor } from '@renderer/shared/color/types'
-import type { RgbColor } from '@renderer/shared/color/types'
-import type { ArtworkColor } from '@renderer/shared/artwork/artworkAnalysis'
-
-export interface PaletteColor extends ArtworkColor {
-  /** Extracted cluster color before display tone mapping. */
-  sourceRgb?: RgbColor
-}
-
-export interface ArtworkPalette {
-  key: string
-  /** Representative source color selected by area-led scoring, before display tone mapping. */
-  dominant?: RgbColor
-  background: RgbColor
-  accents: PaletteColor[]
-  textTone: 'light' | 'dark'
-  quality: 'full' | 'reduced' | 'fallback'
-}
+export type { ArtworkPalette, PaletteColor } from '@renderer/shared/artwork/types'

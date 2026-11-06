@@ -1,4 +1,4 @@
-import { SharedLibraryCatalogLoad } from '@renderer/features/library/utils/sharedLibraryCatalogLoad'
+import { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 import { effectScope, nextTick, ref, type EffectScope } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuralisApi } from '@shared/ipc/api'

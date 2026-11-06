@@ -3,7 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AnnualSummary } from '@shared/types/listeningArchive'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import ArchiveSummaryArtwork from './ArchiveSummaryArtwork.vue'
 
 const props = defineProps<{ summary: AnnualSummary }>()

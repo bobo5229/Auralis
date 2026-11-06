@@ -47,7 +47,7 @@ const fixture = vi.hoisted(() => ({
   detailTrackIds: {} as Record<string, number>,
   publishDetailCover: null as null | ((key: string) => void),
 }))
-vi.mock('@renderer/features/playback/composables/useArtworkPalette', async () => {
+vi.mock('@renderer/shared/artwork/useArtworkPalette', async () => {
   const { computed, ref } = await import('vue')
   fixture.paletteReady = ref(true)
   return {

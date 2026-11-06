@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { groupAlbums } from './albumGrouping'
+import { groupAlbums } from '@shared/utils/albumGrouping'
 import { indexedAlbums } from './indexedAlbums'
 import { buildCdAlbumIndex } from './cdAlbumIndex'
 import { buildArtistAnchors } from '@shared/utils/artistIndex'

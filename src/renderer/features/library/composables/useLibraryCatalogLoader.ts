@@ -14,7 +14,7 @@ import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewportCapture } from './useLibraryViewport'
 import type { LibraryDataSnapshot } from '../utils/libraryDataSnapshot'
-import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
+import { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
   isSameLibraryRouteScope,

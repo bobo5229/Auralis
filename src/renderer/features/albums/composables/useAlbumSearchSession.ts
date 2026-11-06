@@ -1,12 +1,12 @@
 import { computed, nextTick, ref, watch, type Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import {
   canDismissPageSearch,
   hasVisiblePageOverlay,
-} from '@renderer/features/library/utils/librarySearchKeyboard'
-import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
-import { createDisplaySearchKeys } from '@renderer/features/library/utils/displaySearchKeys'
+} from '@renderer/shared/search/librarySearchKeyboard'
+import { normalizeSearchText } from '@renderer/shared/search/normalizeSearchText'
+import { createDisplaySearchKeys } from '@renderer/shared/search/displaySearchKeys'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 
 export function useAlbumSearchSession({

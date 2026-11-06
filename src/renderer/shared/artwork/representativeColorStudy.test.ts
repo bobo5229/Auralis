@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { compareArtworkColors as compareRepresentative } from './representativeArtworkColor'
 import { analyzeArtworkColors } from './artworkAnalysis'
 import { refineArtworkPalette } from './refineArtworkPalette'
-import { extractArtworkPalette } from '@renderer/features/playback/utils/extractArtworkPalette'
+import { extractArtworkPalette } from '@renderer/shared/artwork/extractArtworkPalette'
 
 function compareArtworkColors(pixels: Uint8ClampedArray) {
   const analysis = analyzeArtworkColors(pixels)!

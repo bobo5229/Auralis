@@ -8,6 +8,16 @@ import { expect, it } from 'vitest'
 
 it.each([
   {
+    label: 'album browsing independent of library feature internals',
+    roots: ['features/albums'],
+    forbidden: 'features/library',
+  },
+  {
+    label: 'library browsing independent of album feature internals',
+    roots: ['features/library'],
+    forbidden: 'features/albums',
+  },
+  {
     label: 'features and shared independent of the app shell',
     roots: ['features', 'shared'],
     forbidden: 'app',

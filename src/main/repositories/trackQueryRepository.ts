@@ -1,3 +1,4 @@
+import { compareAlbumTracks } from '@shared/utils/albumGrouping'
 import type { TrackListItem, TrackLyrics, TrackFileFingerprint } from '@shared/types/libraryScan'
 import { decodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 import type { PlaybackTrackDto } from '@shared/types/playback'
@@ -240,23 +241,20 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   getAlbumDetailTracks(albumArtist: string, albumTitle: string): TrackListItem[] {
-    return this.db
-      .prepare(
-        `SELECT ${TRACK_LIST_ITEM_COLUMNS}
+    return (
+      this.db
+        .prepare(
+          `SELECT ${TRACK_LIST_ITEM_COLUMNS}
          FROM library_track_display
          WHERE availability = 'available'
            AND ${albumArtistIdentityExpr} = ?
-           AND ${albumTitleIdentityExpr} = ?
-         ORDER BY
-           COALESCE(disc_no, 1) ASC,
-           CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
-           track_no ASC,
-           title COLLATE NOCASE ASC,
-           id ASC`,
-      )
-      .all(albumArtist, albumTitle) as TrackListItem[]
+           AND ${albumTitleIdentityExpr} = ?`,
+        )
+        .all(albumArtist, albumTitle) as TrackListItem[]
+    ).sort(compareAlbumTracks)
   }
 
+  /** Representative values match minimumAlbumValue in the shared album domain. */
   getArtistAlbumSummaries(albumArtist: string, excludeAlbumTitle: string): AlbumDetailSummary[] {
     return this.db
       .prepare(

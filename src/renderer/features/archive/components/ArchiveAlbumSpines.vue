@@ -3,7 +3,7 @@ import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, 
 import { useI18n } from 'vue-i18n'
 import type { DailyTopAlbum } from '@shared/types/listeningArchive'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { createAlbumSpineInteraction } from '../runtime/albumSpineInteraction'
 
 const props = defineProps<{ albums: DailyTopAlbum[] }>()

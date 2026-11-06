@@ -6,7 +6,7 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
 import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTint'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'

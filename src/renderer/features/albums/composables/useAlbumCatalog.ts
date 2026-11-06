@@ -1,8 +1,8 @@
 import { onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { SharedLibraryCatalogLoad } from '@renderer/features/library/utils/sharedLibraryCatalogLoad'
-import { getLibraryPresentationTracks } from '@renderer/features/library/utils/libraryPresentationTracks'
+import type { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
+import { getLibraryPresentationTracks } from '@renderer/shared/catalog/libraryPresentationTracks'
 import { invalidateAlbumDetailSnapshot } from '../albumDetailSnapshot'
 
 /** Keep the cached page fresh without rebuilding its grid during route transitions. */

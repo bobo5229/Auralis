@@ -7,7 +7,7 @@ import { formatArtist, splitArtistValues } from '@renderer/shared/media/formatAr
 import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
 
 const props = defineProps<{
-  tracks: TrackListItem[]
+  tracks: readonly TrackListItem[]
   albumArtist: string
   mode: CdPlaybackMode
   currentTrackId: number | null

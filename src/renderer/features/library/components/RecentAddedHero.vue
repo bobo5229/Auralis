@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
-import type { AlbumSummary } from '@renderer/features/albums/types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import { useRecentAlbumCarousel } from '../composables/useRecentAlbumCarousel'
 
 const props = defineProps<{ albums: readonly AlbumSummary[] }>()

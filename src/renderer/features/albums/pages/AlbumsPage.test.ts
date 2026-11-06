@@ -9,7 +9,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumsPage from './AlbumsPage.vue'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/shared/animation/albumLayoutTransition'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 
 const fixture = vi.hoisted(() => ({
@@ -42,7 +42,7 @@ vi.mock('@renderer/shared/ipc/client', () => ({
     },
   },
 }))
-vi.mock('@renderer/features/library/utils/libraryCatalogClient', () => ({
+vi.mock('@renderer/shared/catalog/libraryCatalogClient', () => ({
   libraryCatalogClient: {
     load: async () => ({ tracks: [...fixture.tracks] }),
     isSnapshotCurrent: () => true,
@@ -68,10 +68,10 @@ vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', async ()
   const { ref } = await import('vue')
   return { usePlayerDisplayMode: () => ({ displayMode: ref('normal') }) }
 })
-vi.mock('@renderer/features/playback/composables/useArtworkPalette', () => ({
+vi.mock('@renderer/shared/artwork/useArtworkPalette', () => ({
   prefetchArtworkPalette: vi.fn(),
 }))
-vi.mock('../components/AlbumCard.vue', () => ({
+vi.mock('@renderer/shared/components/AlbumCard.vue', () => ({
   default: { render: () => h('div', { class: 'album-card' }) },
 }))
 vi.mock('../components/AlbumGridTransitionLayer.vue', () => ({

@@ -2,7 +2,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackMode } from '@renderer/features/playback/types'
-import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
+import { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex'
 import { useAlbumPlaybackActions } from './useAlbumPlaybackActions'
 
 function fixture(mode: PlaybackMode = 'sequential') {

@@ -1,8 +1,8 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
-import { normalizeSearchText } from './normalizeSearchText'
+import { normalizeSearchText } from '@renderer/shared/search/normalizeSearchText'
 import type { LibrarySearchRecord } from './librarySearchScan'
-import { createDisplaySearchKeys } from './displaySearchKeys'
+import { createDisplaySearchKeys } from '@renderer/shared/search/displaySearchKeys'
 
 export class LibrarySearchIndexBuildStaleError extends Error {
   constructor() {

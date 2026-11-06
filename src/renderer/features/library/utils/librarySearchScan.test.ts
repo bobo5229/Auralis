@@ -10,8 +10,8 @@ import {
   type LibrarySearchRecord,
 } from './librarySearchScan'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { normalizeSearchText } from './normalizeSearchText'
-import { convertChineseText } from '@renderer/features/appearance/utils/chineseText'
+import { normalizeSearchText } from '@renderer/shared/search/normalizeSearchText'
+import { convertChineseText } from '@renderer/shared/media/chineseText'
 
 function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
   return {

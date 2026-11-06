@@ -20,7 +20,7 @@ vi.mock('@renderer/shared/focus/useOverlayFocusTrap', () => ({
 vi.mock('@renderer/shared/animation/motionPreference', () => ({
   createReducedMotionQuery: () => ({ matches: false }),
 }))
-vi.mock('@renderer/features/appearance/composables/useChineseTextDisplay', () => ({
+vi.mock('@renderer/shared/preferences/useChineseTextDisplay', () => ({
   useChineseTextDisplay: () => ({ songText: (s: string) => s, songValues: (s: string) => s }),
 }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({

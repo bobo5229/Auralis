@@ -1,177 +1,244 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  watch,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useElementSize } from '@vueuse/core'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { resolveAlbumArtist, resolveAlbumTitle } from '@shared/utils/albumIdentity'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import MainPageStatus from '@renderer/shared/components/MainPageStatus.vue'
-import { useAlbumCatalog } from '@renderer/features/albums/composables/useAlbumCatalog'
-import { getAlbumCatalogIndex } from '@renderer/features/albums/utils/albumCatalogIndex'
-import { buildAlbumPlaybackQueue } from '@renderer/features/albums/utils/albumPlaybackQueue'
-import type { AlbumSummary } from '@renderer/features/albums/types'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
-import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
-import RecentAddedHero from '../components/RecentAddedHero.vue'
-import AlbumCard from '@renderer/features/albums/components/AlbumCard.vue'
-import AlbumDetailTrackList from '@renderer/features/albums/components/AlbumDetailTrackList.vue'
-import { useAlbumDetailPresentation } from '@renderer/features/albums/composables/useAlbumDetailPresentation'
+import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 import SettingsSegmentedControl from '@renderer/features/settings/components/SettingsSegmentedControl.vue'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import type { AlbumSummary } from '@shared/types/albumSummary'
+import { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex'
+import { buildAlbumPlaybackQueue } from '@renderer/shared/catalog/albumPlaybackQueue'
+import { filterJournalDays, type JournalFilter } from '../utils/recentAddedJournal'
 import {
   parseRecentAddedLibraryRange,
   RECENT_ADDED_LIBRARY_RANGES,
 } from '../utils/recentAddedLibrary'
-import {
-  recentAlbumCollection,
-  filterRecentAlbums,
-  groupRecentAlbumMonths,
-} from '../utils/recentAlbumCollection'
+import { libraryCatalogClient } from '../utils/libraryCatalogClient'
+import { useRecentJournalCatalog } from '../composables/useRecentJournalCatalog'
+import { useRecentAddedJournal } from '../composables/useRecentAddedJournal'
+import RecentJournalDay from '../components/RecentJournalDay.vue'
 
 defineOptions({ name: 'RecentAddedPage' })
+const props = withDefaults(defineProps<{ isTransitioning?: boolean }>(), { isTransitioning: false })
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
-const { songText, songValues } = useChineseTextDisplay()
 const playback = usePlayback()
 const { openSettings } = useSettingsDialog()
-const active = computed(() => route.name === 'recent-added')
-const { tracks, isLoading, error, refresh } = useAlbumCatalog(auralis.library, active, (cause) =>
-  rendererDiagnostics.error({
-    scope: 'recent-added.catalog',
-    message: 'Failed to load recent albums',
-    cause,
-  }),
+const mountedActive = ref(true)
+const active = computed(
+  () => mountedActive.value && route.name === 'recent-added' && !props.isTransitioning,
 )
-const now = ref(Date.now())
+onActivated(() => {
+  mountedActive.value = true
+})
+onDeactivated(() => {
+  mountedActive.value = false
+})
+const { tracks, loaded, isLoading, error, refresh } = useRecentJournalCatalog(
+  active,
+  auralis.library,
+  libraryCatalogClient,
+  (cause) =>
+    rendererDiagnostics.error({
+      scope: 'recent-added.catalog',
+      message: 'Failed to load collection journal',
+      cause,
+    }),
+)
 const range = computed(() => parseRecentAddedLibraryRange(route.query.range) ?? 'all')
-const collection = computed(() => recentAlbumCollection(tracks.value))
-const albums = computed(() => filterRecentAlbums(collection.value, range.value, now.value))
-const catalog = computed(() => getAlbumCatalogIndex(tracks.value))
-const query = ref('')
-const visibleCount = ref(48)
-const scroll = ref<HTMLElement | null>(null)
-const { width: collectionWidth } = useElementSize(scroll)
-const columnCount = computed(() => {
-  const compact = collectionWidth.value <= 650
-  const gap = compact ? 18 : 24
-  const minimum = compact ? 128 : 150
-  return Math.max(1, Math.floor((collectionWidth.value + gap) / (minimum + gap)))
-})
-const filtered = computed(() => {
-  const search = query.value.trim().toLocaleLowerCase()
-  return search
-    ? albums.value.filter((album) =>
-        `${songText(album.title)} ${songValues(album.albumArtist)}`
-          .toLocaleLowerCase()
-          .includes(search),
-      )
-    : albums.value
-})
-const sections = computed(() => groupRecentAlbumMonths(filtered.value.slice(0, visibleCount.value)))
-const selectedKey = ref<string | null>(null)
-const selected = computed(() => albums.value.find((album) => album.key === selectedKey.value))
-const previewTracks = computed(() =>
-  selected.value
-    ? catalog.value.selectTracks(selected.value.albumArtist, selected.value.title)
-    : [],
-)
-const { albumDiscGroups } = useAlbumDetailPresentation(
-  previewTracks,
-  computed(() => selected.value?.releaseDate ?? null),
-)
-const rangeOptions = computed(() => {
+const filter = ref<JournalFilter>('all')
+const filters = computed(() => [
+  { value: 'all', label: t('library.journal.all') },
+  { value: 'albums', label: t('library.journal.albums') },
+  { value: 'tracks', label: t('library.journal.tracks') },
+])
+const ranges = computed(() => {
   const values: (number | 'all')[] = [...RECENT_ADDED_LIBRARY_RANGES]
   if (!values.includes(range.value)) values.push(range.value)
-  return values.map((value) => ({ value: String(value), label: rangeLabel(value) }))
+  return values.map((value) => ({
+    value: String(value),
+    label:
+      value === 'all'
+        ? t('sidebar.recentAddedRangeAll')
+        : t('library.recentAdded.days', { count: value }),
+  }))
 })
-function selectRange(value: string): void {
-  const parsed = parseRecentAddedLibraryRange(value)
-  if (parsed !== null) void setRange(parsed)
-}
-const page = ref<HTMLElement | null>(null)
-let returnFocus: HTMLElement | null = null
-const actionError = ref(false)
-let clock: ReturnType<typeof setInterval> | undefined
+const now = ref(Date.now())
 function syncClock(): void {
-  if (document.visibilityState === 'visible') now.value = Date.now()
+  if (active.value && document.visibilityState === 'visible') now.value = Date.now()
 }
+let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
-  clock = setInterval(syncClock, 60_000)
+  timer = setInterval(syncClock, 60_000)
   document.addEventListener('visibilitychange', syncClock)
 })
 onBeforeUnmount(() => {
-  clearInterval(clock)
+  clearInterval(timer)
   document.removeEventListener('visibilitychange', syncClock)
 })
-watch([range, query], () => {
-  visibleCount.value = 48
-  selectedKey.value = null
+watch(active, (value) => {
+  if (value) syncClock()
 })
-watch(range, () => {
-  if (scroll.value) scroll.value.scrollTop = 0
+const {
+  journal,
+  loaded: journalLoaded,
+  isBuilding,
+  error: journalError,
+} = useRecentAddedJournal(
+  tracks,
+  range,
+  now,
+  computed(() => active.value && loaded.value),
+  (cause) =>
+    rendererDiagnostics.error({
+      scope: 'recent-added.journal',
+      message: 'Failed to build collection journal',
+      cause,
+    }),
+)
+const pageLoaded = computed(() => loaded.value && journalLoaded.value)
+const pageError = computed(() => error.value ?? journalError.value)
+const isRefreshing = computed(() => isLoading.value || isBuilding.value)
+const days = computed(() => filterJournalDays(journal.value, filter.value))
+// Bound mounted days as well as each day's entries; date jumps skip intervening content.
+const pageStart = ref(0)
+const visibleDays = computed(() => days.value.slice(pageStart.value, pageStart.value + 7))
+watch(
+  () => days.value.length,
+  (length) => {
+    if (pageStart.value >= length) pageStart.value = 0
+  },
+)
+const scroller = ref<HTMLElement | null>(null)
+const activeDay = ref('')
+const actionError = ref(false)
+let viewRevision = 0
+const catalog = computed(() => getAlbumCatalogIndex(tracks.value))
+const months = computed(() => {
+  const seen = new Set<string>()
+  return days.value.flatMap((day) => {
+    const value = day.date === null ? 'undated' : day.key.slice(0, 7)
+    if (seen.has(value)) return []
+    seen.add(value)
+    return [
+      {
+        value,
+        label:
+          day.date === null
+            ? t('library.journal.undated')
+            : new Intl.DateTimeFormat(locale.value, { year: 'numeric', month: 'long' }).format(
+                day.date,
+              ),
+      },
+    ]
+  })
 })
-watch(albums, () => {
-  if (!selected.value) selectedKey.value = null
+const selectedMonth = computed(() => {
+  const key = activeDay.value || visibleDays.value[0]?.key || ''
+  return key === 'undated' ? key : key.slice(0, 7)
 })
-function rangeLabel(value: number | 'all'): string {
-  return value === 'all'
-    ? t('sidebar.recentAddedRangeAll')
-    : t('library.recentAdded.days', { count: value })
+function updateActiveDay(): void {
+  const root = scroller.value
+  if (!root) return
+  const top = root.getBoundingClientRect().top
+  const sections = [...root.querySelectorAll<HTMLElement>('[data-journal-day]')]
+  activeDay.value =
+    sections.find((element) => element.getBoundingClientRect().bottom > top + 30)?.dataset
+      .journalDay ??
+    visibleDays.value[0]?.key ??
+    ''
 }
-async function setRange(value: number | 'all'): Promise<void> {
-  try {
-    await router.replace({ query: { ...route.query, range: String(value) } })
-  } catch {
-    actionError.value = true
-  }
-}
-function monthLabel(date: number | null): string {
-  if (date === null) return t('library.recentAdded.undated')
-  return new Intl.DateTimeFormat(locale.value, { year: 'numeric', month: 'long' }).format(date)
-}
-function albumTitle(album: AlbumSummary): string {
-  return album.title === 'Unknown Album' ? t('facets.unknownAlbum') : songText(album.title)
-}
-async function inspect(album: AlbumSummary): Promise<void> {
-  if (selectedKey.value === album.key) return closePreview()
-  if (!filtered.value.some((item) => item.key === album.key)) query.value = ''
+async function showDays(start: number): Promise<void> {
+  viewRevision += 1
+  pageStart.value = start
   await nextTick()
-  visibleCount.value = Math.max(
-    visibleCount.value,
-    albums.value.findIndex((item) => item.key === album.key) + 1,
-  )
-  returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  selectedKey.value = album.key
-  await nextTick()
-  const preview = page.value?.querySelector<HTMLElement>('.recent-album-preview')
-  preview?.focus({ preventScroll: true })
-  preview?.scrollIntoView({ block: 'nearest' })
+  if (scroller.value) scroller.value.scrollTop = 0
+  updateActiveDay()
+  scroller.value?.querySelector<HTMLElement>('[data-journal-day]')?.focus({ preventScroll: true })
 }
-async function closePreview(): Promise<void> {
-  selectedKey.value = null
-  await nextTick()
-  if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
+function jumpToMonth(value: string): void {
+  const index = days.value.findIndex((day) => day.key.startsWith(value))
+  if (index >= 0) void showDays(index)
 }
-async function play(album: AlbumSummary, trackId?: number): Promise<void> {
-  const first = trackId ?? catalog.value.selectTracks(album.albumArtist, album.title)[0]?.id
-  if (first === undefined) return
+function jumpToDay(key: string): void {
+  const node = scroller.value?.querySelector<HTMLElement>(`[data-journal-day="${key}"]`)
+  node?.scrollIntoView({ block: 'start' })
+  node?.focus({ preventScroll: true })
+  activeDay.value = key
+}
+function dateLabel(date: number | null): string {
+  return date === null
+    ? t('library.journal.undated')
+    : new Intl.DateTimeFormat(locale.value, { month: 'short', day: 'numeric' }).format(date)
+}
+watch([range, filter], () => {
+  viewRevision += 1
+  pageStart.value = 0
+  activeDay.value = ''
+  if (scroller.value) scroller.value.scrollTop = 0
+})
+// Preserve the visible day's offset across background snapshot commits.
+watch(
+  journal,
+  async () => {
+    const root = scroller.value
+    if (!root) return
+    const revision = viewRevision
+    const oldTop = root.scrollTop
+    const top = root.getBoundingClientRect().top
+    const anchor = [...root.querySelectorAll<HTMLElement>('[data-journal-day]')].find(
+      (element) => element.getBoundingClientRect().bottom > top + 30,
+    )
+    const key = anchor?.dataset.journalDay
+    const offset = anchor ? anchor.getBoundingClientRect().top - top : 0
+    const firstKey = root.querySelector<HTMLElement>('[data-journal-day]')?.dataset.journalDay
+    const start = days.value.findIndex((day) => day.key === firstKey)
+    pageStart.value =
+      start >= 0 ? start : Math.min(pageStart.value, Math.max(0, days.value.length - 1))
+    await nextTick()
+    if (!active.value || revision !== viewRevision) return
+    const target = key ? root.querySelector<HTMLElement>(`[data-journal-day="${key}"]`) : null
+    root.scrollTop = target
+      ? root.scrollTop +
+        target.getBoundingClientRect().top -
+        root.getBoundingClientRect().top -
+        offset
+      : oldTop
+    updateActiveDay()
+  },
+  { flush: 'pre' },
+)
+async function selectRange(value: string): Promise<void> {
+  const parsed = parseRecentAddedLibraryRange(value)
+  if (parsed === null) return
   actionError.value = false
   try {
-    await playback.playTrackFromQueue(
-      buildAlbumPlaybackQueue(
-        tracks.value,
-        album.albumArtist,
-        album.title,
-        playback.state.playbackMode,
-      ),
-      first,
-    )
+    await router.replace({ query: { ...route.query, range: String(parsed) } })
   } catch {
     actionError.value = true
   }
 }
+function selectFilter(value: string): void {
+  if (value === 'all' || value === 'albums' || value === 'tracks') filter.value = value
+}
 async function openAlbum(album: AlbumSummary): Promise<void> {
+  actionError.value = false
   try {
     await router.push({
       name: 'album-detail',
@@ -181,379 +248,339 @@ async function openAlbum(album: AlbumSummary): Promise<void> {
     actionError.value = true
   }
 }
+async function playTrack(track: TrackListItem): Promise<void> {
+  actionError.value = false
+  try {
+    await playback.playTrackFromQueue(
+      buildAlbumPlaybackQueue(
+        tracks.value,
+        resolveAlbumArtist(track),
+        resolveAlbumTitle(track),
+        playback.state.playbackMode,
+      ),
+      track.id,
+    )
+  } catch {
+    actionError.value = true
+  }
+}
+function playAlbum(album: AlbumSummary): void {
+  const first = catalog.value.selectTracks(album.albumArtist, album.title)[0]
+  if (first) void playTrack(first)
+}
 </script>
 
 <template>
-  <section ref="page" class="recent-page main-page-frame">
-    <div ref="scroll" class="recent-page-scroll main-page-scroll">
-      <header class="recent-page-header">
-        <div>
-          <h1>{{ t('sidebar.recentAdded') }}</h1>
-          <p>{{ t('library.recentAdded.collectionDescription') }}</p>
-        </div>
-        <SettingsSegmentedControl
-          id="recent-added-range"
-          class="recent-ranges"
-          :label="t('sidebar.recentAddedRange')"
+  <section class="recent-page main-page-frame">
+    <header class="journal-page-header">
+      <h1>{{ t('sidebar.recentAdded') }}</h1>
+      <div class="journal-range">
+        <span id="journal-range-label" class="sr-only">{{ t('sidebar.recentAddedRange') }}</span
+        ><SettingsSelect
+          id="journal-range"
+          labelledby="journal-range-label"
           :model-value="String(range)"
-          :options="rangeOptions"
+          :options="ranges"
           @update:model-value="selectRange"
         />
-      </header>
-      <MainPageStatus v-if="isLoading" kind="loading" :title="t('albums.status.loading')" />
-      <MainPageStatus
-        v-else-if="error"
-        kind="error"
-        :title="t('albums.status.loadError')"
-        :action-label="t('library.status.retry')"
-        @action="refresh"
+      </div>
+    </header>
+    <div class="journal-toolbar">
+      <SettingsSegmentedControl
+        id="journal-filter"
+        :label="t('library.journal.filterLabel')"
+        :model-value="filter"
+        :options="filters"
+        @update:model-value="selectFilter"
       />
-      <template v-else-if="albums.length">
-        <RecentAddedHero :albums="albums" @open="inspect" @play="play" />
-        <div v-if="actionError" class="recent-action-error" role="alert">
-          {{ t('library.recentAdded.actionError') }}
-        </div>
-        <div class="recent-collection-toolbar">
-          <div>
-            <h2>{{ t('library.recentAdded.collectionTitle') }}</h2>
-            <span>{{ t('library.recentAdded.albumCount', { count: albums.length }) }}</span>
-          </div>
-          <label class="recent-collection-search"
-            ><span class="i-lucide-search" aria-hidden="true"></span
-            ><input
-              v-model="query"
-              type="search"
-              :placeholder="t('library.recentAdded.search')"
-              :aria-label="t('library.recentAdded.search')"
-          /></label>
-        </div>
-        <MainPageStatus
-          v-if="!filtered.length"
-          kind="empty"
-          :title="t('library.recentAdded.noSearchResults')"
-          :action-label="t('library.recentAdded.clearSearch')"
-          @action="query = ''"
+      <div v-if="months.length" class="journal-month">
+        <span id="journal-month-label" class="sr-only">{{ t('library.journal.jumpToMonth') }}</span
+        ><SettingsSelect
+          id="journal-month"
+          labelledby="journal-month-label"
+          :model-value="selectedMonth"
+          :options="months"
+          @update:model-value="jumpToMonth"
         />
-        <section
-          v-for="section in sections"
-          :key="section.key"
-          class="recent-month"
-          :aria-label="monthLabel(section.date)"
-        >
-          <header class="recent-month-heading">
-            <h3>{{ monthLabel(section.date) }}</h3>
-            <span class="recent-month-line"></span>
-          </header>
-          <div class="recent-album-grid" :style="{ '--recent-columns': columnCount }">
-            <AlbumCard
-              v-for="album in section.albums"
-              :key="album.key"
-              :album="album"
-              :class="{ 'is-selected': selectedKey === album.key }"
-              @open="inspect(album)"
-              @play="play(album)"
-            />
-            <section
-              v-if="selected && section.albums.some((album) => album.key === selectedKey)"
-              tabindex="-1"
-              :style="{
-                gridRow:
-                  Math.floor(
-                    section.albums.findIndex((album) => album.key === selectedKey) / columnCount,
-                  ) + 2,
-              }"
-              class="recent-album-preview"
-              :aria-label="albumTitle(selected)"
-              @keydown.esc.stop="closePreview"
-            >
-              <header>
-                <div>
-                  <h4>{{ albumTitle(selected) }}</h4>
-                  <p>
-                    {{ songValues(selected.albumArtist) }} ·
-                    {{ t('library.recentAdded.tracks', { count: selected.tracks.length }) }}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  class="recent-preview-close"
-                  :aria-label="t('library.recentAdded.closePreview')"
-                  @click="closePreview"
-                >
-                  <span class="i-lucide-x" aria-hidden="true"></span>
-                </button>
-              </header>
-              <div class="recent-preview-tracks">
-                <AlbumDetailTrackList
-                  :key="selected.key"
-                  :groups="albumDiscGroups"
-                  :album-artist="selected.albumArtist"
-                  :selected-track-id="playback.state.selectedTrackId"
-                  :current-track-id="playback.state.currentTrackId"
-                  :is-playing="playback.state.isPlaying"
-                  :highlighted-track-id="null"
-                  @play="play(selected!, $event)"
-                />
-              </div>
-              <footer>
-                <button type="button" @click="play(selected)">
-                  <span class="i-lucide-play" aria-hidden="true"></span
-                  >{{ t('library.recentAdded.playAlbum') }}</button
-                ><button type="button" @click="openAlbum(selected)">
-                  {{ t('library.recentAdded.fullAlbum')
-                  }}<span class="i-lucide-arrow-up-right" aria-hidden="true"></span>
-                </button>
-              </footer>
-            </section>
-          </div>
-        </section>
-        <button
-          v-if="filtered.length > visibleCount"
-          type="button"
-          class="recent-load-more"
-          @click="visibleCount += 48"
-        >
-          {{ t('library.recentAdded.loadMore') }}
+      </div>
+    </div>
+    <MainPageStatus
+      v-if="!pageLoaded && !pageError"
+      kind="loading"
+      :title="t('albums.status.loading')"
+    />
+    <MainPageStatus
+      v-else-if="!pageLoaded && pageError"
+      kind="error"
+      :title="t('albums.status.loadError')"
+      :action-label="t('library.status.retry')"
+      @action="refresh"
+    />
+    <template v-else>
+      <div v-if="pageError" class="journal-feedback" role="status">
+        {{ t('library.journal.refreshFailed')
+        }}<button type="button" :disabled="isRefreshing" @click="refresh">
+          {{ t('library.status.retry') }}
         </button>
-      </template>
+      </div>
+      <div v-if="actionError" class="journal-feedback" role="alert">
+        {{ t('library.recentAdded.actionError')
+        }}<button
+          type="button"
+          :aria-label="t('library.journal.dismiss')"
+          @click="actionError = false"
+        >
+          <span class="i-lucide-x" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div v-if="days.length" class="journal-body">
+        <div
+          ref="scroller"
+          class="journal-scroll main-page-scroll"
+          @scroll.passive="updateActiveDay"
+        >
+          <RecentJournalDay
+            v-for="day in visibleDays"
+            :key="day.key"
+            :day="day"
+            :now="now"
+            :current-track-id="playback.state.currentTrackId"
+            :is-playing="playback.state.isPlaying"
+            @open="openAlbum"
+            @play-album="playAlbum"
+            @play-track="playTrack"
+          />
+          <nav
+            v-if="pageStart > 0 || pageStart + 7 < days.length"
+            class="journal-pagination"
+            :aria-label="t('library.journal.dateNavigation')"
+          >
+            <button
+              v-if="pageStart > 0"
+              type="button"
+              @click="showDays(Math.max(0, pageStart - 7))"
+            >
+              <span class="i-lucide-arrow-up" aria-hidden="true"></span
+              >{{ t('library.journal.newer') }}</button
+            ><button
+              v-if="pageStart + 7 < days.length"
+              type="button"
+              @click="showDays(pageStart + 7)"
+            >
+              {{ t('library.journal.older')
+              }}<span class="i-lucide-arrow-down" aria-hidden="true"></span>
+            </button>
+          </nav>
+        </div>
+        <nav class="journal-date-nav" :aria-label="t('library.journal.dateNavigation')">
+          <button
+            v-for="day in visibleDays"
+            :key="day.key"
+            type="button"
+            :aria-current="(activeDay || visibleDays[0]?.key) === day.key ? 'date' : undefined"
+            @click="jumpToDay(day.key)"
+          >
+            {{ dateLabel(day.date) }}
+          </button>
+        </nav>
+      </div>
+      <MainPageStatus
+        v-else-if="!tracks.length"
+        kind="empty"
+        :title="t('library.recentAdded.empty')"
+        :action-label="t('albums.status.manageSources')"
+        @action="openSettings('library')"
+      />
+      <MainPageStatus
+        v-else-if="!journal.length"
+        kind="empty"
+        :title="t('library.journal.emptyRange')"
+        :action-label="t('sidebar.recentAddedRangeAll')"
+        @action="selectRange('all')"
+      />
       <MainPageStatus
         v-else
         kind="empty"
-        :title="t('library.recentAdded.empty')"
-        :description="
-          t(tracks.length ? 'library.recentAdded.emptyRange' : 'albums.status.emptyDescription')
-        "
-        :action-label="
-          t(tracks.length ? 'sidebar.recentAddedRangeAll' : 'albums.status.manageSources')
-        "
-        @action="tracks.length ? setRange('all') : openSettings('library')"
+        :title="t('library.journal.emptyFilter')"
+        :action-label="t('library.journal.all')"
+        @action="filter = 'all'"
       />
-    </div>
+    </template>
   </section>
 </template>
 
 <style scoped>
 .recent-page {
   min-width: 0;
-  height: 100%;
   color: var(--auralis-text);
-}
-.recent-page-scroll {
-  min-height: 0;
-  overflow: auto;
-  flex: 1;
-  padding: 28px 40px calc(var(--auralis-playbar-safe-area, 100px) + 32px);
-  scrollbar-gutter: stable;
   container-type: inline-size;
 }
-.recent-page-header {
+.journal-page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  padding: 28px 28px 24px 0;
 }
-h1,
-h2,
-h3,
-h4,
-p {
+h1 {
   margin: 0;
 }
-.recent-page-header h1 {
+h1 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
   font-size: var(--auralis-type-page-size);
   line-height: var(--auralis-type-page-line-height);
-  font-weight: 650;
-}
-.recent-page-header p {
-  margin-top: 6px;
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  color: var(--auralis-text-faint);
-}
-button,
-input {
-  font: inherit;
-}
-button {
-  cursor: pointer;
-  border: 0;
-  background: transparent;
-  color: inherit;
-}
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring);
-  outline-offset: 3px;
-}
-.recent-ranges {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px;
-  background: var(--auralis-control-hover-bg);
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-.recent-ranges :deep(button) {
-  padding: 6px 10px;
-  border-radius: 7px;
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  color: var(--auralis-text-muted);
-  white-space: nowrap;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.recent-ranges :deep(button[aria-checked='true']) {
-  background: var(--auralis-surface-raised);
-  color: var(--auralis-text);
-  box-shadow: 0 1px 3px #00000012;
-}
-.recent-collection-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin: 36px 0 28px;
-}
-.recent-collection-toolbar > div {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-.recent-collection-toolbar h2 {
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
   font-weight: 600;
 }
-.recent-collection-toolbar span,
-.recent-month-heading {
-  color: var(--auralis-text-faint);
-  font-size: var(--auralis-type-caption-size);
+.journal-range,
+.journal-month {
+  display: flex;
+  justify-content: flex-end;
 }
-.recent-collection-search {
+.journal-range {
+  min-width: 100px;
+  flex-shrink: 0;
+}
+.journal-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 220px;
-  border-bottom: 1px solid var(--auralis-border-subtle);
-  padding: 7px 0;
-}
-.recent-collection-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--auralis-text);
-  font-size: var(--auralis-type-caption-size);
-}
-.recent-month + .recent-month {
-  margin-top: 36px;
-}
-.recent-month-heading {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
-}
-.recent-month-heading h3 {
-  font: inherit;
-  font-weight: 500;
-}
-.recent-month-line {
-  height: 1px;
-  flex: 1;
-  background: var(--auralis-border-subtle);
-}
-.recent-album-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--recent-columns), minmax(0, 1fr));
-  gap: 28px 24px;
-  align-items: start;
-}
-.recent-album-preview {
-  grid-column: 1/-1;
-  padding: 24px;
-  border-radius: var(--auralis-panel-radius, 20px);
-  background: var(--auralis-control-hover-bg);
-}
-.recent-album-preview > header {
-  display: flex;
-  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 0 0 12px;
+  margin-right: 28px;
+  border-bottom: 1px solid var(--auralis-border-subtle);
 }
-.recent-album-preview h4 {
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
-  overflow-wrap: anywhere;
+.journal-toolbar :deep(.settings-segmented-control) {
+  gap: 4px;
 }
-.recent-album-preview p {
-  font-size: var(--auralis-type-caption-size);
-  color: var(--auralis-text-muted);
-  margin-top: 5px;
-}
-.recent-preview-close {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
+.journal-toolbar :deep(.settings-segmented-option) {
+  padding: 7px 12px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
 }
-.recent-preview-tracks {
-  margin: 20px 0;
+.journal-toolbar :deep(.settings-segmented-option:hover),
+.journal-toolbar :deep(.settings-segmented-option.is-selected) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
 }
-.recent-page :deep(.album-card.is-selected .cover-frame) {
-  outline: 2px solid var(--auralis-text);
-  outline-offset: 4px;
-}
-.recent-ranges :deep(button:focus-visible) {
+.journal-toolbar :deep(button:focus-visible) {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 2px;
 }
-.recent-album-preview footer {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+.journal-month {
+  min-width: 128px;
 }
-.recent-album-preview footer button {
+.journal-body {
   display: flex;
-  gap: 7px;
-  align-items: center;
-  font-size: var(--auralis-type-caption-size);
-  padding: 4px 0;
+  flex: 1;
+  min-height: 0;
+  padding-top: 28px;
 }
-.recent-load-more {
-  display: block;
-  margin: 36px auto 0;
-  padding: 10px 24px;
-  border: 1px solid var(--auralis-border-subtle);
+.journal-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 24px calc(var(--auralis-playbar-safe-area, 100px) + 32px) 0;
+  overflow-anchor: none;
+}
+.journal-date-nav {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 6px;
+  overflow-y: auto;
+  padding-bottom: var(--auralis-playbar-safe-area, 100px);
+}
+button {
+  cursor: pointer;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  color: inherit;
+}
+button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+.journal-date-nav button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 7px 8px;
   border-radius: 8px;
-  font-size: var(--auralis-type-control-size);
+  color: var(--auralis-text-faint);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
-.recent-action-error {
-  color: var(--auralis-danger);
-  font-size: var(--auralis-type-control-size);
+.journal-date-nav button[aria-current],
+.journal-date-nav button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
 }
-@container (max-width:650px) {
-  .recent-page-header {
-    align-items: flex-start;
-    flex-direction: column;
+.journal-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 0;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  color: var(--auralis-text-muted);
+}
+.journal-pagination button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.journal-pagination button:hover {
+  background: var(--auralis-control-hover-bg);
+}
+.journal-feedback {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px 0 0;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  color: var(--auralis-text-muted);
+}
+.journal-feedback button {
+  color: var(--auralis-theme-accent);
+  padding: 4px;
+}
+.journal-feedback button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@container (max-width: 650px) {
+  .journal-page-header {
+    flex-wrap: wrap;
     gap: 16px;
   }
-  .recent-album-grid {
-    gap: 24px 18px;
-  }
-  .recent-collection-toolbar {
+  .journal-toolbar {
     flex-wrap: wrap;
-    gap: 12px;
   }
-}
-@media (max-width: 900px) {
-  .recent-page-scroll {
-    padding-inline: 24px;
+  .journal-date-nav {
+    display: none;
+  }
+  .journal-scroll {
+    padding-right: 20px;
   }
 }
 </style>

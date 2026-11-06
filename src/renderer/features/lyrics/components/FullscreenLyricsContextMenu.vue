@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
+import type { ChineseScript } from '@renderer/shared/media/chineseText'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 
 type CloseReason = 'escape' | 'tab' | 'outside' | 'focusout' | 'scroll' | 'position-error'

@@ -1,5 +1,5 @@
 import { createArtistIndex, resolveIndexArtist } from '@shared/utils/artistIndex'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 
 /** Presentation groups retain the original album identity for detail and playback. */
 export function indexedAlbums(albums: readonly AlbumSummary[]): AlbumSummary[] {
@@ -9,7 +9,7 @@ export function indexedAlbums(albums: readonly AlbumSummary[]): AlbumSummary[] {
       result.push(album)
       continue
     }
-    const groups = new Map<string, typeof album.tracks>()
+    const groups = new Map<string, Array<(typeof album.tracks)[number]>>()
     for (const track of album.tracks) {
       const name = resolveIndexArtist(track.albumArtist, track.artist) || 'Unknown Artist'
       const group = groups.get(name)

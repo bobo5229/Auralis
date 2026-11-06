@@ -2,7 +2,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import type { Playlist, PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylist, SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import type { PlaylistMembership } from '@shared/types/playlistMembership'
-import type { SharedLibraryCatalogLoad } from './sharedLibraryCatalogLoad'
+import type { SharedLibraryCatalogLoad } from '@renderer/shared/catalog/sharedLibraryCatalogLoad'
 
 interface ResolvedCatalog {
   byId: Map<number, TrackListItem>

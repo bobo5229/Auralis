@@ -17,14 +17,14 @@ export function getNextCdPlaybackMode(current: CdPlaybackMode): CdPlaybackMode {
 }
 
 export interface CdPlaybackPlan {
-  queue: TrackListItem[]
+  queue: readonly TrackListItem[]
   playbackMode: PlaybackMode
-  shufflePool?: TrackListItem[]
+  shufflePool?: readonly TrackListItem[]
   shuffleCycle?: boolean
 }
 
 export function buildCdPlaybackPlan(
-  albums: { tracks: TrackListItem[] }[],
+  albums: { tracks: readonly TrackListItem[] }[],
   trackId: number,
   mode: CdPlaybackMode,
 ): CdPlaybackPlan | null {

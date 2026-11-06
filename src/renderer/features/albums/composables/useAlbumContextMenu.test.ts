@@ -1,6 +1,6 @@
 import { effectScope, markRaw, nextTick, ref } from 'vue'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { AlbumSummary } from '../types'
+import type { AlbumSummary } from '@shared/types/albumSummary'
 import { useAlbumContextMenu } from './useAlbumContextMenu'
 
 const scopes: ReturnType<typeof effectScope>[] = []
@@ -57,7 +57,7 @@ function fixture() {
   const insert = new Element('insert')
   root.items = [play, locate, insert]
   menu.contextMenuRef.value = root as unknown as HTMLElement
-  const album = { key: 'album', tracks: [{ id: 9 }] } as AlbumSummary
+  const album = { key: 'album', tracks: [{ id: 9 }] } as unknown as AlbumSummary
   const open = (value = album) =>
     menu.openContextMenu(value, {
       currentTarget: trigger,
@@ -115,7 +115,7 @@ it('discards a reveal result after the menu is replaced or deactivated', async (
   await nextTick()
   const pending = f.menu.revealContextAlbumInExplorer()
   f.menu.deactivate()
-  f.open({ key: 'other', tracks: [{ id: 10 }] } as AlbumSummary)
+  f.open({ key: 'other', tracks: [{ id: 10 }] } as unknown as AlbumSummary)
   finish({ ok: true })
   await pending
   expect(f.reveal).toHaveBeenCalledExactlyOnceWith({ trackIds: [9] })
