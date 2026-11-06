@@ -57,13 +57,11 @@
 
 - [歌词倒计时](playback/lyrics-countdown/index.html)
 - [正在播放图标](playback/now-playing-icons/index.html)
-- [Playbar Liquid Glass 材质](playback/playbar-liquid-glass-material-demo/index.html)
 - [Playbar 竖向音量浮层](playback/playbar-vertical-volume-popover-demo/index.html)
 - [历史 Playbar 草稿](playback/auralis-playbar-prototype/index.html)
 
 ### 独立目录原型
 
-- [Deepika Liquid Glass](playback/deepika-liquid-glass/index.html)
 - [封面调色算法比较](playback/palette-comparison/README.md)
 - [静音区间检测](playback/silence-detection/README.md)
 - `playback/liquid-metal/`、`playback/liquid-metal-comparison/`、`playback/liquid-metal-refinement/`：实验素材与忽略配置，当前没有独立入口页。

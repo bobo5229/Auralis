@@ -395,21 +395,10 @@
       },
       "playbarStyle": {
         "title": "Playback bar style",
-        "description": "Choose the background style of the bottom playback bar. Liquid glass applies only to the floating island; the full-width bar stays plain.",
+        "description": "Choose the background style of the bottom playback bar.",
         "plain": "Plain",
         "frosted": "Frosted glass",
-        "liquid": "Liquid glass",
         "persistFailed": "Your selection could not be saved. Select it again to retry."
-      },
-      "liquidGlass": {
-        "title": "Liquid glass",
-        "description": "These values apply to the floating island.",
-        "scale": "Refraction",
-        "chroma": "Dispersion",
-        "blur": "Blur",
-        "saturate": "Saturation",
-        "restoreDefault": "Restore default",
-        "persistFailed": "These values stay for this session, but saving did not finish."
       },
       "playingIcon": {
         "title": "Now playing icon",
@@ -827,29 +816,7 @@
     "playCount": "{count} plays | {count} play | {count} plays",
     "recentAdded": {
       "empty": "No music has been added yet",
-      "carousel": "Recently added albums",
-      "carouselRole": "carousel",
-      "previous": "Previous album",
-      "next": "Next album",
-      "pause": "Pause slideshow",
-      "resume": "Resume slideshow",
-      "collectionDescription": "Make room for the music you have just discovered.",
-      "collectionTitle": "Your collection, over time",
-      "albumCount": "{count} albums",
-      "heroEyebrow": "NEW IN YOUR COLLECTION",
-      "playAlbum": "Play album",
-      "previewTracks": "Browse tracks",
-      "inspectAlbum": "Browse tracks on {title}",
-      "tracks": "{count} tracks",
       "days": "Last {count} days",
-      "undated": "Earlier additions",
-      "search": "Search albums or artists",
-      "noSearchResults": "No matching albums",
-      "clearSearch": "Clear search",
-      "closePreview": "Close track preview",
-      "fullAlbum": "View full album",
-      "loadMore": "Browse earlier additions",
-      "emptyRange": "No albums were added during this period.",
       "actionError": "The action could not be completed. Try again."
     },
     "columns": {

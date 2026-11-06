@@ -35,12 +35,6 @@ import {
   usePlaybarLayout,
   type PlaybarLayout,
 } from '@renderer/features/appearance/composables/usePlaybarLayout'
-import {
-  LIQUID_GLASS_PARAMETER_FIELDS,
-  LIQUID_GLASS_PARAMETER_LIMITS,
-  useLiquidGlassParameters,
-  type LiquidGlassParameterField,
-} from '@renderer/features/appearance/composables/useLiquidGlassParameters'
 import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
@@ -136,28 +130,6 @@ const playbarStyleOptions = computed(() =>
     label: t(`settings.appearance.playbarStyle.${value}`),
   })),
 )
-const {
-  parameters: liquidGlassParameters,
-  persistFailed: liquidGlassPersistFailed,
-  atDefaults: liquidGlassAtDefaults,
-  setParameter: setLiquidGlassParameter,
-  resetParameters: resetLiquidGlassParameters,
-} = useLiquidGlassParameters()
-
-function liquidGlassProgress(field: LiquidGlassParameterField): string {
-  const limit = LIQUID_GLASS_PARAMETER_LIMITS[field]
-  const value = liquidGlassParameters.value[field]
-  return `${((value - limit.min) / (limit.max - limit.min)) * 100}%`
-}
-
-function formatLiquidGlassValue(field: LiquidGlassParameterField): string {
-  const value = liquidGlassParameters.value[field]
-  return field === 'saturate' ? value.toFixed(1) : String(value)
-}
-
-function selectLiquidGlassParameter(field: LiquidGlassParameterField, event: Event): void {
-  setLiquidGlassParameter(field, Number((event.target as HTMLInputElement).value))
-}
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
 const playingIconOptions = computed(() =>
   PLAYING_ICON_PRESETS.map((value) => ({
@@ -321,58 +293,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :options="playbarStyleOptions"
             @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
           />
-        </div>
-        <div v-if="playbarStyle === 'liquid'" class="liquid-glass-parameters">
-          <div class="settings-row settings-row--with-desc liquid-glass-parameter-header">
-            <div>
-              <strong id="appearance-liquid-glass-label">{{
-                t('settings.appearance.liquidGlass.title')
-              }}</strong>
-              <span id="appearance-liquid-glass-description">{{
-                t('settings.appearance.liquidGlass.description')
-              }}</span>
-              <span v-if="liquidGlassPersistFailed" class="settings-status--error" role="status">{{
-                t('settings.appearance.liquidGlass.persistFailed')
-              }}</span>
-            </div>
-            <button
-              type="button"
-              class="settings-text-button"
-              :disabled="liquidGlassAtDefaults"
-              aria-describedby="appearance-liquid-glass-description"
-              @click="resetLiquidGlassParameters"
-            >
-              {{ t('settings.appearance.liquidGlass.restoreDefault') }}
-            </button>
-          </div>
-          <div
-            v-for="field in LIQUID_GLASS_PARAMETER_FIELDS"
-            :key="field"
-            class="settings-row liquid-glass-parameter-row"
-          >
-            <div>
-              <strong :id="`appearance-liquid-glass-${field}-label`">{{
-                t(`settings.appearance.liquidGlass.${field}`)
-              }}</strong>
-            </div>
-            <div class="settings-range-control">
-              <input
-                :id="`appearance-liquid-glass-${field}`"
-                type="range"
-                :min="LIQUID_GLASS_PARAMETER_LIMITS[field].min"
-                :max="LIQUID_GLASS_PARAMETER_LIMITS[field].max"
-                :step="LIQUID_GLASS_PARAMETER_LIMITS[field].step"
-                :value="liquidGlassParameters[field]"
-                :style="{ '--settings-range-progress': liquidGlassProgress(field) }"
-                :aria-labelledby="`appearance-liquid-glass-${field}-label`"
-                :aria-valuetext="formatLiquidGlassValue(field)"
-                @input="selectLiquidGlassParameter(field, $event)"
-              />
-              <output :for="`appearance-liquid-glass-${field}`">{{
-                formatLiquidGlassValue(field)
-              }}</output>
-            </div>
-          </div>
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">
           <div>
@@ -611,93 +531,8 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
   margin-left: auto;
 }
 
-/* Keep the optical controls together without changing shared slider layouts. */
-.liquid-glass-parameters {
-  container: liquid-glass-parameters / inline-size;
-  width: 100%;
-  max-width: 760px;
-}
-
-.appearance-settings :deep(.settings-row + .dark-accent-settings),
-.liquid-glass-parameters,
-.liquid-glass-parameters + .settings-row {
+.appearance-settings :deep(.settings-row + .dark-accent-settings) {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-}
-
-.appearance-settings .liquid-glass-parameter-header {
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.liquid-glass-parameter-header > div {
-  flex: 1 1 240px;
-}
-
-.liquid-glass-parameter-header > button {
-  margin-left: auto;
-}
-
-.appearance-settings .settings-row.liquid-glass-parameter-row {
-  display: grid;
-  box-sizing: border-box;
-  grid-template-columns: 128px minmax(0, 1fr) 64px;
-  grid-template-rows: auto;
-  align-items: center;
-  gap: 0 16px;
-  height: auto;
-  min-height: 56px;
-  max-height: none;
-}
-
-.appearance-settings .liquid-glass-parameter-row > div:first-child {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.appearance-settings .liquid-glass-parameter-row > div:first-child > strong {
-  overflow: visible;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-}
-
-.appearance-settings .liquid-glass-parameter-row > .settings-range-control {
-  display: contents;
-}
-
-.appearance-settings .liquid-glass-parameter-row .settings-range-control input {
-  grid-column: 2;
-  grid-row: 1;
-  width: 100%;
-  min-width: 0;
-}
-
-.appearance-settings .liquid-glass-parameter-row .settings-range-control output {
-  grid-column: 3;
-  grid-row: 1;
-  min-width: 0;
-  justify-self: end;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-@container liquid-glass-parameters (width < 600px) {
-  .appearance-settings .settings-row.liquid-glass-parameter-row {
-    grid-template-columns: minmax(0, 1fr) 64px;
-    grid-template-rows: auto auto;
-    min-height: 64px;
-    row-gap: 4px;
-  }
-
-  .appearance-settings .liquid-glass-parameter-row .settings-range-control input {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .appearance-settings .liquid-glass-parameter-row .settings-range-control output {
-    grid-column: 2;
-  }
 }
 
 .startup-album-actions .startup-album-draw {

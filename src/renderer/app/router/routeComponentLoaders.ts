@@ -1,6 +1,6 @@
 import type { RouteComponent } from 'vue-router'
 
-export type WarmableRouteName = 'library' | 'albums' | 'archive'
+export type WarmableRouteName = 'library' | 'albums' | 'recent-added' | 'archive'
 
 export type RouteComponentModule = RouteComponent | { default: RouteComponent }
 export type RouteComponentLoader = () => Promise<RouteComponentModule>
@@ -8,6 +8,7 @@ export type RouteComponentLoader = () => Promise<RouteComponentModule>
 export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
   'library',
   'albums',
+  'recent-added',
   'archive',
 ] as const
 
@@ -66,6 +67,7 @@ export function createRouteLoaderRegistry(
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {
     library: routeLoaders.library,
     albums: routeLoaders.albums,
+    'recent-added': routeLoaders.recentAdded,
     archive: routeLoaders.archive,
   }
 

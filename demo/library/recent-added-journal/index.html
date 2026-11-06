@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 入库手记</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">a</span>Auralis</div>
+      <div class="nav-label">我的音乐</div>
+      <div class="nav-item"><span>♫</span>歌曲</div>
+      <div class="nav-item"><span>◎</span>专辑</div>
+      <div class="nav-item current" aria-current="page"><span>◷</span>最近添加</div>
+      <div class="nav-item"><span>♡</span>喜爱</div>
+      <div class="sidebar-note">音乐，慢慢收藏。<br /><span>本地音乐档案</span></div>
+      <div class="prototype">设计预览 · 示例收藏</div>
+    </aside>
+
+    <main id="main">
+      <header class="page-header">
+        <div>
+          <div class="eyebrow">YOUR COLLECTION, OVER TIME</div>
+          <h1>最近添加<span class="title-note">入库手记</span></h1>
+          <p>每一次加入，都留在这里。</p>
+        </div>
+        <button id="theme" class="icon-button" aria-label="切换深浅主题" title="切换深浅主题">
+          ◐
+        </button>
+      </header>
+
+      <div class="toolbar">
+        <div class="filters" role="group" aria-label="记录类型">
+          <button data-filter="all" aria-pressed="true">全部记录</button>
+          <button data-filter="album" aria-pressed="false">专辑入库</button>
+          <button data-filter="addition" aria-pressed="false">补入曲目</button>
+        </div>
+        <span class="archive-caption">2026 年 · 11 月</span>
+      </div>
+
+      <div class="journal">
+        <section class="day" id="day-07">
+          <div class="date-column">
+            <span class="date-relative">今天</span><span class="date-number">07</span
+            ><span class="date-month">11 月 · 周六</span>
+          </div>
+          <div class="day-content">
+            <article class="entry" data-kind="album">
+              <header class="entry-header">
+                <div>
+                  <span class="event-dot"></span>
+                  <h2>三张唱片，加入收藏</h2>
+                </div>
+                <time>14:32</time>
+              </header>
+              <p class="entry-subtitle">3 张专辑<span>·</span>33 首曲目</p>
+              <div class="album-row">
+                <button class="album" data-album="blue">
+                  <span class="sleeve"
+                    ><img
+                      src="../../playback/palette-comparison/assets/kind-of-blue.jpg"
+                      alt="Kind of Blue 专辑封面"
+                    /><span class="cover-action">翻阅唱片 ↗</span></span
+                  ><strong>Kind of Blue</strong><span>Miles Davis <i>1959</i></span>
+                </button>
+                <button class="album" data-album="abbey">
+                  <span class="sleeve"
+                    ><img
+                      src="../../playback/palette-comparison/assets/abbey-road.jpg"
+                      alt="Abbey Road 专辑封面"
+                    /><span class="cover-action">翻阅唱片 ↗</span></span
+                  ><strong>Abbey Road</strong><span>The Beatles <i>1969</i></span>
+                </button>
+                <button class="album" data-album="post">
+                  <span class="sleeve"
+                    ><img
+                      src="../../playback/palette-comparison/assets/post.jpg"
+                      alt="Post 专辑封面"
+                    /><span class="cover-action">翻阅唱片 ↗</span></span
+                  ><strong>Post</strong><span>Björk <i>1995</i></span>
+                </button>
+              </div>
+            </article>
+
+            <article class="entry addition" data-kind="addition">
+              <header class="entry-header">
+                <div>
+                  <span class="event-dot hollow"></span>
+                  <h2>为已有唱片，补入两首</h2>
+                </div>
+                <time>10:18</time>
+              </header>
+              <div class="addition-summary">
+                <img
+                  src="../../playback/palette-comparison/assets/white-album.jpg"
+                  alt="The Beatles 专辑封面"
+                />
+                <div>
+                  <h3>The Beatles <span class="edition">White Album</span></h3>
+                  <p>The Beatles <span>·</span>1968</p>
+                </div>
+                <span class="added-count">＋ 2 首</span>
+              </div>
+              <div class="added-tracks">
+                <div>
+                  <span class="track-marker">＋</span><span>Blackbird</span
+                  ><span class="track-disc">DISC 1 · 11</span><time>2:18</time>
+                </div>
+                <div>
+                  <span class="track-marker">＋</span><span>I Will</span
+                  ><span class="track-disc">DISC 1 · 16</span><time>1:46</time>
+                </div>
+              </div>
+              <button class="text-button" data-album="white">查看这张唱片 <span>↗</span></button>
+            </article>
+          </div>
+        </section>
+
+        <section class="day" id="day-06">
+          <div class="date-column">
+            <span class="date-relative">昨天</span><span class="date-number">06</span
+            ><span class="date-month">11 月 · 周五</span>
+          </div>
+          <div class="day-content">
+            <article class="entry single-entry" data-kind="album">
+              <header class="entry-header">
+                <div>
+                  <span class="event-dot"></span>
+                  <h2>一张新唱片</h2>
+                </div>
+                <time>21:46</time>
+              </header>
+              <button class="single-album" data-album="melodrama">
+                <span class="sleeve"
+                  ><img
+                    src="../../playback/palette-comparison/assets/melodrama.jpg"
+                    alt="Melodrama 专辑封面"
+                  /><span class="cover-action">翻阅唱片 ↗</span></span
+                ><span class="single-copy"
+                  ><span class="small-label">ADDED TO YOUR COLLECTION</span
+                  ><strong>Melodrama</strong><span>Lorde <span class="separator">/</span>2017</span
+                  ><span class="single-count">11 首曲目</span
+                  ><span class="single-link">翻阅这张唱片 ↗</span></span
+                >
+              </button>
+            </article>
+          </div>
+        </section>
+
+        <section class="day" id="day-02">
+          <div class="date-column">
+            <span class="date-relative">星期一</span><span class="date-number">02</span
+            ><span class="date-month">11 月 · 2026</span>
+          </div>
+          <div class="day-content">
+            <article class="entry" data-kind="album">
+              <header class="entry-header">
+                <div>
+                  <span class="event-dot"></span>
+                  <h2>又收进三张唱片</h2>
+                </div>
+                <time>19:05</time>
+              </header>
+              <p class="entry-subtitle">3 张专辑<span>·</span>41 首曲目</p>
+              <div class="album-row compact">
+                <button class="album" data-album="unknown">
+                  <span class="sleeve"
+                    ><img
+                      src="../../playback/palette-comparison/assets/unknown-pleasures.jpg"
+                      alt="Unknown Pleasures 专辑封面"
+                    /><span class="cover-action">翻阅唱片 ↗</span></span
+                  ><strong>Unknown Pleasures</strong><span>Joy Division <i>1979</i></span>
+                </button>
+                <button class="album" data-album="1989">
+                  <span class="sleeve"
+                    ><img
+                      src="../../playback/palette-comparison/assets/1989.jpg"
+                      alt="1989 专辑封面"
+                    /><span class="cover-action">翻阅唱片 ↗</span></span
+                  ><strong>1989</strong><span>Taylor Swift <i>2014</i></span>
+                </button>
+                <button class="album" data-album="lover">
+                  <span class="sleeve"
+                    ><img src="../../albums/selection-patch/lover.jpg" alt="Lover 专辑封面" /><span
+                      class="cover-action"
+                      >翻阅唱片 ↗</span
+                    ></span
+                  ><strong>Lover</strong><span>Taylor Swift <i>2019</i></span>
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+        <footer class="journal-end"><span></span>收藏仍在继续<span></span></footer>
+      </div>
+    </main>
+
+    <aside class="month-rail" aria-label="跳转到日期">
+      <span>2026</span><strong>11 月</strong
+      ><a href="#day-07" data-day="day-07" class="active">07</a
+      ><a href="#day-06" data-day="day-06">06</a><a href="#day-02" data-day="day-02">02</a>
+      <div class="rail-line"></div>
+      <span>入库手记</span>
+    </aside>
+
+    <dialog id="album-dialog" aria-labelledby="dialog-title">
+      <button class="dialog-close icon-button" aria-label="关闭唱片预览">×</button>
+      <div class="dialog-header">
+        <img id="dialog-cover" alt="" />
+        <div>
+          <span class="small-label">收藏中的唱片</span>
+          <h2 id="dialog-title"></h2>
+          <p id="dialog-artist"></p>
+          <p id="dialog-note"></p>
+        </div>
+      </div>
+      <h3 class="dialog-track-heading">曲目预览</h3>
+      <ol id="dialog-tracks"></ol>
+      <p class="dialog-footnote">示例曲目节选 · 此 demo 不播放音频</p>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>

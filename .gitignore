@@ -48,6 +48,7 @@ coverage
 # Local validation output, review artifacts, and dependency snapshots
 # Existing tracked evidence remains tracked.
 /output/
+/src/renderer/output/
 
 # Tool caches and intermediate files
 .grunt

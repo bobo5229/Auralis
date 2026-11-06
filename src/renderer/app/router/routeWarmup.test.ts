@@ -67,7 +67,7 @@ describe('routeWarmup', () => {
     expect(loadMock).toHaveBeenCalledTimes(1)
   })
 
-  it('runs idle warmup sequentially: Library -> Albums -> Archive', async () => {
+  it('runs idle warmup sequentially: Library -> Albums -> Recent additions -> Archive', async () => {
     const loaded: WarmableRouteName[] = []
     const loadMock = vi.fn().mockImplementation(async (name: WarmableRouteName) => {
       loaded.push(name)
@@ -94,9 +94,11 @@ describe('routeWarmup', () => {
     expect(loaded).toEqual(['library', 'albums'])
     expect(scheduler.pendingCount).toBe(1)
 
-    // Trigger third idle -> archive
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['library', 'albums', 'archive'])
+    expect(loaded).toEqual(['library', 'albums', 'recent-added'])
+    expect(scheduler.pendingCount).toBe(1)
+    await scheduler.triggerNext()
+    expect(loaded).toEqual(['library', 'albums', 'recent-added', 'archive'])
     expect(scheduler.pendingCount).toBe(0)
     expect(coordinator._getPendingIdleQueue()).toEqual([])
   })
@@ -126,6 +128,8 @@ describe('routeWarmup', () => {
     // Next idle should load albums and finish
     await scheduler.triggerNext()
     expect(loaded).toEqual(['archive', 'library', 'albums'])
+    await scheduler.triggerNext()
+    expect(loaded).toEqual(['archive', 'library', 'albums', 'recent-added'])
     expect(scheduler.pendingCount).toBe(0)
   })
 
@@ -190,8 +194,11 @@ describe('routeWarmup', () => {
     expect(loadRoute).toHaveBeenLastCalledWith('albums')
     time = 4500
     await scheduler.triggerNext(0.25)
+    expect(loadRoute).toHaveBeenLastCalledWith('recent-added')
+    time = 6000
+    await scheduler.triggerNext(0.25)
     expect(loadRoute).toHaveBeenLastCalledWith('archive')
-    expect(loadRoute).toHaveBeenCalledTimes(3)
+    expect(loadRoute).toHaveBeenCalledTimes(4)
     expect(scheduler.pendingCount).toBe(0)
   })
 

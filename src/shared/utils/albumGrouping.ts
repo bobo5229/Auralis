@@ -20,6 +20,7 @@ export function selectAlbumTracks(
     .sort(compareAlbumTracks)
 }
 
+/** Disc, track number and title order shared by album and journal entries. */
 export function compareAlbumTracks(left: TrackListItem, right: TrackListItem): number {
   const discOrder = (left.discNo ?? 1) - (right.discNo ?? 1)
   if (discOrder !== 0) return discOrder

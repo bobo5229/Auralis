@@ -38,7 +38,11 @@ const [playerBar, playerSurface, mainCss, libraryPage] = await Promise.all([
 assertIncludes(playerSurface, "displayMode === 'normal'", 'visible PlayerBar effects gate')
 assertIncludes(playerBar, 'enabled: paletteEnabled', 'artwork palette gate')
 assertIncludes(playerBar, 'class="player-bar-surface"', 'PlayerBar base surface')
-assertExcludes(playerBar, /useLiquidGlassFilter|player-bar-glass/, 'PlayerBar retired glass effect')
+assertExcludes(
+  playerBar,
+  /useLiquidGlassFilter|useLiquidGlassParameters|isPlaybarLiquidSurface|:liquid|player-bar-glass/,
+  'PlayerBar retired glass effect',
+)
 assertIncludes(mainCss, '.player-bar-island', 'modern PlayerBar island')
 assertIncludes(mainCss, '@container modern-player-bar', 'narrow modern PlayerBar layout')
 assertIncludes(libraryPage, 'LIBRARY_LAYOUT_METRICS', 'library virtual-list geometry')

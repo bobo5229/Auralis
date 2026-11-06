@@ -40,7 +40,7 @@ export function useSidebarNavigation({ route, libraryStats, t }: SidebarNavigati
       to: '/recent-added',
       label: t('sidebar.recentAdded'),
       icon: 'recentAdded',
-      routeName: 'library',
+      routeName: 'recent-added',
     },
     {
       to: '/archive',

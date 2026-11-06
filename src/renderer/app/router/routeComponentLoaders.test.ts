@@ -10,7 +10,8 @@ describe('routeComponentLoaders', () => {
     const recentAdded = vi.fn().mockResolvedValue({ default: { name: 'RecentAddedPage' } })
     const library = vi.fn()
     const registry = createRouteLoaderRegistry({ recentAdded, library })
-    await registry.routeLoaders.recentAdded()
+    expect(registry.isWarmableRoute('recent-added')).toBe(true)
+    await registry.loadRoute('recent-added')
     expect(recentAdded).toHaveBeenCalledOnce()
     expect(library).not.toHaveBeenCalled()
   })
@@ -54,8 +55,8 @@ describe('routeComponentLoaders', () => {
     expect(archive).toHaveBeenCalledTimes(1)
   })
 
-  it('defines primary warmable routes strictly matching library, albums and archive', () => {
-    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive'])
+  it('defines primary warmable routes strictly matching the four primary navigation targets', () => {
+    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'recent-added', 'archive'])
   })
 
   it('correctly checks isWarmableRoute only for valid warmable routes', () => {
