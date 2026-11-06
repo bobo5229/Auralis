@@ -12,6 +12,7 @@ export function useLibraryScanSettings() {
   let active = false
   let unsubscribe: (() => void) | undefined
   let scanStatusRevision = 0
+  const pendingProgressStatus = new Map<number, Promise<void>>()
   const activeRoot = computed(() => readonly(roots).value[0] ?? null)
   const isScanning = computed(() => scanStatus.value?.status === 'scanning')
   const totalFiles = computed(
@@ -23,15 +24,20 @@ export function useLibraryScanSettings() {
   const failedFiles = computed(
     () => currentProgress.value?.failedFiles ?? scanStatus.value?.failedFiles ?? 0,
   )
-  const progressPercent = computed(() => {
-    if (totalFiles.value === 0) return 0
-    return Math.min(100, Math.round((scannedFiles.value / totalFiles.value) * 100))
-  })
+  const scanPhase = computed(
+    () => currentProgress.value?.phase ?? scanStatus.value?.phase ?? 'reading',
+  )
   async function refreshScanStatus(jobId?: number): Promise<void> {
     const revision = ++scanStatusRevision
     const nextStatus = await auralis.library.getScanStatus(jobId)
     if (!active || revision !== scanStatusRevision) return
-    scanStatus.value = nextStatus
+    const progress = currentProgress.value
+    scanStatus.value =
+      nextStatus?.jobId === progress?.jobId &&
+      nextStatus?.status === 'scanning' &&
+      progress?.status === 'scanning'
+        ? { ...nextStatus, ...progress }
+        : nextStatus
     if (currentProgress.value?.jobId !== nextStatus?.jobId) currentProgress.value = null
   }
   async function chooseFolder(): Promise<void> {
@@ -94,13 +100,29 @@ export function useLibraryScanSettings() {
   onMounted(() => {
     active = true
     unsubscribe = auralis.library.onScanProgress(async (progress) => {
-      if (scanStatus.value && progress.jobId < scanStatus.value.jobId) return
+      if (
+        !active ||
+        progress.jobId < Math.max(scanStatus.value?.jobId ?? 0, currentProgress.value?.jobId ?? 0)
+      )
+        return
       try {
         currentProgress.value = progress
         if (scanStatus.value?.jobId === progress.jobId) {
+          scanStatusRevision++
           scanStatus.value = { ...scanStatus.value, ...progress }
+          if (progress.status !== 'scanning') await refreshScanStatus(progress.jobId)
+        } else if (progress.status === 'scanning') {
+          let pending = pendingProgressStatus.get(progress.jobId)
+          if (!pending) {
+            pending = refreshScanStatus(progress.jobId).finally(() => {
+              pendingProgressStatus.delete(progress.jobId)
+            })
+            pendingProgressStatus.set(progress.jobId, pending)
+          }
+          await pending
+        } else {
+          await refreshScanStatus(progress.jobId)
         }
-        await refreshScanStatus(progress.jobId)
 
         if (progress.status === 'completed') {
           const nextRoots = await auralis.library.getRoots()
@@ -126,7 +148,7 @@ export function useLibraryScanSettings() {
     totalFiles,
     scannedFiles,
     failedFiles,
-    progressPercent,
+    scanPhase,
     readRoots,
     publishRoots,
     reportLoadError,

@@ -102,6 +102,32 @@ beforeEach(() => {
 })
 
 describe('scan orchestration boundaries', () => {
+  it('reads discovered audio before traversal of a later directory finishes', async () => {
+    let release!: () => void
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    harness.readdir.mockImplementation(async (path: string) => {
+      if (path === rootPath) return [entry('first.flac'), entry('later', 'directory')]
+      await blocked
+      return [entry('last.flac')]
+    })
+    const running = scan()
+    await vi.waitFor(() => expect(harness.parseFile).toHaveBeenCalled())
+    expect(harness.parseFile.mock.calls[0][0]).toBe(join(rootPath, 'first.flac'))
+    release()
+    const messages = await running
+    expect(messages.at(-1)).toEqual({
+      type: 'complete',
+      payload: {
+        foundFilePaths: [join(rootPath, 'first.flac'), join(rootPath, 'later', 'last.flac')],
+        unreadableDirectoryPaths: [],
+      },
+    })
+    expect(messages.filter((message) => message.type === 'progress').at(-1)?.payload).toMatchObject(
+      { totalFiles: 2, scannedFiles: 2, failedFiles: 0 },
+    )
+  })
   it.each(['ctimeMs', 'dev', 'ino'] as const)(
     'rejects a file replaced during parsing even when size and mtime match: %s',
     async (changedField) => {
@@ -156,7 +182,7 @@ describe('scan orchestration boundaries', () => {
         totalFiles: 0,
         scannedFiles: 0,
         failedFiles: 0,
-        message: 'Scan complete',
+        message: 'Settling library scan',
       }),
     ])
     expect(messages.at(-1)).toEqual({
@@ -284,6 +310,13 @@ describe('scan orchestration boundaries', () => {
       message.payload.map((track) => track.filePath),
     )
     expect(new Set(emittedPaths)).toEqual(new Set(paths))
+    const inventory = messages.filter(
+      (message) => message.type === 'inventory' || message.type === 'complete',
+    )
+    expect(inventory.map((message) => message.payload.foundFilePaths.length)).toEqual([300, 300, 1])
+    expect(new Set(inventory.flatMap((message) => message.payload.foundFilePaths))).toEqual(
+      new Set(paths),
+    )
     expect(messages.slice(-3).map((message) => message.type)).toEqual([
       'tracks',
       'progress',
@@ -396,6 +429,26 @@ describe('scan orchestration boundaries', () => {
 })
 
 describe('per-file artwork priority', () => {
+  it('shares simultaneous directory fingerprint probes and observes later file changes', async () => {
+    let release!: (value: unknown) => void
+    harness.stat.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        }),
+    )
+    const artwork = new LibraryScanArtwork('C:\\IsolatedCache')
+    const probes = Array.from({ length: 8 }, (_, i) =>
+      artwork.getDirectoryFingerprint(join(rootPath, `${i}.flac`)),
+    )
+    expect(harness.stat).toHaveBeenCalledTimes(1)
+    release({ size: 100, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1 })
+    const first = await Promise.all(probes)
+    expect(new Set(first).size).toBe(1)
+    harness.stat.mockResolvedValue({ size: 101, mtimeMs: 2, ctimeMs: 2, dev: 1, ino: 1 })
+    expect(await artwork.getDirectoryFingerprint(join(rootPath, 'later.flac'))).not.toBe(first[0])
+    expect(harness.stat).toHaveBeenCalledTimes(2)
+  })
   const embeddedKey = `v2-${'b'.repeat(64)}.webp`
   const otherEmbeddedKey = `v2-${'c'.repeat(64)}.webp`
   const withPicture = (name: string): IAudioMetadata => ({

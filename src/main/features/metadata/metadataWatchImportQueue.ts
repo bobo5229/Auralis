@@ -11,9 +11,10 @@ export class MetadataWatchImportQueue {
 
   constructor(
     private readonly incrementalImportService: LibraryIncrementalImportService,
-    private readonly onPending: (filePath: string) => void,
-    private readonly scheduleFlush: (delay?: number) => void,
+    private readonly onPending: (filePath: string, retryDelay?: number) => void,
+    private readonly scheduleFlush: () => void,
     private readonly isPathActive: (filePath: string) => boolean,
+    private readonly rootsVersion?: () => number,
   ) {}
 
   deferIfInFlight(filePath: string): boolean {
@@ -39,8 +40,14 @@ export class MetadataWatchImportQueue {
     filePaths = filePaths.filter((filePath) => this.isPathActive(filePath))
     if (filePaths.length === 0) return
     for (const filePath of filePaths) this.inFlightFilePaths.add(filePath)
+    const version = this.rootsVersion?.()
     try {
-      const result = await this.incrementalImportService.importFiles(filePaths)
+      const result = await (this.rootsVersion
+        ? this.incrementalImportService.importFiles(
+            filePaths,
+            (filePath) => version === this.rootsVersion?.() && this.isPathActive(filePath),
+          )
+        : this.incrementalImportService.importFiles(filePaths))
 
       // Release in-flight and drain deferred for imported files
       for (const filePath of result.imported) {
@@ -73,17 +80,19 @@ export class MetadataWatchImportQueue {
             logger.warn({ filePath, retries }, 'Dropping unstable file after max retries')
           } else {
             this.unstableRetries.set(filePath, retries)
-            this.onPending(filePath)
+            this.onPending(filePath, UNSTABLE_RETRY_DELAY_MS)
           }
         }
 
-        this.scheduleFlush(UNSTABLE_RETRY_DELAY_MS)
+        this.scheduleFlush()
       }
     } catch (error) {
       // Release all in-flight on unexpected error and drain deferred
       for (const filePath of filePaths) {
         this.releaseInFlight(filePath)
+        if (this.isPathActive(filePath)) this.onPending(filePath, UNSTABLE_RETRY_DELAY_MS)
       }
+      this.scheduleFlush()
       logger.warn({ error, count: filePaths.length }, 'Incremental import failed')
     }
   }

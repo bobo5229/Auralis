@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { PlaybackResourceService } from './playbackResourceService'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 vi.mock('electron', () => ({ protocol: {} }))
 vi.mock('node:fs/promises', () => ({ stat: vi.fn() }))
@@ -43,6 +44,27 @@ beforeEach(() => {
 })
 
 describe('playback resource resolution', () => {
+  it('rechecks the current path after waiting to mark a missing file', async () => {
+    const f = setup()
+    const admission = new DatabaseWriteAdmission()
+    const lease = await admission.acquireExclusive()
+    vi.mocked(stat).mockRejectedValue(Object.assign(new Error('Missing'), { code: 'ENOENT' }))
+    const service = new PlaybackResourceService({
+      tracks: f.tracks,
+      files: f.files,
+      getRootPaths: f.getRootPaths,
+      libraryChanged: f.libraryChanged,
+      writeAdmission: admission,
+    })
+    const result = service.getAudioUrl(1)
+    await vi.waitFor(() => expect(stat).toHaveBeenCalled())
+    f.tracks.getFilePathById.mockReturnValue(join(root, 'replacement.flac'))
+    lease.release()
+    await expect(result).resolves.toBeNull()
+    expect(f.tracks.markMissingByFilePaths).not.toHaveBeenCalled()
+    expect(f.libraryChanged).not.toHaveBeenCalled()
+    expect(f.files.releaseReadLease).toHaveBeenCalledOnce()
+  })
   it('keeps the read lease until the decode probe completes', async () => {
     let finish!: (value: typeof probe) => void
     vi.mocked(probeAudioDecode).mockReturnValue(
@@ -145,11 +167,102 @@ describe('playback resource resolution', () => {
     const f = setup()
     await expect(f.service.resolveTrack(1)).resolves.toBe(path)
     expect(f.tracks.getFilePathById).toHaveBeenCalledTimes(2)
+    expect(probeAudioDecode).not.toHaveBeenCalled()
   })
 
-  it('rejects a track removed between probing and native path resolution', async () => {
+  it('rejects a track removed during native path validation', async () => {
     const f = setup()
     f.tracks.getFilePathById.mockReturnValueOnce(path).mockReturnValueOnce(null)
     await expect(f.service.resolveTrack(1)).rejects.toThrow('Audio file is unavailable')
   })
+
+  it.each([
+    ['valid replacement', join(root, 'replacement.flac')],
+    ['missing replacement', join(root, 'missing.flac')],
+    ['unsupported replacement', join(root, 'notes.txt')],
+    ['outside replacement', resolve(root, '..', 'other-library', 'song.flac')],
+    ['removed track', null],
+  ])(
+    'rejects %s during native file checking without returning an unvalidated path',
+    async (_name, replacement) => {
+      let finish!: (value: Stats) => void
+      vi.mocked(stat).mockReturnValue(
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      )
+      const f = setup()
+      const pending = f.service.resolveTrack(1)
+      await vi.waitFor(() => expect(stat).toHaveBeenCalledWith(path))
+      f.tracks.getFilePathById.mockReturnValue(replacement)
+      finish({ isFile: () => true } as Stats)
+      await expect(pending).rejects.toThrow('Audio file is unavailable')
+      expect(probeAudioDecode).not.toHaveBeenCalled()
+      expect(stat).toHaveBeenCalledExactlyOnceWith(path)
+      expect(f.tracks.markMissingByFilePaths).not.toHaveBeenCalled()
+      expect(f.files.releaseReadLease).toHaveBeenCalledExactlyOnceWith('probe-lease')
+    },
+  )
+
+  it('rejects a resource when its root is removed during the probe', async () => {
+    let finish!: (value: typeof probe) => void
+    vi.mocked(probeAudioDecode).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const f = setup()
+    const pending = f.service.getAudioUrl(1)
+    await vi.waitFor(() => expect(probeAudioDecode).toHaveBeenCalledWith(path))
+    f.getRootPaths.mockReturnValue([])
+    finish(probe)
+    await expect(pending).resolves.toBeNull()
+    expect(f.files.releaseReadLease).toHaveBeenCalledExactlyOnceWith('probe-lease')
+    expect(f.tracks.markMissingByFilePaths).not.toHaveBeenCalled()
+  })
+
+  it('rejects the native path if roots change while stat is pending', async () => {
+    let finish!: (value: Stats) => void
+    vi.mocked(stat).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const f = setup()
+    const pending = f.service.resolveTrack(1)
+    await vi.waitFor(() => expect(stat).toHaveBeenCalledWith(path))
+    f.getRootPaths.mockReturnValue([])
+    finish({ isFile: () => true } as Stats)
+    await expect(pending).rejects.toThrow('Audio file is unavailable')
+    expect(probeAudioDecode).not.toHaveBeenCalled()
+    expect(f.files.releaseReadLease).toHaveBeenCalledExactlyOnceWith('probe-lease')
+  })
+
+  it('rejects the renderer resource if the track changes while probing', async () => {
+    let finish!: (value: typeof probe) => void
+    vi.mocked(probeAudioDecode).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const f = setup()
+    const pending = f.service.getAudioUrl(1)
+    await vi.waitFor(() => expect(probeAudioDecode).toHaveBeenCalledWith(path))
+    f.tracks.getFilePathById.mockReturnValue(join(root, 'replacement.flac'))
+    finish(probe)
+    await expect(pending).resolves.toBeNull()
+    expect(f.files.releaseReadLease).toHaveBeenCalledExactlyOnceWith('probe-lease')
+  })
+
+  it.each(['ENOENT', 'ENOTDIR', 'EACCES'])(
+    'preserves native file error classification for %s',
+    async (code) => {
+      vi.mocked(stat).mockRejectedValue(Object.assign(new Error('Unavailable'), { code }))
+      const f = setup()
+      await expect(f.service.resolveTrack(1)).rejects.toThrow('Audio file is unavailable')
+      expect(f.tracks.markMissingByFilePaths).toHaveBeenCalledTimes(code === 'EACCES' ? 0 : 1)
+      expect(probeAudioDecode).not.toHaveBeenCalled()
+      expect(f.files.releaseReadLease).toHaveBeenCalledExactlyOnceWith('probe-lease')
+    },
+  )
 })

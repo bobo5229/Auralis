@@ -30,17 +30,23 @@ export interface LibraryScanWorkerInput {
   rootPath: string
   knownFiles: KnownTrackFile[]
   artworkCacheDir: string
+  messageCredits?: SharedArrayBuffer
+  databasePath?: string
+  rootId?: number
 }
 
-export type LibraryScanWorkerMessage =
+type LibraryScanMessage =
   | { type: 'progress'; payload: LibraryScanProgress }
   | { type: 'tracks'; payload: ScannedTrackFile[] }
   | { type: 'trackTags'; payload: ScannedTagPatch[] }
   | { type: 'albumArtwork'; payload: AlbumArtworkPatch[] }
   | { type: 'trackLyrics'; payload: ScannedLyricsPatch[] }
   | { type: 'failure'; payload: ScanFailure }
+  | { type: 'inventory'; payload: { foundFilePaths: string[]; unreadableDirectoryPaths: string[] } }
   | { type: 'fatal'; payload: { jobId: number; reason: string } }
   | {
       type: 'complete'
       payload: { foundFilePaths: string[]; unreadableDirectoryPaths: string[] }
     }
+
+export type LibraryScanWorkerMessage = LibraryScanMessage & { sequence?: number }

@@ -142,7 +142,11 @@ export class SharedLibraryCatalogLoad {
       void task.then(
         (snapshot) => {
           this.snapshotExecutions.set(snapshot, execution)
-          if (execution.revision === this.revision) this.completed = execution
+          if (execution.revision === this.revision) {
+            this.completed = execution
+            if (snapshot.libraryRevision !== undefined)
+              this.libraryRevision = snapshot.libraryRevision
+          }
           if (this.active === execution) this.active = null
         },
         () => {

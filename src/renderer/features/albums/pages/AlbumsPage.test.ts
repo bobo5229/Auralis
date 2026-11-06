@@ -42,6 +42,12 @@ vi.mock('@renderer/shared/ipc/client', () => ({
     },
   },
 }))
+vi.mock('@renderer/features/library/utils/libraryCatalogClient', () => ({
+  libraryCatalogClient: {
+    load: async () => ({ tracks: [...fixture.tracks] }),
+    isSnapshotCurrent: () => true,
+  },
+}))
 vi.mock('vue-router', () => ({
   useRoute: () => fixture.route,
   useRouter: () => ({ push: vi.fn() }),

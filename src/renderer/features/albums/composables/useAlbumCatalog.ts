@@ -1,6 +1,8 @@
 import { onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import type { SharedLibraryCatalogLoad } from '@renderer/features/library/utils/sharedLibraryCatalogLoad'
+import { getLibraryPresentationTracks } from '@renderer/features/library/utils/libraryPresentationTracks'
 import { invalidateAlbumDetailSnapshot } from '../albumDetailSnapshot'
 
 /** Keep the cached page fresh without rebuilding its grid during route transitions. */
@@ -8,6 +10,7 @@ export function useAlbumCatalog(
   library: Pick<AuralisApi['library'], 'getTracks' | 'onChanged'>,
   canRefresh: Readonly<Ref<boolean>>,
   reportError: (error: unknown) => void,
+  client?: Pick<SharedLibraryCatalogLoad, 'load' | 'isSnapshotCurrent'>,
 ) {
   const tracks = shallowRef<TrackListItem[]>([])
   const isLoading = ref(true)
@@ -27,9 +30,16 @@ export function useAlbumCatalog(
     error.value = null
     if (!loaded) isLoading.value = true
     try {
-      const result = await library.getTracks()
+      const snapshot = client ? await client.load(() => !disposed, 'current') : null
+      const result = snapshot
+        ? getLibraryPresentationTracks(snapshot.tracks)
+        : await library.getTracks()
       if (disposed) return
-      if (!canRefresh.value || revision !== requestRevision) {
+      if (
+        !canRefresh.value ||
+        revision !== requestRevision ||
+        (snapshot && !client!.isSnapshotCurrent(snapshot))
+      ) {
         dirty = true
         return
       }

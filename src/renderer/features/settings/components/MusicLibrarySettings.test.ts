@@ -26,7 +26,13 @@ vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { library: api, metadat
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { error: api.error },
 }))
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key, locale: ref('en') }) }))
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, values?: Record<string, unknown>) =>
+      values ? `${key} ${Object.values(values).join(',')}` : key,
+    locale: ref('en'),
+  }),
+}))
 vi.mock('./DatabaseMaintenanceSettings.vue', () => ({ default: { render: () => null } }))
 
 const root = { id: 1, path: 'C:\\Music', lastScannedAt: null }
@@ -179,6 +185,74 @@ it('refreshes roots on completion and does not steal focus from another control'
   await settle()
   expect(text(shellTestDocument.body)).toContain('C:\\Completed')
   expect(shellTestDocument.activeElement).toBe(focused)
+})
+
+it('shows processed counts and settlement without premature percentages or progress status queries', async () => {
+  api.getScanStatus.mockResolvedValue(status(1))
+  mount()
+  await settle()
+  const queries = api.getScanStatus.mock.calls.length
+  for (const [totalFiles, scannedFiles] of [
+    [4, 4],
+    [1000, 5],
+  ]) {
+    await scanProgress({
+      ...status(1),
+      totalFiles,
+      scannedFiles,
+      phase: 'reading',
+      currentFile: null,
+      message: null,
+    })
+    await settle()
+    expect(text(shellTestDocument.body)).toContain(`settings.library.fileProgress ${scannedFiles}`)
+    expect(text(shellTestDocument.body)).not.toContain('%')
+  }
+  await scanProgress({ ...status(1), phase: 'settling', currentFile: null, message: null })
+  await settle()
+  expect(text(shellTestDocument.body)).toContain('settings.library.settlingTitle')
+  expect(api.getScanStatus).toHaveBeenCalledTimes(queries)
+})
+
+it('coalesces the first status lookup while retaining the latest progress and phase', async () => {
+  mount()
+  await settle()
+  const initial = deferred<LibraryScanStatus>()
+  api.getScanStatus.mockReturnValueOnce(initial.promise)
+  const queries = api.getScanStatus.mock.calls.length
+  const first = scanProgress({ ...status(42), currentFile: null, message: null })
+  const second = scanProgress({
+    ...status(42),
+    scannedFiles: 900,
+    phase: 'settling',
+    currentFile: null,
+    message: null,
+  })
+  expect(api.getScanStatus).toHaveBeenCalledTimes(queries + 1)
+  initial.resolve(status(42))
+  await Promise.all([first, second])
+  await settle()
+  expect(text(shellTestDocument.body)).toContain('settings.library.fileProgress 900')
+  expect(text(shellTestDocument.body)).toContain('settings.library.settlingTitle')
+  await click('cancelScan')
+  expect(api.cancelScan).toHaveBeenLastCalledWith(42)
+})
+
+it('lets completion supersede a pending first status lookup for the same job', async () => {
+  mount()
+  await settle()
+  const initial = deferred<LibraryScanStatus>()
+  api.getScanStatus
+    .mockReturnValueOnce(initial.promise)
+    .mockResolvedValueOnce(status(42, 'completed'))
+  const first = scanProgress({ ...status(42), currentFile: null, message: null })
+  await scanProgress({ ...status(42, 'completed'), currentFile: null, message: null })
+  initial.resolve(status(42))
+  await first
+  await settle()
+  expect(text(shellTestDocument.body)).not.toContain('settings.library.scanningTitle')
+  expect(button('rescan')).toBeDefined()
+  expect(api.getScanStatus.mock.calls.filter(([jobId]) => jobId === 42)).toHaveLength(2)
 })
 
 it('owns failure-list refresh, clear failure and retry independently of scan operations', async () => {

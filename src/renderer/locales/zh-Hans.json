@@ -545,10 +545,11 @@
       "status": "状态",
       "discovered": "已发现",
       "fileCount": "{count} 个文件",
-      "scanningTitle": "正在整理音乐资料库",
+      "scanningTitle": "正在扫描音乐资料库",
+      "settlingTitle": "正在整理音乐资料库",
       "scanningMessage": "正在读取音乐文件…",
       "cancel": "取消",
-      "fileProgress": "{scanned} / {total} 个文件",
+      "fileProgress": "已处理 {scanned} 个文件",
       "failedCount": "{count} 个失败",
       "scanStatus": {
         "scanning": "正在扫描",

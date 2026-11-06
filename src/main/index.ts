@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
+import { DatabaseWriteAdmission } from './database/databaseWriteAdmission'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
 import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
@@ -22,6 +23,7 @@ import { createRendererEventSender } from './ipc/rendererEvents'
 import { createWindowBehaviorPreference } from './app/windowBehaviorPreference'
 import { createWindowBehaviorController } from './app/windowBehaviorController'
 import { createSystemTray } from './app/systemTray'
+import { createAudioMissingHandler } from './features/audio/audioMissingHandler'
 
 // Custom media scheme privileges must be registered before app.ready (single call).
 registerPrivilegedMediaSchemes()
@@ -128,6 +130,7 @@ void app
     const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
     registerArtworkProtocol(artworkCacheDir)
     const db = initializeDatabase()
+    const writeAdmission = new DatabaseWriteAdmission()
     const trackRepository = new TrackRepository(db)
     const libraryRootRepository = new LibraryRootRepository(db)
     const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
@@ -137,16 +140,12 @@ void app
         shuttingDown ? null : trackRepository.getFilePathById(trackId),
       getLibraryRootPaths: () =>
         shuttingDown ? [] : libraryRootRepository.list().map((root) => root.path),
-      onFileMissing: (_trackId, filePath) => {
-        if (shuttingDown) return
-        const trackIds = trackRepository.markMissingByFilePaths([filePath])
-        if (trackIds.length === 0) return
-        sendToRenderer(ipcChannels.library.changed, {
-          reason: 'track-missing',
-          trackIds,
-          filePaths: [filePath],
-        })
-      },
+      onFileMissing: createAudioMissingHandler({
+        tracks: trackRepository,
+        getRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+        admission: writeAdmission,
+        changed: (event) => sendToRenderer(ipcChannels.library.changed, event),
+      }),
     })
 
     systemTray = createSystemTray({
@@ -156,7 +155,7 @@ void app
       quit: windowBehavior.requestQuit,
       reportError: (error) => logger.warn({ error }, 'System tray is unavailable'),
     })
-    runtime = registerIpcHandlers(db, artworkCacheDir, windowBehavior)
+    runtime = registerIpcHandlers(db, artworkCacheDir, windowBehavior, writeAdmission)
     await runtime
     if (shuttingDown) return
     const mainWindow = createWindow()

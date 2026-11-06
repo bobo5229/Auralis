@@ -5,7 +5,7 @@ import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type { KnownTrackFile } from './trackRepositoryTypes'
 import { toPathVariants, toRootPrefixes, escapeLikePattern } from './trackRepositoryPaths'
-import { sortLibraryTracks } from './libraryTrackSort'
+import { LibraryTrackOrderCache } from './libraryTrackOrderCache'
 import { BaseRepository } from './baseRepository'
 import type { StartupAlbumCandidate } from './startupAlbumCandidate'
 
@@ -39,6 +39,13 @@ const albumTitleIdentityExpr = `CASE
         END`
 
 export class TrackQueryRepository extends BaseRepository {
+  getFilePathsByIds(ids: number[]): string[] {
+    return this.db
+      .prepare('SELECT file_path FROM tracks WHERE id IN (SELECT value FROM json_each(?))')
+      .pluck()
+      .all(JSON.stringify(ids)) as string[]
+  }
+  private readonly catalogOrder = new LibraryTrackOrderCache()
   getChangeToken(): string {
     // Persistent triggers track catalog data across every writer connection.
     // Scan progress, job history and playlist edits do not invalidate the catalog.
@@ -214,7 +221,15 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   getAll(): TrackListItem[] {
-    const tracks = this.db
+    return this.orderCatalog(this.getAllUnsorted())
+  }
+
+  orderCatalog(tracks: TrackListItem[]): TrackListItem[] {
+    return this.catalogOrder.order(tracks)
+  }
+
+  getAllUnsorted(): TrackListItem[] {
+    return this.db
       .prepare(
         `SELECT ${TRACK_LIST_ITEM_COLUMNS}
          FROM library_track_display
@@ -222,8 +237,6 @@ export class TrackQueryRepository extends BaseRepository {
          ORDER BY id ASC`,
       )
       .all() as TrackListItem[]
-
-    return sortLibraryTracks(tracks)
   }
 
   getAlbumDetailTracks(albumArtist: string, albumTitle: string): TrackListItem[] {
@@ -304,7 +317,16 @@ export class TrackQueryRepository extends BaseRepository {
       }))
   }
 
-  getKnownFiles(): KnownTrackFile[] {
+  getKnownFiles(rootPath?: string): KnownTrackFile[] {
+    return this.queryKnownFiles(rootPath)
+  }
+
+  getKnownFile(filePath: string): KnownTrackFile | undefined {
+    return this.queryKnownFiles(undefined, filePath)[0]
+  }
+
+  private queryKnownFiles(rootPath?: string, filePath?: string): KnownTrackFile[] {
+    const prefix = rootPath ? toRootPrefixes(rootPath)[0].replaceAll('\\', '/') : undefined
     const rows = this.db
       .prepare(
         `SELECT t.file_path AS filePath,
@@ -327,9 +349,12 @@ export class TrackQueryRepository extends BaseRepository {
                   AND (m.source IN ('user_edit','legacy_user_edit') OR m.override_mask<>0))
                   OR EXISTS(SELECT 1 FROM pending_tag_recovery_refresh p WHERE p.track_id=t.id)) AS needsFullRead
          FROM tracks t
-         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
+         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist
+           ${filePath ? 'WHERE t.file_path=?' : prefix ? "WHERE replace(t.file_path,char(92),'/') LIKE ? ESCAPE '~'" : ''}`,
       )
-      .all() as Array<KnownTrackFile & { storedFingerprint: string | null; needsFullRead: number }>
+      .all(...(filePath ? [filePath] : prefix ? [`${escapeLikePattern(prefix)}%`] : [])) as Array<
+      KnownTrackFile & { storedFingerprint: string | null; needsFullRead: number }
+    >
     return rows.map(({ storedFingerprint, needsFullRead, ...row }) => ({
       ...row,
       requiresFullMetadataRead: Boolean(needsFullRead),

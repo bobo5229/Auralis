@@ -27,6 +27,7 @@ import type { AlbumSummary } from '../types'
 import { indexedAlbums } from '../utils/indexedAlbums'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
+import { libraryCatalogClient } from '@renderer/features/library/utils/libraryCatalogClient'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
@@ -63,12 +64,16 @@ const {
   isLoading,
   error: catalogError,
   refresh: loadAlbums,
-} = useAlbumCatalog(auralis.library, canRefresh, (cause) =>
-  rendererDiagnostics.error({
-    scope: 'albums.catalog',
-    message: 'Failed to load albums',
-    cause,
-  }),
+} = useAlbumCatalog(
+  auralis.library,
+  canRefresh,
+  (cause) =>
+    rendererDiagnostics.error({
+      scope: 'albums.catalog',
+      message: 'Failed to load albums',
+      cause,
+    }),
+  libraryCatalogClient,
 )
 const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)

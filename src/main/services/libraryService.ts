@@ -7,6 +7,7 @@ import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libra
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 import { rankAlbumGenres } from '@shared/utils/albumGenres'
+import type { LoadedLibraryCatalog } from '@main/features/libraryCatalog/libraryCatalogWorkerTypes'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -14,6 +15,10 @@ export class LibraryService {
   constructor(
     private readonly libraryRepository: LibraryRepository,
     private readonly trackRepository: TrackRepository,
+    private readonly catalogLoader?: {
+      load(): Promise<LoadedLibraryCatalog>
+      shutdown(): Promise<void>
+    },
   ) {
     this.catalogSnapshotStore = new LibraryCatalogSnapshotStore(
       () => this.trackRepository.getAll(),
@@ -22,15 +27,32 @@ export class LibraryService {
     )
   }
 
+  dispose(): void | Promise<void> {
+    this.catalogSnapshotStore.dispose()
+    return this.catalogLoader?.shutdown()
+  }
+
   getStats(): LibraryStats {
     return this.libraryRepository.getStats()
   }
 
-  getTracks(): TrackListItem[] {
+  getTracks(): TrackListItem[] | Promise<TrackListItem[]> {
+    if (this.catalogLoader) return this.loadCurrentTracks()
     return this.trackRepository.getAll()
   }
 
-  getTrackPage(request: LibraryTrackPageRequest): LibraryTrackPage {
+  private async loadCurrentTracks(): Promise<TrackListItem[]> {
+    const deadline = Date.now() + 30_000
+    for (;;) {
+      const catalog = await this.catalogLoader!.load()
+      if (this.trackRepository.getChangeToken() === catalog.revision) return catalog.tracks
+      if (Date.now() >= deadline) throw new Error('Library catalog kept changing during load')
+    }
+  }
+
+  getTrackPage(request: LibraryTrackPageRequest): LibraryTrackPage | Promise<LibraryTrackPage> {
+    if (this.catalogLoader)
+      return this.catalogSnapshotStore.getPageAsync(request, () => this.catalogLoader!.load())
     return this.catalogSnapshotStore.getPage(request)
   }
 

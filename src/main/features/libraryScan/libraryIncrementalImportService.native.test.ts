@@ -24,7 +24,10 @@ vi.mock('music-metadata', () => ({
     },
   }),
 }))
-vi.mock('../metadata/resolveLyricsForFile', () => ({ resolveLyricsForFile: async () => null }))
+vi.mock('../metadata/resolveLyricsForFile', () => ({
+  readLyricsSnapshot: async () => ({ lyrics: null, lyricsSidecarFingerprint: '[]' }),
+  getLyricsSidecarFingerprintSync: () => '[]',
+}))
 vi.mock('../artwork/resolveArtworkForFile', () => ({
   readArtworkForFile: async () => ({ artworkCacheKey: null, artworkRead: { status: 'absent' } }),
 }))

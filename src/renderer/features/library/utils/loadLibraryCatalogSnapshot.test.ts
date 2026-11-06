@@ -140,3 +140,13 @@ describe('loadLibraryCatalogSnapshot', () => {
     )
   })
 })
+
+it('rejects pages whose database revision differs even if their snapshot ID was reused', async () => {
+  const page = vi
+    .fn()
+    .mockResolvedValueOnce(createPage([createTrack(1)], 'next', { libraryRevision: '1' }))
+    .mockResolvedValueOnce(
+      createPage([createTrack(2), createTrack(3)], null, { libraryRevision: '2' }),
+    )
+  await expect(loadLibraryCatalogSnapshot(page, () => true)).rejects.toThrow('snapshot changed')
+})

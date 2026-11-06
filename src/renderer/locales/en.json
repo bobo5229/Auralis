@@ -545,10 +545,11 @@
       "status": "Status",
       "discovered": "Discovered",
       "fileCount": "{count} files | {count} file | {count} files",
-      "scanningTitle": "Organizing your music library",
+      "scanningTitle": "Scanning your music library",
+      "settlingTitle": "Updating your music library",
       "scanningMessage": "Reading music files…",
       "cancel": "Cancel",
-      "fileProgress": "{scanned} / {total} files",
+      "fileProgress": "{scanned} files processed",
       "failedCount": "{count} failed",
       "scanStatus": {
         "scanning": "Scanning",

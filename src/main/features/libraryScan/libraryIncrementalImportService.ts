@@ -5,7 +5,10 @@ import {
   normalizeIdentityText,
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
-import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
+import {
+  readLyricsSnapshot,
+  getLyricsSidecarFingerprintSync,
+} from '../metadata/resolveLyricsForFile'
 import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { getDirectoryArtworkFingerprintSync } from '../artwork/directoryArtwork'
 import { checkFileStability } from './fileStabilityChecker'
@@ -18,6 +21,7 @@ import { logger } from '../../logging/logger'
 import type { TrackRepository, MissingTrackCandidate } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
 import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
+import type { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 const MAX_STABILITY_RETRIES = 5
 const IMPORT_BATCH_SIZE = 32
@@ -50,6 +54,7 @@ export class LibraryIncrementalImportService {
     private readonly trackRepository: TrackRepository,
     private readonly artworkCacheDir: string,
     private readonly onChanged: (event: LibraryChangedEvent) => void,
+    private readonly writeAdmission?: DatabaseWriteAdmission,
   ) {}
 
   /** True while an import pass is in flight (used to gate cache GC). */
@@ -57,22 +62,37 @@ export class LibraryIncrementalImportService {
     return this.activeImports > 0
   }
 
-  async importFiles(filePaths: string[]): Promise<ImportResult> {
+  async importFiles(
+    filePaths: string[],
+    isCurrent: (filePath: string) => boolean = () => true,
+  ): Promise<ImportResult> {
     this.activeImports += 1
 
     try {
-      return await this.doImport(filePaths)
+      return await this.doImport(filePaths, isCurrent)
     } finally {
       this.activeImports -= 1
     }
   }
 
-  private async doImport(filePaths: string[]): Promise<ImportResult> {
+  private async doImport(
+    filePaths: string[],
+    isCurrent: (filePath: string) => boolean,
+  ): Promise<ImportResult> {
     const result: ImportResult = { imported: [], unstable: [], failed: [] }
 
     const uniquePaths = [...new Set(filePaths)]
     const parsedTracks: ScannedTrack[] = []
     const fingerprints = new Map<string, Stats>()
+    const lyricsFingerprints = new Map<string, string>()
+    const lyricsCurrent = (filePath: string): boolean => {
+      if (!this.writeAdmission) return true
+      try {
+        return lyricsFingerprints.get(filePath) === getLyricsSidecarFingerprintSync(filePath)
+      } catch {
+        return false
+      }
+    }
     const recordFailure = (filePath: string, error: unknown) => {
       const reason = error instanceof Error ? error.message : 'Unable to import audio file'
       result.failed.push({ filePath, reason })
@@ -97,6 +117,7 @@ export class LibraryIncrementalImportService {
           }
           parsedTracks.push(parsed.track)
           fingerprints.set(filePath, parsed.fingerprint)
+          lyricsFingerprints.set(filePath, parsed.lyricsFingerprint)
         } catch (error) {
           recordFailure(filePath, error)
         }
@@ -143,73 +164,83 @@ export class LibraryIncrementalImportService {
     )
 
     for (let offset = 0; offset < parsedTracks.length; offset += IMPORT_BATCH_SIZE) {
-      const additions: ScannedTrack[] = []
-      const relocatedIds: number[] = []
-      const relocatedPaths: string[] = []
-      for (const track of parsedTracks.slice(offset, offset + IMPORT_BATCH_SIZE)) {
-        // Parsing other batches and checking old paths may have taken a long time.
-        // Keep the last check and the synchronous DB mutation in the same turn.
-        if (
-          !this.isCurrentFile(
-            track.filePath,
-            fingerprints.get(track.filePath)!,
-            track.directoryArtworkFingerprint,
-          )
-        ) {
-          result.unstable.push(track.filePath)
-          continue
-        }
-        try {
-          const match = matches.get(track.filePath)
+      const commit = () => {
+        const additions: ScannedTrack[] = []
+        const relocatedIds: number[] = []
+        const relocatedPaths: string[] = []
+        for (const track of parsedTracks.slice(offset, offset + IMPORT_BATCH_SIZE)) {
+          if (!isCurrent(track.filePath) || !lyricsCurrent(track.filePath)) {
+            result.unstable.push(track.filePath)
+            continue
+          }
+          // Parsing other batches and checking old paths may have taken a long time.
+          // Keep the last check and the synchronous DB mutation in the same turn.
           if (
-            match &&
-            this.canRelocateFrom(match.filePath, track.filePath) &&
-            this.trackRepository.relocateTrack(match.trackId, track, match.filePath)
-          ) {
-            result.imported.push(track.filePath)
-            relocatedIds.push(match.trackId)
-            relocatedPaths.push(track.filePath)
-          } else additions.push(track)
-        } catch (error) {
-          recordFailure(track.filePath, error)
-        }
-      }
-      if (relocatedIds.length) {
-        this.onChanged({
-          reason: 'track-relocated',
-          trackIds: relocatedIds,
-          filePaths: relocatedPaths,
-        })
-      }
-      if (additions.length) {
-        // Relocations and their event callbacks run before this batch upsert.
-        const currentAdditions = additions.filter((track) => {
-          if (
-            this.isCurrentFile(
+            !this.isCurrentFile(
               track.filePath,
               fingerprints.get(track.filePath)!,
               track.directoryArtworkFingerprint,
             )
-          )
-            return true
-          result.unstable.push(track.filePath)
-          return false
-        })
-        if (!currentAdditions.length) continue
-        try {
-          this.trackRepository.upsertMany(currentAdditions)
-        } catch (error) {
-          for (const track of currentAdditions) recordFailure(track.filePath, error)
-          continue
+          ) {
+            result.unstable.push(track.filePath)
+            continue
+          }
+          try {
+            const match = matches.get(track.filePath)
+            if (
+              match &&
+              this.canRelocateFrom(match.filePath, track.filePath) &&
+              this.trackRepository.relocateTrack(match.trackId, track, match.filePath)
+            ) {
+              result.imported.push(track.filePath)
+              relocatedIds.push(match.trackId)
+              relocatedPaths.push(track.filePath)
+            } else additions.push(track)
+          } catch (error) {
+            recordFailure(track.filePath, error)
+          }
         }
-        const addedPaths = currentAdditions.map((track) => track.filePath)
-        result.imported.push(...addedPaths)
-        this.onChanged({
-          reason: 'track-added',
-          trackIds: [],
-          filePaths: addedPaths,
-        })
+        if (relocatedIds.length) {
+          this.onChanged({
+            reason: 'track-relocated',
+            trackIds: relocatedIds,
+            filePaths: relocatedPaths,
+          })
+        }
+        if (additions.length) {
+          // Relocations and their event callbacks run before this batch upsert.
+          const currentAdditions = additions.filter((track) => {
+            if (
+              isCurrent(track.filePath) &&
+              lyricsCurrent(track.filePath) &&
+              this.isCurrentFile(
+                track.filePath,
+                fingerprints.get(track.filePath)!,
+                track.directoryArtworkFingerprint,
+              )
+            )
+              return true
+            result.unstable.push(track.filePath)
+            return false
+          })
+          if (!currentAdditions.length) return
+          try {
+            this.trackRepository.upsertMany(currentAdditions)
+          } catch (error) {
+            for (const track of currentAdditions) recordFailure(track.filePath, error)
+            return
+          }
+          const addedPaths = currentAdditions.map((track) => track.filePath)
+          result.imported.push(...addedPaths)
+          this.onChanged({
+            reason: 'track-added',
+            trackIds: [],
+            filePaths: addedPaths,
+          })
+        }
       }
+      if (this.writeAdmission) await this.writeAdmission.runWrite(commit)
+      else commit()
     }
 
     return result
@@ -261,7 +292,7 @@ export class LibraryIncrementalImportService {
 
   private async parseAndNormalize(
     filePath: string,
-  ): Promise<{ track: ScannedTrack; fingerprint: Stats } | null> {
+  ): Promise<{ track: ScannedTrack; fingerprint: Stats; lyricsFingerprint: string } | null> {
     let fileStat: Stats
     try {
       fileStat = await stat(filePath)
@@ -271,7 +302,7 @@ export class LibraryIncrementalImportService {
     try {
       const metadata = await parseFile(filePath, { duration: true })
       const normalized = normalizeMetadata(metadata, filePath)
-      const lyrics = await resolveLyricsForFile(filePath, metadata)
+      const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
       const artwork = await readArtworkForFile(filePath, metadata, this.artworkCacheDir)
       try {
         if (!hasSameFingerprint(fileStat, await stat(filePath))) return null
@@ -315,6 +346,7 @@ export class LibraryIncrementalImportService {
           metadataSignature,
         },
         fingerprint: fileStat,
+        lyricsFingerprint: lyricsSidecarFingerprint,
       }
     } catch (error) {
       // A replacement/removal can also make the parser or asset reads throw.

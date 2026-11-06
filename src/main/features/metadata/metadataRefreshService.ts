@@ -3,6 +3,7 @@ import type { MetadataRefreshWorkerInput } from './metadataRefreshTypes'
 import type { MetadataRefreshEvents } from './metadataRefreshEvents'
 import { MetadataRefreshWorkerHost } from './metadataRefreshWorkerHost'
 import { logger } from '@main/logging/logger'
+import type { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 export type { MetadataRefreshProgress } from './metadataRefreshWorkerHost'
 
@@ -17,17 +18,24 @@ export class MetadataRefreshService {
   private legacyRecoveryTimer: ReturnType<typeof setTimeout> | null = null
   private legacyRecoveryWaiters: Array<() => void> = []
   private pendingManualJob: number | null = null
+  private pendingManualFinalization: (() => void) | null = null
   private preemption: Promise<void> | null = null
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly artworkCacheDir: string,
     private readonly events: MetadataRefreshEvents,
+    private readonly writeAdmission?: DatabaseWriteAdmission,
   ) {
-    this.workerHost = new MetadataRefreshWorkerHost(repository, events, () => {
-      this.finishLegacyRecovery()
-      this.scheduleLegacyRecovery(0)
-    })
+    this.workerHost = new MetadataRefreshWorkerHost(
+      repository,
+      events,
+      () => {
+        this.finishLegacyRecovery()
+        this.scheduleLegacyRecovery(0)
+      },
+      writeAdmission,
+    )
     this.repository.markInterruptedJobs()
   }
 
@@ -65,7 +73,27 @@ export class MetadataRefreshService {
   }
 
   private runLegacyRecovery(): void {
+    if (this.writeAdmission) {
+      try {
+        const result = this.writeAdmission.runWriteMaybe(() => this.runLegacyRecoveryAdmitted())
+        if (result instanceof Promise)
+          void result.catch((error: unknown) => {
+            logger.warn({ error }, 'Unable to admit legacy lyric recovery')
+            this.scheduleLegacyRecovery(60000)
+          })
+      } catch (error) {
+        logger.warn({ error }, 'Unable to admit legacy lyric recovery')
+        this.scheduleLegacyRecovery(60000)
+      }
+      return
+    }
+    this.runLegacyRecoveryAdmitted()
+  }
+
+  private runLegacyRecoveryAdmitted(): void {
     if (this.stopping || this.legacyRecoveryPaused) return
+    this.recoverPendingManualFinalizationAdmitted()
+    this.workerHost.recoverPendingFinalizationAdmitted()
     if (this.hasActiveJob()) {
       this.scheduleLegacyRecovery(1000)
       return
@@ -112,6 +140,11 @@ export class MetadataRefreshService {
     try {
       if (this.preemption) await this.preemption
       await workerShutdown
+      if (this.pendingManualFinalization) {
+        if (this.writeAdmission)
+          await this.writeAdmission.runWrite(() => this.recoverPendingManualFinalizationAdmitted())
+        else this.recoverPendingManualFinalizationAdmitted()
+      }
     } finally {
       this.legacyRecoveryJob = null
       for (const resolve of this.legacyRecoveryWaiters.splice(0)) resolve()
@@ -128,9 +161,25 @@ export class MetadataRefreshService {
     for (const resolve of this.legacyRecoveryWaiters.splice(0)) resolve()
   }
 
+  private recoverPendingManualFinalizationAdmitted(): void {
+    const finalize = this.pendingManualFinalization
+    if (!finalize) return
+    finalize()
+    if (this.pendingManualFinalization === finalize) this.pendingManualFinalization = null
+    this.pendingManualJob = null
+  }
+
   private startUserRefresh(input: MetadataRefreshWorkerInput): void {
     if (this.legacyRecoveryJob === null) {
-      this.workerHost.start(input)
+      try {
+        this.workerHost.start(input)
+      } catch (error) {
+        this.repository.completeJob(
+          input.jobId,
+          error instanceof Error ? error.message : 'Unable to start metadata refresh',
+        )
+        throw error
+      }
       return
     }
 
@@ -138,29 +187,54 @@ export class MetadataRefreshService {
     this.legacyRecoveryCursor = 0
     const preemption = (async () => {
       try {
+        // This synchronous entry may itself hold write admission. A previously
+        // terminated worker can finalize without any I/O await, so always leave
+        // the admitted callback before asking the Host to acquire admission again.
+        await Promise.resolve()
         await this.workerHost.shutdown('Background lyric recovery yielded to user refresh')
         this.finishLegacyRecovery()
         if (this.stopping) throw new Error('Metadata refresh service is shutting down')
         this.workerHost.start(input)
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'Unable to start metadata refresh'
-        this.repository.completeJob(input.jobId, reason)
-        this.events.refreshProgress({
-          jobId: input.jobId,
-          status: 'failed',
-          totalTracks: input.tracks.length,
-          processedTracks: 0,
-          failedTracks: 0,
-        })
+        const complete = () => {
+          this.repository.completeJob(input.jobId, reason)
+          this.events.refreshProgress({
+            jobId: input.jobId,
+            status: 'failed',
+            totalTracks: input.tracks.length,
+            processedTracks: 0,
+            failedTracks: 0,
+          })
+        }
+        try {
+          if (this.writeAdmission) await this.writeAdmission.runWrite(complete)
+          else complete()
+        } catch (finalizationError) {
+          this.pendingManualFinalization = complete
+          this.writeAdmission?.onAvailable(() => {
+            if (!this.pendingManualFinalization) return
+            void this.writeAdmission!.runWrite(() =>
+              this.recoverPendingManualFinalizationAdmitted(),
+            ).catch((recoveryError: unknown) =>
+              logger.error(
+                { error: recoveryError },
+                'Unable to recover manual refresh finalization',
+              ),
+            )
+          })
+          throw finalizationError
+        }
       } finally {
-        this.pendingManualJob = null
+        if (!this.pendingManualFinalization) this.pendingManualJob = null
         this.scheduleLegacyRecovery(0)
       }
     })()
     this.preemption = preemption
-    void preemption.finally(() => {
+    const clearPreemption = () => {
       if (this.preemption === preemption) this.preemption = null
-    })
+    }
+    void preemption.then(clearPreemption, clearPreemption)
   }
 
   refreshTrack(trackId: number): { jobId: number } {
@@ -177,6 +251,8 @@ export class MetadataRefreshService {
 
   private refreshTracksForScope(trackIds: number[], scope: string): { jobId: number } {
     this.assertRunning()
+    this.recoverPendingManualFinalizationAdmitted()
+    this.workerHost.recoverPendingFinalizationAdmitted()
     const activeJob = this.pendingManualJob ?? this.workerHost.jobId
     if (activeJob !== null && (activeJob !== this.legacyRecoveryJob || scope === 'file-change')) {
       throw new Error(`A refresh job is already running (job ${activeJob})`)
@@ -203,6 +279,8 @@ export class MetadataRefreshService {
 
   refreshLyricsForMissing(limit = 5000): { jobId: number } {
     this.assertRunning()
+    this.recoverPendingManualFinalizationAdmitted()
+    this.workerHost.recoverPendingFinalizationAdmitted()
     const activeJob = this.pendingManualJob ?? this.workerHost.jobId
     if (activeJob !== null && activeJob !== this.legacyRecoveryJob) {
       throw new Error(`A refresh job is already running (job ${activeJob})`)

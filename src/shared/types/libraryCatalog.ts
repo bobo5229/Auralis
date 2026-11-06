@@ -30,6 +30,7 @@ export interface LibraryTrackPageDiagnostics {
 }
 
 export interface LibraryTrackPage {
+  libraryRevision?: string
   snapshotId: string
   totalTracks: number
   tracks: TrackListItem[]

@@ -36,6 +36,7 @@ export interface LibraryRoot {
 }
 
 export interface LibraryScanStatus {
+  phase?: 'reading' | 'settling'
   jobId: number
   rootId: number
   status: LibraryScanStatusValue
@@ -48,6 +49,7 @@ export interface LibraryScanStatus {
 }
 
 export interface LibraryScanProgress {
+  phase?: 'reading' | 'settling'
   jobId: number
   status: LibraryScanStatusValue
   totalFiles: number

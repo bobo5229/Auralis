@@ -15,6 +15,7 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import type { ScannedTrackFile } from './libraryScanTypes'
 import { LibraryScanService } from './libraryScanService'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 const workerFiles = vi.hoisted(() => new Set<string>())
 vi.mock('node:fs', async (importOriginal) => {
@@ -77,7 +78,7 @@ function track(filePath: string): ScannedTrackFile {
     metadataSignature: filePath,
   }
 }
-function harness() {
+function harness(admission?: DatabaseWriteAdmission) {
   const db = new DatabaseCtor(':memory:')
   databases.push(db)
   db.pragma('foreign_keys = ON')
@@ -95,6 +96,7 @@ function harness() {
       workers.push(worker)
       return worker as unknown as Worker
     },
+    admission,
   )
   vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: false, filePaths: ['C:\\Next'] })
   return { db, service, root, workers, send, repo: new TrackRepository(db) }
@@ -106,7 +108,35 @@ afterEach(() => {
 })
 
 describe('scan cancellation and root ownership boundaries', () => {
-  it('releases failed preparation even when its failure status cannot be persisted', async () => {
+  it('does not commit an old complete queued behind admission after cancellation', async () => {
+    const admission = new DatabaseWriteAdmission()
+    const h = harness(admission)
+    const first = await h.service.startScan(h.root.id)
+    const lease = await admission.acquireExclusive()
+    const filePath = 'C:\\Music\\queued.flac'
+    h.workers[0].emit('message', { type: 'tracks', payload: [track(filePath)] })
+    h.workers[0].emit('message', {
+      type: 'complete',
+      payload: { foundFilePaths: [filePath], unreadableDirectoryPaths: [] },
+    })
+    h.workers[0].emit('exit', 0)
+    const canceled = h.service.cancelScan(first.jobId)
+    await tick()
+    lease.release()
+    await expect(canceled).resolves.toEqual({ ok: true })
+    expect(h.service.getScanStatus(first.jobId)?.status).toBe('canceled')
+    expect(h.repo.getAll()).toEqual([])
+    const next = await h.service.startScan(h.root.id)
+    expect(next.jobId).not.toBe(first.jobId)
+    h.workers[0].emit('message', {
+      type: 'complete',
+      payload: { foundFilePaths: [], unreadableDirectoryPaths: [] },
+    })
+    await tick()
+    expect(h.service.getScanStatus(next.jobId)?.status).toBe('scanning')
+    await h.service.cancelScan(next.jobId)
+  })
+  it('retains failed preparation until its failure status can be persisted on shutdown retry', async () => {
     const h = harness()
     const onEnd = vi.fn()
     h.service.setScanLifecycleHooks({
@@ -117,10 +147,37 @@ describe('scan cancellation and root ownership boundaries', () => {
       "CREATE TRIGGER reject_failure BEFORE UPDATE ON scan_jobs WHEN NEW.status='failed' BEGIN SELECT RAISE(ABORT,'failure persistence failed'); END",
     )
     await expect(h.service.startScan(h.root.id)).rejects.toThrow('failure persistence failed')
-    expect(h.service.isScanActive()).toBe(false)
+    expect(h.service.isScanActive()).toBe(true)
     expect(h.workers).toHaveLength(0)
-    expect(onEnd).toHaveBeenCalledOnce()
+    expect(onEnd).not.toHaveBeenCalled()
+    await expect(h.service.shutdown()).rejects.toThrow('failure persistence failed')
+    expect(h.service.getScanStatus()?.status).toBe('scanning')
+    h.db.exec('DROP TRIGGER reject_failure')
     await h.service.shutdown()
+    expect(h.service.getScanStatus()?.status).toBe('failed')
+    expect(h.service.isScanActive()).toBe(false)
+    expect(onEnd).toHaveBeenCalledOnce()
+  })
+
+  it('retries cancellation persistence before shutdown can release scan ownership', async () => {
+    const admission = new DatabaseWriteAdmission(1024, 15)
+    const h = harness(admission)
+    const onEnd = vi.fn()
+    h.service.setScanLifecycleHooks({ onEnd })
+    const { jobId } = await h.service.startScan(h.root.id)
+    const lease = await admission.acquireExclusive()
+    try {
+      await expect(h.service.shutdown()).rejects.toMatchObject({ reason: 'timeout' })
+      expect(h.service.isScanActive()).toBe(true)
+      expect(h.service.getScanStatus(jobId)?.status).toBe('scanning')
+      expect(onEnd).not.toHaveBeenCalled()
+    } finally {
+      lease.release()
+    }
+    await h.service.shutdown()
+    expect(h.service.getScanStatus(jobId)?.status).toBe('canceled')
+    expect(h.service.isScanActive()).toBe(false)
+    expect(onEnd).toHaveBeenCalledOnce()
   })
 
   it('cancels preparation, drains the pause hook, and never starts its worker', async () => {
@@ -272,7 +329,7 @@ describe('scan cancellation and root ownership boundaries', () => {
     expect(h.service.isScanActive()).toBe(false)
   })
 
-  it('releases a terminated worker and resumes writers even if persisting cancellation fails', async () => {
+  it('retains a terminated scan and resumes writers only after cancellation persistence succeeds', async () => {
     const h = harness()
     const onEnd = vi.fn()
     h.service.setScanLifecycleHooks({ onEnd })
@@ -281,15 +338,20 @@ describe('scan cancellation and root ownership boundaries', () => {
       "CREATE TRIGGER reject_cancel BEFORE UPDATE ON scan_jobs WHEN NEW.status='canceled' BEGIN SELECT RAISE(ABORT,'cancel persistence failed'); END",
     )
     await expect(h.service.cancelScan(first.jobId)).rejects.toThrow('cancel persistence failed')
-    expect(h.service.isScanActive()).toBe(false)
-    expect(onEnd).toHaveBeenCalledOnce()
+    expect(h.service.isScanActive()).toBe(true)
+    expect(onEnd).not.toHaveBeenCalled()
     expect(h.workers[0].terminate).toHaveBeenCalledOnce()
     expect(h.service.getScanStatus(first.jobId)?.status).toBe('scanning')
+    expect(await h.service.startScan(h.root.id)).toEqual(first)
+    expect(h.workers).toHaveLength(1)
+    h.db.exec('DROP TRIGGER reject_cancel')
+    await expect(h.service.cancelScan(first.jobId)).resolves.toEqual({ ok: true })
+    expect(h.service.getScanStatus(first.jobId)?.status).toBe('canceled')
+    expect(onEnd).toHaveBeenCalledOnce()
     const second = await h.service.startScan(h.root.id)
     expect(second.jobId).not.toBe(first.jobId)
-    expect(h.service.getScanStatus(first.jobId)?.status).toBe('failed')
+    expect(h.service.getScanStatus(first.jobId)?.status).toBe('canceled')
     expect(h.workers).toHaveLength(2)
-    h.db.exec('DROP TRIGGER reject_cancel')
     await h.service.shutdown()
   })
 

@@ -244,7 +244,13 @@ it.each(['replaced', 'same size and mtime', 'deleted', 'directory', 'unreadable'
         size: f.incomingTrack.fileSize,
         mtimeMs: f.incomingTrack.fileMtimeMs,
       })
-      expect(statSync(f.incoming).ino).not.toBe(f.incomingTrack.fileFingerprint.ino)
+      // Windows inode numbers can exceed Number.MAX_SAFE_INTEGER; two distinct
+      // inodes may round to the same Number. The stable identity must still change.
+      const replaced = statSync(f.incoming)
+      expect([replaced.ctimeMs, replaced.ino]).not.toEqual([
+        f.incomingTrack.fileFingerprint.ctimeMs,
+        f.incomingTrack.fileFingerprint.ino,
+      ])
     } else if (scenario === 'unreadable') unreadable.add(f.incoming)
     else {
       unlinkSync(f.incoming)

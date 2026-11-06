@@ -1,3 +1,4 @@
+import type { PlaylistMembership } from '@shared/types/playlistMembership'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type {
   AddPlaylistTracksResult,
@@ -54,6 +55,29 @@ export class PlaylistRepository extends BaseRepository {
       .get(id) as PlaylistRow | undefined
 
     return row ? toPlaylist(row) : null
+  }
+
+  getMembership(id: number): PlaylistMembership<Playlist> | null {
+    return this.db.transaction(() => {
+      const playlist = this.getById(id)
+      if (!playlist) return null
+      const trackIds = this.db
+        .prepare(
+          `
+        SELECT pt.track_id FROM playlist_tracks pt
+        JOIN tracks t ON t.id = pt.track_id
+        WHERE pt.playlist_id = ? AND t.availability = 'available'
+        ORDER BY pt.position ASC, pt.track_id ASC
+      `,
+        )
+        .pluck()
+        .all(id) as number[]
+      const libraryRevision = this.db
+        .prepare('SELECT CAST(revision AS TEXT) FROM library_catalog_revision WHERE id = 1')
+        .pluck()
+        .get() as string
+      return { playlist, trackIds, libraryRevision }
+    })()
   }
 
   getTrackIds(id: number): number[] {

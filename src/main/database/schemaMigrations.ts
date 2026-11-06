@@ -919,4 +919,43 @@ export const migrations = [
       track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE
     );`,
   },
+  {
+    id: 35,
+    name: 'index_album_artwork_projection_lookups',
+    sql: `
+      CREATE INDEX idx_tracks_album_artwork_candidate
+        ON tracks(effective_album_title, effective_album_artist,
+          COALESCE(disc_no, 1), track_no IS NULL, track_no, id)
+        WHERE availability = 'available'
+          AND COALESCE(embedded_artwork_cache_key, directory_artwork_cache_key) IS NOT NULL;
+      CREATE INDEX idx_tracks_album_artwork_pending
+        ON tracks(effective_album_title, effective_album_artist, embedded_artwork_checked_fingerprint)
+        WHERE availability = 'available' AND embedded_artwork_checked_fingerprint IS NULL;
+    `,
+  },
+  {
+    id: 36,
+    name: 'stage_library_scans',
+    sql: `
+      CREATE INDEX idx_scan_failures_job_path ON scan_failures(job_id,file_path);
+      CREATE TABLE scan_staged_tracks (
+        root_id INTEGER NOT NULL REFERENCES library_roots(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        job_id INTEGER NOT NULL REFERENCES scan_jobs(id) ON DELETE CASCADE,
+        snapshot_json TEXT NOT NULL,
+        PRIMARY KEY(root_id, file_path)
+      );
+      CREATE INDEX idx_scan_staged_job ON scan_staged_tracks(job_id);
+      CREATE TABLE scan_inventory (
+        job_id INTEGER NOT NULL REFERENCES scan_jobs(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        PRIMARY KEY(job_id, file_path)
+      );
+      CREATE TABLE scan_unreadable_directories (
+        job_id INTEGER NOT NULL REFERENCES scan_jobs(id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        PRIMARY KEY(job_id, file_path)
+      );
+    `,
+  },
 ] as const

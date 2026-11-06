@@ -8,7 +8,10 @@ vi.mock('node:fs/promises', () => ({ stat: vi.fn() }))
 vi.mock('music-metadata', () => ({ parseFile: vi.fn() }))
 vi.mock('../artwork/artworkCache', () => ({ writeArtworkToCache: vi.fn(async () => 'cover.webp') }))
 vi.mock('./resolveLyricsForFile', () => ({
-  resolveLyricsForFile: vi.fn(async () => ({ text: 'lyrics', format: 'plain' })),
+  readLyricsSnapshot: vi.fn(async () => ({
+    lyrics: { text: 'lyrics', format: 'plain' },
+    lyricsSidecarFingerprint: '[]',
+  })),
 }))
 
 const info = (size: number) =>

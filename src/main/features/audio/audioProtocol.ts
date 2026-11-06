@@ -7,6 +7,7 @@ import { logger } from '@main/logging/logger'
 import { isSupportedAudioFile as isPlayableAudioExtension } from '@main/shared/audioFileFilter'
 import { isPathUnderAnyRoot } from './audioPathGuard'
 import { AUDIO_FILE_SIZE_HEADER, AUDIO_FILE_MTIME_HEADER } from '@shared/types/audioDecode'
+import { DatabaseWriteAdmissionError } from '@main/database/databaseWriteAdmission'
 
 const TRACK_ID_PATH = /^\/(\d+)$/
 const BYTES_RANGE = /^bytes=(\d*)-(\d*)$/i
@@ -26,7 +27,7 @@ export { isPlayableAudioExtension }
 export type AudioProtocolResolver = {
   getFilePathByTrackId: (trackId: number) => string | null
   getLibraryRootPaths: () => string[]
-  onFileMissing?: (trackId: number, filePath: string) => void
+  onFileMissing?: (trackId: number, filePath: string) => void | Promise<void>
 }
 
 function isMissingFileError(error: unknown): boolean {
@@ -87,12 +88,12 @@ export function createAudioProtocolHandler(
       try {
         fileStats = await stat(resolvedPath)
       } catch (error) {
-        if (isMissingFileError(error)) resolver.onFileMissing?.(trackId, filePath)
+        if (isMissingFileError(error)) await resolver.onFileMissing?.(trackId, filePath)
         return new Response(null, { status: 404 })
       }
 
       if (!fileStats.isFile()) {
-        resolver.onFileMissing?.(trackId, filePath)
+        await resolver.onFileMissing?.(trackId, filePath)
         return new Response(null, { status: 404 })
       }
 
@@ -144,6 +145,7 @@ export function createAudioProtocolHandler(
         request.method.toUpperCase(),
       )
     } catch (error) {
+      if (error instanceof DatabaseWriteAdmissionError) return new Response(null, { status: 503 })
       logger.warn({ err: error, url: request.url }, 'Audio protocol handler failed')
       return new Response(null, { status: 500 })
     }

@@ -9,7 +9,24 @@ export async function collectAudioFiles(
   isCurrent: () => boolean = () => true,
 ): Promise<string[]> {
   const files: string[] = []
+  await visitAudioFiles(
+    directoryPath,
+    onUnreadableDirectory,
+    (path) => {
+      files.push(path)
+    },
+    isCurrent,
+  )
+  return files
+}
 
+/** Discovery waits only for bounded reader capacity, rather than the entire inventory. */
+export async function visitAudioFiles(
+  directoryPath: string,
+  onUnreadableDirectory: (directoryPath: string) => void,
+  onFile: (filePath: string) => void | Promise<void>,
+  isCurrent: () => boolean = () => true,
+): Promise<void> {
   async function collectDirectory(currentPath: string, isRoot: boolean): Promise<void> {
     if (!isCurrent()) return
     let entries: Dirent[]
@@ -28,11 +45,10 @@ export async function collectAudioFiles(
         await collectDirectory(entryPath, false)
       } else if (entry.isFile() && isSupportedAudioFile(entryPath)) {
         // Append once, without spreading a whole subtree into function arguments.
-        files.push(entryPath)
+        await onFile(entryPath)
       }
     }
   }
 
   await collectDirectory(directoryPath, true)
-  return files
 }

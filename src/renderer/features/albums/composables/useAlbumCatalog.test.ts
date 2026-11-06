@@ -1,3 +1,4 @@
+import { SharedLibraryCatalogLoad } from '@renderer/features/library/utils/sharedLibraryCatalogLoad'
 import { effectScope, nextTick, ref, type EffectScope } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuralisApi } from '@shared/ipc/api'
@@ -156,4 +157,27 @@ describe('cached album catalog', () => {
     await nextTick()
     expect(state.getTracks).toHaveBeenCalledTimes(2)
   })
+})
+
+it('uses the shared paged catalog instead of transferring every track again', async () => {
+  const rows = [{ id: 1 }] as TrackListItem[]
+  const page = vi.fn(async () => ({
+    snapshotId: 'shared',
+    totalTracks: 1,
+    tracks: rows,
+    nextCursor: null,
+    diagnostics: { snapshotBuildMs: 0, pageSliceMs: 0 },
+  }))
+  const client = new SharedLibraryCatalogLoad(page)
+  const snapshot = await client.load(() => true)
+  const getTracks = vi.fn()
+  const scope = effectScope()
+  scopes.push(scope)
+  const catalog = scope.run(() =>
+    useAlbumCatalog({ getTracks, onChanged: () => () => {} }, ref(true), vi.fn(), client),
+  )!
+  await new Promise((resolve) => setImmediate(resolve))
+  expect(catalog.tracks.value[0]).toBe(snapshot.tracks[0])
+  expect(page).toHaveBeenCalledOnce()
+  expect(getTracks).not.toHaveBeenCalled()
 })

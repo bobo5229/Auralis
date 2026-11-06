@@ -1,5 +1,6 @@
 import { cpus } from 'node:os'
-import { collectAudioFiles } from './libraryScanInventory'
+import { isWorkerMessageChannelOpen } from '@main/shared/workerMessageCredits'
+import { visitAudioFiles } from './libraryScanInventory'
 import { LibraryScanArtwork } from './libraryScanArtwork'
 import { LibraryScanTrackReader } from './libraryScanTrackReader'
 import { LibraryScanReporter } from './libraryScanReporter'
@@ -13,38 +14,53 @@ export async function runLibraryScan(
 ): Promise<void> {
   const reporter = new LibraryScanReporter(input.jobId, postMessage)
   const artwork = new LibraryScanArtwork(input.artworkCacheDir)
-  const reader = new LibraryScanTrackReader(input.knownFiles, artwork, (filePath, reason) =>
-    reporter.reportFileFailure(filePath, reason),
+  const source = input.databasePath
+    ? (await import('./libraryScanReadSource')).openScanReadSource(input)
+    : undefined
+  const reader = new LibraryScanTrackReader(
+    source?.known ?? input.knownFiles,
+    artwork,
+    (filePath, reason) => reporter.reportFileFailure(filePath, reason),
+    source?.cached,
   )
   reporter.beginCollection()
-  const audioFiles = await collectAudioFiles(input.rootPath, (directoryPath) =>
-    reporter.reportUnreadableDirectory(directoryPath),
-  )
-  reporter.beginScanning(audioFiles.length)
+  reporter.beginScanning(0)
 
-  let index = 0
   const executing = new Set<Promise<void>>()
 
-  while (index < audioFiles.length) {
-    const filePath = audioFiles[index++]
-    const p = Promise.resolve().then(() => reader.read(filePath))
+  try {
+    await visitAudioFiles(
+      input.rootPath,
+      (directoryPath) => reporter.reportUnreadableDirectory(directoryPath),
+      async (filePath) => {
+        reporter.discoverFile()
+        const p = Promise.resolve().then(() => reader.read(filePath))
 
-    const tracker: Promise<void> = p.then(
-      (res) => {
-        executing.delete(tracker)
-        reporter.handleReadResult(res, filePath)
+        const tracker: Promise<void> = p.then(
+          (res) => {
+            executing.delete(tracker)
+            reporter.handleReadResult(res, filePath)
+          },
+          (error: unknown) => {
+            executing.delete(tracker)
+            reporter.reportFileFailure(
+              filePath,
+              error instanceof Error ? error.message : 'Unable to read file',
+            )
+            reporter.handleReadResult({ kind: 'skip' }, filePath)
+          },
+        )
+        executing.add(tracker)
+
+        if (executing.size >= SCAN_CONCURRENCY) await Promise.race(executing)
       },
-      () => {
-        executing.delete(tracker)
-      },
+      () => isWorkerMessageChannelOpen(input.messageCredits),
     )
-    executing.add(tracker)
+    await Promise.all(executing)
 
-    if (executing.size >= SCAN_CONCURRENCY) {
-      await Promise.race(executing)
-    }
+    reporter.complete()
+  } finally {
+    await Promise.allSettled(executing)
+    source?.close()
   }
-  await Promise.all(executing)
-
-  reporter.complete()
 }

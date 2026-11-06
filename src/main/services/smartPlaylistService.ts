@@ -1,3 +1,4 @@
+import type { PlaylistMembership } from '@shared/types/playlistMembership'
 import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type {
@@ -32,21 +33,18 @@ export { assertValidSmartPlaylistRule } from './smartPlaylistRules'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 
-/** Short TTL: listTrackCounts + getDetail often fire in bursts; avoid multi-getAll of large libraries. */
-const TRACK_LIST_CACHE_TTL_MS = 3000
-
 export class SmartPlaylistService {
   /**
-   * Brief in-process cache of getAll() tracks.
+   * In-process catalog cache owned by its database revision.
    * Database revisions invalidate this cache before an immediate post-change refresh.
    */
-  private trackListCache: { tracks: TrackListItem[]; expiresAt: number; revision: string } | null =
-    null
+  private trackListCache: { tracks: TrackListItem[]; revision: string } | null = null
 
   constructor(
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
     private readonly trackRepository: TrackRepository,
     private readonly publishChange: (event: PlaylistChangedEvent) => void = () => {},
+    private readonly loadCatalog?: () => TrackListItem[] | Promise<TrackListItem[]>,
   ) {}
 
   list(): SmartPlaylist[] {
@@ -68,15 +66,61 @@ export class SmartPlaylistService {
     }))
   }
 
+  async listTrackCountsAsync(): Promise<SmartPlaylistTrackCount[]> {
+    if (this.smartPlaylistRepository.list().length === 0) {
+      this.clearTrackListCache()
+      return []
+    }
+    const tracks = await this.loadTracksCached()
+    const now = new Date()
+    const presets = new Map<string, TrackListItem[]>()
+    return this.smartPlaylistRepository.list().map((playlist) => ({
+      playlistId: playlist.id,
+      trackCount: this.getPlaylistTracks(playlist, tracks, now, presets).length,
+    }))
+  }
+
+  async getDetailAsync(id: number): Promise<SmartPlaylistDetail | null> {
+    if (!this.smartPlaylistRepository.getById(id)) return null
+    const tracks = await this.loadTracksCached()
+    const playlist = this.smartPlaylistRepository.getById(id)
+    return playlist ? { playlist, tracks: this.getDetailTracks(playlist, tracks) } : null
+  }
+
+  async getMembership(id: number): Promise<PlaylistMembership<SmartPlaylist> | null> {
+    if (!this.smartPlaylistRepository.getById(id)) return null
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const tracks = await this.loadTracksCached()
+      const cached = this.trackListCache
+      if (!cached || cached.tracks !== tracks) continue
+      const revision = cached.revision
+      const playlist = this.smartPlaylistRepository.getById(id)
+      if (!playlist) return null
+      const trackIds = this.getDetailTracks(playlist, tracks).map((track) => track.id)
+      if (this.trackRepository.getChangeToken() === revision)
+        return { playlist, trackIds, libraryRevision: revision }
+    }
+    throw new Error('Library changed while resolving smart playlist membership')
+  }
+
+  private async loadTracksCached(): Promise<TrackListItem[]> {
+    if (!this.loadCatalog) return this.getTracksCached()
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const revision = this.trackRepository.getChangeToken()
+      if (this.trackListCache?.revision === revision) return this.trackListCache.tracks
+      const tracks = await this.loadCatalog()
+      if (this.trackRepository.getChangeToken() === revision) {
+        this.trackListCache = { tracks, revision }
+        return tracks
+      }
+    }
+    throw new Error('Library changed while loading smart playlist catalog')
+  }
+
   getDetail(id: number): SmartPlaylistDetail | null {
     const playlist = this.smartPlaylistRepository.getById(id)
     if (!playlist) return null
-    const tracks = this.getPlaylistTracks(playlist, this.getTracksCached(), new Date())
-
-    return {
-      playlist,
-      tracks: isRecentAddedSmartPlaylist(playlist) ? sortRecentAddedTracks(tracks) : tracks,
-    }
+    return { playlist, tracks: this.getDetailTracks(playlist, this.getTracksCached()) }
   }
 
   create(name: string, rule: SmartPlaylistRule): CreateSmartPlaylistResult {
@@ -138,6 +182,11 @@ export class SmartPlaylistService {
     return updated
   }
 
+  private getDetailTracks(playlist: SmartPlaylist, tracks: TrackListItem[]): TrackListItem[] {
+    const selected = this.getPlaylistTracks(playlist, tracks, new Date())
+    return isRecentAddedSmartPlaylist(playlist) ? sortRecentAddedTracks(selected) : selected
+  }
+
   private getPlaylistTracks(
     playlist: SmartPlaylist,
     tracks: TrackListItem[],
@@ -182,30 +231,23 @@ export class SmartPlaylistService {
     return result
   }
 
-  /** Drop the short-lived track list cache (e.g. after a known library mutation if wired). */
+  /** Release the retained catalog when there are no consumers. */
   clearTrackListCache(): void {
     this.trackListCache = null
   }
 
   /**
-   * Load available tracks once per batch evaluation window.
-   * listTrackCounts reuses one getAll() for all smart playlists; getDetail shares the same TTL cache.
+   * Synchronous domain callers share the same revision cache as the asynchronous IPC reader.
    */
   private getTracksCached(): TrackListItem[] {
-    const now = Date.now()
     const revision = this.trackRepository.getChangeToken()
-    if (
-      this.trackListCache &&
-      this.trackListCache.expiresAt > now &&
-      this.trackListCache.revision === revision
-    ) {
+    if (this.trackListCache && this.trackListCache.revision === revision) {
       return this.trackListCache.tracks
     }
 
     const tracks = this.trackRepository.getAll()
     this.trackListCache = {
       tracks,
-      expiresAt: now + TRACK_LIST_CACHE_TTL_MS,
       revision,
     }
     return tracks

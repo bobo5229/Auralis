@@ -1,4 +1,5 @@
 import { createRendererShutdownBarrier } from '@main/app/rendererShutdown'
+import { LibraryCatalogWorkerHost } from '@main/features/libraryCatalog/libraryCatalogWorkerHost'
 import { BadgeAchievementRepository } from '@main/repositories/badgeAchievementRepository'
 import { resetListeningHistory } from '@main/services/resetListeningHistory'
 import { registerBadgeAchievementIpcHandlers } from './registerBadgeAchievementIpcHandlers'
@@ -15,6 +16,7 @@ import { claimStartupAlbum } from '@main/app/startupAlbumSession'
 import { getNativeUiMessages, setNativeUiLocale } from '@main/app/uiLocale'
 import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
+import type { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 import { exportDatabaseBackup, stageDatabaseRestore } from '@main/database/databaseBackupService'
 import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCacheGarbageCollector'
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
@@ -28,6 +30,7 @@ import { LibraryIncrementalImportService } from '@main/features/libraryScan/libr
 import { selectLibraryDirectory } from '@main/app/selectLibraryDirectory'
 import { createLibraryScanEvents } from './libraryScanEvents'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
+import { LibraryScanSettlementHost } from '@main/features/libraryScan/libraryScanSettlementHost'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
@@ -51,6 +54,7 @@ import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
 import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
+import { createWriteAdmissionRegistrar } from './writeAdmissionRegistrar'
 import { createRendererEventSender } from './rendererEvents'
 import { createMetadataRefreshEvents } from './metadataRefreshEvents'
 import {
@@ -66,6 +70,7 @@ export async function registerIpcHandlers(
   db: Database.Database,
   artworkCacheDir: string,
   windowBehavior: WindowBehaviorController,
+  writeAdmission: DatabaseWriteAdmission,
 ): Promise<{ shutdown(): Promise<void> }> {
   const trackRepository = new TrackRepository(db)
   const libraryRootRepository = new LibraryRootRepository(db)
@@ -87,7 +92,11 @@ export async function registerIpcHandlers(
     appPath: app.getAppPath(),
     resourcesPath: process.resourcesPath,
   })
-  const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
+  const libraryService = new LibraryService(
+    new LibraryRepository(db),
+    new TrackRepository(db),
+    new LibraryCatalogWorkerHost(db.name),
+  )
   const startupAlbumWorker = new StartupAlbumWorkerHost(db.name)
   const scanEvents = createLibraryScanEvents(sendToRenderer)
   const libraryScanService = new LibraryScanService(
@@ -95,6 +104,9 @@ export async function registerIpcHandlers(
     artworkCacheDir,
     selectLibraryDirectory,
     scanEvents,
+    undefined,
+    writeAdmission,
+    new LibraryScanSettlementHost(db, writeAdmission, scanEvents),
   )
   const playbackFileCoordinator = new PlaybackFileCoordinator({
     getTrackFilePath: (trackId) => trackRepository.getFilePathById(trackId),
@@ -103,11 +115,13 @@ export async function registerIpcHandlers(
     metadataRepository,
     artworkCacheDir,
     createMetadataRefreshEvents(sendToRenderer),
+    writeAdmission,
   )
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,
     artworkCacheDir,
     scanEvents.changed,
+    writeAdmission,
   )
 
   const notifyLibraryChanged = (data: {
@@ -120,6 +134,7 @@ export async function registerIpcHandlers(
     tracks: trackRepository,
     getRootPaths: () => libraryRootRepository.list().map((root) => root.path),
     files: playbackFileCoordinator,
+    writeAdmission,
     libraryChanged: (event) => sendToRenderer(ipcChannels.library.changed, event),
   })
   const getAudioUrl = (trackId: number) => playbackResources.getAudioUrl(trackId)
@@ -129,11 +144,12 @@ export async function registerIpcHandlers(
     metadataRefreshService,
     incrementalImportService,
     (event) => sendToRenderer(ipcChannels.library.changed, event),
+    writeAdmission,
   )
 
   const artworkMaintenanceService = new ArtworkCacheMaintenanceService(
-    new ArtworkCacheMigrationService(db, artworkCacheDir),
-    new ArtworkCacheGarbageCollector(db, artworkCacheDir),
+    new ArtworkCacheMigrationService(db, artworkCacheDir, undefined, writeAdmission),
+    new ArtworkCacheGarbageCollector(db, artworkCacheDir, writeAdmission),
     {
       isScanActive: () => libraryScanService.isScanActive(),
       isRefreshActive: () => metadataRefreshService.hasActiveJob(),
@@ -190,6 +206,7 @@ export async function registerIpcHandlers(
     smartPlaylistRepository,
     trackRepository,
     publishPlaylistChange,
+    () => libraryService.getTracks(),
   )
   const playlistService = new PlaylistService(
     playlistRepository,
@@ -197,11 +214,11 @@ export async function registerIpcHandlers(
     publishPlaylistChange,
   )
 
-  const getSmartTrackCounts = () =>
+  const getSmartTrackCounts = async () =>
     new Map(
-      smartPlaylistService
-        .listTrackCounts()
-        .map((item) => [item.playlistId, item.trackCount] as const),
+      (await smartPlaylistService.listTrackCountsAsync()).map(
+        (item) => [item.playlistId, item.trackCount] as const,
+      ),
     )
 
   const rendererEntry = process.env.ELECTRON_RENDERER_URL
@@ -215,6 +232,7 @@ export async function registerIpcHandlers(
       isTrustedRendererUrl: (url) => isTrustedRendererUrl(url, rendererEntry),
     }),
   })
+  const writeIpcRegistrar = createWriteAdmissionRegistrar(electronIpcRegistrar, writeAdmission)
 
   const rendererShutdown = createRendererShutdownBarrier((message) => logger.warn(message))
   electronIpcRegistrar.handle(ipcChannels.app.shutdownReady, (event, payload) => {
@@ -406,26 +424,43 @@ export async function registerIpcHandlers(
       openPath: (directoryPath) => shell.openPath(directoryPath),
     },
   })
-  registerPlaylistIpcHandlers(electronIpcRegistrar, {
+  registerPlaylistIpcHandlers(writeIpcRegistrar, {
     playlistService,
     smartPlaylistService,
     getSmartTrackCounts,
   })
-  registerBadgeAchievementIpcHandlers(electronIpcRegistrar, badgeAchievementRepository, () =>
+  registerBadgeAchievementIpcHandlers(writeIpcRegistrar, badgeAchievementRepository, () =>
     sendToRenderer(ipcChannels.archive.badgeAchievementsChanged, undefined),
   )
-  registerPlaybackArchiveIpcHandlers(electronIpcRegistrar, {
+  registerPlaybackArchiveIpcHandlers(writeIpcRegistrar, {
     libraryService,
     playStatsService,
     getAudioUrl,
     notifyLibraryChanged,
   })
-  registerMetadataIpcHandlers(electronIpcRegistrar, {
+  registerMetadataIpcHandlers(writeIpcRegistrar, {
     metadataRefreshService,
   })
 
   return {
     async shutdown() {
+      // Stop producers before asking renderers to flush final listening evidence.
+      // They may resume each other during scan cleanup, so stop is idempotent.
+      const producers = await Promise.allSettled([
+        startupAlbumWorker.shutdown(),
+        artworkMaintenanceService.shutdown(),
+        libraryScanService.shutdown(),
+        writeAdmission.stopExclusive(),
+        metadataRefreshService.shutdown(),
+        metadataWatchService.stop(),
+      ])
+      const producerFailures = producers.filter((result) => result.status === 'rejected')
+      if (producerFailures.length > 0) {
+        throw new AggregateError(
+          producerFailures.map((result) => result.reason),
+          'Unable to stop library writers',
+        )
+      }
       await rendererShutdown.prepare(
         BrowserWindow.getAllWindows()
           .filter((window) => isRegisteredMainWindow(window))
@@ -436,17 +471,11 @@ export async function registerIpcHandlers(
           })),
       )
       rendererLeaseOwners.dispose()
-      const early = await Promise.allSettled([
-        electronIpcRegistrar.shutdown(),
-        startupAlbumWorker.shutdown(),
-        artworkMaintenanceService.shutdown(),
-      ])
+      const early = await Promise.allSettled([electronIpcRegistrar.shutdown()])
       const library = await Promise.allSettled([
-        libraryScanService.shutdown(),
-        metadataRefreshService.shutdown(),
+        Promise.resolve().then(() => libraryService.dispose()),
       ])
       const playback = await Promise.allSettled([
-        metadataWatchService.stop(),
         spectrum.dispose(),
         Promise.resolve().then(() => nativePlayback.dispose()),
       ])
@@ -459,6 +488,8 @@ export async function registerIpcHandlers(
           'Service shutdown failed',
         )
       }
+      await writeAdmission.drain()
+      writeAdmission.stopAccepting()
     },
   }
 }

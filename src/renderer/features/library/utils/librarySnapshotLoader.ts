@@ -1,4 +1,3 @@
-import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -14,17 +13,7 @@ import {
   type LibraryDataSnapshot,
 } from './libraryDataSnapshot'
 
-// Preserve one presentation array per immutable catalog generation across page visits.
-const presentationTracks = new WeakMap<readonly TrackListItem[], TrackListItem[]>()
-function getPresentationTracks(tracks: readonly TrackListItem[]): TrackListItem[] {
-  let result = presentationTracks.get(tracks)
-  if (!result) {
-    result = [...tracks]
-    Object.freeze(result)
-    presentationTracks.set(tracks, result)
-  }
-  return result
-}
+import { getLibraryPresentationTracks } from './libraryPresentationTracks'
 
 export function dependsOnPlayStats(preset: string | undefined): boolean {
   return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
@@ -104,7 +93,7 @@ export function createLibrarySnapshotLoader(options: {
               options.readPersistedViewMode(),
             )
           : createAllSongsLibrarySnapshot(
-              getPresentationTracks(catalog.tracks),
+              getLibraryPresentationTracks(catalog.tracks),
               options.readPersistedViewMode(),
             ),
       isSnapshotCurrent: () => options.catalogClient.isSnapshotCurrent(catalog),

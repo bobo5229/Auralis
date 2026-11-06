@@ -57,9 +57,11 @@ export class PlaybackSpectrumService {
   private failed = false
   private lastFrameTime = -1
   private readonly analyzer = new SpectrumAnalyzer()
+  private readonly leftChannel = new Float32Array(SPECTRUM_FFT_SIZE)
+  private readonly rightChannel = new Float32Array(SPECTRUM_FFT_SIZE)
   private readonly closing = new Set<Promise<void>>()
   private lastHeartbeat = 0
-  private resolvingKey: string | null = null
+  private resolving: { key: string } | null = null
   private usingNative = false
   readonly diagnostics = {
     analyzedFrames: 0,
@@ -95,6 +97,7 @@ export class PlaybackSpectrumService {
     }
     if (previous?.subscriptionId !== request.subscriptionId) this.stopDecoder()
     if (this.failed && previous?.trackId === request.trackId) return { accepted: true }
+    if (this.failed) this.stopDecoder()
     if (this.source && this.source.trackId !== request.trackId) {
       this.stopDecoder()
       this.source = null
@@ -112,12 +115,14 @@ export class PlaybackSpectrumService {
       return { accepted: true }
     }
     const key = `${request.subscriptionId}:${request.trackId}`
-    if (this.resolvingKey === key) return { accepted: true }
-    this.resolvingKey = key
+    if (this.resolving?.key === key) return { accepted: true }
+    const resolution = { key }
+    this.resolving = resolution
     try {
       const path = await this.options.resolveTrack(request.trackId)
       const current = this.subscription
       if (
+        this.resolving !== resolution ||
         !current?.enabled ||
         !current.isPlaying ||
         this.usingNative ||
@@ -133,21 +138,20 @@ export class PlaybackSpectrumService {
       })
     } catch (error) {
       if (
+        this.resolving === resolution &&
         this.subscription?.enabled &&
         `${this.subscription.subscriptionId}:${this.subscription.trackId}` === key
       ) {
-        this.failed = true
-        this.emit('unavailable')
-        this.options.warn(error)
+        this.fail(error)
       }
     } finally {
-      if (this.resolvingKey === key) this.resolvingKey = null
+      if (this.resolving === resolution) this.resolving = null
     }
     return { accepted: true }
   }
 
   syncNative(source: SpectrumSource | null): void {
-    if (!this.subscription?.enabled) return
+    if (!this.subscription?.enabled || this.failed) return
     if (source && source.trackId === this.subscription.trackId) {
       this.usingNative = true
       this.syncSource(source)
@@ -293,8 +297,8 @@ export class PlaybackSpectrumService {
       this.carry.length - offset >= SPECTRUM_FFT_SIZE * 4 * SPECTRUM_CHANNELS &&
       this.decodeStart + this.decodedSamples / SPECTRUM_SAMPLE_RATE < horizon
     ) {
-      const left = new Float32Array(SPECTRUM_FFT_SIZE)
-      const right = new Float32Array(SPECTRUM_FFT_SIZE)
+      const left = this.leftChannel
+      const right = this.rightChannel
       for (let i = 0; i < left.length; i++) {
         left[i] = this.carry.readFloatLE(offset + i * 8)
         right[i] = this.carry.readFloatLE(offset + i * 8 + 4)
@@ -333,6 +337,10 @@ export class PlaybackSpectrumService {
 
   private tick(): void {
     if (performance.now() - this.lastHeartbeat > 1500) {
+      this.subscription = null
+      this.source = null
+      this.resolving = null
+      this.usingNative = false
       this.stopDecoder()
       this.stopTimer()
       return
@@ -370,8 +378,10 @@ export class PlaybackSpectrumService {
 
   private fail(error: unknown): void {
     this.stopDecoder()
+    this.stopTimer()
     this.failed = true
     this.emit('unavailable')
+    this.source = null
     this.options.warn(error)
   }
 
@@ -399,6 +409,7 @@ export class PlaybackSpectrumService {
     this.stopTimer()
     this.subscription = null
     this.source = null
+    this.resolving = null
     await Promise.allSettled([...this.closing])
   }
 }

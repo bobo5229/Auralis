@@ -86,7 +86,7 @@ export function findUniqueRelocationCandidate(
 /** Decide the entire batch before writing; two new paths must not claim one old record. */
 export function findUniqueRelocations(
   candidates: MissingTrackCandidate[],
-  tracks: ScannedTrack[],
+  tracks: Iterable<ScannedTrack>,
   canRelocate: (candidate: MissingTrackCandidate, track: ScannedTrack) => boolean = () => true,
 ): Map<string, MissingTrackCandidate> {
   const byIsrc = new Map<string, MissingTrackCandidate[]>()

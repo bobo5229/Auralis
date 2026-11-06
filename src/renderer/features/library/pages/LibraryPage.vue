@@ -46,7 +46,7 @@ import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
 import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnLayout'
 import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
-import { libraryCatalogClient } from '../utils/libraryCatalogClient'
+import { libraryCatalogClient, playlistCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
 import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libraryFlatColumnLayout'
 import '../styles/flatTrackGrid.css'
@@ -895,8 +895,8 @@ const {
   libraryViewMode,
   isLoading,
   getTrackPage: (request) => auralis.library.getTrackPage(request),
-  getPlaylistDetail: (id) => auralis.playlists.getDetail(id),
-  getSmartPlaylistDetail: (id) => auralis.smartPlaylists.getDetail(id),
+  getPlaylistDetail: (id) => playlistCatalogClient.getPlaylistDetail(id),
+  getSmartPlaylistDetail: (id) => playlistCatalogClient.getSmartPlaylistDetail(id),
   readPersistedViewMode,
   onSnapshotCommitted: (snapshot) => {
     resetMatchCursor()

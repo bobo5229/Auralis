@@ -5,6 +5,10 @@ import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
 import { isCacheFileName } from '@main/shared/artworkCachePolicy'
 import { AlbumMaintenanceRepository } from '@main/repositories/albumMaintenanceRepository'
+import {
+  DatabaseWriteAdmissionError,
+  type DatabaseWriteAdmission,
+} from '@main/database/databaseWriteAdmission'
 
 export interface ArtworkCacheGarbageCollectionSummary {
   orphanFileCount: number
@@ -38,6 +42,7 @@ export class ArtworkCacheGarbageCollector {
   constructor(
     private readonly db: Database.Database,
     private readonly cacheDir: string,
+    private readonly writeAdmission?: DatabaseWriteAdmission,
   ) {
     this.albums = new AlbumMaintenanceRepository(db)
   }
@@ -91,12 +96,16 @@ export class ArtworkCacheGarbageCollector {
     const startedAt = Date.now()
 
     try {
-      const referenced = this.db
-        .transaction(() => {
-          if (canCollect()) this.albums.removeUnusedAlbums()
-          return this.collectReferencedKeys()
-        })
-        .immediate()
+      const readReferences = () =>
+        this.db
+          .transaction(() => {
+            if (canCollect()) this.albums.removeUnusedAlbums()
+            return this.collectReferencedKeys()
+          })
+          .immediate()
+      const referenced = this.writeAdmission
+        ? await this.writeAdmission.runWrite(readReferences)
+        : readReferences()
       const hasReference = this.db.prepare(`
         SELECT 1 FROM albums WHERE artwork_cache_key = ?
         UNION ALL SELECT 1 FROM track_metadata WHERE artwork_cache_key = ?
@@ -163,11 +172,13 @@ export class ArtworkCacheGarbageCollector {
 
         try {
           if (!canCollect()) continue
-          if (deleteIfUnreferenced.immediate(entry.name, filePath)) {
+          const remove = () => deleteIfUnreferenced.immediate(entry.name, filePath)
+          if (this.writeAdmission ? await this.writeAdmission.runWrite(remove) : remove()) {
             bytesReclaimed += size
             orphanFileCount += 1
           }
         } catch (error) {
+          if (error instanceof DatabaseWriteAdmissionError) throw error
           // One failing file must not abort the whole sweep (§11.3).
           logger.warn(
             {

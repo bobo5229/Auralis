@@ -10,8 +10,14 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
+          'features/libraryCatalog/libraryCatalogWorker': resolve(
+            'src/main/features/libraryCatalog/libraryCatalogWorker.ts',
+          ),
           'features/libraryScan/libraryScanWorker': resolve(
             'src/main/features/libraryScan/libraryScanWorker.ts',
+          ),
+          'features/libraryScan/libraryScanSettlementWorker': resolve(
+            'src/main/features/libraryScan/libraryScanSettlementWorker.ts',
           ),
           'features/metadata/metadataRefreshWorker': resolve(
             'src/main/features/metadata/metadataRefreshWorker.ts',

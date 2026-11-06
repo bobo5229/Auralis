@@ -32,11 +32,14 @@ export function sameLyricsSidecarFingerprint(
 }
 
 /** Includes absence, so adding or removing a sidecar invalidates the scan cache. */
-export async function getLyricsSidecarFingerprint(filePath: string): Promise<string> {
-  const fingerprints = await Promise.all(
+export async function getLyricsSidecarFingerprint(
+  filePath: string,
+  statFile: (path: string) => Promise<Stats> = stat,
+): Promise<string> {
+  const outcomes = await Promise.allSettled(
     lyricSidecarCandidates(filePath).map(async (candidate) => {
       try {
-        const file = await stat(candidate)
+        const file = await statFile(candidate)
         return sidecarFingerprint(file)
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
@@ -44,6 +47,10 @@ export async function getLyricsSidecarFingerprint(filePath: string): Promise<str
       }
     }),
   )
+  const fingerprints = outcomes.map((outcome) => {
+    if (outcome.status === 'rejected') throw outcome.reason
+    return outcome.value
+  })
   return JSON.stringify(fingerprints)
 }
 

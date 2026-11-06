@@ -11,6 +11,7 @@ export interface MetadataRefreshProgress {
 
 export interface StableTrackMetadata extends RefreshedTrackMetadata {
   fileFingerprint: ScanFileFingerprint
+  lyricsSidecarFingerprint?: string
 }
 
 export interface MetadataRefreshWorkerInput {
@@ -18,6 +19,7 @@ export interface MetadataRefreshWorkerInput {
   tracks: Array<{ trackId: number; filePath: string }>
   artworkCacheDir: string
   writeMode?: 'metadata' | 'lyrics' | 'legacy-ttml'
+  messageCredits?: SharedArrayBuffer
 }
 
 export interface MetadataRefreshWorkerResult extends StableTrackMetadata {
@@ -25,7 +27,7 @@ export interface MetadataRefreshWorkerResult extends StableTrackMetadata {
   lyricsSidecarFingerprint?: string
 }
 
-export type MetadataRefreshWorkerMessage =
+type MetadataRefreshMessage =
   | { type: 'result'; payload: MetadataRefreshWorkerResult }
   | {
       type: 'failure'
@@ -34,3 +36,5 @@ export type MetadataRefreshWorkerMessage =
   | { type: 'progress'; payload: { jobId: number; processed: number; failed: number } }
   | { type: 'complete' }
   | { type: 'fatal'; payload: { jobId: number; reason: string } }
+
+export type MetadataRefreshWorkerMessage = MetadataRefreshMessage & { sequence?: number }

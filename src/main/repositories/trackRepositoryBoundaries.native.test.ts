@@ -97,6 +97,12 @@ describe('track repository component boundaries', () => {
       ]),
     )
     expect(repository.getWatchRecoveryTracks(root)).toHaveLength(2)
+    expect(
+      repository
+        .getKnownFiles(root)
+        .map((file) => file.filePath)
+        .sort(),
+    ).toEqual([kept, missing].sort())
   })
 
   it.each(['direct', 'outer transaction'] as const)(

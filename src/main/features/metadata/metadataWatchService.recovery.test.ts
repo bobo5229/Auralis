@@ -195,13 +195,13 @@ it.each(['pause', 'remove'] as const)(
 
 it('limits each recovery import batch for large returning directories', async () => {
   vi.mocked(readdir).mockResolvedValue(
-    Array.from({ length: 300 }, (_, id) => entry(`new-${id}.flac`)) as never,
+    Array.from({ length: 600 }, (_, id) => entry(`new-${id}.flac`)) as never,
   )
   const h = setup()
   h.query.mockReturnValue([])
   await vi.advanceTimersByTimeAsync(1000)
-  expect(h.imports.mock.calls.flatMap(([paths]) => paths)).toHaveLength(300)
-  expect(h.imports.mock.calls.every(([paths]) => paths.length <= 128)).toBe(true)
+  expect(h.imports.mock.calls.flatMap(([paths]) => paths)).toHaveLength(600)
+  expect(h.imports.mock.calls.every(([paths]) => paths.length <= 512)).toBe(true)
 })
 
 it.each(['root', 'child', 'lyrics'] as const)(
@@ -314,7 +314,7 @@ it.each(['pause', 'stop'] as const)(
   'drains the active recovery import before %s and does not start the next batch',
   async (action) => {
     vi.mocked(readdir).mockResolvedValue(
-      Array.from({ length: 129 }, (_, id) => entry(`new-${id}.flac`)) as never,
+      Array.from({ length: 513 }, (_, id) => entry(`new-${id}.flac`)) as never,
     )
     const h = setup()
     h.query.mockReturnValue([])
@@ -322,7 +322,7 @@ it.each(['pause', 'stop'] as const)(
     h.imports.mockReturnValueOnce(gate.promise)
     await vi.advanceTimersByTimeAsync(1000)
     const firstBatch = h.imports.mock.calls[0][0]
-    expect(firstBatch).toHaveLength(128)
+    expect(firstBatch).toHaveLength(512)
     let settled = false
     const barrier = (action === 'pause' ? h.service.pauseFlush() : h.service.stop()).then(() => {
       settled = true
@@ -337,8 +337,8 @@ it.each(['pause', 'stop'] as const)(
     if (action === 'pause') {
       h.service.resumeFlush()
       await vi.advanceTimersByTimeAsync(0)
-      expect(h.imports).toHaveBeenLastCalledWith([path('new-128')])
-      expect(h.imports.mock.calls.every(([paths]) => paths.length <= 128)).toBe(true)
+      expect(h.imports).toHaveBeenLastCalledWith([path('new-512')])
+      expect(h.imports.mock.calls.every(([paths]) => paths.length <= 512)).toBe(true)
     } else {
       h.service.resumeFlush()
       await vi.advanceTimersByTimeAsync(60000)

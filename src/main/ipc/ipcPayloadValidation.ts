@@ -413,6 +413,7 @@ export const domainIpcPayloadPolicies = {
   ),
   [ipcChannels.smartPlaylists.list]: voidPayload(),
   [ipcChannels.smartPlaylists.listTrackCounts]: voidPayload(),
+  [ipcChannels.smartPlaylists.getMembership]: required(idPayload('id')),
   [ipcChannels.smartPlaylists.getDetail]: required(idPayload('id')),
   [ipcChannels.smartPlaylists.create]: required(
     objectShape({
@@ -438,6 +439,7 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.playlists.list]: voidPayload(),
   [ipcChannels.playlists.listTrackCounts]: voidPayload(),
   [ipcChannels.playlists.listSidebarItems]: voidPayload(),
+  [ipcChannels.playlists.getMembership]: required(idPayload('id')),
   [ipcChannels.playlists.getDetail]: required(idPayload('id')),
   [ipcChannels.playlists.create]: voidPayload(),
   [ipcChannels.playlists.rename]: required(namePayload),

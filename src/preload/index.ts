@@ -88,6 +88,7 @@ export const auralisApi: AuralisApi = {
   smartPlaylists: {
     list: () => invoke(ipcChannels.smartPlaylists.list),
     listTrackCounts: () => invoke(ipcChannels.smartPlaylists.listTrackCounts),
+    getMembership: (id) => invoke(ipcChannels.smartPlaylists.getMembership, { id }),
     getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
     create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
     createFromQuery: (query) => invoke(ipcChannels.smartPlaylists.createFromQuery, { query }),
@@ -105,6 +106,7 @@ export const auralisApi: AuralisApi = {
     list: () => invoke(ipcChannels.playlists.list),
     listTrackCounts: () => invoke(ipcChannels.playlists.listTrackCounts),
     listSidebarItems: () => invoke(ipcChannels.playlists.listSidebarItems),
+    getMembership: (id) => invoke(ipcChannels.playlists.getMembership, { id }),
     getDetail: (id) => invoke(ipcChannels.playlists.getDetail, { id }),
     create: () => invoke(ipcChannels.playlists.create),
     rename: (id, name) => invoke(ipcChannels.playlists.rename, { id, name }),

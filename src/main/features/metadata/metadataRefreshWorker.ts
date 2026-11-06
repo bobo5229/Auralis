@@ -1,6 +1,9 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import { readStableMetadata } from './readStableMetadata'
-import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
+import {
+  takeWorkerMessageCredit,
+  isWorkerMessageChannelOpen,
+} from '@main/shared/workerMessageCredits'
 import type {
   MetadataRefreshWorkerInput,
   MetadataRefreshWorkerMessage,
@@ -9,26 +12,23 @@ import type {
 const input = workerData as MetadataRefreshWorkerInput
 let processed = 0
 let failed = 0
+let sequence = 0
 
 function postMessage(message: MetadataRefreshWorkerMessage): void {
-  parentPort?.postMessage(message)
+  if (input.messageCredits) {
+    takeWorkerMessageCredit(input.messageCredits)
+    parentPort?.postMessage({ ...message, sequence: ++sequence })
+  } else parentPort?.postMessage(message)
 }
 
 async function run(): Promise<void> {
   for (const track of input.tracks) {
     try {
-      const before =
-        input.writeMode === 'legacy-ttml'
-          ? await getLyricsSidecarFingerprint(track.filePath)
-          : undefined
       const result = await readStableMetadata(track.trackId, track.filePath, input.artworkCacheDir)
-      if (before !== undefined && before !== (await getLyricsSidecarFingerprint(track.filePath)))
-        throw new Error('Lyrics sidecar changed while being read')
       postMessage({
         type: 'result',
         payload: {
           ...result,
-          lyricsSidecarFingerprint: before,
           jobId: input.jobId,
         },
       })
@@ -51,6 +51,7 @@ async function run(): Promise<void> {
 }
 
 run().catch((error: unknown) => {
+  if (!isWorkerMessageChannelOpen(input.messageCredits)) return
   postMessage({
     type: 'fatal',
     payload: {

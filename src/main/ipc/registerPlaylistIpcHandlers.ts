@@ -12,6 +12,7 @@ type PlaylistOperations = Pick<
   | 'listTrackCounts'
   | 'listSidebarItems'
   | 'getDetail'
+  | 'getMembership'
   | 'create'
   | 'rename'
   | 'updateViewMode'
@@ -25,7 +26,10 @@ type SmartPlaylistOperations = Pick<
   | 'list'
   | 'listTrackCounts'
   | 'getDetail'
+  | 'getMembership'
   | 'create'
+  | 'getDetailAsync'
+  | 'listTrackCountsAsync'
   | 'createFromQuery'
   | 'createRecentAdded'
   | 'updateRecentAddedDays'
@@ -38,7 +42,7 @@ type SmartPlaylistOperations = Pick<
 export interface PlaylistIpcDependencies {
   playlistService: PlaylistOperations
   smartPlaylistService: SmartPlaylistOperations
-  getSmartTrackCounts(): Map<number, number>
+  getSmartTrackCounts(): Map<number, number> | Promise<Map<number, number>>
 }
 
 export function registerPlaylistIpcHandlers(
@@ -49,10 +53,13 @@ export function registerPlaylistIpcHandlers(
 
   registrar.handle(ipcChannels.smartPlaylists.list, () => smartPlaylistService.list())
   registrar.handle(ipcChannels.smartPlaylists.listTrackCounts, () =>
-    smartPlaylistService.listTrackCounts(),
+    smartPlaylistService.listTrackCountsAsync(),
+  )
+  registrar.handle(ipcChannels.smartPlaylists.getMembership, (_event, payload: { id: number }) =>
+    smartPlaylistService.getMembership(payload.id),
   )
   registrar.handle(ipcChannels.smartPlaylists.getDetail, (_event, payload: { id: number }) =>
-    smartPlaylistService.getDetail(payload.id),
+    smartPlaylistService.getDetailAsync(payload.id),
   )
   registrar.handle(
     ipcChannels.smartPlaylists.create,
@@ -92,8 +99,11 @@ export function registerPlaylistIpcHandlers(
 
   registrar.handle(ipcChannels.playlists.list, () => playlistService.list())
   registrar.handle(ipcChannels.playlists.listTrackCounts, () => playlistService.listTrackCounts())
-  registrar.handle(ipcChannels.playlists.listSidebarItems, () =>
-    playlistService.listSidebarItems(getSmartTrackCounts()),
+  registrar.handle(ipcChannels.playlists.listSidebarItems, async () =>
+    playlistService.listSidebarItems(await getSmartTrackCounts()),
+  )
+  registrar.handle(ipcChannels.playlists.getMembership, (_event, payload: { id: number }) =>
+    playlistService.getMembership(payload.id),
   )
   registrar.handle(ipcChannels.playlists.getDetail, (_event, payload: { id: number }) =>
     playlistService.getDetail(payload.id),
@@ -121,7 +131,11 @@ export function registerPlaylistIpcHandlers(
     ipcChannels.playlists.reorderSidebarItems,
     (_event, payload: { items: Array<{ kind: SidebarPlaylistKind; id: number }> }) => {
       playlistService.reorderSidebarItems(payload.items)
-      return playlistService.listSidebarItems(getSmartTrackCounts())
+      // The write admission unit must finish synchronously. Normal navigation uses the async reader.
+      const counts = new Map(
+        smartPlaylistService.listTrackCounts().map((item) => [item.playlistId, item.trackCount]),
+      )
+      return playlistService.listSidebarItems(counts)
     },
   )
 }

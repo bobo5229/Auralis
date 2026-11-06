@@ -31,6 +31,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'library:get-album-detail': { albumArtist: 'Artist', albumTitle: 'Album' },
   'library:reveal-in-explorer': { trackIds: [1, 2] },
   'smart-playlists:get-detail': { id: 1 },
+  'smart-playlists:get-membership': { id: 1 },
   'smart-playlists:create': {
     name: 'Name',
     rule: { expression: { type: 'predicate', field: 'genre', operator: 'has', value: 'Ambient' } },
@@ -43,6 +44,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'smart-playlists:delete': { id: 1 },
   'smart-playlists:reorder': { ids: [1, 2] },
   'playlists:get-detail': { id: 1 },
+  'playlists:get-membership': { id: 1 },
   'playlists:rename': { id: 1, name: 'Name' },
   'playlists:update-view-mode': { id: 1, viewMode: 'flat' },
   'playlists:delete': { id: 1 },

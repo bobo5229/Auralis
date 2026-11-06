@@ -16,10 +16,11 @@ export interface ImportedTracks {
 }
 
 export function importScannedTracks(
-  tracks: ScannedTrackFile[],
+  tracks: ScannedTrackFile[] | (() => Iterable<ScannedTrackFile>),
   candidates: ReturnType<TrackRepository['getMissingCandidates']>,
   trackRepository: TrackRepository,
   onFailure: () => void,
+  checkCanceled: () => void = () => {},
 ): ImportedTracks {
   const newTracks: ScannedTrackFile[] = []
   const relocatedIds: number[] = []
@@ -27,6 +28,7 @@ export function importScannedTracks(
   const restoredPaths: string[] = []
   const failures: ImportedTracks['failures'] = []
   const isCurrentFile = (track: ScannedTrackFile): boolean => {
+    checkCanceled()
     if (isCurrentScanSnapshot(track, true)) return true
     onFailure()
     failures.push({
@@ -37,11 +39,55 @@ export function importScannedTracks(
     })
     return false
   }
+  const addedPaths: string[] = []
+  const flush = () => {
+    const currentNewTracks = newTracks.splice(0).filter(isCurrentFile)
+    if (currentNewTracks.length > 0) {
+      const newTrackPaths = currentNewTracks.map((track) => track.filePath)
+      const existingPaths = trackRepository.getExistingFilePaths(newTrackPaths)
+      const attemptedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
+
+      try {
+        trackRepository.upsertMany(currentNewTracks)
+      } catch (error) {
+        // One bad row must not drop the whole batch — retry per track.
+        onFailure()
+        logger.warn(
+          { error, count: currentNewTracks.length },
+          'Batch upsert failed; retrying per track',
+        )
+        for (const track of currentNewTracks) {
+          if (!isCurrentFile(track)) continue
+          try {
+            trackRepository.upsertMany([track])
+          } catch (trackError) {
+            failures.push({
+              filePath: track.filePath,
+              reason: trackError instanceof Error ? trackError.message : 'Unable to import track',
+            })
+            logger.warn(
+              { error: trackError, filePath: track.filePath },
+              'Skipping track after upsert failure',
+            )
+          }
+        }
+      }
+
+      const committedPaths = trackRepository.getExistingFilePaths(attemptedPaths)
+      addedPaths.push(...attemptedPaths.filter((path) => committedPaths.has(path)))
+    }
+  }
+  const enqueue = (track: ScannedTrackFile) => {
+    newTracks.push(track)
+  }
+  const source = typeof tracks === 'function' ? tracks : () => tracks
   // Keep all claims in the match calculation: a stale input must not make an
   // otherwise ambiguous move appear unique.
-  const matches = findUniqueRelocations(candidates, tracks)
-  for (const track of tracks) {
-    if (!isCurrentFile(track)) continue
+  const matches = findUniqueRelocations(candidates, source())
+  for (const track of source()) {
+    checkCanceled()
+    if (newTracks.length >= 300) flush()
+    if (matches.has(track.filePath) && !isCurrentFile(track)) continue
     try {
       const match = matches.get(track.filePath)
 
@@ -54,12 +100,12 @@ export function importScannedTracks(
         if (!pathAlias) {
           try {
             if (statSync(match.filePath).isFile()) restoredPaths.push(match.filePath)
-            newTracks.push(track)
+            enqueue(track)
             continue
           } catch (error) {
             const code = (error as NodeJS.ErrnoException).code
             if (code !== 'ENOENT' && code !== 'ENOTDIR') {
-              newTracks.push(track)
+              enqueue(track)
               continue
             }
           }
@@ -71,10 +117,10 @@ export function importScannedTracks(
           relocatedPaths.push(track.filePath)
         } else {
           // Path occupied or constraint race — fall back to path upsert.
-          newTracks.push(track)
+          enqueue(track)
         }
       } else {
-        newTracks.push(track)
+        enqueue(track)
       }
     } catch (error) {
       onFailure()
@@ -82,44 +128,9 @@ export function importScannedTracks(
         { error, filePath: track.filePath },
         'Failed to relocate/upsert scanned track; trying upsert fallback',
       )
-      newTracks.push(track)
+      enqueue(track)
     }
   }
-  let addedPaths: string[] = []
-  const currentNewTracks = newTracks.filter(isCurrentFile)
-  if (currentNewTracks.length > 0) {
-    const newTrackPaths = currentNewTracks.map((track) => track.filePath)
-    const existingPaths = trackRepository.getExistingFilePaths(newTrackPaths)
-    addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
-
-    try {
-      trackRepository.upsertMany(currentNewTracks)
-    } catch (error) {
-      // One bad row must not drop the whole batch — retry per track.
-      onFailure()
-      logger.warn(
-        { error, count: currentNewTracks.length },
-        'Batch upsert failed; retrying per track',
-      )
-      for (const track of currentNewTracks) {
-        if (!isCurrentFile(track)) continue
-        try {
-          trackRepository.upsertMany([track])
-        } catch (trackError) {
-          failures.push({
-            filePath: track.filePath,
-            reason: trackError instanceof Error ? trackError.message : 'Unable to import track',
-          })
-          logger.warn(
-            { error: trackError, filePath: track.filePath },
-            'Skipping track after upsert failure',
-          )
-        }
-      }
-    }
-
-    const committedPaths = trackRepository.getExistingFilePaths(addedPaths)
-    addedPaths = addedPaths.filter((path) => committedPaths.has(path))
-  }
+  flush()
   return { addedPaths, relocatedIds, relocatedPaths, restoredPaths, failures }
 }

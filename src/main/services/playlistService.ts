@@ -1,3 +1,4 @@
+import type { PlaylistMembership } from '@shared/types/playlistMembership'
 import type { PlaylistChangedEvent } from '@shared/types/playlistEvents'
 import type {
   AddPlaylistTracksResult,
@@ -57,6 +58,10 @@ export class PlaylistService {
         left.kind.localeCompare(right.kind) ||
         left.id - right.id,
     )
+  }
+
+  getMembership(id: number): PlaylistMembership<Playlist> | null {
+    return this.playlistRepository.getMembership(id)
   }
 
   getDetail(id: number): PlaylistDetail | null {

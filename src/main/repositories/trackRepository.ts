@@ -51,6 +51,10 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getTrackIdsByFilePaths(filePaths)
   }
 
+  getFilePathsByIds(ids: number[]): string[] {
+    return this.queries.getFilePathsByIds(ids)
+  }
+
   getTrackIdsByPlaybackPath(filePath: string): number[] {
     return this.queries.getTrackIdsByPlaybackPath(filePath)
   }
@@ -101,8 +105,8 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getGenreAlbumSummaries(genre, excludeArtist, excludeTitle)
   }
 
-  getKnownFiles(): KnownTrackFile[] {
-    return this.queries.getKnownFiles()
+  getKnownFiles(rootPath?: string): KnownTrackFile[] {
+    return this.queries.getKnownFiles(rootPath)
   }
 
   upsertMany(tracks: ScannedTrack[]): void {
@@ -127,6 +131,10 @@ export class TrackRepository extends BaseRepository {
 
   markAvailableByFilePaths(filePaths: string[]): number[] {
     return this.availability.markAvailableByFilePaths(filePaths)
+  }
+
+  settleScanAvailability(rootPath: string, jobId: number, unreadable: string[]) {
+    return this.availability.settleScanAvailability(rootPath, jobId, unreadable)
   }
 
   getMissingCandidates(): MissingTrackCandidate[] {

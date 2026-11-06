@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import type { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 import { readFile, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseFile } from 'music-metadata'
@@ -62,6 +63,7 @@ export class ArtworkCacheMigrationService {
     private readonly extractTrackArtwork: (
       filePath: string,
     ) => Promise<ArtworkSource | null> = extractArtworkFromAudioFile,
+    private readonly writeAdmission?: DatabaseWriteAdmission,
   ) {}
 
   isRunning(): boolean {
@@ -287,7 +289,7 @@ export class ArtworkCacheMigrationService {
 
     // 3. Per-key short transaction: database is updated only after the new file
     //    exists, and old files are never removed here (§10.4).
-    const updated = this.db.transaction(() => {
+    const commit = this.db.transaction(() => {
       const albumChanges = this.db
         .prepare(
           `UPDATE albums
@@ -304,7 +306,8 @@ export class ArtworkCacheMigrationService {
         .run(v2Key, key).changes
 
       return albumChanges + metadataChanges
-    })()
+    })
+    const updated = this.writeAdmission ? await this.writeAdmission.runWrite(commit) : commit()
 
     let v2Bytes = 0
     try {

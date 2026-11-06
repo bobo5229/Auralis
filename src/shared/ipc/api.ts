@@ -51,6 +51,9 @@ export interface AuralisApi {
   smartPlaylists: {
     list: () => Result<'smart-playlists:list'>
     listTrackCounts: () => Result<'smart-playlists:list-track-counts'>
+    getMembership: (
+      id: Req<'smart-playlists:get-membership'>['id'],
+    ) => Result<'smart-playlists:get-membership'>
     getDetail: (id: Req<'smart-playlists:get-detail'>['id']) => Result<'smart-playlists:get-detail'>
     create: (
       name: Req<'smart-playlists:create'>['name'],
@@ -82,6 +85,7 @@ export interface AuralisApi {
     list: () => Result<'playlists:list'>
     listTrackCounts: () => Result<'playlists:list-track-counts'>
     listSidebarItems: () => Result<'playlists:list-sidebar-items'>
+    getMembership: (id: Req<'playlists:get-membership'>['id']) => Result<'playlists:get-membership'>
     getDetail: (id: Req<'playlists:get-detail'>['id']) => Result<'playlists:get-detail'>
     create: () => Result<'playlists:create'>
     rename: (

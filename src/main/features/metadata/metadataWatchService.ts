@@ -10,17 +10,24 @@ import type { LibraryChangedEvent } from '@shared/types/libraryEvents'
 import { MetadataWatchImportQueue } from './metadataWatchImportQueue'
 import { MetadataRootWatchers } from './metadataRootWatchers'
 import { MetadataMissingConfirmation } from './metadataMissingConfirmation'
-import { createMetadataWatchState } from './metadataWatchState'
+import {
+  createMetadataWatchState,
+  observeWatchPath,
+  retryWatchPath,
+  watchPathDueAt,
+} from './metadataWatchState'
 import { MetadataWatchBatch } from './metadataWatchBatch'
 import { MetadataWatchRecovery } from './metadataWatchRecovery'
+import { MetadataWatchStatBudget, WATCH_STAT_BATCH_SIZE } from './metadataWatchStatBudget'
 import { win32 } from 'node:path'
-
-const WATCH_DEBOUNCE_MS = 1200
+import type { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 export class MetadataWatchService {
   private readonly state = createMetadataWatchState()
   /** Watch work that may eventually write to the library database. */
   private readonly activeOperations = new Set<Promise<void>>()
+  private readonly statBudget = new MetadataWatchStatBudget()
+  private flushInFlight = false
   private flushTimer: ReturnType<typeof setTimeout> | null = null
 
   private readonly importQueue: MetadataWatchImportQueue
@@ -35,15 +42,18 @@ export class MetadataWatchService {
     metadataRefreshService: MetadataRefreshService,
     incrementalImportService: LibraryIncrementalImportService,
     libraryChanged: (event: LibraryChangedEvent) => void,
+    writeAdmission?: DatabaseWriteAdmission,
   ) {
     this.importQueue = new MetadataWatchImportQueue(
       incrementalImportService,
-      (filePath) => {
+      (filePath, retryDelay) => {
         if (!this.isCurrentPath(filePath)) return
-        this.state.pendingFilePaths.set(filePath, Date.now())
+        if (retryDelay !== undefined) retryWatchPath(this.state, filePath, retryDelay)
+        else observeWatchPath(this.state, filePath)
       },
-      (delay) => this.scheduleFlush(delay),
+      () => this.scheduleFlush(),
       (filePath) => this.isCurrentPath(filePath),
+      writeAdmission ? () => this.state.rootsVersion : undefined,
     )
     this.rootWatchers = new MetadataRootWatchers(
       () => this.state.stopped,
@@ -59,18 +69,24 @@ export class MetadataWatchService {
         isPaused: () => this.state.flushPaused,
         isPathActive: (filePath) => this.isCurrentPath(filePath),
         runOperation: (operation) => this.runOperation(operation),
+        rootsVersion: () => this.state.rootsVersion,
       },
+      this.statBudget,
+      writeAdmission,
     )
     this.batch = new MetadataWatchBatch(this.state, {
+      writeAdmission,
       trackRepository,
+      statBudget: this.statBudget,
       metadataRefreshService,
       importQueue: this.importQueue,
       missingConfirmation: this.missingConfirmation,
       isCurrentPath: (filePath) => this.isCurrentPath(filePath),
-      scheduleFlush: (delay) => this.scheduleFlush(delay),
+      scheduleFlush: () => this.scheduleFlush(),
     })
     this.recovery = new MetadataWatchRecovery(this.state, {
       trackRepository,
+      statBudget: this.statBudget,
       runOperation: (operation) => this.runOperation(operation),
       flushPending: (paths) => this.batch.flushPending(paths),
     })
@@ -181,7 +197,7 @@ export class MetadataWatchService {
           !this.isCurrentPath(track.filePath)
         )
           continue
-        this.state.pendingFilePaths.set(track.filePath, Date.now())
+        observeWatchPath(this.state, track.filePath)
         this.state.pendingExplicitRefreshPaths.add(track.filePath)
       }
       if (this.state.pendingFilePaths.size) this.scheduleFlush()
@@ -193,7 +209,7 @@ export class MetadataWatchService {
 
       for (const audioPath of knownAudioPaths) {
         if (!this.isCurrentPath(audioPath)) continue
-        this.state.pendingFilePaths.set(audioPath, Date.now())
+        observeWatchPath(this.state, audioPath)
         this.state.pendingLyricsIntentPaths.add(audioPath)
       }
 
@@ -207,24 +223,45 @@ export class MetadataWatchService {
       return
     }
 
-    this.state.pendingFilePaths.set(filePath, Date.now())
+    observeWatchPath(this.state, filePath)
     if (forceRefresh) this.state.pendingExplicitRefreshPaths.add(filePath)
     this.scheduleFlush()
   }
 
-  private scheduleFlush(delay = WATCH_DEBOUNCE_MS): void {
-    if (this.state.stopped || this.state.flushPaused) {
-      return
+  private scheduleFlush(): void {
+    if (this.state.stopped || this.state.flushPaused || this.flushInFlight) return
+    if (this.flushTimer) clearTimeout(this.flushTimer)
+    this.flushTimer = null
+    let dueAt = Infinity
+    for (const entry of this.state.pendingFilePaths.values()) {
+      dueAt = Math.min(dueAt, watchPathDueAt(entry))
     }
-
-    if (this.flushTimer) {
-      clearTimeout(this.flushTimer)
-    }
-
-    this.flushTimer = setTimeout(() => {
-      this.flushTimer = null
-      this.runOperation(() => this.batch.flushPending())
-    }, delay)
+    if (!Number.isFinite(dueAt)) return
+    this.flushTimer = setTimeout(
+      () => {
+        this.flushTimer = null
+        const now = Date.now()
+        const due: string[] = []
+        for (const [filePath, entry] of this.state.pendingFilePaths) {
+          if (watchPathDueAt(entry) <= now) due.push(filePath)
+          if (due.length === WATCH_STAT_BATCH_SIZE) break
+        }
+        if (!due.length) {
+          this.scheduleFlush()
+          return
+        }
+        this.flushInFlight = true
+        this.runOperation(async () => {
+          try {
+            await this.batch.flushPending(due)
+          } finally {
+            this.flushInFlight = false
+            this.scheduleFlush()
+          }
+        })
+      },
+      Math.max(0, dueAt - Date.now()),
+    )
   }
 
   private runOperation(operation: () => Promise<void>): void {

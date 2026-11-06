@@ -239,13 +239,16 @@ describe('migrateDatabase', () => {
 
     const migrationIds = migrations.map(({ id }) => id)
     expect(migrationIds).toEqual([...new Set(migrationIds)].sort((left, right) => left - right))
-    expect(migrations.at(-1)?.name).toBe('add_pending_tag_recovery_refresh')
+    expect(migrations.at(-1)?.name).toBe('stage_library_scans')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
         'albums',
         'library_roots',
         'scan_jobs',
+        'scan_staged_tracks',
+        'scan_inventory',
+        'scan_unreadable_directories',
         'metadata_refresh_jobs',
         'pending_tag_recovery_refresh',
         'track_metadata',

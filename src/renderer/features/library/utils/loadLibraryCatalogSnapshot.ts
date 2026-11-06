@@ -14,6 +14,7 @@ export class LibraryCatalogLoadStaleError extends Error {
 }
 
 export interface LoadedLibraryCatalogSnapshot {
+  readonly libraryRevision?: string
   readonly snapshotId: string
   readonly tracks: TrackListItem[]
   readonly totalPages: number
@@ -61,6 +62,7 @@ async function loadAttempt(
   let writeOffset = 0
   let cursor: string | undefined
   let snapshotId: string | null = null
+  let libraryRevision: string | undefined
   let expectedTotal: number | null = null
   let totalPages = 0
   let snapshotBuildMs = 0
@@ -92,9 +94,14 @@ async function loadAttempt(
         throw new Error('Invalid library catalog total')
       }
       snapshotId = page.snapshotId
+      libraryRevision = page.libraryRevision
       expectedTotal = page.totalTracks
       tracks = new Array<TrackListItem>(expectedTotal)
-    } else if (page.snapshotId !== snapshotId || page.totalTracks !== expectedTotal) {
+    } else if (
+      page.snapshotId !== snapshotId ||
+      page.totalTracks !== expectedTotal ||
+      page.libraryRevision !== libraryRevision
+    ) {
       throw new Error('Library catalog snapshot changed while loading pages')
     }
 
@@ -132,6 +139,7 @@ async function loadAttempt(
   const heapUsedAfter = readRendererHeapUsed()
   return {
     snapshotId,
+    libraryRevision,
     tracks,
     totalPages,
     snapshotBuildMs,

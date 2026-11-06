@@ -1,11 +1,12 @@
 import { win32 } from 'node:path'
 import type Database from 'better-sqlite3'
-import type { LibraryScanProgress } from '@shared/types/libraryScan'
+import type { LibraryScanProgress, LibraryScanStatus } from '@shared/types/libraryScan'
 import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { MissingTrackCleanupRepository } from '@main/repositories/missingTrackCleanupRepository'
+import { ScanStagingRepository } from '@main/repositories/scanStagingRepository'
 import type { LibraryScanEvents } from './libraryScanEvents'
 import type {
   LibraryScanWorkerMessage,
@@ -14,6 +15,14 @@ import type {
 } from './libraryScanTypes'
 import { importScannedTracks, type ImportedTracks } from './libraryScanTrackImport'
 import { isCurrentScanSnapshot } from './libraryScanSnapshot'
+import type { ScanSettlementEvent, ScanSettlementSnapshot } from './libraryScanSettlementTypes'
+
+interface CompletedScan {
+  status: LibraryScanStatus
+  restoredIds: number[]
+  missingIds: number[]
+  imported: ImportedTracks
+}
 
 function isUnderDirectory(filePath: string, directory: string): boolean {
   const relative = win32.relative(directory, filePath)
@@ -24,9 +33,10 @@ function isUnderDirectory(filePath: string, directory: string): boolean {
 }
 
 export class LibraryScanPersistence {
-  private readonly pendingNewTracks = new Map<string, ScannedTrackFile>()
+  private readonly staging: ScanStagingRepository
   private readonly rejectedScanFiles = new Set<string>()
   private scanHadFailures = false
+  phase: 'reading' | 'settling' = 'reading'
   private readonly scanFailureRepository: ScanFailureRepository
 
   constructor(
@@ -35,17 +45,31 @@ export class LibraryScanPersistence {
     private readonly scanJobRepository: ScanJobRepository,
     private readonly trackRepository: TrackRepository,
     private readonly events: LibraryScanEvents,
+    private readonly settlement?: {
+      checkCanceled(): void
+      beforeCommit(events: ScanSettlementEvent[]): void
+    },
   ) {
     this.scanFailureRepository = new ScanFailureRepository(db)
+    this.staging = new ScanStagingRepository(db)
   }
 
   begin(): void {
     this.clearPendingTracks()
     this.scanHadFailures = false
+    this.phase = 'reading'
+  }
+
+  exportSettlement(): ScanSettlementSnapshot {
+    return { hadFailures: this.scanHadFailures }
+  }
+
+  restoreSettlement(snapshot: ScanSettlementSnapshot): void {
+    this.begin()
+    this.scanHadFailures = snapshot.hadFailures
   }
 
   clearPendingTracks(): void {
-    this.pendingNewTracks.clear()
     this.rejectedScanFiles.clear()
   }
 
@@ -64,7 +88,16 @@ export class LibraryScanPersistence {
   }
 
   handleMessage(message: LibraryScanWorkerMessage, workerJobId: number): void {
+    if (message.type === 'inventory') {
+      this.staging.stageInventory(
+        workerJobId,
+        message.payload.foundFilePaths,
+        message.payload.unreadableDirectoryPaths,
+      )
+      return
+    }
     if (message.type === 'progress') {
+      this.phase = message.payload.phase ?? 'reading'
       const progress = {
         ...message.payload,
         failedFiles: message.payload.failedFiles + this.rejectedScanFiles.size,
@@ -86,10 +119,12 @@ export class LibraryScanPersistence {
         message.payload.map((track) => track.filePath),
       )
       const knownTracks: ScannedTrackFile[] = []
+      const newTracks: ScannedTrackFile[] = []
       for (const track of message.payload) {
         if (knownPaths.has(track.filePath)) knownTracks.push(track)
-        else this.pendingNewTracks.set(track.filePath, track)
+        else newTracks.push(track)
       }
+      this.staging.stageTracks(workerJobId, newTracks)
       const currentTracks = this.acceptCurrentSnapshots(knownTracks, workerJobId, true)
       this.trackRepository.upsertMany(currentTracks)
       if (currentTracks.length > 0) {
@@ -164,7 +199,13 @@ export class LibraryScanPersistence {
     }
 
     if (message.type === 'complete') {
+      this.staging.stageInventory(
+        workerJobId,
+        message.payload.foundFilePaths,
+        message.payload.unreadableDirectoryPaths,
+      )
       const result = this.db.transaction(() => {
+        this.settlement?.checkCanceled()
         const status = this.scanJobRepository.getById(workerJobId)
 
         if (!status || status.status !== 'scanning') {
@@ -177,31 +218,29 @@ export class LibraryScanPersistence {
         }
 
         this.libraryRootRepository.markScanned(status.rootId)
-        const restoredIds = this.trackRepository.markAvailableByFilePaths(
-          message.payload.foundFilePaths,
-        )
-        const missingIds = this.trackRepository.markMissingUnderRootExcept(
+        const unreadable = this.staging.unreadableDirectories(workerJobId)
+        const { restoredIds, missingIds } = this.trackRepository.settleScanAvailability(
           root.path,
-          message.payload.foundFilePaths,
-          message.payload.unreadableDirectoryPaths,
+          workerJobId,
+          unreadable,
         )
+        this.settlement?.checkCanceled()
 
         const candidates = this.trackRepository
           .getMissingCandidates()
           .filter(
             (candidate) =>
               isUnderDirectory(candidate.filePath, root.path) &&
-              !message.payload.unreadableDirectoryPaths.some((directory) =>
-                isUnderDirectory(candidate.filePath, directory),
-              ),
+              !unreadable.some((directory) => isUnderDirectory(candidate.filePath, directory)),
           )
         const imported = importScannedTracks(
-          [...this.pendingNewTracks.values()],
+          () => this.staging.tracks<ScannedTrackFile>(workerJobId),
           candidates,
           this.trackRepository,
           () => {
             this.scanHadFailures = true
           },
+          () => this.settlement?.checkCanceled(),
         )
         const allRestoredIds = restoredIds.concat(
           this.trackRepository.markAvailableByFilePaths(imported.restoredPaths),
@@ -225,17 +264,21 @@ export class LibraryScanPersistence {
         const removedIds =
           !this.scanHadFailures &&
           status.failedFiles === 0 &&
-          message.payload.unreadableDirectoryPaths.length === 0
-            ? new MissingTrackCleanupRepository(this.db).removeConfirmedMissing(root.path)
+          !this.db.prepare('SELECT 1 FROM scan_failures WHERE job_id=? LIMIT 1').get(workerJobId) &&
+          unreadable.length === 0
+            ? new MissingTrackCleanupRepository(this.db).removeConfirmedMissing(root.path, () =>
+                this.settlement?.checkCanceled(),
+              )
             : []
 
+        this.staging.complete(workerJobId, root.id)
         if (!this.scanJobRepository.finish(workerJobId, 'completed')) {
           throw new Error(`Scan job was no longer active while completing: ${workerJobId}`)
         }
 
         const relocated = new Set(imported.relocatedIds)
         const restored = new Set(allRestoredIds)
-        return {
+        const completed: CompletedScan = {
           status: { ...status, failedFiles },
           restoredIds: allRestoredIds,
           missingIds: [
@@ -246,48 +289,58 @@ export class LibraryScanPersistence {
           ],
           imported,
         }
+        const events = this.settlementEvents(completed)
+        this.settlement?.beforeCommit(events)
+        return events
       })()
 
       if (!result) {
         return
       }
 
-      this.publishImportedTracks(result.imported)
-
-      if (result.restoredIds.length > 0) {
-        this.publishChanged('track-restored', result.restoredIds, [
-          ...message.payload.foundFilePaths,
-          ...result.imported.restoredPaths,
-        ])
+      for (const event of result) {
+        if (event.type === 'changed') this.events.changed(event.payload)
+        else this.events.progress(event.payload)
       }
+    }
+  }
 
-      if (result.missingIds.length > 0) {
-        this.publishChanged('track-missing', result.missingIds)
-      }
-
-      this.publishProgress({
-        jobId: workerJobId,
+  private settlementEvents(result: CompletedScan): ScanSettlementEvent[] {
+    const events: ScanSettlementEvent[] = []
+    const changed = (
+      reason: Extract<ScanSettlementEvent, { type: 'changed' }>['payload']['reason'],
+      trackIds: number[],
+      filePaths: string[] = [],
+    ) => {
+      events.push({ type: 'changed', payload: { reason, trackIds, filePaths } })
+    }
+    if (result.imported.addedPaths.length)
+      changed(
+        'track-added',
+        this.trackRepository.getTrackIdsByFilePaths(result.imported.addedPaths),
+        result.imported.addedPaths,
+      )
+    if (result.imported.relocatedIds.length)
+      changed('track-relocated', result.imported.relocatedIds, result.imported.relocatedPaths)
+    if (result.restoredIds.length)
+      changed('track-restored', result.restoredIds, [
+        ...this.trackRepository.getFilePathsByIds(result.restoredIds),
+        ...result.imported.restoredPaths,
+      ])
+    if (result.missingIds.length) changed('track-missing', result.missingIds)
+    events.push({
+      type: 'progress',
+      payload: {
+        jobId: result.status.jobId,
         status: 'completed',
         totalFiles: result.status.totalFiles,
         scannedFiles: result.status.scannedFiles,
         failedFiles: result.status.failedFiles,
         currentFile: null,
         message: 'Scan completed',
-      })
-    }
-  }
-
-  private publishImportedTracks(result: ImportedTracks): void {
-    if (result.addedPaths.length > 0) {
-      this.publishChanged(
-        'track-added',
-        this.trackRepository.getTrackIdsByFilePaths(result.addedPaths),
-        result.addedPaths,
-      )
-    }
-    if (result.relocatedIds.length > 0) {
-      this.publishChanged('track-relocated', result.relocatedIds, result.relocatedPaths)
-    }
+      },
+    })
+    return events
   }
 
   private acceptCurrentSnapshots<T extends ScanFileSnapshot>(

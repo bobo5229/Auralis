@@ -18,7 +18,7 @@ const {
   totalFiles,
   scannedFiles,
   failedFiles,
-  progressPercent,
+  scanPhase,
   chooseFolder,
   cancelScan,
 } = scan
@@ -165,19 +165,21 @@ onBeforeUnmount(() => {
           <div class="library-scan-header">
             <div class="library-scan-info">
               <span class="scan-spinner i-lucide-loader-circle" aria-hidden="true"></span>
-              <span class="scan-title">{{ t('settings.library.scanningTitle') }}</span>
+              <span class="scan-title">{{
+                t(
+                  scanPhase === 'settling'
+                    ? 'settings.library.settlingTitle'
+                    : 'settings.library.scanningTitle',
+                )
+              }}</span>
               <span class="scan-detail"
-                >·
-                {{
-                  t('settings.library.fileProgress', { scanned: scannedFiles, total: totalFiles })
-                }}</span
+                >· {{ t('settings.library.fileProgress', { scanned: scannedFiles }) }}</span
               >
               <span v-if="failedFiles > 0" class="scan-failed"
                 >· {{ t('settings.library.failedCount', { count: failedFiles }) }}</span
               >
             </div>
             <div class="library-scan-actions">
-              <span class="scan-percent">{{ progressPercent }}%</span>
               <button
                 ref="cancelScanButton"
                 type="button"
@@ -187,19 +189,6 @@ onBeforeUnmount(() => {
                 {{ t('settings.library.cancel') }}
               </button>
             </div>
-          </div>
-          <div
-            class="settings-progress-track"
-            role="progressbar"
-            :aria-label="t('settings.library.scanningTitle')"
-            :aria-valuenow="progressPercent"
-            :aria-valuemin="0"
-            :aria-valuemax="100"
-          >
-            <div
-              class="settings-progress-fill"
-              :style="{ transform: `scaleX(${progressPercent / 100})` }"
-            ></div>
           </div>
         </div>
 
@@ -481,28 +470,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.scan-percent {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--auralis-text-muted);
-}
-
-/* 紧凑平滑进度条 */
-.settings-progress-track {
-  height: 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  overflow: hidden;
-}
-
-.settings-progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--auralis-sidebar-active-indicator);
-  transform-origin: left center;
-  transition: transform 200ms ease;
-}
-
 /* 错误提示行 */
 .library-error-row {
   display: flex;
@@ -639,9 +606,5 @@ onBeforeUnmount(() => {
 
 :where([data-reduced-motion='true']) .scan-spinner {
   animation: none;
-}
-
-:where([data-reduced-motion='true']) .settings-progress-fill {
-  transition: none;
 }
 </style>

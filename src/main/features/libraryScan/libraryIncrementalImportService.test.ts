@@ -13,7 +13,9 @@ vi.mock('node:fs', async (importOriginal) => ({
   statSync: vi.fn(),
 }))
 vi.mock('music-metadata', () => ({ parseFile: vi.fn() }))
-vi.mock('../metadata/resolveLyricsForFile', () => ({ resolveLyricsForFile: async () => null }))
+vi.mock('../metadata/resolveLyricsForFile', () => ({
+  readLyricsSnapshot: async () => ({ lyrics: null, lyricsSidecarFingerprint: '[]' }),
+}))
 vi.mock('../artwork/resolveArtworkForFile', () => ({ readArtworkForFile: vi.fn() }))
 vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn() } }))
 

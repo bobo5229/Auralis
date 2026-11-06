@@ -58,16 +58,19 @@ export function registerLibraryIpcHandlers(
 
   registrar.handle(ipcChannels.library.getTracks, () => libraryService.getTracks())
 
-  registrar.handle(ipcChannels.library.getTrackPage, (_event, payload: LibraryTrackPageRequest) => {
-    try {
-      return libraryService.getTrackPage(payload)
-    } catch (error) {
-      if (error instanceof LibraryCatalogExpiredError) {
-        return { error: { code: 'CATALOG_SNAPSHOT_EXPIRED' as const } }
+  registrar.handle(
+    ipcChannels.library.getTrackPage,
+    async (_event, payload: LibraryTrackPageRequest) => {
+      try {
+        return await libraryService.getTrackPage(payload)
+      } catch (error) {
+        if (error instanceof LibraryCatalogExpiredError) {
+          return { error: { code: 'CATALOG_SNAPSHOT_EXPIRED' as const } }
+        }
+        throw error
       }
-      throw error
-    }
-  })
+    },
+  )
 
   registrar.handle(ipcChannels.library.getAlbumDetail, (_event, payload: AlbumDetailRequest) =>
     libraryService.getAlbumDetail(payload),

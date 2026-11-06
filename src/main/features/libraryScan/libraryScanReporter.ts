@@ -19,6 +19,7 @@ export class LibraryScanReporter {
   private scannedFiles = 0
   private failedFiles = 0
   private lastProgressAt = 0
+  private phase: 'reading' | 'settling' = 'reading'
 
   constructor(
     private readonly jobId: number,
@@ -34,8 +35,13 @@ export class LibraryScanReporter {
     this.postProgress(null, 'Scanning audio files', true)
   }
 
+  discoverFile(): void {
+    this.totalFiles += 1
+  }
+
   reportUnreadableDirectory(directoryPath: string): void {
     this.unreadableDirectoryPaths.push(directoryPath)
+    if (this.unreadableDirectoryPaths.length >= 300) this.flushInventory()
     this.postMessage({
       type: 'failure',
       payload: { jobId: this.jobId, filePath: directoryPath, reason: 'Unable to read directory' },
@@ -53,7 +59,8 @@ export class LibraryScanReporter {
     this.flushTagBatch()
     this.flushArtworkBatch()
     this.flushLyricsBatch()
-    this.postProgress(null, 'Scan complete', true)
+    this.phase = 'settling'
+    this.postProgress(null, 'Settling library scan', true)
     this.postMessage({
       type: 'complete',
       payload: {
@@ -65,13 +72,14 @@ export class LibraryScanReporter {
 
   private postProgress(currentFile: string | null, message: string | null, force = false): void {
     const now = Date.now()
-    if (!force && this.scannedFiles % 100 !== 0 && now - this.lastProgressAt < 200) return
+    if (!force && now - this.lastProgressAt < 200) return
     this.lastProgressAt = now
     this.postMessage({
       type: 'progress',
       payload: {
         jobId: this.jobId,
         status: 'scanning',
+        phase: this.phase,
         totalFiles: this.totalFiles,
         scannedFiles: this.scannedFiles,
         failedFiles: this.failedFiles,
@@ -84,6 +92,7 @@ export class LibraryScanReporter {
   handleReadResult(result: ReadTrackResult, filePath: string): void {
     this.scannedFiles += 1
     this.foundFilePaths.push(filePath)
+    if (this.foundFilePaths.length >= 300) this.flushInventory()
 
     if (result.kind === 'track') {
       this.trackBatch.push(result.track)
@@ -129,6 +138,16 @@ export class LibraryScanReporter {
     }
 
     this.postMessage({ type: 'tracks', payload: this.trackBatch.splice(0, this.trackBatch.length) })
+  }
+
+  private flushInventory(): void {
+    this.postMessage({
+      type: 'inventory',
+      payload: {
+        foundFilePaths: this.foundFilePaths.splice(0),
+        unreadableDirectoryPaths: this.unreadableDirectoryPaths.splice(0),
+      },
+    })
   }
 
   private flushTagBatch(): void {

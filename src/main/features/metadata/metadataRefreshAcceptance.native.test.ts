@@ -27,6 +27,7 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
 import { MetadataRefreshService } from './metadataRefreshService'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 import { readStableMetadata } from './readStableMetadata'
 import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
 import type { MetadataRefreshWorkerMessage } from './metadataRefreshTypes'
@@ -46,7 +47,7 @@ vi.mock('node:worker_threads', async (importOriginal) => {
       terminate: () => Promise<number> = vi.fn(async () => 0)
       constructor(file: string | URL, options?: WorkerOptions) {
         super()
-        // Keep the actual tag writer workers; only hold refresh message delivery.
+        // Keep the actual metadata refresh workers; only hold refresh message delivery.
         if (options?.eval) return new actual.Worker(file, options)
         workers.push(this)
       }
@@ -61,9 +62,10 @@ const ffmpeg = fileURLToPath(new URL('../../../../resources/audio/ffmpeg.exe', i
 const fixtures: { directory: string; db: Database.Database; service?: MetadataRefreshService }[] =
   []
 
-async function fixture() {
+async function fixture(admission?: DatabaseWriteAdmission, fileBacked = false) {
   const directory = mkdtempSync(join(tmpdir(), 'auralis-metadata-acceptance-'))
-  const db = new DatabaseCtor(':memory:')
+  const db = new DatabaseCtor(fileBacked ? join(directory, 'isolated.sqlite') : ':memory:')
+  if (fileBacked) db.pragma('journal_mode = WAL')
   const owned = { directory, db, service: undefined as MetadataRefreshService | undefined }
   fixtures.push(owned)
   const root = join(directory, 'library')
@@ -112,7 +114,12 @@ async function fixture() {
   db.prepare('INSERT INTO track_play_stats(track_id,play_count) VALUES(?,7)').run(id)
   const repo = new MetadataRefreshRepository(db)
   const send = vi.fn()
-  const service = new MetadataRefreshService(repo, cache, createMetadataRefreshEvents(send))
+  const service = new MetadataRefreshService(
+    repo,
+    cache,
+    createMetadataRefreshEvents(send),
+    admission,
+  )
   owned.service = service
   return { directory, root, source, cache, db, tracks, id, repo, send, service }
 }
@@ -176,6 +183,55 @@ afterEach(async () => {
     rmSync(directory, { recursive: true, force: true })
   }
   workers.length = 0
+})
+
+it('persists a timed-out refresh terminal after release and permits another refresh', async () => {
+  const admission = new DatabaseWriteAdmission(1024, 20)
+  const f = await fixture(admission)
+  const { jobId } = f.service.refreshTrack(f.id)
+  const commit = vi.spyOn(f.repo, 'updateTrackMetadata')
+  const result = await readStableMetadata(f.id, f.source, f.cache)
+  emitRefreshMessage({ type: 'result', payload: { ...result, jobId } })
+  await vi.waitFor(() => expect(commit).toHaveBeenCalledOnce())
+  const lease = await admission.acquireExclusive()
+  emitRefreshMessage({ type: 'complete' })
+  await new Promise((resolve) => setTimeout(resolve, 70))
+  expect(f.repo.getJobById(jobId)?.status).toBe('running')
+  lease.release()
+  await vi.waitFor(() => expect(f.repo.getJobById(jobId)?.status).toBe('failed'))
+  expect(f.send).toHaveBeenCalledWith(
+    'library:changed',
+    expect.objectContaining({ trackIds: [f.id] }),
+  )
+  const next = f.service.refreshTrack(f.id)
+  await completeRefresh(f, next.jobId)
+  await f.service.shutdown()
+})
+
+it('queues real metadata writes while a second SQLite connection holds the writer lock', async () => {
+  const admission = new DatabaseWriteAdmission()
+  const f = await fixture(admission, true)
+  const { jobId } = f.service.refreshTrack(f.id)
+  const result = await readStableMetadata(f.id, f.source, f.cache)
+  const commit = vi.spyOn(f.repo, 'updateTrackMetadata')
+  const other = new DatabaseCtor(join(f.directory, 'isolated.sqlite'))
+  const lease = await admission.acquireExclusive()
+  try {
+    other.exec('BEGIN IMMEDIATE')
+    emitRefreshMessage({ type: 'result', payload: { ...result, jobId } })
+    emitRefreshMessage({ type: 'complete' })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    expect(commit).not.toHaveBeenCalled()
+    expect(f.repo.getJobById(jobId)?.status).toBe('running')
+    other.exec('ROLLBACK')
+    lease.release()
+    await vi.waitFor(() => expect(f.repo.getJobById(jobId)?.status).toBe('completed'))
+    expect(commit).toHaveBeenCalledOnce()
+  } finally {
+    if (other.inTransaction) other.exec('ROLLBACK')
+    lease.release()
+    other.close()
+  }
 })
 
 it.each(['atomic', 'in-place'] as const)(

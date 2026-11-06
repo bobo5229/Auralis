@@ -7,6 +7,7 @@ import type { MetadataRefreshRepository } from '../../repositories/metadataRefre
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
 import { assertMetadataFingerprint } from './readStableMetadata'
 import * as lyricsSidecars from './resolveLyricsForFile'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 const workers = vi.hoisted(() => [] as EventEmitter[])
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -47,7 +48,7 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
-function setup() {
+function setup(admission?: DatabaseWriteAdmission) {
   let job = 0
   const repo = {
     markInterruptedJobs: vi.fn(),
@@ -73,6 +74,7 @@ function setup() {
     repo as unknown as MetadataRefreshRepository,
     'cache',
     createMetadataRefreshEvents(send),
+    admission,
   )
   return { repo, service, send }
 }
@@ -400,18 +402,21 @@ describe('metadata refresh partial completion', () => {
           throw new Error('Completion SQL failed')
         })
       workers[0].emit('message', { type: 'result', payload })
-      if (failure !== 'completion')
+      if (failure !== 'completion') {
         workers[0].emit('message', {
           type: 'progress',
           payload: { jobId: 1, processed: 1, failed: 0 },
         })
+        // Wait for the coalesced intermediate update to exercise its failure path.
+        await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalledOnce())
+      }
       workers[0].emit('message', { type: 'complete' })
       workers[0].emit('error', new Error('Late error'))
       workers[0].emit('exit', 1)
       await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
       expect(repo.updateTrackMetadata).toHaveBeenCalledExactlyOnceWith(payload)
       expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 1, 0)
-      expect(repo.completeJob).toHaveBeenCalledOnce()
+      expect(repo.completeJob).toHaveBeenCalledTimes(failure === 'completion' ? 2 : 1)
       expect(send).toHaveBeenCalledWith('library:changed', {
         reason: 'file-change',
         trackIds: [1],
@@ -476,6 +481,74 @@ describe('metadata refresh partial completion', () => {
 })
 
 describe('legacy lyric cache recovery', () => {
+  it('can preempt again after the previous terminated worker could not persist its terminal', async () => {
+    const admission = new DatabaseWriteAdmission(1024, 15)
+    const { service, repo } = setup(admission)
+    repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    const paused = service.pauseLegacyLyricsRecovery()
+    let finish!: () => void
+    const worker = workers[0] as EventEmitter & { terminate: () => Promise<number> }
+    vi.spyOn(worker, 'terminate').mockImplementationOnce(
+      () =>
+        new Promise<number>((resolve) => {
+          finish = () => resolve(0)
+        }),
+    )
+    const first = await admission.runWrite(() => service.refreshTrack(1))
+    const lease = await admission.acquireExclusive()
+    finish()
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    lease.release()
+    await vi.waitFor(() =>
+      expect(repo.completeJob).toHaveBeenCalledWith(
+        first.jobId,
+        expect.stringContaining('timeout'),
+      ),
+    )
+    const second = await admission.runWrite(() => service.refreshTrack(1))
+    await vi.waitFor(() => expect(workers).toHaveLength(2))
+    expect(repo.completeJob).not.toHaveBeenCalledWith(
+      second.jobId,
+      'Database write admission reentrant',
+    )
+    workers[1].emit('message', { type: 'complete' })
+    await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalledWith(second.jobId))
+    await service.shutdown()
+    await paused
+  })
+  it('recovers a manual preemption failure after admission times out', async () => {
+    const admission = new DatabaseWriteAdmission(1024, 20)
+    const { service, repo, send } = setup(admission)
+    repo.getLegacyTtmlTracks.mockReturnValue([{ trackId: 1, filePath: 'isolated.flac' }])
+    service.startLegacyLyricsRecovery()
+    await vi.waitFor(() => expect(workers).toHaveLength(1))
+    let rejectTermination!: (error: Error) => void
+    const worker = workers[0] as EventEmitter & { terminate: () => Promise<number> }
+    vi.spyOn(worker, 'terminate').mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectTermination = reject
+        }),
+    )
+    const manual = await admission.runWrite(() => service.refreshTrack(1))
+    const lease = await admission.acquireExclusive()
+    rejectTermination(new Error('termination failed'))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(repo.completeJob).not.toHaveBeenCalledWith(manual.jobId, expect.anything())
+    expect(service.hasActiveJob()).toBe(true)
+    lease.release()
+    await vi.waitFor(() =>
+      expect(repo.completeJob).toHaveBeenCalledWith(manual.jobId, 'termination failed'),
+    )
+    expect(send).toHaveBeenCalledWith(
+      'metadata:refresh-progress',
+      expect.objectContaining({ jobId: manual.jobId, status: 'failed' }),
+    )
+    repo.getLegacyTtmlTracks.mockReturnValue([])
+    await service.shutdown()
+  })
   it.each(['tracks', 'missing-lyrics'] as const)(
     'yields to a manual %s refresh and retries the interrupted recovery',
     async (scope) => {

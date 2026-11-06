@@ -41,14 +41,19 @@ export type ReadTrackResult =
   | { kind: 'skip' }
 
 export class LibraryScanTrackReader {
-  private readonly knownFiles: Map<string, KnownTrackFile>
+  private readonly findKnownFile: (filePath: string) => KnownTrackFile | undefined
 
   constructor(
-    knownFiles: KnownTrackFile[],
+    knownFiles: KnownTrackFile[] | ((filePath: string) => KnownTrackFile | undefined),
     private readonly artwork: LibraryScanArtwork,
     private readonly onFailure: (filePath: string, reason: string) => void,
+    private readonly findCachedTrack?: (filePath: string) => ScannedTrackFile | undefined,
   ) {
-    this.knownFiles = new Map(knownFiles.map((file) => [file.filePath, file]))
+    const files =
+      typeof knownFiles === 'function'
+        ? null
+        : new Map(knownFiles.map((file) => [file.filePath, file]))
+    this.findKnownFile = typeof knownFiles === 'function' ? knownFiles : (path) => files!.get(path)
   }
 
   async read(filePath: string): Promise<ReadTrackResult> {
@@ -69,7 +74,12 @@ export class LibraryScanTrackReader {
       return { kind: 'skip' }
     }
 
-    const knownFile = this.knownFiles.get(filePath)
+    const knownFile = this.findKnownFile(filePath)
+    if (!knownFile) {
+      const cached = this.findCachedTrack?.(filePath)
+      if (cached && hasSameScanFileFingerprint(fileStat, cached.fileFingerprint))
+        return { kind: 'track', track: cached }
+    }
     // Size/mtime alone cannot prove legacy technical metadata is current.
     // Establish a missing baseline through a full read, never text-only backfill.
     const fileUnchanged =
@@ -91,7 +101,7 @@ export class LibraryScanTrackReader {
       try {
         artworkChecked =
           knownFile?.directoryArtworkFingerprint ===
-          (await getDirectoryArtworkFingerprint(filePath))
+          (await this.artwork.getDirectoryFingerprint(filePath))
       } catch {
         artworkChecked = false
       }

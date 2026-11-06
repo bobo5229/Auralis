@@ -54,6 +54,7 @@ beforeAll(async () => {
 })
 afterEach(async () => {
   await Promise.all(services.splice(0).map((service) => service.dispose()))
+  vi.restoreAllMocks()
 })
 afterAll(async () => {
   if (
@@ -240,4 +241,238 @@ describe('timestamped playback spectrum using real FFmpeg', () => {
     expect(await first).toEqual({ accepted: false })
     expect(service.diagnostics.decoderStarts).toBe(0)
   })
+
+  it('expires the subscription despite native updates and resumes only for a newer revision', async () => {
+    const { service, frames, leases, send } = create()
+    const native = {
+      trackId: 1,
+      path: join(directory, '1.wav'),
+      currentTime: 0.7,
+      isPlaying: true,
+      timelineOffset: 0,
+    }
+    await send()
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(1))
+    await delay(1650)
+    await vi.waitFor(() => expect(leases.size).toBe(0))
+    const count = frames.length
+    const starts = service.diagnostics.decoderStarts
+    for (let i = 0; i < 5; i++) service.syncNative({ ...native, currentTime: i })
+    await delay(100)
+    expect(service.diagnostics.decoderStarts).toBe(starts)
+    expect(frames).toHaveLength(count)
+    expect(
+      await service.subscribe(
+        {
+          subscriptionId: 1,
+          revision: 1,
+          enabled: true,
+          trackId: 1,
+          currentTime: 0,
+          isPlaying: true,
+        },
+        native,
+      ),
+    ).toEqual({ accepted: false })
+    expect(
+      await service.subscribe(
+        {
+          subscriptionId: 2,
+          revision: 2,
+          enabled: true,
+          trackId: 1,
+          currentTime: 0,
+          isPlaying: true,
+        },
+        native,
+      ),
+    ).toEqual({ accepted: true })
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(starts + 1))
+    await service.dispose()
+    expect(leases.size).toBe(0)
+  }, 7000)
+
+  it('discards late resolution after timeout, including after a new subscription with the same key', async () => {
+    const pending: Array<(path: string) => void> = []
+    const frames: PlaybackSpectrumFrame[] = []
+    const resolveTrack = vi.fn(() => new Promise<string>((resolve) => pending.push(resolve)))
+    const service = new PlaybackSpectrumService({
+      ffmpegPath: executable,
+      resolveTrack,
+      emit: (frame) => frames.push(frame),
+      warn: vi.fn(),
+    })
+    services.push(service)
+    const request = {
+      subscriptionId: 1,
+      revision: 1,
+      enabled: true,
+      trackId: 1,
+      currentTime: 0,
+      isPlaying: true,
+    }
+    const old = service.subscribe(request)
+    await delay(1650)
+    const count = frames.length
+    const fresh = service.subscribe({ ...request, revision: 2 })
+    expect(resolveTrack).toHaveBeenCalledTimes(2)
+    pending[0](join(directory, '1.wav'))
+    expect(await old).toEqual({ accepted: false })
+    expect(service.diagnostics.decoderStarts).toBe(0)
+    expect(frames).toHaveLength(count)
+    pending[1](join(directory, '1.wav'))
+    expect(await fresh).toEqual({ accepted: true })
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(1))
+  }, 7000)
+
+  it('releases a lease arriving after timeout without starting a decoder', async () => {
+    let complete!: (lease: { leaseId: string; version: number }) => void
+    const acquireReadLease = vi.fn(
+      () =>
+        new Promise<{ leaseId: string; version: number }>((resolve) => {
+          complete = resolve
+        }),
+    )
+    const releaseReadLease = vi.fn()
+    const frames: PlaybackSpectrumFrame[] = []
+    const service = new PlaybackSpectrumService({
+      ffmpegPath: executable,
+      resolveTrack: async () => join(directory, '1.wav'),
+      emit: (frame) => frames.push(frame),
+      warn: vi.fn(),
+      coordinator: { acquireReadLease, releaseReadLease, isReadLeaseForTrack: () => true },
+    })
+    services.push(service)
+    await service.subscribe({
+      subscriptionId: 1,
+      revision: 1,
+      enabled: true,
+      trackId: 1,
+      currentTime: 0,
+      isPlaying: true,
+    })
+    expect(acquireReadLease).toHaveBeenCalledOnce()
+    await delay(1650)
+    const count = frames.length
+    complete({ leaseId: 'late', version: 1 })
+    await vi.waitFor(() => expect(releaseReadLease).toHaveBeenCalledExactlyOnceWith('late'))
+    expect(service.diagnostics.decoderStarts).toBe(0)
+    expect(frames).toHaveLength(count)
+  }, 7000)
+
+  it.each(['new subscription', 'disable and enable', 'track change'] as const)(
+    'stops after decoder failure and recovers on %s',
+    async (recovery) => {
+      const clearTimer = vi.spyOn(globalThis, 'clearInterval')
+      const frames: PlaybackSpectrumFrame[] = []
+      const warnings: unknown[] = []
+      const leases = new Set<string>()
+      let leaseId = 0
+      let resolvedPath = join(directory, 'missing.wav')
+      const resolveTrack = vi.fn(async () => resolvedPath)
+      const service = new PlaybackSpectrumService({
+        ffmpegPath: executable,
+        resolveTrack,
+        emit: (frame) => frames.push(frame),
+        warn: (error) => warnings.push(error),
+        coordinator: {
+          isReadLeaseForTrack: () => true,
+          acquireReadLease: async () => {
+            const lease = String(++leaseId)
+            leases.add(lease)
+            return { leaseId: lease, version: 1 }
+          },
+          releaseReadLease: (lease) => {
+            leases.delete(lease)
+          },
+        },
+      })
+      services.push(service)
+      const request = {
+        subscriptionId: 1,
+        revision: 1,
+        enabled: true,
+        trackId: 1,
+        currentTime: 0,
+        isPlaying: true,
+      }
+      await service.subscribe(request)
+      await vi.waitFor(() =>
+        expect(frames.filter((frame) => frame.status === 'unavailable')).toHaveLength(1),
+      )
+      await vi.waitFor(() => expect(leases.size).toBe(0))
+      expect(clearTimer).toHaveBeenCalledOnce()
+      expect(service.diagnostics.decoderStarts).toBe(1)
+      const count = frames.length
+      for (let revision = 2; revision <= 7; revision++) {
+        await service.subscribe({ ...request, revision, currentTime: revision })
+        service.syncNative({
+          trackId: 1,
+          path: resolvedPath,
+          currentTime: revision,
+          isPlaying: revision % 2 === 0,
+          timelineOffset: 0,
+        })
+        await delay(40)
+      }
+      expect(frames).toHaveLength(count)
+      expect(warnings).toHaveLength(1)
+      expect(service.diagnostics.decoderStarts).toBe(1)
+      expect(resolveTrack).toHaveBeenCalledOnce()
+      resolvedPath = join(directory, '1.wav')
+      if (recovery === 'new subscription') {
+        await service.subscribe({ ...request, subscriptionId: 2, revision: 8 })
+      } else if (recovery === 'disable and enable') {
+        await service.subscribe({ ...request, revision: 8, enabled: false })
+        await service.subscribe({ ...request, revision: 9 })
+      } else {
+        await service.subscribe({ ...request, revision: 8, trackId: 2 })
+      }
+      await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(2))
+      await vi.waitFor(() => expect(frames.some((frame) => frame.status === 'ready')).toBe(true))
+      await delay(200)
+      expect(frames.filter((frame) => frame.status === 'unavailable')).toHaveLength(1)
+      expect(resolveTrack).toHaveBeenCalledTimes(2)
+      expect(warnings).toHaveLength(1)
+      await service.dispose()
+      expect(leases.size).toBe(0)
+    },
+    7000,
+  )
+
+  it('keeps a path resolution failure stable and retries on a track change', async () => {
+    const frames: PlaybackSpectrumFrame[] = []
+    const warn = vi.fn()
+    const resolveTrack = vi.fn(async (trackId: number) => {
+      if (trackId === 1) throw new Error('Missing')
+      return join(directory, '2.wav')
+    })
+    const service = new PlaybackSpectrumService({
+      ffmpegPath: executable,
+      resolveTrack,
+      emit: (frame) => frames.push(frame),
+      warn,
+    })
+    services.push(service)
+    const request = {
+      subscriptionId: 1,
+      revision: 1,
+      enabled: true,
+      trackId: 1,
+      currentTime: 0,
+      isPlaying: true,
+    }
+    await service.subscribe(request)
+    expect(frames.filter((frame) => frame.status === 'unavailable')).toHaveLength(1)
+    const count = frames.length
+    for (let revision = 2; revision <= 6; revision++) {
+      await service.subscribe({ ...request, revision })
+      await delay(40)
+    }
+    expect(frames).toHaveLength(count)
+    expect(resolveTrack).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledTimes(1)
+    await service.subscribe({ ...request, revision: 7, trackId: 2 })
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(1))
+  }, 7000)
 })

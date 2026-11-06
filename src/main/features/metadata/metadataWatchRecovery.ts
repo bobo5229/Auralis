@@ -3,9 +3,14 @@ import type { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import { collectAudioFiles } from '../libraryScan/libraryScanInventory'
 import { getLyricsSidecarFingerprint, sameLyricsSidecarFingerprint } from './resolveLyricsForFile'
-import type { MetadataWatchState } from './metadataWatchState'
+import { observeWatchPath, type MetadataWatchState } from './metadataWatchState'
+import {
+  WatchStatCancelled,
+  WATCH_STAT_BATCH_SIZE,
+  type MetadataWatchStatBudget,
+} from './metadataWatchStatBudget'
 
-const RECOVERY_BATCH_SIZE = 128
+const RECOVERY_BATCH_SIZE = WATCH_STAT_BATCH_SIZE
 
 interface WatchRecovery {
   isCurrent: () => boolean
@@ -14,6 +19,7 @@ interface WatchRecovery {
 }
 
 interface MetadataWatchRecoveryContext {
+  statBudget: MetadataWatchStatBudget
   trackRepository: Pick<TrackRepository, 'getWatchRecoveryTracks'>
   runOperation: (operation: () => Promise<void>) => void
   flushPending: (selectedPaths: readonly string[]) => Promise<void>
@@ -91,28 +97,36 @@ export class MetadataWatchRecovery {
       for (let offset = 0; offset < candidates.length; offset += RECOVERY_BATCH_SIZE) {
         if (!canContinue()) return
         const batch = candidates.slice(offset, offset + RECOVERY_BATCH_SIZE)
-        const lyricsChanged = await Promise.all(
-          batch.map(async (path) => {
+        const lyricsChanged = Array<boolean>(batch.length).fill(false)
+        let next = 0
+        const checkLyrics = async (): Promise<void> => {
+          while (canContinue()) {
+            const index = next++
+            if (index >= batch.length) return
+            const path = batch[index]
             const track = knownByPath.get(pathKey(path))
-            if (!track) return false
+            if (!track) continue
             try {
-              return !sameLyricsSidecarFingerprint(
+              lyricsChanged[index] = !sameLyricsSidecarFingerprint(
                 track.lyricsSidecarFingerprint,
-                await getLyricsSidecarFingerprint(path),
+                await getLyricsSidecarFingerprint(path, (candidate) =>
+                  this.context.statBudget.stat(candidate, canContinue),
+                ),
               )
             } catch (error) {
               needsRetry = true
-              logger.warn(
-                { error, filePath: path },
-                'Unable to check lyrics during metadata watch recovery',
-              )
-              return false
+              if (!(error instanceof WatchStatCancelled))
+                logger.warn(
+                  { error, filePath: path },
+                  'Unable to check lyrics during metadata watch recovery',
+                )
             }
-          }),
-        )
+          }
+        }
+        await Promise.all(Array.from({ length: Math.min(64, batch.length) }, checkLyrics))
         if (!canContinue()) return
         for (const [index, path] of batch.entries()) {
-          this.state.pendingFilePaths.set(path, Date.now())
+          observeWatchPath(this.state, path)
           if (lyricsChanged[index]) this.state.pendingLyricsIntentPaths.add(path)
         }
         await this.context.flushPending(batch)

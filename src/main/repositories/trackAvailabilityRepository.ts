@@ -8,6 +8,40 @@ import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
 import { encodeScanFileFingerprint } from '@shared/utils/trackFileFingerprint'
 
 export class TrackAvailabilityRepository extends BaseRepository {
+  /** Inventory joins avoid copying the whole library into the settlement message. */
+  settleScanAvailability(rootPath: string, jobId: number, unreadable: string[]) {
+    const restored = this.db
+      .prepare(
+        `UPDATE tracks SET availability='available',missing_since=NULL,updated_at=CURRENT_TIMESTAMP
+      WHERE availability='missing'
+      AND EXISTS(SELECT 1 FROM scan_inventory i WHERE i.job_id=? AND i.file_path=tracks.file_path)
+      AND NOT EXISTS(SELECT 1 FROM scan_failures f WHERE f.job_id=?
+        AND f.file_path IN (tracks.file_path, replace(tracks.file_path, char(92), '/'), replace(tracks.file_path, '/', char(92))))
+      RETURNING id`,
+      )
+      .all(jobId, jobId) as { id: number }[]
+    const prefixes = toRootPrefixes(rootPath)
+    const excluded = unreadable.flatMap(toRootPrefixes).map((path) => `${escapeLikePattern(path)}%`)
+    const missing = this.db
+      .prepare(
+        `UPDATE tracks SET availability='missing',missing_since=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+      WHERE availability='available' AND (${prefixes.map(() => "file_path LIKE ? ESCAPE '~'").join(' OR ')})
+      AND NOT EXISTS(SELECT 1 FROM scan_inventory i WHERE i.job_id=? AND i.file_path=tracks.file_path)
+      AND NOT EXISTS(SELECT 1 FROM json_each(?) d WHERE tracks.file_path LIKE d.value ESCAPE '~')
+      RETURNING id`,
+      )
+      .all(
+        ...prefixes.map((path) => `${escapeLikePattern(path)}%`),
+        jobId,
+        JSON.stringify(excluded),
+      ) as { id: number }[]
+    const restoredIds = restored.map((row) => row.id)
+    const missingIds = missing.map((row) => row.id)
+    this.refreshArtwork(restoredIds)
+    this.refreshArtwork(missingIds)
+    return { restoredIds, missingIds }
+  }
+
   markMissingByFilePaths(filePaths: string[]): number[] {
     return this.db.transaction(() => this.markMissingPaths(filePaths))()
   }
@@ -149,11 +183,12 @@ export class TrackAvailabilityRepository extends BaseRepository {
     const unreadablePrefixes = unreadableDirectoryPaths.flatMap(toRootPrefixes)
     const unreadablePredicate =
       unreadablePrefixes.length > 0
-        ? `AND NOT (${unreadablePrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')})`
+        ? `AND NOT EXISTS (SELECT 1 FROM json_each(?) AS unreadable
+            WHERE file_path LIKE unreadable.value ESCAPE '~')`
         : ''
-    const unreadablePatternArgs = unreadablePrefixes.map(
-      (prefix) => `${escapeLikePattern(prefix)}%`,
-    )
+    const unreadablePatternArgs = unreadablePrefixes.length
+      ? [JSON.stringify(unreadablePrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`))]
+      : []
 
     if (foundFilePaths.length === 0) {
       const rows = this.db

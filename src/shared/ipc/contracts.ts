@@ -1,3 +1,4 @@
+import type { PlaylistMembership } from '@shared/types/playlistMembership'
 import type { BadgeAchievements } from '@shared/types/badgeAchievements'
 import type { ListeningProgressBatch } from '@shared/types/listeningEvidence'
 import type { AppInfo, LibraryStats } from '@shared/types/app'
@@ -238,6 +239,10 @@ export interface IpcInvokeContract {
     request: void
     response: SmartPlaylistTrackCount[]
   }
+  'smart-playlists:get-membership': {
+    request: { id: number }
+    response: PlaylistMembership<SmartPlaylist> | null
+  }
   'smart-playlists:get-detail': {
     request: { id: number }
     response: SmartPlaylistDetail | null
@@ -285,6 +290,10 @@ export interface IpcInvokeContract {
   'playlists:list-sidebar-items': {
     request: void
     response: SidebarPlaylistItem[]
+  }
+  'playlists:get-membership': {
+    request: { id: number }
+    response: PlaylistMembership<Playlist> | null
   }
   'playlists:get-detail': {
     request: { id: number }

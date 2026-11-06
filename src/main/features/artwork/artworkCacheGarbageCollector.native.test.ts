@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm, writeFile, chmod } from 'node:fs/promises'
+import { mkdtemp, readdir, rm, writeFile, chmod, mkdir } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import { migrateDatabase } from '../../database/schema'
 import { ArtworkCacheGarbageCollector } from './artworkCacheGarbageCollector'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 const nodeRequire = createRequire(import.meta.url)
 const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
@@ -39,6 +40,36 @@ function v2Key(seed: string): string {
 }
 
 describe('ArtworkCacheGarbageCollector', () => {
+  it('waits for the SQLite writer before its cleanup transaction', async () => {
+    const dir = await makeTempDir()
+    const path = join(dir, 'isolated.sqlite')
+    const cache = join(dir, 'cache')
+    await mkdir(cache)
+    const db = new DatabaseCtor(path)
+    db.pragma('journal_mode = WAL')
+    migrateDatabase(db)
+    const other = new DatabaseCtor(path)
+    const admission = new DatabaseWriteAdmission()
+    const lease = await admission.acquireExclusive()
+    const key = v2Key('f')
+    await writeFile(join(cache, key), 'orphan')
+    try {
+      other.exec('BEGIN IMMEDIATE')
+      const collector = new ArtworkCacheGarbageCollector(db, cache, admission)
+      const pending = collector.collectGarbage()
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(await readdir(cache)).toContain(key)
+      other.exec('ROLLBACK')
+      lease.release()
+      expect((await pending).orphanFileCount).toBe(1)
+      expect(await readdir(cache)).not.toContain(key)
+    } finally {
+      if (other.inTransaction) other.exec('ROLLBACK')
+      lease.release()
+      other.close()
+      db.close()
+    }
+  })
   it('keeps a reference committed after the initial snapshot', async () => {
     const dir = await makeTempDir()
     const db = createDb()

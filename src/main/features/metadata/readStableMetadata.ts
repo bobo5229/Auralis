@@ -8,7 +8,7 @@ import {
 } from './metadataNormalizer'
 import { readArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { getDirectoryArtworkFingerprint } from '../artwork/directoryArtwork'
-import { resolveLyricsForFile } from './resolveLyricsForFile'
+import { readLyricsSnapshot } from './resolveLyricsForFile'
 import type { StableTrackMetadata } from './metadataRefreshTypes'
 import {
   hasSameScanFileFingerprint,
@@ -57,7 +57,7 @@ export async function readStableMetadata(
       if (!before.isFile()) throw new Error('Metadata source is not a file')
       const metadata = await parseAudioMetadata(filePath, { duration: true })
       const normalized = normalizeMetadata(metadata, filePath)
-      const lyrics = await resolveLyricsForFile(filePath, metadata)
+      const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
       const fingerprint = {
         sourceFilePath: filePath,
         fileSize: before.size,
@@ -77,6 +77,7 @@ export async function readStableMetadata(
         trackId,
         lyricsText: lyrics?.text ?? null,
         lyricsFormat: lyrics?.format ?? null,
+        lyricsSidecarFingerprint,
         ...artwork,
         metadataSignature: buildMetadataSignature(
           normalizeIdentityText(metadata),

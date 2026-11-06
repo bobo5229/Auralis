@@ -18,7 +18,7 @@ function underRoot(path: string, root: string): boolean {
 
 /** Called only after a successful complete inventory and relocation, in its commit transaction. */
 export class MissingTrackCleanupRepository extends BaseRepository {
-  removeConfirmedMissing(rootPath: string): number[] {
+  removeConfirmedMissing(rootPath: string, checkCanceled: () => void = () => {}): number[] {
     if (!this.db.inTransaction) throw new Error('Missing-track cleanup requires a transaction')
     try {
       if (!statSync(rootPath).isDirectory()) return []
@@ -33,6 +33,7 @@ export class MissingTrackCleanupRepository extends BaseRepository {
     const affectedAlbums = new Set<number>()
     const affectedArtists = new Set<number>()
     for (const candidate of candidates) {
+      checkCanceled()
       if (!this.isAbsent(candidate.filePath) || possibleMoves.has(candidate.trackId)) continue
       const row = this.db
         .prepare("SELECT * FROM tracks WHERE id=? AND availability='missing' AND file_path=?")

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAudioProtocolHandler, type AudioProtocolResolver } from './audioProtocol'
+import { DatabaseWriteAdmission } from '@main/database/databaseWriteAdmission'
 
 const tempDirs: string[] = []
 
@@ -74,6 +75,20 @@ describe('audio protocol handler', () => {
 
     expect((await handler(new Request('auralis-audio://track/7'))).status).toBe(404)
     expect(onFileMissing).toHaveBeenCalledWith(7, missingPath)
+  })
+
+  it('waits for missing-file admission and reports temporary overload as 503', async () => {
+    const { root } = await createFixture()
+    const gate = new DatabaseWriteAdmission(1, 20)
+    const lease = await gate.acquireExclusive()
+    const mark = vi.fn()
+    const handler = createAudioProtocolHandler(
+      resolver(join(root, 'missing.mp3'), [root], () => gate.runWrite(mark)),
+    )
+    const response = await handler(new Request('auralis-audio://track/7'))
+    expect(response.status).toBe(503)
+    lease.release()
+    expect(mark).not.toHaveBeenCalled()
   })
 
   it('returns byte ranges with media headers', async () => {
