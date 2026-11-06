@@ -74,8 +74,6 @@ export function buildFacetPlaylistName(labels: readonly string[]): string {
     .trim()
 }
 
-export const getFacetKey = getTrackFacetKey
-export const getFacetValues = getTrackFacetLabels
 export const matchesFacet = matchesTrackFacetKey
 
 export function buildFacetOptions(

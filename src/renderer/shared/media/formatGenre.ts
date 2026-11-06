@@ -1,13 +1,4 @@
-import {
-  formatDelimitedParts,
-  formatDelimitedValues,
-  splitDelimitedValues,
-} from './formatDelimitedValues'
-
-/** Parse multi-value genre for matching / aggregation (not for display). */
-export function splitGenreValues(value: string | null | undefined): string[] {
-  return splitDelimitedValues(value)
-}
+import { formatDelimitedParts, formatDelimitedValues } from './formatDelimitedValues'
 
 /**
  * Read-only multi-value genre display: `A & B` / `A, B & C`.

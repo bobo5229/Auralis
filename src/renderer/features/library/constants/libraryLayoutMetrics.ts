@@ -38,8 +38,6 @@ export const LIBRARY_LAYOUT_METRICS = {
   coverGroupBorderWidth: 1,
 } as const
 
-export type LibraryLayoutMetrics = typeof LIBRARY_LAYOUT_METRICS
-
 export interface CoverMetadataLayout {
   artworkSize?: number
   artworkGap: number

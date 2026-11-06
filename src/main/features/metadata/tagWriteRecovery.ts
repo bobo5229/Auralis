@@ -9,9 +9,9 @@ import { isLyricSidecar, resolveAudioCandidatesForLyricSidecar } from './lyricSi
 /**
  * A hard kill between `rename(original, backup)` and `link(staging, original)`
  * leaves no file at the audio path while the backup stays behind silently.
- * This sweep restores such backups; it never overwrites an existing path and
- * never deletes a backup, because an existing public path may belong to its
- * creator while the backup still holds the only copy of the previous content.
+ * This sweep restores such backups without overwriting an existing path.
+ * A successful restore removes the backup; existing paths and failed restores
+ * retain it so the previous content remains available.
  */
 const TAG_BACKUP_FILE =
   /^(.+)\.auralis-backup-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/

@@ -78,10 +78,7 @@ export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetad
   return { lyrics, lyricsSidecarFingerprint }
 }
 
-async function readLocalLyrics(
-  filePath: string,
-  preserveText = false,
-): Promise<ResolvedLyrics | null> {
+async function readLocalLyrics(filePath: string): Promise<ResolvedLyrics | null> {
   const candidates = lyricSidecarCandidates(filePath)
 
   for (const candidate of candidates) {
@@ -90,7 +87,7 @@ async function readLocalLyrics(
       const lyrics = classifyLyrics(text)
 
       if (lyrics) {
-        return preserveText ? { ...lyrics, text } : lyrics
+        return lyrics
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -105,13 +102,12 @@ async function readLocalLyrics(
 export async function resolveLyricsForFile(
   filePath: string,
   metadata: IAudioMetadata,
-  preserveText = false,
 ): Promise<ResolvedLyrics | null> {
-  const embeddedLyrics = resolveLyrics(metadata, preserveText)
+  const embeddedLyrics = resolveLyrics(metadata)
 
   if (embeddedLyrics?.format === 'lrc') {
     return embeddedLyrics
   }
 
-  return (await readLocalLyrics(filePath, preserveText)) ?? embeddedLyrics
+  return (await readLocalLyrics(filePath)) ?? embeddedLyrics
 }

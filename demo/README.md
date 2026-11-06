@@ -76,7 +76,6 @@
 
 ## 歌词
 
-- [LRC 编辑器历史原型](lyrics/lrc-editor/index.html)，[说明](lyrics/lrc-editor/README.md)；正式应用已移除编辑与保存功能。
 - [歌词强调交互](lyrics/emphasis/README.md)
 
 ## 品牌

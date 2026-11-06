@@ -4,7 +4,6 @@ import {
   buildAlbumShuffleContexts,
   getAlbumKey,
   resolvePlaybackAdvance,
-  resolvePlaybackTransition,
   type PlaybackTransitionSource,
   type PlaybackTransitionState,
 } from './playbackTransitionPlanner'
@@ -49,7 +48,7 @@ function source(overrides: Partial<PlaybackTransitionSource> = {}): PlaybackTran
   }
 }
 
-describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
+describe('resolvePlaybackAdvance', () => {
   it.each([
     { artist: null, albumArtist: null, expected: 'Unknown Artist' },
     { artist: '', albumArtist: '', expected: 'Unknown Artist' },
@@ -80,17 +79,18 @@ describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
   )
 
   it('consumes an explicitly queued next track before the active mode', async () => {
-    const result = await resolvePlaybackTransition(
+    const result = await resolvePlaybackAdvance(
       state('shuffle', { queuedNextTrackId: 2 }),
       source(),
+      'gapless-prefetch',
     )
 
-    expect(result).toMatchObject({ track: { id: 2 }, consumeQueued: true })
+    expect(result).toMatchObject({ kind: 'play', plan: { track: { id: 2 }, consumeQueued: true } })
   })
 
   it('repeats the current track without recording history for natural-ended/prefetch in repeat-one', async () => {
-    const result = await resolvePlaybackTransition(state('repeat-one'), source())
-    expect(result).toMatchObject({ track: { id: 1 }, recordHistory: false })
+    const result = await resolvePlaybackAdvance(state('repeat-one'), source(), 'gapless-prefetch')
+    expect(result).toMatchObject({ kind: 'play', plan: { track: { id: 1 }, recordHistory: false } })
 
     const advanceEnded = await resolvePlaybackAdvance(
       state('repeat-one'),
@@ -136,8 +136,8 @@ describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
   it('wraps repeat-all at the end for all triggers', async () => {
     const atEnd = { currentTrackId: 3, currentTrack: track(3), currentIndex: 2 }
     await expect(
-      resolvePlaybackTransition(state('repeat-all', atEnd), source()),
-    ).resolves.toMatchObject({ track: { id: 1 } })
+      resolvePlaybackAdvance(state('repeat-all', atEnd), source(), 'gapless-prefetch'),
+    ).resolves.toMatchObject({ kind: 'play', plan: { track: { id: 1 } } })
 
     const manual = await resolvePlaybackAdvance(state('repeat-all', atEnd), source(), 'manual-next')
     expect(manual).toMatchObject({ kind: 'play', plan: { track: { id: 1 } } })
@@ -251,11 +251,12 @@ describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
     'keeps explicitly queued tracks ahead of an empty %s scope',
     async (mode) => {
       expect(
-        await resolvePlaybackTransition(
+        await resolvePlaybackAdvance(
           state(mode, { shuffleTrackPool: [], queuedNextTrackId: 2 }),
           source(),
+          'gapless-prefetch',
         ),
-      ).toMatchObject({ track: { id: 2 }, consumeQueued: true })
+      ).toMatchObject({ kind: 'play', plan: { track: { id: 2 }, consumeQueued: true } })
     },
   )
 

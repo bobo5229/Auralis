@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { classifyLyrics } from './classifyLyrics'
-import { hasEmbeddedTtml, resolveLyrics } from './metadataNormalizer'
+import { resolveLyrics } from './metadataNormalizer'
 import type { IAudioMetadata } from 'music-metadata'
 
 const ttml = readFileSync(new URL('./__fixtures__/duet.ttml', import.meta.url), 'utf8')
@@ -13,24 +13,19 @@ describe('classifyLyrics', () => {
     expect(classifyLyrics('<tt broken')).toBeNull()
   })
 
-  it('detects TTML in all embedded lyric candidates without changing playback selection', () => {
+  it('keeps playable LRC when native tags also contain TTML', () => {
     const metadata = {
       common: { lyrics: ['[00:01]Playable'] },
       native: { 'ID3v2.3': [{ id: 'USLT:description', value: { text: ttml } }] },
     } as unknown as IAudioMetadata
-    expect(hasEmbeddedTtml(metadata)).toBe(true)
     expect(resolveLyrics(metadata)).toEqual({ text: '[00:01]Playable', format: 'lrc' })
-    expect(
-      hasEmbeddedTtml({ common: { lyrics: ['plain'] }, native: {} } as unknown as IAudioMetadata),
-    ).toBe(false)
   })
 
-  it('detects ID3v2.2 ULT lyrics absent from common metadata', () => {
+  it('ignores ID3v2.2 ULT XML absent from common metadata', () => {
     const metadata = {
       common: {},
       native: { 'ID3v2.2': [{ id: 'ULT', value: { text: ttml } }] },
     } as unknown as IAudioMetadata
-    expect(hasEmbeddedTtml(metadata)).toBe(true)
     expect(resolveLyrics(metadata)).toBeNull()
   })
 

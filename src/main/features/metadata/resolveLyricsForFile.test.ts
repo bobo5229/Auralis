@@ -25,12 +25,11 @@ afterEach(async () => {
 })
 
 describe('TTML lyric sidecars', () => {
-  it('preserves source whitespace for raw editing without changing playback defaults', async () => {
+  it('normalizes sidecar and embedded lyrics for playback', async () => {
     const text = '\n[00:01.00]  Local lyric  \n\n'
     await writeFile(join(root, 'song.lrc'), text, 'utf8')
-    expect((await resolveLyricsForFile(audioPath, metadata(), true))?.text).toBe(text)
     expect((await resolveLyricsForFile(audioPath, metadata()))?.text).toBe(text.trim())
-    expect((await resolveLyricsForFile(audioPath, metadata(text), true))?.text).toBe(text)
+    expect((await resolveLyricsForFile(audioPath, metadata(text)))?.text).toBe(text.trim())
   })
   it.each(['.ttml', '.TTML'])('ignores the %s sidecar', async (extension) => {
     await writeFile(join(root, `song${extension}`), ttml, 'utf8')

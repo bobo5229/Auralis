@@ -101,11 +101,11 @@
 
 - [TECHDOC：外部元数据同步](topics/metadata/TECHDOC-external-metadata-sync-2026-11-06.md) — 当前只读文件边界、历史覆盖读回、备份恢复及播放读租约。
 
-- [TECHDOC：元数据编辑面板扩展技术方案](topics/metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md) — E1–E6 的交付快照；2026-10-29 已实现并通过独立验收。
+- [TECHDOC：元数据编辑面板扩展技术方案](topics/metadata/TECHDOC-metadata-editor-roadmap-2026-10-28.md) — E1–E6 的历史交付快照；内置元数据编辑及播放中编辑能力已移除。
 - [TECHDOC：元数据体系优化技术方案](topics/metadata/TECHDOC-metadata-system-optimization-2026-10-28.md) — 审计发现、数据权威与历史覆盖、日期与格式适配、编辑契约、封面来源及分阶段验收；含 2026-10-28 实施与独立验收记录。
 - [REPORT：当前曲库流派上层统计与映射草案](topics/metadata/REPORT-genre-upper-classification-2026-10-04.md)
 - [TECHDOC：多值元数据统一处理规则](topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)
-- [TECHDOC：播放器占用歌曲的元数据编辑限制](topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md)
+- [TECHDOC：播放器占用歌曲的元数据编辑限制](topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md) — 历史方案；编辑能力已移除，正常播放读租约与旧备份恢复保留。
 - [TECHDOC：元数据刷新后的文件指纹一致性](topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)
 - [流派多值分隔符与原子复合流派方案](topics/metadata/plan-genre-delimiter-atomic-compounds.md)
 

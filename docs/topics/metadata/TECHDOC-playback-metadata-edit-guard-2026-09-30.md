@@ -1,10 +1,10 @@
 # TECHDOC：播放器占用歌曲的元数据编辑限制
 
-> 2026-11-06：正式应用已移除内置标签、专辑、封面与歌词编辑及音乐文件写回。本页保留历史设计与验证记录；当前行为见[外部元数据同步](TECHDOC-external-metadata-sync-2026-11-06.md)。
+> 2026-11-06：正式应用已移除内置标签、专辑、封面与歌词编辑及音乐文件写回。配套的播放中编辑、写入协调能力也已移除；正常播放的读租约与旧版中断写入的备份恢复代码保留。本页保留历史设计与验证记录；当前行为见[外部元数据同步](TECHDOC-external-metadata-sync-2026-11-06.md)。
 
 状态：已接管修复并完成定向自测，待独立复验。日期：2026-09-30。
 
-> 状态范围：上面的状态是 2026-09-30 接管时的记录；后续补充运行验证仍属于该轮自测，本文没有记录独立复验结论。下文“施工前源码检查”描述的是修复前状态。当前曲目编辑入口为 [TrackEditorDialog.vue](../../../src/renderer/app/layout/TrackEditorDialog.vue) 与 [MetadataEditPage.vue](../../../src/renderer/features/library/components/MetadataEditPage.vue)，播放文件使用权由 `src/main/features/audio/playbackFileCoordinator.ts` 等模块协同管理。
+> 状态范围：上面的状态是 2026-09-30 接管时的记录；后续补充运行验证仍属于该轮自测，本文没有记录独立复验结论。下文“施工前源码检查”描述的是修复前状态。当时的曲目编辑入口为 `TrackEditorDialog.vue` 与 `MetadataEditPage.vue`，现已移除。播放文件协调器仅保留正常播放所需的读租约管理，不再提供编辑状态或写入协调能力。
 
 ## 接管修复记录（2026-09-30）
 

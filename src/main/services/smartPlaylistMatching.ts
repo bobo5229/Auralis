@@ -139,10 +139,6 @@ export function compileRule(
   return (track) => matches({ track, values: {} })
 }
 
-export function matchesRule(track: TrackListItem, rule: SmartPlaylistRule): boolean {
-  return compileRule(rule)(track)
-}
-
 function hasAddedWithinPredicate(expression: SmartPlaylistExpression): boolean {
   if (expression.type === 'predicate') {
     return expression.field === 'added' && expression.operator === 'addedWithin'

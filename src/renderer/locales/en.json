@@ -459,7 +459,6 @@
         "decreaseWeight": "Decrease {field} font weight",
         "increaseSpacing": "Increase {field}",
         "decreaseSpacing": "Decrease {field}",
-        "resetView": "Restore defaults",
         "resetStatus": "Defaults restored for this view",
         "persistFailed": "Changes applied, but could not save them. They may reset after restarting.",
         "fields": {

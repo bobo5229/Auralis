@@ -342,12 +342,3 @@ export async function resolvePlaybackAdvance(
 
   return { kind: 'noop' }
 }
-
-export async function resolvePlaybackTransition(
-  state: PlaybackTransitionState,
-  source: PlaybackTransitionSource,
-  random: () => number = Math.random,
-): Promise<PlaybackTransitionPlan | null> {
-  const decision = await resolvePlaybackAdvance(state, source, 'gapless-prefetch', random)
-  return decision.kind === 'play' ? decision.plan : null
-}

@@ -272,8 +272,8 @@ export function createPlaybackAudioRuntime(
   let activeSessionId = 0
   let htmlAudioLeaseRequest: { session: number; promise: Promise<boolean> } | null = null
 
-  // Ended releases the old reader. Replaying or seeking must wait for any tag
-  // writer and acquire a new reader before touching the media again.
+  // Ended releases the old reader. Replaying or seeking must acquire a new
+  // read lease before touching the media again.
   async function ensureHtmlAudioLease(session: number): Promise<boolean> {
     const isCurrent = () =>
       !isDisposed && session === activeSessionId && activeBackend === 'html-audio'

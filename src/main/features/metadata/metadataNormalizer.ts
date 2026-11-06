@@ -3,7 +3,7 @@ import type { NormalizedIdentity } from '@shared/types/trackFile'
 import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
 import type { LyricsFormat } from '@shared/types/libraryScan'
-import { classifyLyrics, isTtmlLike, type ResolvedLyrics } from './classifyLyrics'
+import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
 import { normalizeReleaseDate, releaseDateYear } from '@shared/utils/releaseDate'
 import type { FileTagValues } from '@shared/types/trackMetadata'
 
@@ -194,7 +194,7 @@ export function resolveCopyright(metadata: MetadataTags): string[] {
   return native.length > 0 ? native : cleanDelimitedValues([metadata.common.copyright])
 }
 
-function lyricCandidates(metadata: MetadataTags, preserveText = false): string[] {
+function lyricCandidates(metadata: MetadataTags): string[] {
   const nativeCandidates: string[] = []
 
   for (const tags of getNativeTagGroups(metadata)) {
@@ -205,31 +205,15 @@ function lyricCandidates(metadata: MetadataTags, preserveText = false): string[]
     }
   }
 
-  // Common lyrics may already be trimmed or decoded from LRC by music-metadata.
-  // Raw editing and write verification need the original native field first.
   const commonCandidates = getTextValuesFromUnknown(metadata.common.lyrics)
-  return preserveText
-    ? [...nativeCandidates, ...commonCandidates]
-    : [...commonCandidates, ...nativeCandidates]
+  return [...commonCandidates, ...nativeCandidates]
 }
 
-export function hasEmbeddedTtml(metadata: MetadataTags): boolean {
-  if (getTextValuesFromUnknown(metadata.common.lyrics).some(isTtmlLike)) return true
-  return getNativeTagGroups(metadata).some((tags) =>
-    tags.some((tag) => {
-      const id = tag.id.replace(/[^a-zA-Z]/g, '').toUpperCase()
-      const lyricTag =
-        isNativeLyricsTag(tag.id) || id.includes('USLT') || id.includes('SYLT') || id === 'ULT'
-      return lyricTag && getTextValuesFromUnknown(tag.value).some(isTtmlLike)
-    }),
-  )
-}
-
-export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
-  const candidates = lyricCandidates(metadata, preserveText)
+export function resolveLyrics(metadata: MetadataTags): ResolvedLyrics | null {
+  const candidates = lyricCandidates(metadata)
   const resolved = [...new Set(candidates)].flatMap((candidate) => {
     const lyrics = classifyLyrics(candidate)
-    return lyrics ? [{ ...lyrics, text: preserveText ? candidate : lyrics.text }] : []
+    return lyrics ? [lyrics] : []
   })
   return resolved.find((lyrics) => lyrics.format === 'lrc') ?? resolved[0] ?? null
 }
