@@ -40,7 +40,6 @@ interface AppShellLayoutOptions {
   mainRef: Ref<HTMLElement | null>
   displayMode: Readonly<Ref<PlayerDisplayMode>>
   isSettingsOpen: Readonly<Ref<boolean>>
-  startupAlbumActive: Readonly<Ref<boolean>>
   pageParameters: PageParameters
   prepareForDisplay(): Promise<void> | undefined
   syncCdViewSwitch(): void
@@ -57,7 +56,6 @@ export function useAppShellLayout({
   mainRef,
   displayMode,
   isSettingsOpen,
-  startupAlbumActive,
   pageParameters,
   prepareForDisplay,
   syncCdViewSwitch,
@@ -292,8 +290,7 @@ export function useAppShellLayout({
       isAlbumRouteTransitioning.value ||
       isSidebarResizing.value ||
       isSettingsOpen.value ||
-      pageParameters.open.value ||
-      startupAlbumActive.value,
+      pageParameters.open.value,
   )
   const {
     isResizing: isLyricsWidthDragging,

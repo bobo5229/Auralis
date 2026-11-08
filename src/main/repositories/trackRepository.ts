@@ -15,7 +15,6 @@ import { BaseRepository } from './baseRepository'
 import { TrackQueryRepository } from './trackQueryRepository'
 import { TrackScanWriter } from './trackScanWriter'
 import { TrackAvailabilityRepository } from './trackAvailabilityRepository'
-import type { StartupAlbumCandidate } from './startupAlbumCandidate'
 
 export type { KnownTrackFile, MissingTrackCandidate } from './trackRepositoryTypes'
 
@@ -176,10 +175,6 @@ export class TrackRepository extends BaseRepository {
 
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {
     return this.queries.getRandomPlayableTrack(excludeTrackId)
-  }
-
-  getStartupAlbumCandidates(): StartupAlbumCandidate[] {
-    return this.queries.getStartupAlbumCandidates()
   }
 
   getRandomAlbumIdentity(excludeAlbumKey?: {

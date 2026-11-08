@@ -22,9 +22,6 @@ export default defineConfig({
           'features/metadata/metadataRefreshWorker': resolve(
             'src/main/features/metadata/metadataRefreshWorker.ts',
           ),
-          'features/startupAlbum/startupAlbumWorker': resolve(
-            'src/main/features/startupAlbum/startupAlbumWorker.ts',
-          ),
           'logging/rollingLogTransport': resolve('src/main/logging/rollingLogTransport.ts'),
         },
         external: ['better-sqlite3', 'bindings', 'sharp', 'pino'],
@@ -87,11 +84,11 @@ export default defineConfig({
       vue(),
       UnoCSS(),
       {
-        name: 'compact-startup-card',
+        name: 'compact-three',
         async renderChunk(code, chunk) {
           if (
             !Object.keys(chunk.modules).some((id) =>
-              /\/(?:node_modules\/three|features\/startupAlbum)\//.test(id.replaceAll('\\', '/')),
+              /\/node_modules\/three\//.test(id.replaceAll('\\', '/')),
             )
           )
             return null

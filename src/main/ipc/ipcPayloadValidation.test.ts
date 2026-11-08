@@ -115,8 +115,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(73)
-    expect(kinds).toEqual({ void: 23, optional: 6, required: 44 })
+    expect(actualChannels).toHaveLength(71)
+    expect(kinds).toEqual({ void: 23, optional: 5, required: 43 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -333,44 +333,6 @@ describe('domain IPC payload validation behavior', () => {
       expect(() =>
         parse(ipcChannels.playback.nativeCommand, { ...payload, softTransitionDurationSeconds }),
       ).toThrow(IpcPayloadValidationError)
-    }
-  })
-  it('accepts bounded startup presentation history without changing legacy callers', () => {
-    const album = { albumArtist: 'Artist', album: 'Album' }
-    const request = { recentAlbums: Array.from({ length: 10 }, () => album) }
-    expect(parse('app:claim-startup-album', request)).toEqual(request)
-    expect(parse('app:claim-startup-album', { excludeAlbumKey: album })).toEqual({
-      excludeAlbumKey: album,
-    })
-    expect(parse('app:claim-startup-album', undefined)).toBeUndefined()
-    for (const recentAlbums of [
-      Array(11).fill(album),
-      [null],
-      [{ album: 'A' }],
-      [{ ...album, albumArtist: 42 }],
-      'bad',
-    ]) {
-      expect(() => parse('app:claim-startup-album', { recentAlbums })).toThrow(
-        IpcPayloadValidationError,
-      )
-    }
-  })
-  it('bounds manual album draws to presentation history without startup claim options', () => {
-    const album = { albumArtist: 'Artist', album: 'Album' }
-    expect(parse('app:draw-startup-album', { recentAlbums: [] })).toEqual({ recentAlbums: [] })
-    const request = { recentAlbums: Array(10).fill(album) }
-    expect(parse('app:draw-startup-album', request)).toEqual(request)
-    for (const payload of [
-      undefined,
-      {},
-      { recentAlbums: Array(11).fill(album) },
-      { recentAlbums: [null] },
-      { recentAlbums: [{ album: 'Album' }] },
-      { recentAlbums: [{ ...album, albumArtist: 42 }] },
-      { recentAlbums: 'bad' },
-      { recentAlbums: [], excludeAlbumKey: album },
-    ]) {
-      expect(() => parse('app:draw-startup-album', payload)).toThrow(IpcPayloadValidationError)
     }
   })
 

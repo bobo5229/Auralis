@@ -18,7 +18,6 @@ import type {
   MetadataRefreshFailure,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
-import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
 import type {
   AddPlaylistTracksResult,
   Playlist,
@@ -172,20 +171,9 @@ export interface IpcInvokeContract {
     request: { locale: UiLocale }
     response: void
   }
-  'app:claim-startup-album': {
-    request: {
-      excludeAlbumKey?: { albumArtist: string; album: string }
-      recentAlbums?: StartupAlbumHistory
-    } | void
-    response: { album: RandomAlbumTracksResult | null }
-  }
   'app:claim-cd-startup-entry': {
     request: void
     response: { firstEntry: boolean }
-  }
-  'app:draw-startup-album': {
-    request: { recentAlbums: StartupAlbumHistory }
-    response: { album: RandomAlbumTracksResult | null }
   }
   'app:export-diagnostics': {
     request: void

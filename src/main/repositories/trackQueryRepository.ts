@@ -8,7 +8,6 @@ import type { KnownTrackFile } from './trackRepositoryTypes'
 import { toPathVariants, toRootPrefixes, escapeLikePattern } from './trackRepositoryPaths'
 import { LibraryTrackOrderCache } from './libraryTrackOrderCache'
 import { BaseRepository } from './baseRepository'
-import type { StartupAlbumCandidate } from './startupAlbumCandidate'
 
 const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
                 album_artist AS albumArtist,
@@ -395,23 +394,6 @@ export class TrackQueryRepository extends BaseRepository {
       | undefined
 
     return row ?? null
-  }
-
-  getStartupAlbumCandidates(): StartupAlbumCandidate[] {
-    return this.db
-      .prepare(
-        `
-      SELECT ${albumArtistIdentityExpr} AS albumArtist, album,
-             AVG(play_count) AS averagePlayCount,
-             AVG(CASE WHEN play_count = 0 THEN 1.0 ELSE 0.0 END) AS unheardFraction,
-             strftime('%Y-%m-%dT%H:%M:%fZ', MAX(julianday(last_played_at))) AS lastPlayedAt
-      FROM library_track_display
-      WHERE availability = 'available' AND album IS NOT NULL AND album != ''
-      GROUP BY ${albumArtistIdentityExpr}, album
-      ORDER BY albumArtist, album
-    `,
-      )
-      .all() as StartupAlbumCandidate[]
   }
 
   getRandomAlbumIdentity(excludeAlbumKey?: {

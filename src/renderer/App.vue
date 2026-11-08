@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } f
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import './app/styles/cdCanvasTransition.css'
-import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import WindowTrafficLights from '@renderer/shared/components/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
@@ -29,13 +28,6 @@ import {
 } from '@renderer/features/albums/albumColorPreferences'
 import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
 
-const {
-  active: startupAlbumActive,
-  presentation: startupAlbumPresentation,
-  overlay: startupAlbumOverlay,
-  shown: startupAlbumShown,
-  close: closeStartupAlbum,
-} = useStartupAlbum()
 const route = useRoute()
 const detailArtworkKey = ref<string | null>(null)
 const detailAnchors = ref<AlbumColorAnchor[]>([])
@@ -136,7 +128,7 @@ useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
 const { sidebarCollapsed } = useSidebarLayout()
 
-const { isSettingsOpen, pageParameters } = useAppOverlays(route, displayMode, startupAlbumActive)
+const { isSettingsOpen, pageParameters } = useAppOverlays(route, displayMode)
 const shellRef = ref<HTMLElement | null>(null)
 useThemeTransition(shellRef, () => route.fullPath)
 watch(shellRef, (shell, _previous, onCleanup) => {
@@ -207,7 +199,6 @@ const {
   mainRef,
   displayMode,
   isSettingsOpen,
-  startupAlbumActive,
   pageParameters,
   prepareForDisplay: () => nowPlayingPanelRef.value?.prepareForDisplay(),
   syncCdViewSwitch: () => cdViewSwitchRef.value?.syncToCurrent(true),
@@ -421,13 +412,6 @@ onBeforeUnmount(cancelLateColorTransition)
     <FullscreenPlayerOverlay />
   </div>
   <SettingsDialog />
-  <component
-    :is="startupAlbumOverlay"
-    v-if="startupAlbumOverlay && startupAlbumPresentation"
-    :presentation="startupAlbumPresentation"
-    @shown="startupAlbumShown"
-    @close="closeStartupAlbum"
-  />
 </template>
 
 <style scoped>

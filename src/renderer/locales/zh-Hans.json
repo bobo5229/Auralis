@@ -1,8 +1,4 @@
 {
-  "startupAlbum": {
-    "play": "播放专辑",
-    "skip": "跳过"
-  },
   "colorPicker": {
     "invalidColor": "请输入有效的六位 HEX 颜色。",
     "presetColor": "预设颜色",
@@ -313,15 +309,6 @@
         "languageAndText": "语言与文字",
         "lyrics": "歌词",
         "startupAndWindow": "启动与窗口"
-      },
-      "startupAlbum": {
-        "title": "启动时推荐一张专辑",
-        "description": "欢迎页结束后，从本地收藏随机展示一张专辑。下次启动生效。",
-        "drawNow": "抽取",
-        "drawing": "正在抽取…",
-        "drawEmpty": "暂无可推荐的专辑，请先向曲库添加音乐。",
-        "drawFailed": "本次抽取未完成，请重试。",
-        "persistFailed": "本次保存未完成，请重试。"
       },
       "textDisplay": {
         "title": "语言与文字",

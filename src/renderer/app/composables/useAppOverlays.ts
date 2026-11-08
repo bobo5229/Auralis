@@ -10,14 +10,11 @@ import {
 export function useAppOverlays(
   route: RouteLocationNormalizedLoaded,
   displayMode: Readonly<Ref<PlayerDisplayMode>>,
-  startupAlbumActive: Readonly<Ref<boolean>>,
 ) {
   const { isSettingsOpen, closeSettings } = useSettingsDialog()
   const pageParameters = createPageParameters(
     computed(() => route.name),
-    computed(
-      () => isSettingsOpen.value || displayMode.value === 'fullscreen' || startupAlbumActive.value,
-    ),
+    computed(() => isSettingsOpen.value || displayMode.value === 'fullscreen'),
   )
   providePageParameters(pageParameters)
 

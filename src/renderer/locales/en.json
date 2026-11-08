@@ -1,8 +1,4 @@
 {
-  "startupAlbum": {
-    "play": "Play album",
-    "skip": "Skip"
-  },
   "colorPicker": {
     "invalidColor": "Enter a valid six-digit HEX color.",
     "presetColor": "Preset color",
@@ -313,15 +309,6 @@
         "languageAndText": "Language and text",
         "lyrics": "Lyrics",
         "startupAndWindow": "Startup and window"
-      },
-      "startupAlbum": {
-        "title": "Recommend an album at startup",
-        "description": "Show a random album from your local collection after the welcome screen. Applies on the next launch.",
-        "drawNow": "Draw an album now",
-        "drawing": "Drawing…",
-        "drawEmpty": "No albums are available to recommend. Add music to your library first.",
-        "drawFailed": "Could not draw an album. Please try again.",
-        "persistFailed": "Could not save this preference. Please try again."
       },
       "textDisplay": {
         "title": "Language and text",

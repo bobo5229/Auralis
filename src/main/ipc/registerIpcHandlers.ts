@@ -12,7 +12,6 @@ import { ipcChannels } from '@shared/ipc/channels'
 import { isRegisteredMainWindow } from '@main/app/mainWindowRegistry'
 import { getWindowVisibility } from '@main/app/windowVisibility'
 import { claimCdStartupEntry } from '@main/app/cdStartupSession'
-import { claimStartupAlbum } from '@main/app/startupAlbumSession'
 import { getNativeUiMessages, setNativeUiLocale } from '@main/app/uiLocale'
 import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
@@ -33,7 +32,6 @@ import { LibraryScanService } from '@main/features/libraryScan/libraryScanServic
 import { LibraryScanSettlementHost } from '@main/features/libraryScan/libraryScanSettlementHost'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
-import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
@@ -97,7 +95,6 @@ export async function registerIpcHandlers(
     new TrackRepository(db),
     new LibraryCatalogWorkerHost(db.name),
   )
-  const startupAlbumWorker = new StartupAlbumWorkerHost(db.name)
   const scanEvents = createLibraryScanEvents(sendToRenderer)
   const libraryScanService = new LibraryScanService(
     db,
@@ -307,16 +304,6 @@ export async function registerIpcHandlers(
   })
 
   electronIpcRegistrar.handle(ipcChannels.app.claimCdStartupEntry, claimCdStartupEntry)
-  electronIpcRegistrar.handle(ipcChannels.app.claimStartupAlbum, (_event, request) =>
-    claimStartupAlbum(() =>
-      startupAlbumWorker.getStartupAlbumTracks(
-        request?.recentAlbums ?? (request?.excludeAlbumKey ? [request.excludeAlbumKey] : []),
-      ),
-    ),
-  )
-  electronIpcRegistrar.handle(ipcChannels.app.drawStartupAlbum, async (_event, request) => ({
-    album: await startupAlbumWorker.getStartupAlbumTracks(request.recentAlbums),
-  }))
   electronIpcRegistrar.handle(ipcChannels.app.setLocale, (_event, payload) => {
     setNativeUiLocale(payload.locale)
   })
@@ -447,7 +434,6 @@ export async function registerIpcHandlers(
       // Stop producers before asking renderers to flush final listening evidence.
       // They may resume each other during scan cleanup, so stop is idempotent.
       const producers = await Promise.allSettled([
-        startupAlbumWorker.shutdown(),
         artworkMaintenanceService.shutdown(),
         libraryScanService.shutdown(),
         writeAdmission.stopExclusive(),

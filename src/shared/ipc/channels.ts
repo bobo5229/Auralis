@@ -9,8 +9,6 @@ export const ipcChannels = {
     getInfo: 'app:get-info',
     setLocale: 'app:set-locale',
     claimCdStartupEntry: 'app:claim-cd-startup-entry',
-    claimStartupAlbum: 'app:claim-startup-album',
-    drawStartupAlbum: 'app:draw-startup-album',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
     splashReady: 'app:splash-ready',

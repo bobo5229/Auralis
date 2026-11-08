@@ -186,8 +186,6 @@ function createApi(): AuralisApi {
       onPrepareShutdown: vi.fn(() => () => undefined),
       shutdownReady: vi.fn(async () => undefined),
       setLocale: vi.fn(async () => undefined),
-      claimStartupAlbum: vi.fn(async () => ({ album: null })),
-      drawStartupAlbum: vi.fn(async () => ({ album: null })),
       claimCdStartupEntry: vi.fn(async () => ({ firstEntry: true })),
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),

@@ -12,13 +12,6 @@ vi.mock('@renderer/shared/ipc/client', () => ({
     },
   },
 }))
-vi.mock('@renderer/features/startupAlbum/startupAlbumPreference', () => ({
-  useStartupAlbumPreference: () => ({
-    enabled: ref(false),
-    persistFailed: ref(false),
-    setEnabled: vi.fn(),
-  }),
-}))
 vi.mock('@renderer/i18n', () => ({
   useUiLocale: () => ({
     locale: ref('zh-Hans'),

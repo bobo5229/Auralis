@@ -20,10 +20,6 @@ export interface AuralisApi {
     getInfo: () => Result<'app:get-info'>
     setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
     claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>
-    claimStartupAlbum: (
-      request?: Exclude<IpcRequest<'app:claim-startup-album'>, void>,
-    ) => Result<'app:claim-startup-album'>
-    drawStartupAlbum: (request: Req<'app:draw-startup-album'>) => Result<'app:draw-startup-album'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
     splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void

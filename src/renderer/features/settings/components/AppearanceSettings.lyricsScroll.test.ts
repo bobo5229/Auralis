@@ -16,13 +16,6 @@ const windowApi = vi.hoisted(() => ({
 }))
 const localeApi = vi.hoisted(() => ({ setUiLocale: vi.fn() }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { window: windowApi } }))
-vi.mock('@renderer/features/startupAlbum/startupAlbumPreference', () => ({
-  useStartupAlbumPreference: () => ({
-    enabled: ref(false),
-    persistFailed: ref(false),
-    setEnabled: vi.fn(),
-  }),
-}))
 vi.mock('@renderer/i18n', () => ({
   useUiLocale: () => {
     const locale = ref('zh-Hans')

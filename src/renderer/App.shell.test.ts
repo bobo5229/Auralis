@@ -30,7 +30,6 @@ import {
 const fixture = vi.hoisted(() => ({
   route: null as unknown as { name: string; fullPath: string; query: Record<string, string> },
   width: null as unknown as Ref<number>,
-  startup: null as unknown as Ref<boolean>,
   before: new Set<() => void>(),
   after: new Set<(to: unknown, from: unknown, failure?: unknown) => void>(),
   hooks: {} as Record<string, unknown>,
@@ -64,6 +63,9 @@ vi.mock('./features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({
     state: { currentTrackId: 7, currentTrack: { id: 7, artworkCacheKey: 'playing-cover' } },
   }),
+}))
+vi.mock('./features/playback/composables/useSystemMediaIntegration', () => ({
+  useSystemMediaIntegration: vi.fn(),
 }))
 vi.mock('vue-router', async () => {
   const { reactive, h } = await import('vue')
@@ -144,22 +146,6 @@ vi.mock('@vueuse/core', async () => {
   fixture.width = ref(1600)
   return { useElementSize: () => ({ width: fixture.width }) }
 })
-vi.mock('./features/startupAlbum/useStartupAlbum', async () => {
-  const { ref } = await import('vue')
-  fixture.startup = ref(false)
-  return {
-    useStartupAlbum: () => ({
-      active: fixture.startup,
-      presentation: null,
-      overlay: null,
-      shown: vi.fn(),
-      close: vi.fn(),
-    }),
-  }
-})
-vi.mock('./features/playback/composables/useSystemMediaIntegration', () => ({
-  useSystemMediaIntegration: vi.fn(),
-}))
 vi.mock('./features/albums/composables/useCdCanvasTheme', () => ({
   useCdCanvasTheme: () => ({ cdCanvasTheme: 'light' }),
 }))
@@ -315,7 +301,6 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storage.set(key, value),
   })
   fixture.width.value = 1600
-  fixture.startup.value = false
   fixture.paletteReady.value = true
   fixture.detailCover = false
   fixture.detailCoverKey = 'test-cover'
@@ -824,7 +809,7 @@ describe('App shell composition', () => {
     expect(shell.style['--auralis-lyrics-column-width']).toBe('0px')
   })
 
-  it('blocks page parameters across settings, fullscreen and startup overlays', async () => {
+  it('blocks page parameters across settings and fullscreen overlays', async () => {
     await mount()
     const parameters = find('.test-parameters').props.controller as { supported: Ref<boolean> }
     expect(parameters.supported.value).toBe(true)
@@ -839,9 +824,6 @@ describe('App shell composition', () => {
     display.showNormalPlayer()
     await flush()
     expect(parameters.supported.value).toBe(true)
-    fixture.startup.value = true
-    await flush()
-    expect(parameters.supported.value).toBe(false)
   })
 
   it('ignores failed navigation and stale route completion while restoring the latest focus', async () => {

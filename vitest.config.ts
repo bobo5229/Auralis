@@ -43,7 +43,6 @@ export default defineConfig({
         '**/PlayingIndicator.test.ts',
         '**/PreferredPlayingIndicator.test.ts',
         '**/WindowTrafficLights.test.ts',
-        '**/StartupAlbumOverlay.test.ts',
         '**/AppearanceSettings.lyricsScroll.test.ts',
         '**/AppearanceSettings.controlStyle.test.ts',
         '**/AppearanceSettings.englishFont.test.ts',

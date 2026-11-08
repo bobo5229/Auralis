@@ -13,13 +13,6 @@ const windowApi = vi.hoisted(() => ({
   setCloseBehavior: vi.fn(async (behavior: string) => ({ behavior, trayAvailable: true })),
 }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { window: windowApi } }))
-vi.mock('@renderer/features/startupAlbum/startupAlbumPreference', () => ({
-  useStartupAlbumPreference: () => ({
-    enabled: ref(false),
-    persistFailed: ref(false),
-    setEnabled: vi.fn(),
-  }),
-}))
 vi.mock('@renderer/i18n', () => ({
   useUiLocale: () => ({
     locale: ref('zh-Hans'),

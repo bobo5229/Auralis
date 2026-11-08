@@ -10,7 +10,6 @@ import {
   SMART_PLAYLIST_NAME_MAX_LENGTH,
 } from '@shared/smartPlaylists/ruleLimits'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
-import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -371,18 +370,7 @@ export const domainIpcPayloadPolicies = {
     objectShape({ locale: field(enumValue(['zh-Hans', 'en'])) }),
   ),
   [ipcChannels.app.claimCdStartupEntry]: voidPayload(),
-  [ipcChannels.app.claimStartupAlbum]: optional(
-    objectShape({
-      excludeAlbumKey: field(albumKey, true),
-      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT }), true),
-    }),
-  ),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
-  [ipcChannels.app.drawStartupAlbum]: required(
-    objectShape({
-      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT })),
-    }),
-  ),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
   [ipcChannels.library.getRoots]: voidPayload(),
