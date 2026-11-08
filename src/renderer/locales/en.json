@@ -380,13 +380,6 @@
         "full": "Full width",
         "persistFailed": "Your selection could not be saved. Select it again to retry."
       },
-      "playbarStyle": {
-        "title": "Playback bar style",
-        "description": "Choose the background style of the bottom playback bar.",
-        "plain": "Plain",
-        "frosted": "Frosted glass",
-        "persistFailed": "Your selection could not be saved. Select it again to retry."
-      },
       "playingIcon": {
         "title": "Now playing icon",
         "description": "Choose the icon symbol displayed during playback.",

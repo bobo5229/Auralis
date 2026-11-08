@@ -31,7 +31,6 @@ import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolveP
 import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/features/appearance/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
-import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
 import {
   formatPlaybackClock,
@@ -43,7 +42,6 @@ const playback = usePlayback()
 const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
-const { style: playbarMaterialStyle } = usePlaybarStyle()
 const { layout: playbarLayout } = usePlaybarLayout()
 const isFullLayout = computed(() => playbarLayout.value === 'full')
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
@@ -322,7 +320,6 @@ function handleNext(): void {
   <footer
     ref="playerBarHostRef"
     class="player-bar"
-    :data-playbar-style="playbarMaterialStyle"
     :data-playbar-layout="playbarLayout"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
@@ -336,11 +333,7 @@ function handleNext(): void {
       :class="{ 'player-bar-island--full': isFullLayout }"
       data-playbar-drop-target
     >
-      <FrostedSurface
-        class="player-bar-surface"
-        :frosted="playbarMaterialStyle === 'frosted'"
-        plain-background="var(--auralis-playbar-bg)"
-      />
+      <FrostedSurface class="player-bar-surface" />
       <div
         v-if="paletteEnabled && previousAlbumTint"
         class="player-bar-album-tint player-bar-album-tint-previous"
@@ -422,7 +415,7 @@ function handleNext(): void {
               <PlaybackModeMenu
                 v-if="isModeMenuOpen"
                 :current-mode="playback.state.playbackMode"
-                :material="playbarMaterialStyle"
+                playbar
                 @select="handleSelectMode"
                 @close="handleModeMenuClose"
               />
@@ -468,11 +461,7 @@ function handleNext(): void {
           </button>
 
           <div ref="queuePopoverRef" class="contents">
-            <PlaybackQueuePopover
-              v-if="isQueueOpen"
-              :material="playbarMaterialStyle"
-              @close="handleQueueClose"
-            />
+            <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
           </div>
 
           <button
@@ -560,7 +549,7 @@ function handleNext(): void {
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
-              :material="playbarMaterialStyle"
+              playbar
               @select="handleSelectMode"
               @close="handleModeMenuClose"
             />

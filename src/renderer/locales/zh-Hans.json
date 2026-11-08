@@ -380,13 +380,6 @@
         "full": "全宽",
         "persistFailed": "本次选择未保存，请重新选择以重试。"
       },
-      "playbarStyle": {
-        "title": "播放栏样式",
-        "description": "选择底部播放栏的背景样式。",
-        "plain": "普通",
-        "frosted": "毛玻璃",
-        "persistFailed": "本次选择未保存，请重新选择以重试。"
-      },
       "playingIcon": {
         "title": "“播放中”图标",
         "description": "选择播放状态所展示的图标符号。",

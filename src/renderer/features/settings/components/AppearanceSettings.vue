@@ -16,11 +16,6 @@ import {
   type PlayingIconPreset,
 } from '@renderer/features/appearance/composables/usePlayingIconPreference'
 import {
-  PLAYBAR_STYLES,
-  usePlaybarStyle,
-  type PlaybarStyle,
-} from '@renderer/features/appearance/composables/usePlaybarStyle'
-import {
   useEnglishFont,
   type EnglishFontChoice,
 } from '@renderer/features/appearance/composables/useEnglishFont'
@@ -81,18 +76,6 @@ const playbarLayoutOptions = computed(() =>
   PLAYBAR_LAYOUTS.map((value) => ({
     value,
     label: t(`settings.appearance.playbarLayout.${value}`),
-  })),
-)
-const {
-  style: playbarStyle,
-  persistFailed: playbarStylePersistFailed,
-  setStyle: setPlaybarStyle,
-} = usePlaybarStyle()
-
-const playbarStyleOptions = computed(() =>
-  PLAYBAR_STYLES.map((value) => ({
-    value,
-    label: t(`settings.appearance.playbarStyle.${value}`),
   })),
 )
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
@@ -164,10 +147,6 @@ function selectPlaybarLayout(value: PlaybarLayout): void {
   setPlaybarLayout(value)
 }
 
-function selectPlaybarStyle(value: PlaybarStyle): void {
-  setPlaybarStyle(value)
-}
-
 function selectPlayingIconPreset(value: PlayingIconPreset): void {
   setPlayingIcon(value)
 }
@@ -236,27 +215,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :model-value="playbarLayout"
             :options="playbarLayoutOptions"
             @update:model-value="selectPlaybarLayout($event as PlaybarLayout)"
-          />
-        </div>
-        <div class="settings-row settings-row--with-desc settings-row--playbar-style">
-          <div>
-            <strong id="appearance-playbar-style-label">{{
-              t('settings.appearance.playbarStyle.title')
-            }}</strong>
-            <span id="appearance-playbar-style-description">{{
-              t('settings.appearance.playbarStyle.description')
-            }}</span>
-            <span v-if="playbarStylePersistFailed" class="settings-status--error" role="status">{{
-              t('settings.appearance.playbarStyle.persistFailed')
-            }}</span>
-          </div>
-          <SettingsSegmentedControl
-            id="appearance-playbar-style"
-            labelledby="appearance-playbar-style-label"
-            describedby="appearance-playbar-style-description"
-            :model-value="playbarStyle"
-            :options="playbarStyleOptions"
-            @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
           />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">

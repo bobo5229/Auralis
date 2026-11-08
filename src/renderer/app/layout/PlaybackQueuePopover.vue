@@ -7,10 +7,7 @@ import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTe
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
-import type { PlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
-
-defineProps<{ material: PlaybarStyle }>()
 
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
@@ -68,10 +65,7 @@ useOverlayFocusTrap({
     tabindex="-1"
     :aria-label="t('player.queue')"
   >
-    <FrostedSurface
-      :frosted="material === 'frosted'"
-      plain-background="var(--auralis-playbar-bg)"
-    />
+    <FrostedSurface />
     <div class="queue-popover-header">
       <span class="queue-popover-title">{{ t('player.queue') }}</span>
     </div>

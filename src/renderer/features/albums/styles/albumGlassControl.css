@@ -17,7 +17,7 @@
 }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   @media (prefers-reduced-transparency: no-preference) and (prefers-contrast: no-preference) {
-    .album-glass-control :deep(.frosted-surface[data-frosted='true']) {
+    .album-glass-control :deep(.frosted-surface) {
       background: transparent;
     }
   }
