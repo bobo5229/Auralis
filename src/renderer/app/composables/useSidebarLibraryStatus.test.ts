@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, defineComponent } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { LibraryScanProgress, LibraryScanStatus } from '@shared/types/libraryScan'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSidebarLibraryStatus } from './useSidebarLibraryStatus'
 
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
@@ -101,36 +102,31 @@ function mount() {
   }
 }
 
-describe('sidebar library status', () => {
-  it('starts in loading, distinguishes an unconfigured library from the first scan', async () => {
+describe('sidebar library refresh', () => {
+  it('does not start a scan for an unconfigured library', async () => {
     const h = mount()
-    expect(h.state.status.value).toBe('loading')
     await settle()
-    expect(h.state.status.value).toBe('waiting')
     h.api.getRoots.mockResolvedValue([])
     await h.state.reload()
-    expect(h.state.status.value).toBe('notConfigured')
     await h.state.refreshLibrary()
     expect(h.api.startScan).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['scanning', 0, 0, 'scanning', 'neutral', true],
-    ['scanning', 100, 0, 'progress', 'neutral', true],
-    ['completed', 100, 0, 'ready', 'success', false],
-    ['completed', 100, 2, 'warnings', 'warning', false],
-    ['canceled', 100, 0, 'canceled', 'warning', false],
-    ['failed', 100, 0, 'failed', 'error', false],
-    ['idle', 0, 0, 'waiting', 'neutral', false],
+    ['scanning', 0, 0, true],
+    ['scanning', 100, 0, true],
+    ['completed', 100, 0, false],
+    ['completed', 100, 2, false],
+    ['canceled', 100, 0, false],
+    ['failed', 100, 0, false],
+    ['idle', 0, 0, false],
   ] as const)(
-    'maps %s / total %i / failed %i to its label and busy state',
-    async (status, totalFiles, failedFiles, label, tone, busy) => {
+    'keeps refresh availability for %s / total %i / failed %i',
+    async (status, totalFiles, failedFiles, busy) => {
       const h = mount()
       await settle()
       h.api.getScanStatus.mockResolvedValue(job(status, { totalFiles, failedFiles }))
       await h.state.reload()
-      expect(h.state.status.value).toBe(label)
-      expect(h.state.tone.value).toBe(tone)
       expect(h.state.isRefreshing.value).toBe(busy)
     },
   )
@@ -139,15 +135,12 @@ describe('sidebar library status', () => {
     const h = mount()
     await settle()
     h.progress(job('scanning', { jobId: 2, scannedFiles: 55 }))
-    expect(h.state.status.value).toBe('progress')
-    expect(h.state.counts.value).toEqual({ scanned: 55, total: 100 })
     await h.state.refreshLibrary()
     expect(h.api.startScan).not.toHaveBeenCalled()
     h.progress(job('failed'))
     expect(h.state.isRefreshing.value).toBe(true)
     h.progress(job('completed', { jobId: 2 }))
     h.progress(job('scanning', { jobId: 2 }))
-    expect(h.state.status.value).toBe('ready')
     expect(h.state.isRefreshing.value).toBe(false)
   })
 
@@ -160,8 +153,7 @@ describe('sidebar library status', () => {
     h.progress(job('scanning', { jobId: 3, scannedFiles: 88 }))
     pending.resolve(job('completed'))
     await read
-    expect(h.state.status.value).toBe('progress')
-    expect(h.state.counts.value.scanned).toBe(88)
+    expect(h.state.isRefreshing.value).toBe(true)
   })
 
   it('prevents an older request from replacing a newer result or error', async () => {
@@ -174,7 +166,7 @@ describe('sidebar library status', () => {
     await h.state.reload()
     pending.reject(new Error('stale read failed'))
     await older
-    expect(h.state.status.value).toBe('ready')
+    expect(h.state.isRefreshing.value).toBe(false)
   })
 
   it('reports a read failure and recovers through library change notifications', async () => {
@@ -182,11 +174,13 @@ describe('sidebar library status', () => {
     await settle()
     h.api.getScanStatus.mockRejectedValueOnce(new Error('read failed'))
     await h.state.reload()
-    expect(h.state.status.value).toBe('readFailed')
-    h.api.getScanStatus.mockResolvedValue(job('completed'))
+    expect(rendererDiagnostics.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Could not read library status' }),
+    )
+    h.api.getScanStatus.mockResolvedValue(job('scanning'))
     h.changed()
     await settle()
-    expect(h.state.status.value).toBe('ready')
+    expect(h.state.isRefreshing.value).toBe(true)
     const calls = h.api.getScanStatus.mock.calls.length
     h.playStats()
     expect(h.api.getScanStatus).toHaveBeenCalledTimes(calls)
@@ -199,19 +193,20 @@ describe('sidebar library status', () => {
     h.api.startScan.mockReturnValueOnce(pending.promise)
     const start = h.state.refreshLibrary()
     await settle()
-    expect(h.state.status.value).toBe('starting')
     expect(h.state.isRefreshing.value).toBe(true)
     await h.state.refreshLibrary()
     expect(h.api.startScan).toHaveBeenCalledTimes(1)
     pending.reject(new Error('start failed'))
     await start
-    expect(h.state.status.value).toBe('failed')
+    expect(rendererDiagnostics.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Could not start library scan' }),
+    )
     expect(h.state.isRefreshing.value).toBe(false)
     h.api.getScanStatus.mockResolvedValue(job('scanning'))
     await h.state.refreshLibrary()
     expect(h.state.isRefreshing.value).toBe(true)
     h.progress(job('completed'))
-    expect(h.state.status.value).toBe('ready')
+    expect(h.state.isRefreshing.value).toBe(false)
   })
 
   it('does not start another job if an external scan starts during root lookup', async () => {
@@ -239,7 +234,6 @@ describe('sidebar library status', () => {
     await h.state.refreshLibrary()
     expect(h.stopProgress).toHaveBeenCalledOnce()
     expect(h.stopChanged).toHaveBeenCalledOnce()
-    expect(h.state.status.value).toBe('waiting')
     expect(h.api.startScan).not.toHaveBeenCalled()
   })
 

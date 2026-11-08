@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, reactive, type Slots } from 'vue'
 import { createFocusTrap, type FocusTrap } from 'focus-trap'
+import type { LibraryScanProgress } from '@shared/types/libraryScan'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import AppSidebar from './AppSidebar.vue'
 import { useTheme, THEME_STORAGE_KEY } from '@renderer/features/appearance/composables/useTheme'
@@ -11,6 +12,8 @@ import {
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
 const fixture = vi.hoisted(() => ({
+  startScan: vi.fn(async () => ({ jobId: 1 })),
+  scanProgress: new Set<(event: LibraryScanProgress) => void>(),
   route: { path: '/songs', name: 'library', query: {}, hash: '', fullPath: '/songs' },
   items: [] as SidebarPlaylistItem[],
   create: vi.fn(),
@@ -36,9 +39,15 @@ vi.mock('@renderer/shared/ipc/client', () => ({
   auralis: {
     library: {
       getStats: async () => ({ trackCount: 4, albumCount: 1 }),
-      getRoots: async () => [],
+      getRoots: async () => [
+        { id: 4, path: '/isolated/music', createdAt: '', lastScannedAt: null },
+      ],
+      startScan: fixture.startScan,
       getScanStatus: async () => null,
-      onScanProgress: () => () => undefined,
+      onScanProgress: (callback: (event: LibraryScanProgress) => void) => {
+        fixture.scanProgress.add(callback)
+        return () => fixture.scanProgress.delete(callback)
+      },
       onChanged: (callback: (event: { reason: string }) => void) => {
         fixture.changed.add(callback)
         return () => fixture.changed.delete(callback)
@@ -790,6 +799,35 @@ describe('AppSidebar theme shortcut', () => {
       expect(useTheme().isDark.value).toBe(true)
       expect(trigger.props['aria-label']).toBe('sidebar.tool.switchToLightTheme')
       expect(localStorage.setItem).toHaveBeenLastCalledWith(THEME_STORAGE_KEY, 'dark')
+    },
+  )
+})
+
+describe('AppSidebar footer refresh', () => {
+  it.each([false, true])(
+    'shows only tools and keeps refresh usable (collapsed=%s)',
+    async (collapsed) => {
+      useSidebarLayout().setSidebarFullHeight(true)
+      useSidebarLayout().setSidebarCollapsed(collapsed)
+      await mount()
+      expect(doc.body.querySelector('.sidebar-status-card')).toBeNull()
+      expect(doc.body.querySelector('.sidebar-status-dot')).toBeNull()
+      expect(doc.body.querySelector('.sidebar-flavor-text')).toBeNull()
+      const trigger = find('.sidebar-tools-grid').querySelector('button')!
+      expect(trigger.props['aria-label']).toBe('sidebar.tool.refreshAction')
+      dispatch(trigger, 'click')
+      await settle()
+      expect(fixture.startScan).toHaveBeenCalledWith(4)
+      for (const notify of fixture.scanProgress)
+        notify({ jobId: 2, status: 'scanning' } as LibraryScanProgress)
+      await settle()
+      expect(trigger.props.disabled).toBe(true)
+      expect(trigger.props['aria-label']).toBe('sidebar.tool.refreshBusy')
+      for (const notify of fixture.scanProgress)
+        notify({ jobId: 2, status: 'completed' } as LibraryScanProgress)
+      await settle()
+      expect(trigger.props.disabled).not.toBe(true)
+      expect(doc.body.querySelector('.sidebar-status-card')).toBeNull()
     },
   )
 })

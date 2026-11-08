@@ -21,7 +21,6 @@ import { useSidebarPlaylistActions } from '../composables/useSidebarPlaylistActi
 import { useSidebarLibraryStatus } from '../composables/useSidebarLibraryStatus'
 import { useSidebarResize } from '../composables/useSidebarResize'
 import { useSidebarLibraryData } from '../composables/useSidebarLibraryData'
-import { useSidebarFlavorLabel } from '../composables/useSidebarFlavorLabel'
 import { useSidebarNavigation } from '../composables/useSidebarNavigation'
 import { useSidebarRecentAddedRange } from '../composables/useSidebarRecentAddedRange'
 import { useSidebarPlaylistMenus } from '../composables/useSidebarPlaylistMenus'
@@ -56,9 +55,6 @@ function toggleSidebarCollapsed(): void {
 const isFacetsDialogOpen = ref(false)
 const libraryStatus = useSidebarLibraryStatus(auralis.library)
 const { isRefreshing, refreshLibrary } = libraryStatus
-const libraryStatusLabel = computed(() =>
-  t(`sidebar.status.${libraryStatus.status.value}`, libraryStatus.counts.value),
-)
 watch(isSettingsOpen, (open, wasOpen) => {
   if (wasOpen && !open) void libraryStatus.reload()
 })
@@ -73,15 +69,6 @@ const {
 const sidebarNavigation = ref<HTMLElement | null>(null)
 const sidebarPlaylistSection = ref<HTMLElement | null>(null)
 const albumMenuOpen = ref(false)
-const {
-  isFlavorHovered,
-  isFlavorFocused,
-  flavorLabel,
-  flavorLabelRef,
-  flavorTextRef,
-  isFlavorOverflowing,
-  flavorMarqueeStyle,
-} = useSidebarFlavorLabel({ isRail, libraryStats, t })
 const {
   activePath,
   primaryNavItems,
@@ -462,49 +449,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
       </section>
     </nav>
     <footer class="sidebar-footer">
-      <div
-        class="sidebar-status-card"
-        :data-tone="libraryStatus.tone.value"
-        role="status"
-        :aria-label="libraryStatusLabel"
-        tabindex="0"
-        @pointerenter="isFlavorHovered = true"
-        @pointerleave="isFlavorHovered = false"
-        @focusin="isFlavorFocused = true"
-        @focusout="isFlavorFocused = false"
-      >
-        <div class="sidebar-status-card-main">
-          <span class="sidebar-status-dot" aria-hidden="true"></span>
-          <span
-            v-if="!isRail"
-            ref="flavorLabelRef"
-            class="sidebar-status-label auralis-type-caption"
-            :class="{ 'sidebar-status-label--marquee': isFlavorOverflowing }"
-            :style="flavorMarqueeStyle"
-            aria-hidden="true"
-          >
-            <span ref="flavorTextRef" class="sidebar-flavor-text">{{ flavorLabel }}</span>
-          </span>
-          <span class="sr-only">{{ libraryStatusLabel }}</span>
-        </div>
-        <button
-          v-if="!isRail"
-          v-tooltip.fast="
-            isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
-          "
-          class="sidebar-status-refresh-button"
-          type="button"
-          :aria-label="
-            isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
-          "
-          :disabled="isRefreshing"
-          :aria-busy="isRefreshing"
-          @click.stop="refreshLibrary"
-        >
-          <SidebarIcon kind="refresh" :class="{ 'animate-spin': isRefreshing }" />
-        </button>
-      </div>
-
       <div class="sidebar-actions-row">
         <button
           v-tooltip.fast="isRail ? t('sidebar.tool.settings') : ''"
@@ -523,12 +467,10 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
           <span v-if="!isRail" class="sidebar-settings-label auralis-type-control">{{
             t('sidebar.tool.settings')
           }}</span>
-          <span v-if="!isRail" class="sidebar-settings-shortcut" aria-hidden="true">⌘,</span>
         </button>
 
         <div class="sidebar-tools-grid" role="group" :aria-label="t('sidebar.toolbarAria')">
           <button
-            v-if="isRail"
             v-tooltip.fast="
               isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
             "
