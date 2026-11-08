@@ -56,6 +56,9 @@ const statusIcon = computed(() => {
 <style scoped>
 .main-page-status {
   display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   min-height: 160px;
   flex: 1;
   flex-direction: column;
@@ -94,22 +97,30 @@ const statusIcon = computed(() => {
 
 .main-page-status h3 {
   margin: 0;
-  font-size: 16px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
   font-weight: 600;
 }
 
 .main-page-status p {
-  max-width: 28rem;
+  max-width: min(28rem, 100%);
+  overflow-wrap: anywhere;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   color: var(--auralis-text-muted);
 }
 
 .main-page-status button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   min-height: 32px;
-  padding: 0 14px;
+  padding: 6px 14px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 600;
   color: var(--auralis-text);
   background: var(--auralis-control-hover-bg);

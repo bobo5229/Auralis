@@ -20,7 +20,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const element = ref<HTMLElement | null>(null)
 
 const { options: modes } = usePlaybackModePresentation(() => props.currentMode)
@@ -111,7 +111,12 @@ onMounted(() => {
         @click="handleSelect(mode.id)"
       >
         <PlayerBarActionIcon :icon="mode.icon" size="playback-mode" />
-        <span>{{ mode.label }}</span>
+        <span class="playback-mode-option">
+          <span>{{ mode.label }}</span>
+          <small v-if="locale === 'en' && mode.description" class="playback-mode-description">{{
+            mode.description
+          }}</small>
+        </span>
         <span v-if="currentMode === mode.id" class="playback-mode-check" aria-hidden="true">
           <PlayerBarActionIcon icon="i-ph-check" size="compact" />
         </span>
@@ -122,6 +127,18 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.playback-mode-option {
+  min-width: 0;
+  flex: 1;
+}
+.playback-mode-description {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  color: var(--auralis-text-muted);
+  font-weight: 400;
+}
 .playback-mode-menu--playbar {
   isolation: isolate;
   border: none;

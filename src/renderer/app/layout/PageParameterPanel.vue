@@ -374,4 +374,21 @@ onBeforeUnmount(() => {
   width: 100%;
   min-width: 0;
 }
+/* English field names stay readable without changing the numeric control widths. */
+:where(:root[lang='en']) .page-parameter-panel {
+  --page-parameter-control-size: var(--auralis-type-caption-size);
+}
+:where(:root[lang='en']) .page-parameter-panel .parameter-panel-header h2 {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+:where(:root[lang='en']) .page-parameter-panel :deep(.settings-row > div > strong) {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+:where(:root[lang='en'])
+  .page-parameter-panel
+  :deep(.settings-row:not(:has(> .settings-range-control))) {
+  flex-wrap: wrap;
+}
 </style>

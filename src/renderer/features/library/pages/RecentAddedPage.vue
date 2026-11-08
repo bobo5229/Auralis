@@ -332,7 +332,9 @@ function playAlbum(album: AlbumSummary): void {
                 :disabled="pending"
                 @input="invalid = false"
               />
-              <span aria-hidden="true">{{ t('sidebar.recentAddedRangeDayUnit') }}</span>
+              <span aria-hidden="true">{{
+                t('sidebar.recentAddedRangeDayUnit', Number(draft))
+              }}</span>
             </div>
           </div>
           <div class="journal-custom-range-actions">

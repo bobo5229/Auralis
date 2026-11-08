@@ -283,7 +283,8 @@ watch(
   color: var(--auralis-text);
   background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 600;
   cursor: pointer;
 }
@@ -324,7 +325,8 @@ watch(
   color: var(--auralis-text);
   background: var(--auralis-context-menu-bg);
   box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 500;
 }
 .settings-select-option {

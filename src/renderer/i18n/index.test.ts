@@ -131,3 +131,26 @@ describe('UI locale preference and live state', () => {
     expect(i18n.global.t('facets.trackCount', { count: 2 })).toBe('2 tracks')
   })
 })
+
+it('uses singular and plural English units for a custom recent-added range', () => {
+  i18n.global.locale.value = 'en'
+  expect(i18n.global.t('sidebar.recentAddedRangeDayUnit', 1)).toBe('day')
+  expect(i18n.global.t('sidebar.recentAddedRangeDayUnit', 30)).toBe('days')
+  i18n.global.locale.value = 'zh-Hans'
+  expect(i18n.global.t('sidebar.recentAddedRangeDayUnit', 1)).toBe('天')
+  expect(i18n.global.t('sidebar.recentAddedRangeDayUnit', 30)).toBe('天')
+})
+
+it.each([
+  ['library.recentAdded.days', 'Last 1 day', 'Last 2 days'],
+  ['library.journal.moreAlbums', '1 more album', '2 more albums'],
+  ['library.journal.moreRecords', '1 more entry', '2 more entries'],
+  ['archive.daySummary', '1 play · 0 min', '2 plays · 0 min'],
+  ['archive.summary.recordedTracks', '1 track heard', '2 tracks heard'],
+  ['archive.summary.days', '1 day', '2 days'],
+  ['archive.summary.trackCount', '1 track', '2 tracks'],
+] as const)('selects count-sensitive English text for %s', (key, singular, plural) => {
+  i18n.global.locale.value = 'en'
+  expect(i18n.global.t(key, { count: 1, minutes: 0 })).toBe(singular)
+  expect(i18n.global.t(key, { count: 2, minutes: 0 })).toBe(plural)
+})

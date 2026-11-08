@@ -98,10 +98,13 @@ useOverlayFocusTrap({
           </div>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="queue-item-title">
+          <div
+            v-tooltip.overflow="songText(currentTrack.title) || t('player.unknownTrack')"
+            class="queue-item-title"
+          >
             {{ songText(currentTrack.title) || t('player.unknownTrack') }}
           </div>
-          <div class="queue-item-subtitle">
+          <div v-tooltip.overflow="formatSubtitle(currentTrack)" class="queue-item-subtitle">
             {{ formatSubtitle(currentTrack) }}
           </div>
         </div>
@@ -142,10 +145,15 @@ useOverlayFocusTrap({
             </div>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="queue-item-title">
+            <div
+              v-tooltip.overflow="songText(track.title) || t('player.unknownTrack')"
+              class="queue-item-title"
+            >
               {{ songText(track.title) || t('player.unknownTrack') }}
             </div>
-            <div class="queue-item-subtitle">{{ formatSubtitle(track) }}</div>
+            <div v-tooltip.overflow="formatSubtitle(track)" class="queue-item-subtitle">
+              {{ formatSubtitle(track) }}
+            </div>
           </div>
         </button>
       </div>

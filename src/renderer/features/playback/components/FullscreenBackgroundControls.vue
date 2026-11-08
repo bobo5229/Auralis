@@ -517,6 +517,13 @@ defineExpose({ close })
 .background-controls-panel .background-controls-reset:hover:not(:disabled) {
   color: var(--auralis-danger);
 }
+:where(:root[lang='en'])
+  .background-controls-panel
+  :is(.settings-segmented-option, .settings-text-button) {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
 .background-controls-panel .settings-range-control output {
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);

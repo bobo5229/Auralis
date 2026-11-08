@@ -3540,3 +3540,36 @@ input[type='range'].volume-overlay-slider {
   animation-duration: 650ms;
   animation-timing-function: ease-in-out;
 }
+
+/* English interface copy: retain content typography and music metadata casing. */
+:where(:root[lang='en']) .queue-popover-section-label {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+:where(:root[lang='en']) .library-context-menu-text {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+:where(:root[lang='en']) .playback-mode-item {
+  height: auto;
+  min-height: 36px;
+  padding-block: 8px;
+  line-height: var(--auralis-type-control-line-height);
+}
+:where(:root[lang='en']) .playback-mode-item > span:not([aria-hidden='true']) {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+:where(:root[lang='en']) .playback-mode-item > [aria-hidden='true'] {
+  flex-shrink: 0;
+}
+
+/* Section labels are interface labels, not display lettering. */
+:where(:root[lang='en']) .sidebar-section-label {
+  text-transform: none;
+  letter-spacing: normal;
+}

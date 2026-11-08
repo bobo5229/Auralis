@@ -77,3 +77,17 @@ describe('english font preference', () => {
     expect(setProperty).toHaveBeenCalledWith(ENGLISH_FONT_CSS_VARIABLE, "'Inter'")
   })
 })
+
+it.each([
+  ['plusJakartaSans', 'Plus Jakarta Sans'],
+  ['inter', 'Inter'],
+  ['publicSans', 'Public Sans'],
+  ['geist', 'Geist'],
+  ['rubik', 'Rubik'],
+] as const)('restores and applies the bundled %s family', async (choice, family) => {
+  const { mod, setProperty, setItem } = await load(choice)
+  mod.initEnglishFont()
+  expect(mod.useEnglishFont().font.value).toBe(choice)
+  expect(setProperty).toHaveBeenCalledWith(ENGLISH_FONT_CSS_VARIABLE, `'${family}'`)
+  expect(setItem).not.toHaveBeenCalled()
+})

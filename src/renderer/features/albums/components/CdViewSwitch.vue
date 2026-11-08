@@ -167,6 +167,7 @@ function open(view: CdViewSwitchTarget): void {
   left: 50%;
   display: inline-flex;
   gap: 24px;
+  max-width: calc(100% - 32px);
   background: transparent;
   transform: translateX(-50%);
   -webkit-app-region: no-drag;
@@ -181,6 +182,8 @@ function open(view: CdViewSwitchTarget): void {
 .cd-view-switch button {
   position: relative;
   padding: 6px 0;
+  min-width: 0;
+  overflow-wrap: break-word;
   font-family: var(--cd-font-text);
   font-size: var(--cd-type-nav-size);
   font-weight: 400;

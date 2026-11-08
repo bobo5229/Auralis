@@ -214,8 +214,8 @@ onBeforeUnmount(() => {
 
           <div class="fullscreen-player-meta-row">
             <div class="fullscreen-player-meta" :style="infoTypographyStyle">
-              <h1 :style="titleTypographyStyle">{{ title }}</h1>
-              <p :style="subtitleTypographyStyle">{{ subtitle }}</p>
+              <h1 v-tooltip.overflow="title" :style="titleTypographyStyle">{{ title }}</h1>
+              <p v-tooltip.overflow="subtitle" :style="subtitleTypographyStyle">{{ subtitle }}</p>
             </div>
           </div>
 

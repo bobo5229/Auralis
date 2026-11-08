@@ -81,7 +81,11 @@ const moments = computed(() => {
       date: data.peakDay.date,
       label: t('archive.summary.peakDay'),
       heading: date(data.peakDay.date),
-      detail: t('archive.summary.peakPlays', { count: number(data.peakDay.playCount) }),
+      detail: t(
+        'archive.summary.peakPlays',
+        { count: number(data.peakDay.playCount) },
+        data.peakDay.playCount,
+      ),
       album: data.peakDay.album,
     })
   if (data.longestRun && data.longestRun.days > 1)
@@ -212,7 +216,12 @@ onBeforeRouteUpdate((to) => (Number(to.params.year) < 1900 ? { name: 'archive' }
                       <h4>{{ songText(track.title) || t('archive.unknownTrack') }}</h4>
                       <p>{{ songValues(track.artist) || t('archive.unknownArtist') }}</p>
                       <small
-                        >{{ t('archive.playCount', { count: number(track.playCount) })
+                        >{{
+                          t(
+                            'archive.playCount',
+                            { count: number(track.playCount) },
+                            track.playCount,
+                          )
                         }}<template v-if="!track.playback">
                           · {{ t('archive.summary.unavailable') }}</template
                         ></small
@@ -241,7 +250,15 @@ onBeforeRouteUpdate((to) => (Number(to.params.year) < 1900 ? { name: 'archive' }
                     <span class="summary-rank">{{ String(index + 1).padStart(2, '0') }}</span>
                     <div class="summary-track-text">
                       <h4>{{ songText(artist.name) }}</h4>
-                      <p>{{ t('archive.playCount', { count: number(artist.playCount) }) }}</p>
+                      <p>
+                        {{
+                          t(
+                            'archive.playCount',
+                            { count: number(artist.playCount) },
+                            artist.playCount,
+                          )
+                        }}
+                      </p>
                     </div>
                     <div class="summary-artist-covers">
                       <component

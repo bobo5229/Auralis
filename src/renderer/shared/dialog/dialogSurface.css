@@ -158,3 +158,16 @@
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
 }
+
+/* Preserve the close target and allow long English actions to reflow. */
+.auralis-dialog-close {
+  flex-shrink: 0;
+}
+:where(:root[lang='en']) .auralis-dialog-header-actions {
+  flex-shrink: 0;
+}
+:where(:root[lang='en']) .auralis-dialog-action {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+}

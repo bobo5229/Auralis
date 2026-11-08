@@ -428,3 +428,44 @@
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
+
+/* English labels need room to wrap; the switch keeps its intrinsic geometry. */
+:where(:root[lang='en']) :is(.settings-surface, .settings-controls) .settings-row {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+:where(:root[lang='en'])
+  :is(.settings-surface, .settings-controls)
+  .settings-row
+  > div:first-child {
+  flex: 1 1 220px;
+}
+:where(:root[lang='en']) :is(.settings-surface, .settings-controls) .settings-row > div > span {
+  overflow-wrap: break-word;
+  line-height: var(--auralis-type-caption-line-height);
+}
+:where(:root[lang='en']) :is(.settings-surface, .settings-controls) .settings-segmented-option {
+  min-width: 0;
+  padding-block: 4px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  overflow-wrap: break-word;
+}
+:where(:root[lang='en'])
+  :is(.settings-surface, .settings-controls)
+  .settings-row
+  > .settings-segmented-control {
+  flex-shrink: 1;
+  margin-inline-start: auto;
+}
+
+/* Range labels may wrap; slider values retain their own grid column. */
+:where(:root[lang='en'])
+  :is(.settings-surface, .page-parameter-panel)
+  .settings-row:has(> .settings-range-control)
+  > div:first-child
+  > strong {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+}

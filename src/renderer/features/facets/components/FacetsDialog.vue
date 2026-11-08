@@ -564,6 +564,14 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+:where(:root[lang='en']) .facet-column-title > span:first-child {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+:where(:root[lang='en']) .facets-feedback-row {
+  flex-wrap: wrap;
+}
+
 .facet-column-total {
   flex: none;
   color: var(--auralis-text-subtle);

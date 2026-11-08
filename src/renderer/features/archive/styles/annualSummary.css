@@ -788,3 +788,16 @@
     padding: 12px;
   }
 }
+
+/* Keep translated header actions available when labels grow. */
+:where(:root[lang='en']) .archive-summary-page .summary-page-header {
+  flex-wrap: wrap;
+}
+:where(:root[lang='en'])
+  .archive-summary-page
+  :is(.summary-back-link, .summary-text-link, .summary-button) {
+  min-width: 0;
+  max-width: 100%;
+  text-align: start;
+  overflow-wrap: anywhere;
+}

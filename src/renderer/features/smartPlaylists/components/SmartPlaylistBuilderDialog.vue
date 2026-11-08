@@ -610,6 +610,14 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+:where(:root[lang='en']) .switch button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
+  font-size: var(--auralis-type-caption-size);
+}
+
 .switch button:hover:not(:disabled):not([aria-pressed='true']) {
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);

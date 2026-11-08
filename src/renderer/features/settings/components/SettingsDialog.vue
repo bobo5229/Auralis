@@ -199,6 +199,11 @@ onBeforeUnmount(() => {
   height: 16px;
 }
 
+:where(:root[lang='en']) .settings-dialog-nav button > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .settings-dialog-content {
   --settings-content-padding-top: 20px;
   min-width: 0;

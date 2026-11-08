@@ -2,13 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { formatSummaryMonth } from '../utils/formatSummaryMonth'
 import type { AnnualAlbum } from '@shared/types/listeningArchive'
 import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import ArchiveAlbumSpines from './ArchiveAlbumSpines.vue'
 import ArchiveSummaryArtwork from './ArchiveSummaryArtwork.vue'
 
 const props = defineProps<{ albums: AnnualAlbum[] }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 const selectedKey = ref<string | null>(null)
 const selected = computed(
@@ -56,7 +57,12 @@ watch(
           {{ songValues(selected.albumArtist) || t('archive.unknownArtist') }}
         </p>
         <p class="summary-album-count">
-          {{ t('archive.playCount', { count: selected.playCount.toLocaleString() })
+          {{
+            t(
+              'archive.playCount',
+              { count: selected.playCount.toLocaleString(locale) },
+              selected.playCount,
+            )
           }}<span>
             · {{ t('archive.summary.recordedTracks', { count: selected.trackCount }) }}</span
           >
@@ -70,7 +76,12 @@ watch(
             v-for="(count, index) in selected.monthlyPlays"
             :key="index"
             class="summary-month-bar"
-            :title="t('archive.summary.monthPlays', { month: index + 1, count })"
+            :title="
+              t('archive.summary.monthPlays', {
+                month: formatSummaryMonth(index + 1, locale),
+                count,
+              })
+            "
           >
             <span
               :style="{ height: `${count ? Math.max(6, (count / maximum) * 100) : 2}%` }"

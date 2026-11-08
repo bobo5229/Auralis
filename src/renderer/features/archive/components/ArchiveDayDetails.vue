@@ -88,7 +88,7 @@ watch(
         </div>
         <div class="archive-day-stat">
           <span class="archive-day-count auralis-type-caption">{{
-            t('archive.playCount', { count: n(track.playCount) })
+            t('archive.playCount', { count: n(track.playCount) }, track.playCount)
           }}</span>
           <span class="archive-day-frequency" aria-hidden="true">
             <span

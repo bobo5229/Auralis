@@ -125,10 +125,13 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           </span>
         </div>
         <div class="track-text">
-          <div class="track-title">
+          <div
+            v-tooltip.overflow="songText(currentTrack.title) || t('player.unknownTrack')"
+            class="track-title"
+          >
             {{ songText(currentTrack.title) || t('player.unknownTrack') }}
           </div>
-          <div class="track-subtitle">
+          <div v-tooltip.overflow="playbackSubtitle(currentTrack, '—')" class="track-subtitle">
             {{ playbackSubtitle(currentTrack, '—') }}
           </div>
         </div>

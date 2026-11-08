@@ -2,12 +2,13 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { formatSummaryMonth } from '../utils/formatSummaryMonth'
 import type { AnnualSummary } from '@shared/types/listeningArchive'
 import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import ArchiveSummaryArtwork from './ArchiveSummaryArtwork.vue'
 
 const props = defineProps<{ summary: AnnualSummary }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 const selectedMonth = ref<number | null>(null)
 const root = ref<HTMLElement | null>(null)
@@ -80,7 +81,9 @@ watch(
             <ArchiveSummaryArtwork
               :artwork-key="summary.months[month - 1]?.albums[0]?.artworkCacheKey ?? null"
             />
-            <span>{{ t('archive.summary.month', { month }) }}</span>
+            <span>{{
+              t('archive.summary.month', { month: formatSummaryMonth(month, locale, 'short') })
+            }}</span>
           </button>
         </div>
       </article>
@@ -93,7 +96,12 @@ watch(
     >
       <header>
         <h3>
-          {{ t('archive.summary.monthTitle', { year: summary.year, month: monthDetail.month }) }}
+          {{
+            t('archive.summary.monthTitle', {
+              year: summary.year,
+              month: formatSummaryMonth(monthDetail.month, locale),
+            })
+          }}
         </h3>
         <span>{{ t('archive.playCount', { count: monthDetail.playCount }) }}</span
         ><button

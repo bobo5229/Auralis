@@ -607,4 +607,24 @@ onBeforeUnmount(() => {
 :where([data-reduced-motion='true']) .scan-spinner {
   animation: none;
 }
+/* Scan feedback is variable-length copy, not a fixed one-line toolbar. */
+:where(:root[lang='en']) :is(.library-source-actions, .library-scan-header, .library-scan-info) {
+  flex-wrap: wrap;
+}
+:where(:root[lang='en']) .library-scan-info {
+  flex: 1 1 220px;
+}
+:where(:root[lang='en']) :is(.library-scan-header, .library-error-row, .settings-button-link) {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+:where(:root[lang='en']) .scan-title {
+  white-space: normal;
+}
+:where(:root[lang='en']) .settings-button {
+  height: auto;
+  min-height: 28px;
+  padding-block: 4px;
+  white-space: normal;
+}
 </style>

@@ -268,7 +268,9 @@ defineExpose({
       ]"
       :aria-label="columnLabel(column)"
     >
-      <span class="library-flat-column-label">{{ columnLabel(column) }}</span>
+      <span v-tooltip.overflow="columnLabel(column)" class="library-flat-column-label">{{
+        columnLabel(column)
+      }}</span>
       <button
         v-if="index < layout.visibleColumnIds.length - 1"
         type="button"

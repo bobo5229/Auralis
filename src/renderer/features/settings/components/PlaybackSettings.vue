@@ -220,6 +220,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+:where(:root[lang='en']) .settings-surface .settings-row.soft-transition-duration-row {
+  height: auto;
+  max-height: none;
+}
+
 /* Leave room above the shared slider's keyboard focus outline. */
 .settings-surface .settings-row.soft-transition-duration-row {
   height: 72px;
