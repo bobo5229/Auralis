@@ -14,6 +14,7 @@ import {
   setAlbumColorPreference,
 } from './features/albums/albumColorPreferences'
 import { albumDetailColors, cssAlbumColor } from './features/albums/albumDetailColors'
+import { albumEntryFallback } from './features/albums/prepareAlbumDetailPalette'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
@@ -30,7 +31,7 @@ import {
 const fixture = vi.hoisted(() => ({
   route: null as unknown as { name: string; fullPath: string; query: Record<string, string> },
   width: null as unknown as Ref<number>,
-  before: new Set<() => void>(),
+  before: new Set<(to: unknown, from: unknown) => void>(),
   after: new Set<(to: unknown, from: unknown, failure?: unknown) => void>(),
   hooks: {} as Record<string, unknown>,
   prepare: vi.fn(() => true),
@@ -46,10 +47,12 @@ const fixture = vi.hoisted(() => ({
   detailTrackIds: {} as Record<string, number>,
   publishDetailCover: null as null | ((key: string) => void),
 }))
-vi.mock('@renderer/shared/artwork/useArtworkPalette', async () => {
+vi.mock('@renderer/shared/artwork/useArtworkPalette', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./shared/artwork/useArtworkPalette')>()
   const { computed, ref } = await import('vue')
   fixture.paletteReady = ref(true)
   return {
+    ...actual,
     useArtworkPalette: (key: Ref<string | null>) => ({
       palette: computed(() => ({
         key: key.value && fixture.paletteReady.value ? key.value : 'fallback',
@@ -115,7 +118,7 @@ vi.mock('vue-router', async () => {
 })
 vi.mock('./app/router', () => ({
   router: {
-    beforeEach: (cb: () => void) => {
+    beforeEach: (cb: (to: unknown, from: unknown) => void) => {
       fixture.before.add(cb)
       return () => fixture.before.delete(cb)
     },
@@ -239,7 +242,7 @@ async function mount(route = 'library') {
 async function navigate(name: string, failure?: unknown, query: Record<string, string> = {}) {
   const from = { ...fixture.route }
   const to = { name, fullPath: `/${name}`, query }
-  for (const cb of fixture.before) cb()
+  for (const cb of fixture.before) cb(to, from)
   if (!failure) Object.assign(fixture.route, to)
   for (const cb of fixture.after) cb(to, from, failure)
   await flush()
@@ -247,7 +250,7 @@ async function navigate(name: string, failure?: unknown, query: Record<string, s
 function hook(name: string, element: ShellTestElement) {
   const callbacks = fixture.hooks[name]
   for (const cb of Array.isArray(callbacks) ? callbacks : [callbacks])
-    if (typeof cb === 'function') cb(element)
+    if (typeof cb === 'function') cb(element, () => {})
 }
 async function finishAnimations() {
   for (const node of doc.body.querySelectorAll('*'))
@@ -301,6 +304,7 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storage.set(key, value),
   })
   fixture.width.value = 1600
+  albumEntryFallback.value = false
   fixture.paletteReady.value = true
   fixture.detailCover = false
   fixture.detailCoverKey = 'test-cover'
@@ -324,6 +328,19 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
+  it('suppresses surface transitions when returning from album details', async () => {
+    await mount('album-detail')
+    await navigate('albums')
+    const shell = find('.app-shell')
+    expect(shell.classList.contains('album-navigation-instant')).toBe(true)
+    const page = find('.test-page')
+    hook('onBeforeEnter', page)
+    hook('onAfterEnter', page)
+    await frame()
+    expect(shell.classList.contains('album-navigation-instant')).toBe(true)
+    await frame()
+    expect(shell.classList.contains('album-navigation-instant')).toBe(false)
+  })
   it('does not write color preferences when navigating between albums sharing a cover', async () => {
     fixture.detailCover = true
     fixture.detailCoverKey =
@@ -391,26 +408,7 @@ describe('App shell composition', () => {
       expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
     },
   )
-  it('starts the album colors together when the list-to-detail animation starts', async () => {
-    fixture.detailCover = true
-    await mount('albums')
-    await navigate('album-detail')
-    const shell = find('.app-shell')
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
-    const page = find('.test-page')
-    hook('onBeforeEnter', page)
-    hook('onEnter', page)
-    for (let i = 0; i < 5; i++) await frame()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
-    hook('onAfterEnter', page)
-    await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
-    expect(shell.style.getPropertyValue('--album-detail-side')).toBeTruthy()
-    expect(shell.style.getPropertyValue('--album-detail-lyrics-surface')).toBeTruthy()
-    expect(shell.style.getPropertyValue('--album-detail-more')).toBeTruthy()
-  })
-
-  it('holds the album palette during entry and applies a late preference after the dissolve', async () => {
+  it('applies the album palette immediately after entering', async () => {
     fixture.detailCover = true
     await mount('albums')
     await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
@@ -418,172 +416,55 @@ describe('App shell composition', () => {
     const page = find('.test-page')
     hook('onBeforeEnter', page)
     hook('onEnter', page)
-    for (let i = 0; i < 5; i++) await frame()
-    const initial = shell.style.getPropertyValue('--album-detail-main')
+    hook('onAfterEnter', page)
+    await flush()
+    for (const name of [
+      '--album-detail-main',
+      '--album-detail-side',
+      '--album-detail-lyrics-surface',
+      '--album-detail-more',
+    ]) {
+      expect(shell.style.getPropertyValue(name)).toBeTruthy()
+    }
+    expect(page.animations).toHaveLength(0)
+  })
+
+  it('keeps fallback colors when a late palette arrives, but accepts a user preference', async () => {
+    fixture.detailCover = true
+    fixture.paletteReady.value = false
+    await mount('album-detail')
+    fixture.route.query = { artist: 'Artist', title: 'Album' }
+    albumEntryFallback.value = true
+    await flush()
+    const shell = find('.app-shell')
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
+    fixture.paletteReady.value = true
+    await flush()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
     const saved = { r: 207, g: 255, b: 196 }
     expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], saved)).toBe(true)
-    await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBe(initial)
-    page.animations.forEach((animation) => animation.finish())
     await flush()
     expect(shell.style.getPropertyValue('--album-detail-main')).toBe(
       cssAlbumColor(albumDetailColors(saved).main),
     )
   })
 
-  it('crossfades a late palette after the entry preparation times out', async () => {
-    vi.useFakeTimers()
-    const root = new ShellTestElement('html')
-    const cleanup = vi.fn()
-    const snapshot = vi.fn((update: () => Promise<void>) => {
-      const updated = update()
-      return { ready: updated, finished: updated, skipTransition: cleanup }
-    })
-    Object.assign(doc, { documentElement: root, startViewTransition: snapshot })
-    try {
-      fixture.detailCover = true
-      fixture.paletteReady.value = false
-      await mount('albums')
-      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
-      const page = find('.test-page')
-      const shell = find('.app-shell')
-      hook('onBeforeEnter', page)
-      hook('onEnter', page)
-      await vi.advanceTimersByTimeAsync(1000)
-      hook('onAfterEnter', page)
-      await flush()
-      expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
-      fixture.paletteReady.value = true
-      await flush()
-      expect(snapshot).toHaveBeenCalledOnce()
-      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
-      expect(root.classList.contains('album-palette-reveal')).toBe(false)
-    } finally {
-      unmount?.()
-      Reflect.deleteProperty(doc, 'documentElement')
-      Reflect.deleteProperty(doc, 'startViewTransition')
-      vi.useRealTimers()
-    }
-  })
-
-  it('applies late colors without intermediate transitions when snapshots are unavailable', async () => {
-    vi.useFakeTimers()
-    const root = new ShellTestElement('html')
-    Object.assign(doc, { documentElement: root })
-    try {
-      fixture.detailCover = true
-      fixture.paletteReady.value = false
-      await mount('albums')
-      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
-      const page = find('.test-page')
-      const shell = find('.app-shell')
-      hook('onBeforeEnter', page)
-      hook('onEnter', page)
-      await vi.advanceTimersByTimeAsync(1000)
-      hook('onAfterEnter', page)
-      await flush()
-      fixture.paletteReady.value = true
-      await flush()
-      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
-      expect(shell.classList.contains('album-palette-instant')).toBe(false)
-    } finally {
-      unmount?.()
-      Reflect.deleteProperty(doc, 'documentElement')
-      vi.useRealTimers()
-    }
-  })
-
-  it('keeps transition suppression until a skipped snapshot update finishes', async () => {
-    vi.useFakeTimers()
-    const root = new ShellTestElement('html')
-    const finished = deferred<void>()
-    let update: (() => Promise<void>) | undefined
-    Object.assign(doc, {
-      documentElement: root,
-      startViewTransition: (callback: () => Promise<void>) => {
-        update = callback
-        return {
-          ready: Promise.reject(new Error('skipped')),
-          finished: finished.promise,
-          skipTransition: vi.fn(),
-        }
-      },
-    })
-    try {
-      fixture.detailCover = true
-      fixture.paletteReady.value = false
-      await mount('albums')
-      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
-      const page = find('.test-page')
-      const shell = find('.app-shell')
-      hook('onBeforeEnter', page)
-      hook('onEnter', page)
-      await vi.advanceTimersByTimeAsync(1000)
-      hook('onAfterEnter', page)
-      await flush()
-      fixture.paletteReady.value = true
-      await flush()
-      expect(shell.classList.contains('album-palette-instant')).toBe(true)
-      await update?.()
-      await flush()
-      expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
-      expect(shell.classList.contains('album-palette-instant')).toBe(true)
-      finished.resolve()
-      await flush()
-      expect(shell.classList.contains('album-palette-instant')).toBe(false)
-    } finally {
-      unmount?.()
-      Reflect.deleteProperty(doc, 'documentElement')
-      Reflect.deleteProperty(doc, 'startViewTransition')
-      vi.useRealTimers()
-    }
-  })
-
-  it('cancels a pending late-color snapshot when navigating away', async () => {
-    vi.useFakeTimers()
-    const root = new ShellTestElement('html')
-    const skip = vi.fn()
-    let update: (() => Promise<void>) | undefined
-    const pending = new Promise<void>(() => {})
-    Object.assign(doc, {
-      documentElement: root,
-      startViewTransition: (callback: () => Promise<void>) => {
-        update = callback
-        return { ready: pending, finished: pending, skipTransition: skip }
-      },
-    })
-    try {
-      fixture.detailCover = true
-      fixture.paletteReady.value = false
-      await mount('albums')
-      await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
-      const page = find('.test-page')
-      hook('onBeforeEnter', page)
-      hook('onEnter', page)
-      await vi.advanceTimersByTimeAsync(1000)
-      hook('onAfterEnter', page)
-      await flush()
-      fixture.paletteReady.value = true
-      await flush()
-      expect(update).toBeDefined()
-      await navigate('albums')
-      expect(skip).toHaveBeenCalledOnce()
-      await update?.()
-      await flush()
-      expect(find('.app-shell').classList.contains('has-album-detail-color')).toBe(false)
-      expect(root.classList.contains('album-palette-reveal')).toBe(false)
-    } finally {
-      unmount?.()
-      Reflect.deleteProperty(doc, 'documentElement')
-      Reflect.deleteProperty(doc, 'startViewTransition')
-      vi.useRealTimers()
-    }
+  it('clears the fallback on navigation away', async () => {
+    fixture.detailCover = true
+    await mount('album-detail')
+    albumEntryFallback.value = true
+    await flush()
+    await navigate('albums')
+    expect(albumEntryFallback.value).toBe(false)
+    expect(find('.app-shell').classList.contains('has-album-detail-color')).toBe(false)
   })
 
   it('keeps album canvas and text colors identical when the application theme changes', async () => {
     await useTheme().setTheme('dark')
     fixture.detailCover = true
     await mount('album-detail')
+    fixture.route.query = { artist: 'Artist', title: 'Album' }
+    await flush()
     const shell = find('.app-shell')
     const names = [
       '--album-detail-main',
@@ -856,15 +737,12 @@ describe('App shell composition', () => {
     expect(doc.activeElement).toBe(cover)
   })
 
-  it('unlocks the returning list when detail content fades while the page dissolve continues', async () => {
+  it('unlocks the returning list immediately without a page animation', async () => {
     await mount('album-detail')
     find('.app-main').focus()
     await navigate('albums')
     const main = find('.app-main')
     const detail = new ShellTestElement()
-    const content = new ShellTestElement()
-    content.className = 'album-body-grid'
-    detail.append(content)
     const list = new ShellTestElement()
     main.append(detail)
     main.append(list)
@@ -878,22 +756,11 @@ describe('App shell composition', () => {
     call('onBeforeEnter', list, () => {})
     const entered = vi.fn(() => hook('onAfterEnter', list))
     call('onEnter', list, entered)
-    for (let i = 0; i < 4; i++) await frame()
-    expect(main.inert).toBe(true)
-    expect(content.animations).toHaveLength(1)
-    content.animations[0].finish()
-    await flush()
-    expect(main.inert).toBe(false)
-    expect(list.style.getPropertyValue('pointer-events')).toBe('')
-    expect(detail.animations[0].cancelled).toBe(false)
-    expect(entered).not.toHaveBeenCalled()
-    const button = new ShellTestElement('button')
-    list.append(button)
-    button.focus()
-    detail.animations[0].finish()
     await flush()
     expect(entered).toHaveBeenCalledOnce()
-    expect(doc.activeElement).toBe(button)
+    expect(main.inert).toBe(false)
+    expect(detail.animations).toHaveLength(0)
+    expect(list.animations).toHaveLength(0)
   })
 
   it('preserves outgoing inert state and respects focus moved to the player bar', async () => {

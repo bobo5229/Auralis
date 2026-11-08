@@ -4,6 +4,10 @@ import { createAlbumDetailEntryTransition } from '../layout/albumDetailEntryTran
 import { findAlbumTransitionFocusTarget } from '@renderer/features/albums/utils/albumGridTransitionPlan'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import { hasCdViewSwitchTransition } from '@renderer/features/albums/utils/cdViewSwitchTransition'
+import {
+  commitAlbumDetailPreparation,
+  prepareAlbumDetailNavigation,
+} from '@renderer/features/albums/prepareAlbumDetailPalette'
 
 interface AppRouteTransitionOptions {
   route: RouteLocationNormalizedLoaded
@@ -40,7 +44,6 @@ export function useAppRouteTransitions({
   const enteringRevisions = new WeakMap<Element, number>()
   const leavingInertStates = new WeakMap<HTMLElement, boolean>()
   let shouldRestoreRouteFocus = false
-  let returnInteractionReleased = false
   let albumListReturnFocus: { albumKey: string; selector: string } | null = null
   const albumDetailEntryTransition = createAlbumDetailEntryTransition(
     undefined,
@@ -53,10 +56,6 @@ export function useAppRouteTransitions({
     () => {
       albumDetailColorReady.value = true
       onAlbumDetailTimeout()
-    },
-    () => {
-      returnInteractionReleased = true
-      isAlbumRouteInteractionLocked.value = false
     },
   )
   const albumDetailTransitionHooks = computed(() =>
@@ -71,12 +70,13 @@ export function useAppRouteTransitions({
   )
 
   const removeBeforeEach = router.beforeEach(beforeNavigate)
+  const removePaletteGuard = router.beforeEach(prepareAlbumDetailNavigation)
 
   const removeAfterEach = router.afterEach((to, from, failure) => {
     if (failure) return
+    commitAlbumDetailPreparation(to, failure)
     albumDetailEntryTransition.cancel()
     albumRouteRevision += 1
-    returnInteractionReleased = false
     const focused = document.activeElement
     const mainHasFocus = focused instanceof HTMLElement && !!mainRef.value?.contains(focused)
     if (from.name === 'albums' && to.name === 'album-detail') {
@@ -122,7 +122,7 @@ export function useAppRouteTransitions({
 
   /**
    * 路由过渡规则：
-   * 1. 列表与专辑详情之间以对称的柔和叠化过渡
+   * 1. 列表与专辑详情之间直接切换
    * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
    * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
    * 5. 其余路由切换：不使用 CSS 过渡，立即完成
@@ -173,8 +173,6 @@ export function useAppRouteTransitions({
     const focused = document.activeElement
     // Respect focus moved to the Playbar or Sidebar while the page was inert.
     if (!main?.isConnected || (focused !== document.body && !main.contains(focused))) return
-    // A user can focus a list control while the last part of the dissolve is still running.
-    if (returnInteractionReleased && focused !== document.body && focused !== main) return
     const returnTarget =
       route.name === 'albums' && albumListReturnFocus
         ? findAlbumTransitionFocusTarget(
@@ -211,6 +209,7 @@ export function useAppRouteTransitions({
   // The shell calls this before disposing layout transitions, matching App's teardown order.
   function dispose(): void {
     removeBeforeEach()
+    removePaletteGuard()
     removeAfterEach()
     albumRouteRevision += 1
     shouldRestoreRouteFocus = false

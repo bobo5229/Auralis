@@ -19,7 +19,9 @@ import { usePlayerDisplayMode } from '@renderer/features/playback/composables/us
 import { useAppOverlays } from './app/composables/useAppOverlays'
 import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
-import { useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
+import { peekArtworkPalette, useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
+import { readAlbumDetailSnapshot } from '@renderer/features/albums/albumDetailSnapshot'
+import { albumEntryFallback } from '@renderer/features/albums/prepareAlbumDetailPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
 import { createAlbumSurfaceSynchronization } from './app/layout/albumSurfaceSynchronization'
 import {
@@ -55,6 +57,8 @@ const { palette: detailPalette } = useArtworkPalette(detailArtworkKey, {
 const frozenDetailColorStyle = ref<CSSProperties | null>(null)
 const lateAlbumColorsPending = ref(false)
 const paletteInstant = ref(false)
+const albumNavigationInstant = ref(false)
+let albumNavigationFrame = 0
 const detailColorPreference = computed(() => {
   if (
     detailIdentity.value?.artist !== route.query.artist ||
@@ -65,14 +69,34 @@ const detailColorPreference = computed(() => {
 })
 const liveDetailColorStyle = computed<CSSProperties>(() => {
   const palette = detailPalette.value
-  if (!detailPaletteEnabled.value || !albumDetailColorReady.value) return {}
+  if (!detailPaletteEnabled.value) return {}
+  const snapshot =
+    typeof route.query.artist === 'string' && typeof route.query.title === 'string'
+      ? readAlbumDetailSnapshot(route.query.artist, route.query.title)
+      : null
+  const snapshotPreference = snapshot
+    ? getAlbumColorPreference(snapshot.tracks.map(({ id, createdAt }) => ({ id, createdAt })))
+    : null
+  const snapshotPalette = peekArtworkPalette(snapshot?.artworkCacheKey)
+  const liveMatchesRoute =
+    detailIdentity.value?.artist === route.query.artist &&
+    detailIdentity.value?.title === route.query.title
+  if (
+    albumEntryFallback.value &&
+    !(liveMatchesRoute ? detailColorPreference.value : snapshotPreference)
+  )
+    return {}
   const selected =
-    detailColorPreference.value ??
-    (detailArtworkKey.value &&
+    (liveMatchesRoute ? detailColorPreference.value : snapshotPreference) ??
+    (liveMatchesRoute &&
+    detailArtworkKey.value &&
     palette.key === detailArtworkKey.value &&
     palette.quality !== 'fallback'
       ? palette.dominant
-      : undefined)
+      : (!liveMatchesRoute || detailArtworkKey.value === snapshot?.artworkCacheKey) &&
+          snapshotPalette?.quality !== 'fallback'
+        ? snapshotPalette?.dominant
+        : undefined)
   if (!selected) return {}
   const c = albumDetailColors(selected)
   return {
@@ -163,7 +187,6 @@ const {
   resetLyricsWidth,
   cdIndexSlideDirection,
   isAlbumDetailEntering,
-  albumDetailColorReady,
   isAlbumRouteTransitioning,
   isAlbumRouteInteractionLocked,
   albumDetailTransitionHooks,
@@ -203,6 +226,21 @@ const {
   prepareForDisplay: () => nowPlayingPanelRef.value?.prepareForDisplay(),
   syncCdViewSwitch: () => cdViewSwitchRef.value?.syncToCurrent(true),
 })
+watch(
+  isAlbumRouteTransitioning,
+  (transitioning) => {
+    if (!transitioning) return
+    cancelAnimationFrame(albumNavigationFrame)
+    albumNavigationInstant.value = true
+    albumNavigationFrame = requestAnimationFrame(() => {
+      albumNavigationFrame = requestAnimationFrame(() => {
+        albumNavigationInstant.value = false
+      })
+    })
+  },
+  { flush: 'sync' },
+)
+onBeforeUnmount(() => cancelAnimationFrame(albumNavigationFrame))
 let lateColorTransition: ViewTransition | null = null
 let lateColorRevision = 0
 function cancelLateColorTransition(): void {
@@ -299,6 +337,7 @@ onBeforeUnmount(cancelLateColorTransition)
       class="app-shell relative"
       :class="{
         'album-palette-instant': paletteInstant,
+        'album-navigation-instant': albumNavigationInstant,
         'is-album-detail': isAlbumDetail,
         'has-album-detail-color': !!detailColorStyle['--album-detail-main'],
         'is-cd-albums': isCdCanvas,

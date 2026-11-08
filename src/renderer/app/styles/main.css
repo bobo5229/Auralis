@@ -1933,6 +1933,16 @@ input[type='range'].volume-overlay-slider {
   transition: --album-surface-color 650ms ease;
 }
 
+.app-shell.album-navigation-instant > .app-main,
+.app-shell.album-navigation-instant > .app-sidebar,
+.app-shell.album-navigation-instant > .now-playing-panel,
+.app-shell.album-navigation-instant .album-more-color-clock,
+.app-shell.album-navigation-instant .album-lyrics-color-clock,
+.app-shell.album-navigation-instant .album-hero-content-stage::before,
+.app-shell.album-navigation-instant .album-more-gallery {
+  transition: --album-surface-color 0s;
+}
+
 .app-shell.has-album-detail-color > .app-main {
   --auralis-theme-accent: var(--album-detail-accent);
   --auralis-control-primary-text: var(--album-detail-accent-text);
