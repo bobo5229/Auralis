@@ -1,11 +1,11 @@
 .album-more-gallery {
   --album-surface-color: var(--album-detail-more, var(--auralis-album-detail-more-bg));
-  --gallery-card-min-width: 180px;
-  --gallery-card-gap: 18px;
+  --gallery-card-min-width: 150px;
+  --gallery-card-gap: 14px;
   margin-top: 36px;
   margin-inline: 0;
   min-width: 0;
-  padding: 24px var(--album-detail-inline-padding, 32px);
+  padding: 16px var(--album-detail-inline-padding, 32px);
   border-top: none;
   background: var(--album-surface-color);
   transition: --album-surface-color 650ms ease;
@@ -18,7 +18,7 @@
 }
 
 .album-more-gallery-title {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   color: var(--album-detail-more-text, var(--auralis-text));
   font-size: var(--auralis-type-section-size);
   line-height: var(--auralis-type-section-line-height);
@@ -35,7 +35,7 @@
   gap: var(--gallery-card-gap);
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px var(--gallery-inline-padding) 16px;
+  padding: 8px var(--gallery-inline-padding) 8px;
   margin-top: -4px;
   margin-inline: calc(-1 * var(--gallery-inline-padding));
   /* 焦点滚动时，为封面保留左右内边距；滚轮浏览保持连续位移。 */
@@ -64,8 +64,9 @@
 }
 
 .album-more-gallery-scroller.is-layout-ready {
-  /* 完整列等分可用宽度，封面保持正方形；更多作品仍可横向滚动。 */
-  grid-auto-columns: calc(
+  /* 限制封面尺寸，同时适应窄容器；更多作品仍可横向滚动。 */
+  grid-auto-columns: min(
+    160px,
     (100% - (var(--gallery-column-count) - 1) * var(--gallery-card-gap)) /
       var(--gallery-column-count)
   );
@@ -234,7 +235,7 @@
 }
 
 .album-more-gallery-meta {
-  margin-top: 10px;
+  margin-top: 6px;
   min-width: 0;
 }
 
@@ -249,7 +250,7 @@
 }
 
 .album-more-gallery-year {
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--album-detail-more-faint, var(--auralis-text-faint));
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
