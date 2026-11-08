@@ -20,7 +20,6 @@ interface SidebarPlaylistActionsOptions {
   cancelReorder: (immediate?: boolean) => void
   canMove: (item: SidebarPlaylistItem, direction: -1 | 1) => boolean
   move: (item: SidebarPlaylistItem, direction: -1 | 1) => void
-  closeRecentAddedContextMenu: () => void
   getPlaylistKey: (item: SidebarPlaylistItem) => string
   getPlaylistPath: (item: SidebarPlaylistItem) => string
   onMenuKeydown: (event: KeyboardEvent) => void
@@ -38,7 +37,6 @@ export function useSidebarPlaylistActions({
   cancelReorder: cancelPlaylistReorder,
   canMove: canMovePlaylist,
   move: movePlaylist,
-  closeRecentAddedContextMenu,
   getPlaylistKey,
   getPlaylistPath,
   onMenuKeydown,
@@ -96,7 +94,6 @@ export function useSidebarPlaylistActions({
   function openCreateMenu(): void {
     if (!createPlaylistButton.value) return
     closePlaylistContextMenu()
-    closeRecentAddedContextMenu()
     smartCreateSubmenu.value = false
     createError.value = ''
     if (!creatingRegularPlaylist.value) createdRegularPlaylistId = null
@@ -198,7 +195,6 @@ export function useSidebarPlaylistActions({
   function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): void {
     cancelPlaylistReorder(true)
     closeCreateMenu()
-    closeRecentAddedContextMenu()
     playlistContextTrigger.value = playlistRowElement(item)
     deletingPlaylist.value = null
     deleteError.value = ''

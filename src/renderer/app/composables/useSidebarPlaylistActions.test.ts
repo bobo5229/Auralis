@@ -115,7 +115,6 @@ function setup() {
   const cancel = vi.fn(),
     canMove = vi.fn(() => true),
     move = vi.fn(),
-    closeRecent = vi.fn(),
     keydown = vi.fn()
   const s = useSidebarPlaylistActions({
     api,
@@ -128,7 +127,6 @@ function setup() {
     cancelReorder: cancel,
     canMove,
     move,
-    closeRecentAddedContextMenu: closeRecent,
     getPlaylistKey: (p) => `${p.kind}:${p.id}`,
     getPlaylistPath: (p) =>
       p.kind === 'playlist' ? `/playlists/${p.id}` : `/smart-playlists/${p.id}`,
@@ -158,7 +156,6 @@ function setup() {
     cancel,
     canMove,
     move,
-    closeRecent,
     keydown,
     button,
     open,
@@ -176,7 +173,6 @@ describe('sidebar playlist action sessions', () => {
     f.s.openCreateMenu()
     expect(f.s.createMenu.value).toEqual({ x: 8, y: 580 })
     expect(f.s.playlistContextMenu.value).toBeNull()
-    expect(f.closeRecent).toHaveBeenCalledTimes(2)
     expect(f.s.createError.value).toBe('')
     expect(f.s.smartCreateSubmenu.value).toBe(false)
     f.button.rect = { right: 2000, bottom: -100 }

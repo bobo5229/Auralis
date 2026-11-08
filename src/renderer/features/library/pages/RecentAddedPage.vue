@@ -25,9 +25,10 @@ import { getAlbumCatalogIndex } from '@renderer/shared/catalog/albumCatalogIndex
 import { buildAlbumPlaybackQueue } from '@renderer/shared/catalog/albumPlaybackQueue'
 import { filterJournalDays, type JournalFilter } from '../utils/recentAddedJournal'
 import {
-  parseRecentAddedLibraryRange,
+  MAX_RECENT_ADDED_LIBRARY_DAYS,
   RECENT_ADDED_LIBRARY_RANGES,
 } from '../utils/recentAddedLibrary'
+import { useRecentAddedRange } from '../composables/useRecentAddedRange'
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { useRecentJournalCatalog } from '../composables/useRecentJournalCatalog'
 import { useRecentAddedJournal } from '../composables/useRecentAddedJournal'
@@ -61,7 +62,32 @@ const { tracks, loaded, isLoading, error, refresh } = useRecentJournalCatalog(
       cause,
     }),
 )
-const range = computed(() => parseRecentAddedLibraryRange(route.query.range) ?? 'all')
+const {
+  range,
+  editing,
+  draft,
+  invalid,
+  failed,
+  pending,
+  select: selectRange,
+  apply,
+  cancel,
+} = useRecentAddedRange(route, router)
+const rangeInput = ref<HTMLInputElement | null>(null)
+watch(editing, async (value) => {
+  if (value) {
+    await nextTick()
+    rangeInput.value?.focus()
+    rangeInput.value?.select()
+  } else if (route.name === 'recent-added') {
+    await nextTick()
+    document.getElementById('journal-range')?.focus()
+  }
+})
+function cancelRange(): void {
+  cancel()
+  document.getElementById('journal-range')?.focus()
+}
 const filter = ref<JournalFilter>('all')
 const filters = computed(() => [
   { value: 'all', label: t('library.journal.all') },
@@ -71,13 +97,16 @@ const filters = computed(() => [
 const ranges = computed(() => {
   const values: (number | 'all')[] = [...RECENT_ADDED_LIBRARY_RANGES]
   if (!values.includes(range.value)) values.push(range.value)
-  return values.map((value) => ({
-    value: String(value),
-    label:
-      value === 'all'
-        ? t('sidebar.recentAddedRangeAll')
-        : t('library.recentAdded.days', { count: value }),
-  }))
+  return [
+    ...values.map((value) => ({
+      value: String(value),
+      label:
+        value === 'all'
+          ? t('sidebar.recentAddedRangeAll')
+          : t('library.recentAdded.days', { count: value }),
+    })),
+    { value: 'custom', label: t('library.recentAdded.custom') },
+  ]
 })
 const now = ref(Date.now())
 function syncClock(): void {
@@ -224,16 +253,6 @@ watch(
   },
   { flush: 'pre' },
 )
-async function selectRange(value: string): Promise<void> {
-  const parsed = parseRecentAddedLibraryRange(value)
-  if (parsed === null) return
-  actionError.value = false
-  try {
-    await router.replace({ query: { ...route.query, range: String(parsed) } })
-  } catch {
-    actionError.value = true
-  }
-}
 function selectFilter(value: string): void {
   if (value === 'all' || value === 'albums' || value === 'tracks') filter.value = value
 }
@@ -274,15 +293,68 @@ function playAlbum(album: AlbumSummary): void {
   <section class="recent-page main-page-frame">
     <header class="journal-page-header">
       <h1>{{ t('sidebar.recentAdded') }}</h1>
-      <div class="journal-range">
-        <span id="journal-range-label" class="sr-only">{{ t('sidebar.recentAddedRange') }}</span
-        ><SettingsSelect
-          id="journal-range"
-          labelledby="journal-range-label"
-          :model-value="String(range)"
-          :options="ranges"
-          @update:model-value="selectRange"
-        />
+      <div class="journal-range-group">
+        <div class="journal-range">
+          <span id="journal-range-label">{{ t('sidebar.recentAddedRange') }}</span
+          ><SettingsSelect
+            id="journal-range"
+            labelledby="journal-range-label"
+            :model-value="editing ? 'custom' : String(range)"
+            :disabled="pending"
+            :options="ranges"
+            @update:model-value="selectRange"
+          />
+        </div>
+        <form
+          v-if="editing"
+          class="journal-custom-range"
+          novalidate
+          @submit.prevent="apply"
+          @keydown.esc.prevent.stop="cancelRange"
+        >
+          <div class="journal-custom-range-field">
+            <label for="journal-custom-days">{{ t('library.recentAdded.recent') }}</label>
+            <div
+              class="journal-custom-range-input"
+              :class="{ 'is-invalid': invalid, 'is-disabled': pending }"
+            >
+              <input
+                id="journal-custom-days"
+                ref="rangeInput"
+                v-model="draft"
+                type="number"
+                min="1"
+                :max="MAX_RECENT_ADDED_LIBRARY_DAYS"
+                step="1"
+                :aria-invalid="invalid"
+                :aria-label="t('sidebar.recentAddedRangeCustomInput')"
+                :aria-describedby="invalid ? 'journal-range-error' : undefined"
+                :disabled="pending"
+                @input="invalid = false"
+              />
+              <span aria-hidden="true">{{ t('sidebar.recentAddedRangeDayUnit') }}</span>
+            </div>
+          </div>
+          <div class="journal-custom-range-actions">
+            <button class="journal-range-apply" type="submit" :disabled="pending">
+              {{ t('library.recentAdded.apply') }}
+            </button>
+            <button
+              class="journal-range-cancel"
+              type="button"
+              :disabled="pending"
+              @click="cancelRange"
+            >
+              {{ t('sidebar.cancel') }}
+            </button>
+          </div>
+        </form>
+        <span v-if="invalid" id="journal-range-error" class="journal-range-error" role="alert">{{
+          t('library.recentAdded.invalidDays')
+        }}</span>
+        <span v-if="failed" class="journal-range-error" role="alert">{{
+          t('library.recentAdded.actionError')
+        }}</span>
       </div>
     </header>
     <div class="journal-toolbar">
@@ -415,7 +487,143 @@ function playAlbum(album: AlbumSummary): void {
   color: var(--auralis-text);
   container-type: inline-size;
 }
+.journal-range-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.journal-range {
+  align-items: center;
+  gap: 8px;
+}
+.journal-range > span,
+.journal-custom-range-field > label {
+  color: var(--auralis-text-muted);
+}
+.journal-custom-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+.journal-custom-range-field,
+.journal-custom-range-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.journal-custom-range-field {
+  min-width: 0;
+}
+.journal-custom-range-field > label {
+  flex-shrink: 0;
+}
+.journal-custom-range-actions {
+  flex-shrink: 0;
+}
+.journal-custom-range-input {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  gap: 6px;
+  width: 124px;
+  max-width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
+  border-radius: 8px;
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  font-weight: 600;
+}
+.journal-custom-range-input:hover:not(.is-disabled) {
+  border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+}
+.journal-custom-range-input:has(input:focus-visible) {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+.journal-custom-range-input.is-invalid {
+  border-color: var(--auralis-danger);
+}
+.journal-custom-range-input > span {
+  flex-shrink: 0;
+  color: var(--auralis-text-muted);
+  font-weight: 400;
+}
+.journal-custom-range-input input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.journal-custom-range button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.journal-custom-range .journal-range-apply {
+  border-color: color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+}
+.journal-custom-range .journal-range-apply:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+}
+.journal-custom-range .journal-range-apply:active:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 14%, transparent);
+}
+.journal-custom-range .journal-range-cancel {
+  color: var(--auralis-text-muted);
+  background: transparent;
+}
+.journal-custom-range .journal-range-cancel:hover:not(:disabled) {
+  color: var(--auralis-text);
+  background: var(--auralis-control-hover-bg);
+}
+.journal-custom-range .journal-range-cancel:active:not(:disabled) {
+  background: var(--auralis-control-pressed-bg, var(--auralis-control-hover-bg));
+}
+.journal-custom-range button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+.journal-custom-range button:disabled,
+.journal-custom-range-input.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.journal-range-error {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--auralis-danger);
+}
 .journal-page-header {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -424,8 +632,6 @@ function playAlbum(album: AlbumSummary): void {
 }
 h1 {
   margin: 0;
-}
-h1 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -570,7 +776,6 @@ button:focus-visible {
 }
 @container (max-width: 650px) {
   .journal-page-header {
-    flex-wrap: wrap;
     gap: 16px;
   }
   .journal-toolbar {

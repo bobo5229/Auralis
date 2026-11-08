@@ -5,7 +5,6 @@ import { useI18n } from 'vue-i18n'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import type { AlbumDetailRequest } from '@shared/types/albumDetail'
-import { MAX_RECENT_ADDED_LIBRARY_DAYS } from '@renderer/features/library/utils/recentAddedLibrary'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -91,33 +90,7 @@ const {
   setPendingActive,
   setPendingActiveFromPointer,
 } = useSidebarNavigation({ route, libraryStats, t })
-const {
-  recentAddedContextMenu,
-  recentAddedContextPanel,
-  recentAddedRangeSelectorOpen,
-  recentAddedRangeSelectorPanel,
-  recentAddedRangeOptions,
-  recentAddedRangeSliderValue,
-  recentAddedRangeSliderFill,
-  selectedRecentAddedRange,
-  customRecentAddedDays,
-  getPrimaryNavTarget,
-  onRecentAddedContextMenuKeydown,
-  closeRecentAddedContextMenu,
-  openRecentAddedRangeSelector,
-  selectRecentAddedRangeBySlider,
-  commitRecentAddedRangeBySlider,
-  applyCustomRecentAddedRange,
-  onPrimaryNavContextMenu,
-  onPrimaryNavKeydown,
-} = useSidebarRecentAddedRange({
-  route,
-  router,
-  onBeforeOpen() {
-    closeCreateMenu()
-    closePlaylistContextMenu()
-  },
-})
+const { getPrimaryNavTarget } = useSidebarRecentAddedRange({ route })
 const playlistActions = useSidebarPlaylistActions({
   api: auralis,
   route,
@@ -129,7 +102,6 @@ const playlistActions = useSidebarPlaylistActions({
   cancelReorder: (immediate) => cancelPlaylistReorder(immediate),
   canMove: (item, direction) => canMovePlaylist(item, direction),
   move: (item, direction) => movePlaylist(item, direction),
-  closeRecentAddedContextMenu,
   getPlaylistKey,
   getPlaylistPath,
   onMenuKeydown,
@@ -215,7 +187,6 @@ const { createMenuPanel, playlistContextPanel, deleteLid, renameDialogRef } =
 watch([() => route.path, isRail], () => {
   closeCreateMenu()
   closePlaylistContextMenu()
-  closeRecentAddedContextMenu()
 })
 const resizeDisabled = computed(
   () =>
@@ -225,7 +196,6 @@ const resizeDisabled = computed(
     albumMenuOpen.value ||
     createMenu.value !== null ||
     playlistContextMenu.value !== null ||
-    recentAddedContextMenu.value !== null ||
     isFacetsDialogOpen.value ||
     isBuilderOpen.value ||
     renamingPlaylist.value !== null,
@@ -251,7 +221,6 @@ watch(
     displayMode,
     createMenu,
     playlistContextMenu,
-    recentAddedContextMenu,
     albumMenuOpen,
     isFacetsDialogOpen,
     isBuilderOpen,
@@ -387,16 +356,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
             class="sidebar-link"
             :draggable="false"
             :aria-label="item.label"
-            :aria-haspopup="item.to === '/recent-added' ? 'menu' : undefined"
-            :aria-expanded="
-              item.to === '/recent-added' ? recentAddedContextMenu !== null : undefined
-            "
-            :aria-controls="
-              item.to === '/recent-added' && recentAddedContextMenu
-                ? 'sidebar-recent-added-context-menu'
-                : undefined
-            "
-            :aria-keyshortcuts="item.to === '/recent-added' ? 'ContextMenu Shift+F10' : undefined"
             :class="{
               'sidebar-link-with-count': item.count !== null,
               'sidebar-link-active': isPrimaryNavActive(item.to),
@@ -406,8 +365,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
             @focusin="onRouteIntent(item.routeName)"
             @pointerdown="setPendingActiveFromPointer($event, item.to)"
             @keydown.enter="setPendingActive(item.to)"
-            @contextmenu="onPrimaryNavContextMenu(item, $event)"
-            @keydown="onPrimaryNavKeydown(item, $event)"
           >
             <span class="sidebar-link-icon">
               <SidebarIcon :kind="item.icon" />
@@ -723,93 +680,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
       </div>
 
       <div
-        v-if="recentAddedContextMenu"
-        class="sidebar-overlay fixed inset-0 z-[90]"
-        @click="closeRecentAddedContextMenu"
-      >
-        <div
-          id="sidebar-recent-added-context-menu"
-          ref="recentAddedContextPanel"
-          class="collection-context-menu library-context-menu frosted-context-menu fixed sidebar-recent-added-context-panel"
-          :role="recentAddedRangeSelectorOpen ? 'group' : 'menu'"
-          :aria-label="
-            t(recentAddedRangeSelectorOpen ? 'sidebar.recentAddedRange' : 'sidebar.recentAdded')
-          "
-          :style="{
-            '--sidebar-recent-added-context-width': recentAddedRangeSelectorOpen
-              ? 'min(560px, calc(100vw - 16px))'
-              : '192px',
-          }"
-          @click.stop
-          @keydown="onRecentAddedContextMenuKeydown"
-        >
-          <button
-            v-if="!recentAddedRangeSelectorOpen"
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            @click="openRecentAddedRangeSelector"
-          >
-            <span class="i-lucide-clock" aria-hidden="true"></span>
-            <span class="library-context-menu-text">{{ t('sidebar.recentAddedRange') }}</span>
-          </button>
-          <div
-            v-else
-            id="sidebar-recent-added-range-selector"
-            ref="recentAddedRangeSelectorPanel"
-            class="sidebar-recent-added-range-selector"
-          >
-            <div class="sidebar-recent-added-range-scale">
-              <input
-                class="sidebar-recent-added-range-slider"
-                type="range"
-                min="0"
-                :max="recentAddedRangeOptions.length - 1"
-                step="1"
-                :value="recentAddedRangeSliderValue"
-                :style="{ '--sidebar-recent-added-range-fill': recentAddedRangeSliderFill }"
-                :aria-label="t('sidebar.recentAddedRange')"
-                :aria-valuetext="t(recentAddedRangeOptions[recentAddedRangeSliderValue].label)"
-                @input="selectRecentAddedRangeBySlider"
-                @change="commitRecentAddedRangeBySlider"
-              />
-              <div class="sidebar-recent-added-range-labels" aria-hidden="true">
-                <span
-                  v-for="option in recentAddedRangeOptions"
-                  :key="option.value"
-                  :class="{
-                    'is-active': selectedRecentAddedRange === option.value,
-                  }"
-                >
-                  {{ t(option.label) }}
-                </span>
-              </div>
-            </div>
-            <label class="sidebar-recent-added-range-custom">
-              <span class="sidebar-recent-added-range-custom-label">
-                {{ t('sidebar.recentAddedRangeCustom') }}
-              </span>
-              <span class="sidebar-recent-added-range-custom-input-row">
-                <input
-                  v-model.number="customRecentAddedDays"
-                  type="number"
-                  min="1"
-                  :max="MAX_RECENT_ADDED_LIBRARY_DAYS"
-                  step="1"
-                  inputmode="numeric"
-                  :aria-label="t('sidebar.recentAddedRangeCustomInput')"
-                  :placeholder="t('sidebar.recentAddedRangeCustomPlaceholder')"
-                  @change="applyCustomRecentAddedRange"
-                  @keydown.enter.prevent="applyCustomRecentAddedRange"
-                />
-                <span aria-hidden="true">{{ t('sidebar.recentAddedRangeDayUnit') }}</span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div
         v-if="playlistContextMenu"
         class="sidebar-overlay fixed inset-0 z-[90]"
         @click="closePlaylistContextMenu"
@@ -937,145 +807,3 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
     </Teleport>
   </aside>
 </template>
-
-<style scoped>
-.sidebar-recent-added-context-panel {
-  width: var(--sidebar-recent-added-context-width);
-  overflow: auto;
-  visibility: hidden;
-}
-
-.sidebar-recent-added-range-selector {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-}
-
-.sidebar-recent-added-range-scale {
-  display: flex;
-  min-width: 100px;
-  flex: 1 1 auto;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-}
-
-.sidebar-recent-added-range-slider {
-  width: 100%;
-  height: 20px;
-  margin: 0;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.sidebar-recent-added-range-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--auralis-theme-accent) 0,
-    var(--auralis-theme-accent) var(--sidebar-recent-added-range-fill),
-    var(--auralis-control-hover-bg) var(--sidebar-recent-added-range-fill),
-    var(--auralis-control-hover-bg) 100%
-  );
-}
-
-.sidebar-recent-added-range-slider::-webkit-slider-thumb {
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
-  appearance: none;
-  border: 2px solid var(--auralis-control-bg);
-  border-radius: 50%;
-  background: var(--auralis-theme-accent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 28%);
-}
-
-.sidebar-recent-added-range-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--auralis-control-hover-bg);
-}
-
-.sidebar-recent-added-range-slider::-moz-range-progress {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--auralis-theme-accent);
-}
-
-.sidebar-recent-added-range-slider::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--auralis-control-bg);
-  border-radius: 50%;
-  background: var(--auralis-theme-accent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 28%);
-}
-
-.sidebar-recent-added-range-labels {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
-  color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  white-space: nowrap;
-}
-
-.sidebar-recent-added-range-labels .is-active {
-  color: var(--auralis-text);
-}
-
-.sidebar-recent-added-range-slider:focus-visible,
-.sidebar-recent-added-range-custom input:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring);
-  outline-offset: 1px;
-}
-
-.sidebar-recent-added-range-custom {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  margin-left: auto;
-  border-left: 1px solid var(--auralis-border-subtle);
-  padding-left: 8px;
-  color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  white-space: nowrap;
-}
-
-.sidebar-recent-added-range-custom-label {
-  color: var(--auralis-text-subtle);
-  font-size: var(--auralis-type-overline-size);
-  line-height: var(--auralis-type-overline-line-height);
-}
-
-.sidebar-recent-added-range-custom-input-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.sidebar-recent-added-range-custom input {
-  width: 64px;
-  height: 30px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 8px;
-  padding: 4px 7px;
-  background: var(--auralis-control-bg);
-  color: var(--auralis-text);
-  font: inherit;
-  text-align: right;
-}
-
-.sidebar-recent-added-range-custom input::-webkit-inner-spin-button {
-  transform: scale(0.75);
-  transform-origin: center right;
-}
-</style>

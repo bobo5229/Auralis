@@ -497,16 +497,6 @@ function setInput(node: Host, value: string) {
   dispatch(node, 'input')
 }
 
-async function openRecentRange() {
-  const trigger = find('[aria-keyshortcuts="ContextMenu Shift+F10"]')
-  trigger.focus()
-  dispatch(trigger, 'keydown', { key: 'ContextMenu' })
-  await settle()
-  dispatch(find('#sidebar-recent-added-context-menu').querySelector('button')!, 'click')
-  await settle()
-  return { trigger, slider: find('input[type="range"]'), custom: find('input[type="number"]') }
-}
-
 describe('AppSidebar navigation and data wiring', () => {
   it.each(['pointercancel', 'pointermove', 'pointerup'])(
     'restores the actual route after an unfinished navigation ends with %s',
@@ -584,85 +574,6 @@ describe('AppSidebar navigation and data wiring', () => {
         .querySelectorAll('[data-sidebar-playlist-key]')
         .map((node) => node.dataset.sidebarPlaylistKey),
     ).toEqual(['playlist:1', 'smart:1', 'playlist:2'])
-  })
-})
-
-describe('AppSidebar recently added range', () => {
-  it('previews a slider range, commits it with query and hash preserved, and restores trigger focus', async () => {
-    Object.assign(fixture.route, {
-      path: '/recent-added',
-      name: 'recent-added',
-      query: { range: '30', sort: 'title' },
-      hash: '#track',
-    })
-    await mount()
-    const { trigger, slider } = await openRecentRange()
-    expect(doc.activeElement).toBe(slider)
-    slider.props.value = '2'
-    dispatch(slider, 'input')
-    await settle()
-    expect(slider.props['aria-valuetext']).toBe('sidebar.recentAddedRange90Days')
-    expect(fixture.replace).not.toHaveBeenCalled()
-    dispatch(slider, 'change')
-    await settle()
-    expect(fixture.replace).toHaveBeenCalledWith({
-      query: { range: '90', sort: 'title' },
-      hash: '#track',
-    })
-    const key = dispatch(find('#sidebar-recent-added-context-menu'), 'keydown', {
-      key: 'ArrowDown',
-    })
-    expect(key.defaultPrevented).toBe(false)
-    escape()
-    await settle()
-    expect(doc.body.querySelector('#sidebar-recent-added-context-menu')).toBeNull()
-    expect(doc.activeElement).toBe(trigger)
-  })
-
-  it('discards a draft on Escape and rolls back a failed range navigation', async () => {
-    Object.assign(fixture.route, {
-      path: '/recent-added',
-      name: 'recent-added',
-      query: { range: '30' },
-    })
-    await mount()
-    let { slider } = await openRecentRange()
-    slider.props.value = '2'
-    dispatch(slider, 'input')
-    escape()
-    await settle()
-    ;({ slider } = await openRecentRange())
-    expect(slider.props.value).toBe(1)
-    fixture.replace.mockRejectedValueOnce(new Error('navigation failed'))
-    slider.props.value = '0'
-    dispatch(slider, 'input')
-    dispatch(slider, 'change')
-    await settle()
-    expect(slider.props.value).toBe(1)
-    expect(fixture.route.query).toEqual({ range: '30' })
-  })
-
-  it('keeps a custom range for later navigation from another page and rejects invalid input', async () => {
-    await mount()
-    const { trigger, custom } = await openRecentRange()
-    setInput(custom, '14')
-    dispatch(custom, 'change')
-    await settle()
-    expect(JSON.parse(String(trigger.props['data-target']))).toEqual({
-      path: '/recent-added',
-      query: { range: '14' },
-      hash: '',
-    })
-    expect(fixture.replace).not.toHaveBeenCalled()
-    setInput(custom, '0')
-    dispatch(custom, 'change')
-    await settle()
-    expect(custom.props.value).toBe(14)
-    escape()
-    await settle()
-    expect(find('[aria-keyshortcuts="ContextMenu Shift+F10"]').props['data-target']).toBe(
-      trigger.props['data-target'],
-    )
   })
 })
 
@@ -786,12 +697,7 @@ describe('AppSidebar playlist operations', () => {
 
   it('closes other menus and pending gestures, then clears menus on route and rail changes', async () => {
     await mount()
-    const recent = find('[aria-keyshortcuts="ContextMenu Shift+F10"]')
-    dispatch(recent, 'contextmenu', { clientX: 30, clientY: 50 })
-    await settle()
-    expect(find('#sidebar-recent-added-context-menu')).toBeTruthy()
     await openCreate()
-    expect(doc.body.querySelector('#sidebar-recent-added-context-menu')).toBeNull()
     const target = row('playlist:1')
     dispatch(target, 'pointerdown', { button: 0, pointerId: 7, clientX: 10, clientY: 10 })
     await openContext('playlist:1')

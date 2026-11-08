@@ -47,13 +47,8 @@
     "mostListened": "最常收听",
     "recentAdded": "最近添加",
     "recentAddedRange": "时间范围",
-    "recentAddedRange7Days": "7天",
-    "recentAddedRange30Days": "30天",
-    "recentAddedRange90Days": "90天",
     "recentAddedRangeAll": "全部时间",
-    "recentAddedRangeCustom": "自定义",
     "recentAddedRangeCustomInput": "自定义天数",
-    "recentAddedRangeCustomPlaceholder": "天数",
     "recentAddedRangeDayUnit": "天",
     "customSmartPlaylist": "自定义",
     "createPlaylistFailed": "创建失败，请重试",
@@ -817,6 +812,11 @@
       "dismiss": "关闭提示"
     },
     "recentAdded": {
+      "custom": "自定义…",
+      "recent": "最近",
+      "apply": "应用",
+      "invalidDays": "请输入有效的正整数天数。",
+
       "empty": "还没有添加音乐",
       "days": "近 {count} 天",
       "actionError": "操作未完成，请重试。"

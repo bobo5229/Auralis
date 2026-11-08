@@ -47,13 +47,8 @@
     "mostListened": "Most played",
     "recentAdded": "Recently added",
     "recentAddedRange": "Time range",
-    "recentAddedRange7Days": "7 days",
-    "recentAddedRange30Days": "30 days",
-    "recentAddedRange90Days": "90 days",
     "recentAddedRangeAll": "All time",
-    "recentAddedRangeCustom": "Custom",
     "recentAddedRangeCustomInput": "Custom day range",
-    "recentAddedRangeCustomPlaceholder": "Days",
     "recentAddedRangeDayUnit": "days",
     "customSmartPlaylist": "Custom",
     "createPlaylistFailed": "Could not create the playlist. Try again.",
@@ -795,6 +790,11 @@
   "library": {
     "playCount": "{count} plays | {count} play | {count} plays",
     "recentAdded": {
+      "custom": "Custom…",
+      "recent": "Last",
+      "apply": "Apply",
+      "invalidDays": "Enter a valid positive whole number of days.",
+
       "empty": "No music has been added yet",
       "days": "Last {count} days",
       "actionError": "The action could not be completed. Try again."
