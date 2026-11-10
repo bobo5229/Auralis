@@ -21,7 +21,6 @@ import { useAppShellLayout } from './app/composables/useAppShellLayout'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { peekArtworkPalette, useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
 import { readAlbumDetailSnapshot } from '@renderer/features/albums/albumDetailSnapshot'
-import { albumEntryFallback } from '@renderer/features/albums/prepareAlbumDetailPalette'
 import { provideAlbumDetailArtwork } from '@renderer/features/albums/albumDetailArtwork'
 import { createAlbumSurfaceSynchronization } from './app/layout/albumSurfaceSynchronization'
 import {
@@ -29,6 +28,7 @@ import {
   type AlbumColorAnchor,
 } from '@renderer/features/albums/albumColorPreferences'
 import { albumDetailColors, cssAlbumColor } from '@renderer/features/albums/albumDetailColors'
+import { albumIdentityKey } from '@shared/utils/albumIdentity'
 
 const route = useRoute()
 const detailArtworkKey = ref<string | null>(null)
@@ -81,11 +81,6 @@ const liveDetailColorStyle = computed<CSSProperties>(() => {
   const liveMatchesRoute =
     detailIdentity.value?.artist === route.query.artist &&
     detailIdentity.value?.title === route.query.title
-  if (
-    albumEntryFallback.value &&
-    !(liveMatchesRoute ? detailColorPreference.value : snapshotPreference)
-  )
-    return {}
   const selected =
     (liveMatchesRoute ? detailColorPreference.value : snapshotPreference) ??
     (liveMatchesRoute &&
@@ -125,26 +120,6 @@ const liveDetailColorStyle = computed<CSSProperties>(() => {
 const detailColorStyle = computed<CSSProperties>(
   () => frozenDetailColorStyle.value ?? liveDetailColorStyle.value,
 )
-function waitForAlbumDetailColors(signal: AbortSignal): Promise<void> {
-  const ready = () => {
-    const key = detailArtworkKey.value
-    return !key || detailColorPreference.value !== null || detailPalette.value.key === key
-  }
-  if (signal.aborted || ready()) return Promise.resolve()
-  return new Promise((resolve) => {
-    let stop: (() => void) | undefined
-    const finish = () => {
-      stop?.()
-      signal.removeEventListener('abort', finish)
-      resolve()
-    }
-    stop = watch([detailArtworkKey, detailPalette, detailColorPreference], () => {
-      if (ready()) finish()
-    })
-    signal.addEventListener('abort', finish, { once: true })
-    if (signal.aborted || ready()) finish()
-  })
-}
 const { cdCanvasTheme } = useCdCanvasTheme()
 const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
 const cdViewSwitchRef = ref<InstanceType<typeof CdViewSwitch> | null>(null)
@@ -200,7 +175,10 @@ const {
 } = useAppShellLayout({
   getAlbumDetailColors: () => {
     const colors = liveDetailColorStyle.value
-    if (route.name === 'album-detail') frozenDetailColorStyle.value = { ...colors }
+    if (route.name === 'album-detail') {
+      frozenDetailColorStyle.value = { ...colors }
+      lateAlbumColorsPending.value = !colors['--album-detail-main']
+    }
     return Object.fromEntries(
       Object.entries(colors).filter(
         (entry): entry is [string, string] => typeof entry[1] === 'string',
@@ -209,12 +187,6 @@ const {
   },
   releaseAlbumDetailColors: () => {
     if (!lateAlbumColorsPending.value) frozenDetailColorStyle.value = null
-  },
-  waitForAlbumDetailColors,
-  onAlbumDetailTimeout: () => {
-    if (route.name !== 'album-detail' || liveDetailColorStyle.value['--album-detail-main']) return
-    frozenDetailColorStyle.value = { ...liveDetailColorStyle.value }
-    lateAlbumColorsPending.value = true
   },
   route,
   router,
@@ -407,12 +379,18 @@ onBeforeUnmount(cancelLateColorTransition)
             <KeepAlive include="AlbumsPage" :max="1">
               <component
                 :is="Component"
-                :key="String(viewRoute.name)"
+                :key="
+                  viewRoute.name === 'album-detail'
+                    ? `album-detail:${albumIdentityKey(String(viewRoute.query.artist ?? ''), String(viewRoute.query.title ?? ''))}`
+                    : String(viewRoute.name)
+                "
                 :ref="viewRoute.name === 'albums' ? setActiveAlbumsPage : undefined"
                 v-bind="
                   viewRoute.name === 'album-detail'
                     ? {
                         isEntering: isAlbumDetailEntering,
+                        artist: String(viewRoute.query.artist ?? ''),
+                        title: String(viewRoute.query.title ?? ''),
                       }
                     : viewRoute.name === 'albums'
                       ? {

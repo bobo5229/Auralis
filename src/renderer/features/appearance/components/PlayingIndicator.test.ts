@@ -47,34 +47,44 @@ const renderer = createRenderer<TestNode, TestNode>({
 const runningCount = () =>
   animations.filter((animation) => !animation.cancel.mock.calls.length).length
 
-it('keeps instance presets independent and replaces animations when a preset changes', async () => {
+it('keeps playback indicators independent and retains size and class', async () => {
+  const storage = { getItem: vi.fn(() => 'blocks-wave'), setItem: vi.fn(), removeItem: vi.fn() }
+  vi.stubGlobal('localStorage', storage)
   vi.stubGlobal('document', {
     hidden: false,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   })
   vi.stubGlobal('window', {})
-  const preset = ref<'equalizer' | 'blocks-wave'>('equalizer')
+  const playing = ref(true)
   const root = new TestNode('root')
   const app = renderer.createApp({
     render: () =>
       h('div', [
-        h(PlayingIndicator, { playing: true, preset: preset.value }),
-        h(PlayingIndicator, { playing: false, preset: 'equalizer' }),
+        h(PlayingIndicator, { playing: playing.value, size: 18, class: 'existing-row-bars' }),
+        h(PlayingIndicator, { playing: false }),
       ]),
   })
   app.mount(root)
   await nextTick()
-  expect(runningCount()).toBe(3)
-  preset.value = 'blocks-wave'
-  await nextTick()
-  expect(root.children[0].children.map((node) => node.props['data-preset'])).toEqual([
-    'blocks-wave',
-    'equalizer',
+  const [active, paused] = root.children[0].children
+  expect(active.querySelectorAll('rect')).toHaveLength(3)
+  expect(paused.querySelectorAll('rect')).toHaveLength(3)
+  expect(paused.querySelectorAll('rect').map((bar) => bar.style.transform)).toEqual([
+    'scaleY(0.417)',
+    'scaleY(0.833)',
+    'scaleY(0.583)',
   ])
-  expect(runningCount()).toBe(9)
-  app.unmount()
+  expect(active.props.class).toContain('existing-row-bars')
+  expect(active.props.style).toMatchObject({ width: '18px', height: '18px' })
+  expect(storage.getItem).not.toHaveBeenCalled()
+  expect(storage.setItem).not.toHaveBeenCalled()
+  expect(storage.removeItem).not.toHaveBeenCalled()
+  expect(runningCount()).toBe(3)
+  playing.value = false
+  await nextTick()
   expect(runningCount()).toBe(0)
+  app.unmount()
 })
 
 afterEach(() => {
@@ -82,66 +92,61 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it.each([
-  ['equalizer', 3],
-  ['blocks-wave', 9],
-] as const)(
-  'stops %s animations on native hide, resumes only while playing, and cleans up',
-  async (preset, count) => {
-    vi.stubGlobal('localStorage', { setItem: vi.fn() })
-    vi.stubGlobal('document', {
-      hidden: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })
-    let visibility!: (state: { isVisible: boolean }) => void
-    const unsubscribe = vi.fn()
-    vi.stubGlobal('window', {
-      auralis: {
-        window: {
-          getVisibility: async () => ({ isVisible: true }),
-          onVisibilityChanged: (callback: typeof visibility) => {
-            visibility = callback
-            return unsubscribe
-          },
+it('stops animations on native hide, resumes only while playing, and cleans up', async () => {
+  const count = 3
+  vi.stubGlobal('localStorage', { setItem: vi.fn() })
+  vi.stubGlobal('document', {
+    hidden: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+  let visibility!: (state: { isVisible: boolean }) => void
+  const unsubscribe = vi.fn()
+  vi.stubGlobal('window', {
+    auralis: {
+      window: {
+        getVisibility: async () => ({ isVisible: true }),
+        onVisibilityChanged: (callback: typeof visibility) => {
+          visibility = callback
+          return unsubscribe
         },
       },
-    })
-    const playing = ref(true)
-    const root = new TestNode('root')
-    const app = renderer.createApp({
-      setup: () => () => h(PlayingIndicator, { playing: playing.value, preset }),
-    })
-    app.mount(root)
-    await nextTick()
-    await nextTick()
-    expect(runningCount()).toBe(count)
-    visibility({ isVisible: false })
-    await nextTick()
-    expect(document.hidden).toBe(false)
-    expect(runningCount()).toBe(0)
-    visibility({ isVisible: true })
-    await nextTick()
-    expect(runningCount()).toBe(count)
-    playing.value = false
-    await nextTick()
-    expect(runningCount()).toBe(0)
-    visibility({ isVisible: false })
-    visibility({ isVisible: true })
-    await nextTick()
-    expect(runningCount()).toBe(0)
-    playing.value = true
-    await nextTick()
-    expect(runningCount()).toBe(count)
-    app.unmount()
-    expect(runningCount()).toBe(0)
-    expect(unsubscribe).toHaveBeenCalledOnce()
-    expect(document.removeEventListener).toHaveBeenCalledWith(
-      'visibilitychange',
-      expect.any(Function),
-    )
-  },
-)
+    },
+  })
+  const playing = ref(true)
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () => h(PlayingIndicator, { playing: playing.value }),
+  })
+  app.mount(root)
+  await nextTick()
+  await nextTick()
+  expect(runningCount()).toBe(count)
+  visibility({ isVisible: false })
+  await nextTick()
+  expect(document.hidden).toBe(false)
+  expect(runningCount()).toBe(0)
+  visibility({ isVisible: true })
+  await nextTick()
+  expect(runningCount()).toBe(count)
+  playing.value = false
+  await nextTick()
+  expect(runningCount()).toBe(0)
+  visibility({ isVisible: false })
+  visibility({ isVisible: true })
+  await nextTick()
+  expect(runningCount()).toBe(0)
+  playing.value = true
+  await nextTick()
+  expect(runningCount()).toBe(count)
+  app.unmount()
+  expect(runningCount()).toBe(0)
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  expect(document.removeEventListener).toHaveBeenCalledWith(
+    'visibilitychange',
+    expect.any(Function),
+  )
+})
 
 it('uses document visibility when the browser preview has no native API', async () => {
   let change!: () => void

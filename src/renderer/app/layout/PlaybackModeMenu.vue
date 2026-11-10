@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 import { useI18n } from 'vue-i18n'
 import {
   getPlayerModeMenuItems,
@@ -14,6 +15,7 @@ import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 const props = defineProps<{
   currentMode: PlaybackMode
   playbar?: boolean
+  anchor?: HTMLElement | null
 }>()
 const emit = defineEmits<{
   select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
@@ -22,6 +24,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 const element = ref<HTMLElement | null>(null)
+let floatingPosition: ReturnType<typeof startFloatingPosition> | undefined
 
 const { options: modes } = usePlaybackModePresentation(() => props.currentMode)
 
@@ -78,8 +81,24 @@ onMounted(() => {
   const currentIndex = modes.value.findIndex((mode) => mode.id === props.currentMode)
   const initialIndex = currentIndex >= 0 ? currentIndex : 0
   focusedIndex.value = initialIndex
-  getMenuItems()[initialIndex]?.focus()
+  if (props.anchor && element.value) {
+    floatingPosition = startFloatingPosition({
+      reference: props.anchor,
+      floating: element.value,
+      profile: 'popover',
+      placement: 'top-end',
+      fallbackPlacements: ['top-start', 'bottom-end'],
+      gap: 8,
+      onPosition: (_result, first) => {
+        if (first) getMenuItems()[initialIndex]?.focus()
+      },
+      onError: () => emit('close'),
+    })
+  } else {
+    getMenuItems()[initialIndex]?.focus()
+  }
 })
+onBeforeUnmount(() => floatingPosition?.dispose())
 </script>
 
 <template>
@@ -87,6 +106,7 @@ onMounted(() => {
     ref="element"
     class="player-overlay playback-mode-menu"
     :class="{ 'playback-mode-menu--playbar': playbar }"
+    :style="anchor ? { position: 'fixed', bottom: 'auto', right: 'auto' } : undefined"
     role="menu"
     :aria-label="t('player.mode')"
     @keydown="handleKeydown"

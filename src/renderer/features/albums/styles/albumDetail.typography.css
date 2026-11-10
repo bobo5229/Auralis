@@ -13,16 +13,18 @@
   --album-detail-type-title-line-height: 1.2;
   --album-detail-type-title-weight: 700;
 
-  --album-detail-type-artist-size: 18px;
-  --album-detail-type-artist-line-height: 26px;
-  --album-detail-type-artist-weight: 600;
+  --album-detail-type-artist-size: var(--auralis-type-body-size);
+  --album-detail-type-artist-line-height: var(--auralis-type-body-line-height);
+  --album-detail-type-artist-weight: 500;
 
-  --album-detail-type-summary-size: 13px;
-  --album-detail-type-summary-line-height: 20px;
+  --album-detail-type-metadata-size: 13px;
+  --album-detail-type-metadata-line-height: 20px;
 
   --album-detail-type-track-title-size: var(--auralis-type-control-size);
   --album-detail-type-track-title-line-height: var(--auralis-type-control-line-height);
-  --album-detail-type-track-title-weight: 700;
+  --album-detail-type-track-title-weight: 400;
+  --album-detail-type-track-artist-size: 11px;
+  --album-detail-type-track-artist-line-height: 16px;
   --album-detail-type-track-meta-size: var(--auralis-type-caption-size);
   --album-detail-type-track-meta-line-height: var(--auralis-type-caption-line-height);
   --album-detail-type-track-meta-weight: 400;

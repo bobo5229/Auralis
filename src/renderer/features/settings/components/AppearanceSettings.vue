@@ -11,11 +11,6 @@ import {
   type LyricsScrollPreset,
 } from '@renderer/features/lyrics/lyricsScrollPreset'
 import {
-  PLAYING_ICON_PRESETS,
-  usePlayingIconPreference,
-  type PlayingIconPreset,
-} from '@renderer/features/appearance/composables/usePlayingIconPreference'
-import {
   useEnglishFont,
   type EnglishFontChoice,
 } from '@renderer/features/appearance/composables/useEnglishFont'
@@ -78,13 +73,6 @@ const playbarLayoutOptions = computed(() =>
     label: t(`settings.appearance.playbarLayout.${value}`),
   })),
 )
-const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
-const playingIconOptions = computed(() =>
-  PLAYING_ICON_PRESETS.map((value) => ({
-    value,
-    label: t(`settings.appearance.playingIcon.${value}`),
-  })),
-)
 const {
   font: englishFont,
   persistFailed: englishFontPersistFailed,
@@ -145,10 +133,6 @@ function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
 
 function selectPlaybarLayout(value: PlaybarLayout): void {
   setPlaybarLayout(value)
-}
-
-function selectPlayingIconPreset(value: PlayingIconPreset): void {
-  setPlayingIcon(value)
 }
 </script>
 
@@ -215,24 +199,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             :model-value="playbarLayout"
             :options="playbarLayoutOptions"
             @update:model-value="selectPlaybarLayout($event as PlaybarLayout)"
-          />
-        </div>
-        <div class="settings-row settings-row--with-desc settings-row--playing-icon">
-          <div>
-            <strong id="appearance-playing-icon-label">{{
-              t('settings.appearance.playingIcon.title')
-            }}</strong>
-            <span id="appearance-playing-icon-description">{{
-              t('settings.appearance.playingIcon.description')
-            }}</span>
-          </div>
-          <SettingsSegmentedControl
-            id="appearance-playing-icon"
-            labelledby="appearance-playing-icon-label"
-            describedby="appearance-playing-icon-description"
-            :model-value="playingIcon"
-            :options="playingIconOptions"
-            @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
           />
         </div>
         <div class="settings-row settings-row--with-desc">

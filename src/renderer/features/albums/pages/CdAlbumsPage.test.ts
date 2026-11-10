@@ -4,6 +4,10 @@ import { ShellTestElement, shellTestRenderer } from '@renderer/testUtils/rendere
 import CdAlbumsPage from './CdAlbumsPage.vue'
 
 const focused = ref(false)
+const loading = ref(false)
+const failed = ref(false)
+const count = ref(1)
+const loadAlbums = vi.fn(async () => false)
 const focusSettled = ref(false)
 const playbackInfoFocused = ref(false)
 const track = { id: 1, title: 'Song A', artist: 'Artist', album: 'Album A', albumArtist: 'Artist' }
@@ -38,10 +42,10 @@ vi.mock('../composables/cdAlbumCatalogSession', () => ({
 vi.mock('../composables/useCdAlbumLoadSession', () => ({
   useCdAlbumLoadSession: () => ({
     albumInfo: albums,
-    loading: ref(false),
-    failed: ref(false),
-    count: ref(1),
-    loadAlbums: async () => false,
+    loading,
+    failed,
+    count,
+    loadAlbums,
   }),
 }))
 vi.mock('../composables/useCdRoomScene', () => ({
@@ -117,6 +121,10 @@ afterEach(() => {
   unmount?.()
   unmount = undefined
   focused.value = false
+  loading.value = false
+  failed.value = false
+  count.value = 1
+  loadAlbums.mockClear()
   focusSettled.value = false
   playbackInfoFocused.value = false
   state.currentTrack = null
@@ -126,6 +134,29 @@ function text(node: ShellTestElement | null): string {
   return node ? node.text + node.children.map(text).join('') : ''
 }
 describe('CD page playback information wiring', () => {
+  it('renders page-level loading, empty and error states and retries', async () => {
+    const root = new ShellTestElement('main')
+    loading.value = true
+    count.value = 0
+    const app = shellTestRenderer.createApp({ render: () => h(CdAlbumsPage) })
+    app.directive('tooltip', {})
+    app.mount(root)
+    unmount = () => app.unmount()
+    const status = () => root.querySelector('.cd-page-status')
+    expect(text(status())).toBe('albums.status.loading')
+    expect(root.querySelector('.cd-page')?.children.includes(status()!)).toBe(true)
+    expect(root.querySelector('.cd-back')).not.toBeNull()
+    expect(root.querySelector('.cd-theme-toggle')).not.toBeNull()
+    loading.value = false
+    await nextTick()
+    expect(text(status())).toBe('albums.status.empty')
+    failed.value = true
+    await nextTick()
+    expect(text(status())).toContain('albums.status.loadError')
+    const retry = root.querySelector('.cd-page-status__retry')!
+    ;(retry.props.onClick as () => void)()
+    expect(loadAlbums).toHaveBeenCalledOnce()
+  })
   it('tracks playback and focused album across browsing, pause and song changes', async () => {
     const root = new ShellTestElement('main')
     const app = shellTestRenderer.createApp({ render: () => h(CdAlbumsPage) })

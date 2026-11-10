@@ -1,228 +1,212 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { h, nextTick, ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { ShellTestElement, shellTestRenderer } from '@renderer/testUtils/rendererTestHost'
+import {
+  ShellTestElement,
+  ShellTestRect,
+  shellTestRenderer,
+} from '@renderer/testUtils/rendererTestHost'
 import AlbumDetailTrackList from '@renderer/features/albums/components/AlbumDetailTrackList.vue'
 
-const presentationCalls = vi.hoisted(() => ({ count: 0 }))
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, values?: { number: string }) =>
+      key === 'albums.detail.disc' ? 'Disc ' + values?.number : key,
+  }),
+}))
 vi.mock('@renderer/shared/preferences/useChineseTextDisplay', () => ({
   useChineseTextDisplay: () => ({
     songText: (value: string | null) => value ?? '',
     songValues: (value: string | null) => value ?? '',
   }),
 }))
-vi.mock('@renderer/features/appearance/components/PreferredPlayingIndicator.vue', () => ({
-  default: { render: () => null },
-}))
-vi.mock('@renderer/shared/components/SettingsSelect.vue', () => ({
+vi.mock('@renderer/features/appearance/components/PlayingIndicator.vue', () => ({
   default: {
-    props: ['modelValue', 'options'],
-    emits: ['update:modelValue'],
-    render(this: { $emit: (event: string, value: string) => void }) {
-      return h('select', {
-        class: 'settings-select',
-        onChange: (event: { target: { value: string } }) =>
-          this.$emit('update:modelValue', event.target.value),
-      })
+    props: ['playing'],
+    render(this: { playing: boolean }) {
+      return h('span', { class: 'test-playing-indicator', 'data-playing': this.playing })
     },
   },
 }))
-vi.mock('@renderer/features/albums/utils/albumTrackPresentation', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@renderer/features/albums/utils/albumTrackPresentation')>()
-  return {
-    ...actual,
-    resolveAlbumTrackPresentation: (
-      ...args: Parameters<typeof actual.resolveAlbumTrackPresentation>
-    ) => {
-      presentationCalls.count += 1
-      return actual.resolveAlbumTrackPresentation(...args)
-    },
-  }
-})
 
 const unmounts: Array<() => void> = []
-afterEach(() => {
-  unmounts.splice(0).forEach((unmount) => unmount())
-  presentationCalls.count = 0
-})
-
-function makeTracks(count: number): TrackListItem[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: index + 1,
-    title: `Track ${index + 1}`,
-    artist: 'Artist',
-    trackNo: index + 1,
-    durationSeconds: 180,
-  })) as TrackListItem[]
-}
-
-for (const count of [12, 200, 1000]) {
-  it(`limits a ${count}-track album to one page and updates the visible rows`, async () => {
-    const root = new ShellTestElement('div')
-    const currentTrackId = ref<number | null>(null)
-    const tracks = makeTracks(count)
-    const app = shellTestRenderer.createApp({
-      render: () =>
-        h(AlbumDetailTrackList, {
-          groups: [{ discNo: null, tracks }],
-          albumArtist: 'Artist',
-          selectedTrackId: null,
-          currentTrackId: currentTrackId.value,
-          isPlaying: true,
-          highlightedTrackId: null,
-        }),
-    })
-    app.mount(root)
-    unmounts.push(() => app.unmount())
-    await nextTick()
-
-    const rows = root.querySelectorAll('button.album-detail-track')
-    const mountCalls = presentationCalls.count
-    expect(rows).toHaveLength(10)
-    expect(mountCalls).toBe(10)
-
-    presentationCalls.count = 0
-    currentTrackId.value = Math.ceil(count / 2)
-    await nextTick()
-    const updateCalls = presentationCalls.count
-    expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(10)
-    expect(updateCalls).toBe(10)
-    console.log(JSON.stringify({ count, mountedRows: rows.length, mountCalls, updateCalls }))
-  })
-}
-
-it('marks the last track of each disc, including a single-track disc', async () => {
-  const root = new ShellTestElement('div')
-  const tracks = makeTracks(3)
-  const app = shellTestRenderer.createApp({
-    render: () =>
-      h(AlbumDetailTrackList, {
-        groups: [
-          { discNo: 1, tracks: tracks.slice(0, 2) },
-          { discNo: 2, tracks: tracks.slice(2) },
-        ],
-        albumArtist: 'Artist',
-        selectedTrackId: null,
-        currentTrackId: null,
-        isPlaying: false,
-        highlightedTrackId: null,
-      }),
-  })
-  app.mount(root)
-  unmounts.push(() => app.unmount())
-  await nextTick()
-  const rows = root.querySelectorAll('button.album-detail-track')
-  expect(root.querySelector('.album-track-pagination')).toBeNull()
-  expect(rows.map((row) => row.classList.contains('album-detail-track--disc-end'))).toEqual([
-    false,
-    true,
-    true,
-  ])
-})
-
-it('navigates within and across discs and jumps to the playing track', async () => {
-  const root = new ShellTestElement('div')
-  const tracks = makeTracks(24)
-  const app = shellTestRenderer.createApp({
-    render: () =>
-      h(AlbumDetailTrackList, {
-        groups: [
-          { discNo: 1, tracks: tracks.slice(0, 12) },
-          { discNo: 2, tracks: tracks.slice(12, 18) },
-          { discNo: 3, tracks: tracks.slice(18) },
-        ],
-        albumArtist: 'Artist',
-        selectedTrackId: null,
-        currentTrackId: 22,
-        isPlaying: true,
-        highlightedTrackId: null,
-      }),
-  })
-  app.mount(root)
-  unmounts.push(() => app.unmount())
-  await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(10)
-  const arrows = root.querySelectorAll('button.album-track-pagination-arrow')
-  ;(arrows[1].props.onClick as () => void)()
-  await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(2)
-  ;(arrows[1].props.onClick as () => void)()
-  await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(6)
-  const select = root.querySelector('.settings-select')!
-  ;(select.props.onChange as (event: unknown) => void)({ target: { value: '0' } })
-  await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(10)
-  ;(root.querySelector('.album-track-playing-jump')!.props.onClick as () => void)()
-  await nextTick()
-  expect(root.querySelector('[data-track-id="22"]')).not.toBeNull()
-})
-
-it('shows a searched track on its page', async () => {
-  const root = new ShellTestElement('div')
-  const highlighted = ref<number | null>(null)
-  const tracks = makeTracks(25)
-  const groups = [{ discNo: null, tracks }]
-  const app = shellTestRenderer.createApp({
-    render: () =>
-      h(AlbumDetailTrackList, {
-        groups,
-        albumArtist: 'Artist',
-        selectedTrackId: null,
-        currentTrackId: null,
-        isPlaying: false,
-        highlightedTrackId: highlighted.value,
-      }),
-  })
-  app.mount(root)
-  unmounts.push(() => app.unmount())
-  highlighted.value = 23
-  await nextTick()
-  expect(root.querySelector('[data-track-id="23"]')).not.toBeNull()
-})
-
-it('shows all discs together when the available height fits and paginates after shrinking', async () => {
-  let onResize: ResizeObserverCallback | undefined
+let resize: ResizeObserverCallback | undefined
+const matches = ShellTestElement.prototype.matches
+beforeEach(() => {
+  vi.stubGlobal('getComputedStyle', () => ({ paddingTop: '4px', paddingBottom: '4px' }))
   vi.stubGlobal(
     'ResizeObserver',
     class {
       constructor(callback: ResizeObserverCallback) {
-        onResize = callback
+        resize = callback
       }
       observe() {}
       disconnect() {}
     },
   )
+  vi.spyOn(ShellTestElement.prototype, 'matches').mockImplementation(function (
+    this: ShellTestElement,
+    selector: string,
+  ) {
+    return (
+      matches.call(this, selector) &&
+      [...selector.matchAll(/\[([\w-]+)="([^"]*)"\]/gu)].every(
+        ([, name, value]) => String(this.props[name]) === value,
+      )
+    )
+  })
+})
+afterEach(() => {
+  unmounts.splice(0).forEach((fn) => fn())
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
+function makeTracks(count: number): TrackListItem[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    title: 'Track ' + i,
+    artist: 'Artist',
+    trackNo: i + 1,
+    durationSeconds: 180,
+  })) as TrackListItem[]
+}
+function mountList(count: number, maxVisibleTracks = 10) {
   const root = new ShellTestElement('div')
-  root.className = 'album-detail-scroll-wrapper'
-  Object.assign(root, { clientHeight: 1000 })
-  const tracks = makeTracks(12)
+  const highlighted = ref<number | null>(null),
+    onPlay = vi.fn()
+  const tracks = makeTracks(count)
   const app = shellTestRenderer.createApp({
     render: () =>
       h(AlbumDetailTrackList, {
         groups: [
-          { discNo: 1, tracks: tracks.slice(0, 6) },
-          { discNo: 2, tracks: tracks.slice(6) },
+          { discNo: 1, tracks: tracks.slice(0, 3) },
+          { discNo: 2, tracks: tracks.slice(3) },
         ],
         albumArtist: 'Artist',
-        selectedTrackId: null,
-        currentTrackId: null,
         isPlaying: false,
-        highlightedTrackId: null,
+        currentTrackId: 1,
+        highlightedTrackId: highlighted.value,
+        maxVisibleTracks,
+        onPlay,
       }),
+  })
+  app.directive('tooltip', {})
+  app.mount(root)
+  unmounts.push(() => app.unmount())
+  const rows = root.querySelectorAll('.album-detail-track')
+  rows.forEach((row, i) => {
+    row.rect = new ShellTestRect(0, 100 + i * 44, 320, i % 4 === 0 ? 44 : 40)
+  })
+  root.querySelectorAll('.album-detail-disc-header').forEach((header) => {
+    header.rect = new ShellTestRect(0, 0, 320, 36)
+  })
+  resize?.([], {} as ResizeObserver)
+  return { root, rows, highlighted, onPlay }
+}
+it.each([1, 8, 10, 12, 1000])(
+  'keeps all %i tracks in one list without Disc controls',
+  async (count) => {
+    const { root, rows, onPlay } = mountList(count)
+    await nextTick()
+    expect(rows).toHaveLength(count)
+    expect(root.querySelectorAll('.album-detail-disc-header').map((header) => header.text)).toEqual(
+      count > 3 ? ['Disc 01', 'Disc 02'] : [],
+    )
+    expect(root.querySelector('.album-track-navigation')).toBeNull()
+    const list = root.querySelector('.album-detail-track-list')!
+    expect(list.style.maxHeight).toBe(count > 10 ? '492px' : undefined)
+    expect(rows[0].classList.contains('album-detail-track--start')).toBe(true)
+    expect(rows[count - 1].classList.contains('album-detail-track--end')).toBe(true)
+    if (count > 3) {
+      expect(rows[2].classList.contains('album-detail-track--end')).toBe(true)
+      expect(rows[3].classList.contains('album-detail-track--start')).toBe(true)
+      expect(rows[1].classList.contains('album-detail-track--start')).toBe(false)
+    }
+    ;(rows[count - 1].props.onDblclick as () => void)()
+    expect(onPlay).toHaveBeenCalledWith(count)
+  },
+)
+it('starts capping at the seventeenth track with the chosen sixteen-row limit', async () => {
+  const short = mountList(16, 16)
+  const long = mountList(17, 16)
+  await nextTick()
+  expect(short.root.querySelector('.album-detail-track-list')!.style.maxHeight).toBeUndefined()
+  expect(long.root.querySelector('.album-detail-track-list')!.style.maxHeight).toBe('736px')
+  expect(long.rows).toHaveLength(17)
+})
+
+it('scrolls a searched track inside the capped list', async () => {
+  const { root, rows, highlighted } = mountList(12)
+  const list = root.querySelector('.album-detail-track-list')!
+  list.rect = new ShellTestRect(0, 100, 320, 420)
+  const scrollTo = vi.fn(),
+    scrollIntoView = vi.fn()
+  Object.assign(list, { clientHeight: 420, scrollHeight: 600, scrollTo, scrollIntoView })
+  highlighted.value = 12
+  await nextTick()
+  expect(scrollTo).toHaveBeenCalled()
+  expect(scrollIntoView).toHaveBeenCalled()
+  expect(rows[11].classList.contains('album-detail-track--search-highlight')).toBe(true)
+})
+it('identifies only the current track while playing or paused', async () => {
+  const root = new ShellTestElement('div')
+  const isPlaying = ref(true)
+  const currentTrackId = ref<number | null>(1)
+  const selectedTrackId = ref(2)
+  const tracks = makeTracks(3)
+  const app = shellTestRenderer.createApp({
+    render: () =>
+      h(AlbumDetailTrackList, {
+        maxVisibleTracks: 10,
+        groups: [{ discNo: null, tracks }],
+        albumArtist: 'Artist',
+        currentTrackId: currentTrackId.value,
+        isPlaying: isPlaying.value,
+        highlightedTrackId: null,
+        selectedTrackId: selectedTrackId.value,
+      }),
+  })
+  app.directive('tooltip', {
+    mounted: (element: ShellTestElement, binding: { value?: string }) => {
+      element.props.tooltip = binding.value
+    },
+    updated: (element: ShellTestElement, binding: { value?: string }) => {
+      element.props.tooltip = binding.value
+    },
   })
   app.mount(root)
   unmounts.push(() => app.unmount())
   await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(12)
-  expect(root.querySelectorAll('.album-detail-disc-header')).toHaveLength(2)
-  expect(root.querySelector('.album-track-pagination')).toBeNull()
-  Object.assign(root, { clientHeight: 600 })
-  onResize?.([], {} as ResizeObserver)
+  const rows = root.querySelectorAll('button.album-detail-track')
+  const current = rows[0]
+  expect(current.classList.contains('album-detail-track--current')).toBe(true)
+  expect(current.props['aria-current']).toBe('true')
+  expect(current.props.tooltip).toBe('albums.detail.currentPlaying')
+  expect(current.querySelector('.album-track-visually-hidden')?.text).toBe(
+    'albums.detail.currentPlaying',
+  )
+  expect(current.querySelector('.test-playing-indicator')?.props['data-playing']).toBe('true')
+  for (const row of rows.slice(1)) {
+    expect(row.classList.contains('album-detail-track--current')).toBe(false)
+    expect(row.classList.contains('album-detail-track--selected')).toBe(false)
+    expect(row.props['aria-current']).toBeUndefined()
+    expect(row.props.tooltip).toBeUndefined()
+    expect(row.querySelector('.test-playing-indicator')).toBeNull()
+    expect(row.querySelector('.album-track-visually-hidden')).toBeNull()
+  }
+  isPlaying.value = false
+  selectedTrackId.value = 3
   await nextTick()
-  expect(root.querySelectorAll('button.album-detail-track')).toHaveLength(6)
-  expect(root.querySelector('.album-track-pagination')).not.toBeNull()
-  vi.unstubAllGlobals()
+  expect(current.classList.contains('album-detail-track--current')).toBe(true)
+  expect(current.props['aria-current']).toBe('true')
+  expect(current.props.tooltip).toBe('albums.detail.currentPaused')
+  expect(current.querySelector('.album-track-visually-hidden')?.text).toBe(
+    'albums.detail.currentPaused',
+  )
+  expect(current.querySelector('.test-playing-indicator')?.props['data-playing']).toBe('false')
+  expect(rows[2].classList.contains('album-detail-track--current')).toBe(false)
+  currentTrackId.value = null
+  await nextTick()
+  expect(current.props['aria-current']).toBeUndefined()
+  expect(current.querySelector('.test-playing-indicator')).toBeNull()
 })

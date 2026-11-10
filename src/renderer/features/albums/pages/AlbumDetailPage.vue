@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -14,7 +14,6 @@ import { useAlbumDetailPresentation } from '../composables/useAlbumDetailPresent
 import type { AlbumSummary } from '@shared/types/albumSummary'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
-import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 import { useAlbumDetailArtworkPublisher } from '../albumDetailArtwork'
 import AlbumColorPreference from '../components/AlbumColorPreference.vue'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
@@ -22,9 +21,13 @@ import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 const props = withDefaults(
   defineProps<{
     isEntering?: boolean
+    artist?: string
+    title?: string
   }>(),
   {
     isEntering: false,
+    artist: undefined,
+    title: undefined,
   },
 )
 
@@ -34,17 +37,14 @@ const { t } = useI18n()
 const { songText, songValues, songParts } = useChineseTextDisplay()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
-const coverStageRef = ref<HTMLElement | null>(null)
 const coverImageRef = ref<HTMLImageElement | null>(null)
 const coverImageReady = ref(false)
 const highlightedTrackId = ref<number | null>(null)
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null
 let isPageUnmounted = false
-let artworkTransition: ReturnType<typeof createAlbumArtworkTransition> | null = null
-const isOpeningWork = ref(false)
 
-const albumArtist = computed(() => String(route.query.artist ?? ''))
-const albumTitle = computed(() => String(route.query.title ?? ''))
+const albumArtist = ref(props.artist ?? String(route.query.artist ?? ''))
+const albumTitle = ref(props.title ?? String(route.query.title ?? ''))
 const {
   tracks,
   albumTracks,
@@ -55,7 +55,6 @@ const {
   loadState,
   initialize: initializeAlbumTracks,
   reloadTracks,
-  ensureCurrentAlbum,
   ensurePlaybackCatalog,
   playbackCatalogRevision,
   dispose: disposeAlbumTracks,
@@ -75,6 +74,10 @@ const {
   playback,
 })
 onBeforeRouteLeave(cancelPendingPlayback)
+onBeforeRouteUpdate((to, from) => {
+  if (to.query.artist !== from.query.artist || to.query.title !== from.query.title)
+    cancelPendingPlayback()
+})
 
 /**
  * 完整详情由快照/查询是否就绪决定；入场动画只关闭高开销效果，不拆两套 DOM。
@@ -136,17 +139,9 @@ function goBack(): void {
   void router.push({ name: 'albums' })
 }
 
-async function openAlbum(album: AlbumSummary, event: MouseEvent): Promise<void> {
-  if (isOpeningWork.value) return
+function openAlbum(album: AlbumSummary): void {
   if (album.albumArtist === albumArtist.value && album.title === albumTitle.value) return
   cancelPendingPlayback()
-
-  const source = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
-    '.album-more-gallery-cover',
-  )
-  const content = detailRootRef.value?.querySelector<HTMLElement>('.album-detail-wrapper')
-  isOpeningWork.value = true
-  if (source && content) artworkTransition = createAlbumArtworkTransition(source, content)
 
   writeAlbumDetailSnapshot({
     albumArtist: album.albumArtist,
@@ -158,27 +153,10 @@ async function openAlbum(album: AlbumSummary, event: MouseEvent): Promise<void> 
     catalogTracks: tracks.value.length > albumTracks.value.length ? tracks.value : null,
   })
 
-  try {
-    await artworkTransition?.ready
-    if (isPageUnmounted) return
-    const failure = await router.push({
-      name: 'album-detail',
-      query: {
-        artist: album.albumArtist,
-        title: album.title,
-      },
-    })
-    if (failure) {
-      artworkTransition?.cancel()
-      artworkTransition = null
-      isOpeningWork.value = false
-    }
-  } catch (error) {
-    artworkTransition?.cancel()
-    artworkTransition = null
-    isOpeningWork.value = false
-    throw error
-  }
+  void router.push({
+    name: 'album-detail',
+    query: { artist: album.albumArtist, title: album.title },
+  })
 }
 
 function showSearchResultHighlight(): void {
@@ -192,11 +170,6 @@ function showSearchResultHighlight(): void {
   if (!Number.isInteger(trackId) || !albumTracks.value.some((track) => track.id === trackId)) return
 
   highlightedTrackId.value = trackId
-  requestAnimationFrame(() => {
-    detailRootRef.value
-      ?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
   highlightTimeout = setTimeout(() => {
     highlightedTrackId.value = null
     highlightTimeout = null
@@ -207,9 +180,14 @@ function showSearchResultHighlight(): void {
  * 入场动画结束且详情就绪后，再定位搜索命中的曲目。
  */
 watch(
-  isEffectsActive,
-  async (active) => {
-    if (!active) return
+  [isEffectsActive, () => route.query.highlight],
+  async ([active]) => {
+    if (
+      !active ||
+      String(route.query.artist ?? '') !== albumArtist.value ||
+      String(route.query.title ?? '') !== albumTitle.value
+    )
+      return
 
     await nextTick()
     if (isPageUnmounted || !isEffectsActive.value) return
@@ -219,39 +197,14 @@ watch(
   { immediate: true },
 )
 
-watch(
-  () => [albumArtist.value, albumTitle.value] as const,
-  async () => {
-    const wasEffectsActive = isEffectsActive.value
-    await ensureCurrentAlbum()
-    await nextTick()
-    if (isPageUnmounted) return
-    detailRootRef.value?.scrollTo({ top: 0 })
-    if (wasEffectsActive && isEffectsActive.value) showSearchResultHighlight()
-    const transition = artworkTransition
-    if (transition) {
-      const cover = coverStageRef.value?.querySelector<HTMLElement>('.album-hero-cover')
-      const content = detailRootRef.value?.querySelector<HTMLElement>('.album-detail-wrapper')
-      try {
-        if (cover && content && hasRenderableData.value) await transition.finish(cover, content)
-        else transition.cancel()
-      } finally {
-        if (artworkTransition === transition) artworkTransition = null
-        isOpeningWork.value = false
-      }
-    } else isOpeningWork.value = false
-  },
-)
-
 onMounted(async () => {
+  detailRootRef.value?.scrollTo({ top: 0 })
   await initializeAlbumTracks()
 })
 
 onBeforeUnmount(() => {
   publishArtwork?.clear(artworkOwner)
   isPageUnmounted = true
-  artworkTransition?.cancel()
-  artworkTransition = null
   disposeAlbumTracks()
   if (highlightTimeout) clearTimeout(highlightTimeout)
 })
@@ -283,7 +236,7 @@ onBeforeUnmount(() => {
           <!-- 主内容层：封面与专辑信息、播放操作 -->
           <div class="album-hero-main-stage">
             <!-- 左侧：封面舞台 -->
-            <div ref="coverStageRef" class="album-hero-cover-container">
+            <div class="album-hero-cover-container">
               <div class="album-hero-cover">
                 <img
                   v-if="artworkUrl"
@@ -378,9 +331,9 @@ onBeforeUnmount(() => {
         <!-- 中部：通栏曲目 -->
         <div class="album-body-grid">
           <AlbumDetailTrackList
+            :max-visible-tracks="16"
             :groups="albumDiscGroups"
             :album-artist="albumArtist"
-            :selected-track-id="playback.state.selectedTrackId"
             :current-track-id="playback.state.currentTrackId"
             :is-playing="playback.state.isPlaying"
             :highlighted-track-id="highlightedTrackId"
@@ -396,7 +349,6 @@ onBeforeUnmount(() => {
           :single-row="isGenreGallery"
           :artist-label="displayAlbumArtist"
           :genre-label="songParts(albumGenrePills.slice(0, 1))"
-          :opening="isOpeningWork"
           @open="openAlbum"
         />
       </div>
@@ -465,6 +417,7 @@ onBeforeUnmount(() => {
 <style scoped src="../styles/albumDetail.typography.css"></style>
 <style scoped>
 .album-detail-container {
+  container-type: size;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -665,9 +618,9 @@ onBeforeUnmount(() => {
 
 .album-hero-date-text,
 .album-hero-genre-text {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 500;
+  font-size: var(--album-detail-type-metadata-size);
+  line-height: var(--album-detail-type-metadata-line-height);
+  font-weight: 400;
   color: var(--auralis-text-muted);
 }
 
@@ -988,8 +941,8 @@ onBeforeUnmount(() => {
   gap: 4px 12px;
   margin: 4px 0 0;
   color: var(--auralis-text-muted);
-  font-size: var(--album-detail-type-summary-size);
-  line-height: var(--album-detail-type-summary-line-height);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 400;
 }
 
@@ -1035,6 +988,11 @@ onBeforeUnmount(() => {
   }
 
   .album-body-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    box-sizing: border-box;
     padding: 28px var(--album-detail-inline-padding) 28px 16px;
   }
 

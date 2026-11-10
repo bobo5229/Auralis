@@ -8,7 +8,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import CdTrackList from './CdTrackList.vue'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@renderer/features/appearance/components/PreferredPlayingIndicator.vue', () => ({
+vi.mock('@renderer/features/appearance/components/PlayingIndicator.vue', () => ({
   default: {
     props: ['playing'],
     setup(props: { playing: boolean }) {

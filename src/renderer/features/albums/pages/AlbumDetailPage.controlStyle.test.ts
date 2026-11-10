@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import type { CreateAppFunction } from 'vue'
+import { h, type CreateAppFunction } from 'vue'
 
 vi.mock('vue', async (importOriginal) => {
   const vue = await importOriginal<typeof import('vue')>()
@@ -21,17 +21,29 @@ const playbackActions = vi.hoisted(() => ({
   playAlbumShuffle: vi.fn(),
   cancel: vi.fn(),
 }))
+const navigation = vi.hoisted(() => ({
+  push: vi.fn(),
+  album: {
+    key: 'Other\u0000Next',
+    albumArtist: 'Other',
+    title: 'Next',
+    artworkCacheKey: 'cover',
+    releaseDate: null,
+    tracks: [],
+  },
+}))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ query: { artist: 'Artist', title: 'Album' } }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: navigation.push }),
   onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
 }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { library: {} } }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({
-    state: { selectedTrackId: null, currentTrackId: null, isPlaying: false },
+    state: { selectedTrackId: 1, currentTrackId: null, isPlaying: false },
   }),
 }))
 vi.mock('../composables/useAlbumDetailPlayback', () => ({
@@ -64,7 +76,7 @@ vi.mock('../composables/useAlbumDetailTracks', () => ({
         },
       ],
     },
-    moreAlbums: { value: [] },
+    moreAlbums: { value: [navigation.album] },
     genreAlbums: { value: [] },
     previewArtworkCacheKey: { value: null },
     previewReleaseDate: { value: null },
@@ -78,10 +90,22 @@ vi.mock('../composables/useAlbumDetailTracks', () => ({
   }),
 }))
 vi.mock('../components/AlbumDetailTrackList.vue', () => ({
-  default: { name: 'AlbumDetailTrackList', render: () => null },
+  default: {
+    name: 'AlbumDetailTrackList',
+    render: () => h('div', { class: 'test-detail-track-list' }),
+  },
 }))
 vi.mock('../components/AlbumMoreGallery.vue', () => ({
-  default: { name: 'AlbumMoreGallery', render: () => null },
+  default: {
+    name: 'AlbumMoreGallery',
+    emits: ['open'],
+    render(this: { $emit: (event: string, album: unknown) => void }) {
+      return h('button', {
+        class: 'test-gallery-open',
+        onClick: () => this.$emit('open', navigation.album),
+      })
+    },
+  },
 }))
 
 class TestNode {
@@ -195,6 +219,18 @@ it('keeps album playback actions available regardless of the old material prefer
   expect(playbackActions.playAlbumShuffle).toHaveBeenCalledTimes(1)
 })
 
+it('opens a recommendation immediately and seeds its detail snapshot', async () => {
+  const { root } = await mountAlbum(null)
+  ;(byClass(root, 'test-gallery-open').props.onClick as () => void)()
+  expect(playbackActions.cancel).toHaveBeenCalled()
+  expect(navigation.push).toHaveBeenCalledWith({
+    name: 'album-detail',
+    query: { artist: 'Other', title: 'Next' },
+  })
+  const { readAlbumDetailSnapshot } = await import('../albumDetailSnapshot')
+  expect(readAlbumDetailSnapshot('Other', 'Next')?.artworkCacheKey).toBe('cover')
+})
+
 it('exposes cover sampling and restores a saved color from the inline controls', async () => {
   const { root, storage } = await mountAlbum(null)
   const preference = byClass(root, 'album-color-preference')
@@ -214,4 +250,10 @@ it('exposes cover sampling and restores a saved color from the inline controls',
   ;(byClass(preference, 'album-color-reset').props.onClick as () => void)()
   await nextTick()
   expect(JSON.parse(storage.get('auralis-album-color-preferences-v1')!).preferences).toEqual([])
+})
+
+it('does not pass library selection to the detail track list', async () => {
+  const { root } = await mountAlbum(null)
+  expect(byClass(root, 'test-detail-track-list').props['selected-track-id']).toBeUndefined()
+  expect(byClass(root, 'test-detail-track-list').props.selectedTrackId).toBeUndefined()
 })

@@ -4,10 +4,6 @@ import { createAlbumDetailEntryTransition } from '../layout/albumDetailEntryTran
 import { findAlbumTransitionFocusTarget } from '@renderer/features/albums/utils/albumGridTransitionPlan'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import { hasCdViewSwitchTransition } from '@renderer/features/albums/utils/cdViewSwitchTransition'
-import {
-  commitAlbumDetailPreparation,
-  prepareAlbumDetailNavigation,
-} from '@renderer/features/albums/prepareAlbumDetailPalette'
 
 interface AppRouteTransitionOptions {
   route: RouteLocationNormalizedLoaded
@@ -17,8 +13,6 @@ interface AppRouteTransitionOptions {
   syncCdViewSwitch(): void
   getAlbumDetailColors(): Record<string, string>
   releaseAlbumDetailColors(): void
-  waitForAlbumDetailColors(signal: AbortSignal): Promise<void>
-  onAlbumDetailTimeout(): void
 }
 
 export function useAppRouteTransitions({
@@ -29,8 +23,6 @@ export function useAppRouteTransitions({
   syncCdViewSwitch,
   getAlbumDetailColors,
   releaseAlbumDetailColors,
-  waitForAlbumDetailColors,
-  onAlbumDetailTimeout,
 }: AppRouteTransitionOptions) {
   /** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
   const previousRouteName = ref(route.name)
@@ -45,19 +37,13 @@ export function useAppRouteTransitions({
   const leavingInertStates = new WeakMap<HTMLElement, boolean>()
   let shouldRestoreRouteFocus = false
   let albumListReturnFocus: { albumKey: string; selector: string } | null = null
-  const albumDetailEntryTransition = createAlbumDetailEntryTransition(
-    undefined,
-    () => {
-      albumDetailColorReady.value = true
-      return getAlbumDetailColors()
+  const albumDetailEntryTransition = createAlbumDetailEntryTransition({
+    root: () => mainRef.value,
+    started: () => {
+      getAlbumDetailColors()
     },
-    releaseAlbumDetailColors,
-    waitForAlbumDetailColors,
-    () => {
-      albumDetailColorReady.value = true
-      onAlbumDetailTimeout()
-    },
-  )
+    finished: releaseAlbumDetailColors,
+  })
   const albumDetailTransitionHooks = computed(() =>
     isAlbumRouteTransitioning.value
       ? {
@@ -69,13 +55,16 @@ export function useAppRouteTransitions({
       : {},
   )
 
-  const removeBeforeEach = router.beforeEach(beforeNavigate)
-  const removePaletteGuard = router.beforeEach(prepareAlbumDetailNavigation)
+  const removeBeforeEach = router.beforeEach((to, from) => {
+    beforeNavigate()
+    albumDetailEntryTransition.prepare(to, from)
+  })
 
   const removeAfterEach = router.afterEach((to, from, failure) => {
-    if (failure) return
-    commitAlbumDetailPreparation(to, failure)
-    albumDetailEntryTransition.cancel()
+    if (failure) {
+      albumDetailEntryTransition.cancel()
+      return
+    }
     albumRouteRevision += 1
     const focused = document.activeElement
     const mainHasFocus = focused instanceof HTMLElement && !!mainRef.value?.contains(focused)
@@ -109,10 +98,14 @@ export function useAppRouteTransitions({
             hasCdViewSwitchTransition('index', 'browse')
           ? 'leave'
           : null
-    isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
+    isAlbumDetailEntering.value =
+      to.name === 'album-detail' &&
+      (from.name === 'albums' ||
+        (from.name === 'album-detail' &&
+          (from.query.artist !== to.query.artist || from.query.title !== to.query.title)))
     isAlbumRouteTransitioning.value =
       isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
-    isAlbumRouteInteractionLocked.value = isAlbumRouteTransitioning.value
+    isAlbumRouteInteractionLocked.value = false
     albumDetailColorReady.value = !isAlbumDetailEntering.value
     albumDetailEntryTransition.configure(!isAlbumDetailEntering.value)
     shouldRestoreRouteFocus =
@@ -122,7 +115,7 @@ export function useAppRouteTransitions({
 
   /**
    * 路由过渡规则：
-   * 1. 列表与专辑详情之间直接切换
+   * 1. 列表与专辑详情之间以封面衔接和短淡入切换
    * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
    * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
    * 5. 其余路由切换：不使用 CSS 过渡，立即完成
@@ -148,6 +141,7 @@ export function useAppRouteTransitions({
 
   function onTransitionEnter(): void {
     if (cdIndexSlideDirection.value) syncCdViewSwitch()
+    if (isAlbumRouteTransitioning.value) void restoreRouteFocus(albumRouteRevision)
   }
 
   function onTransitionBeforeLeave(element: Element): void {
@@ -209,7 +203,6 @@ export function useAppRouteTransitions({
   // The shell calls this before disposing layout transitions, matching App's teardown order.
   function dispose(): void {
     removeBeforeEach()
-    removePaletteGuard()
     removeAfterEach()
     albumRouteRevision += 1
     shouldRestoreRouteFocus = false
@@ -233,6 +226,7 @@ export function useAppRouteTransitions({
     restoreLeavingInteractivity,
     onTransitionAfterEnter,
     onTransitionEnterCancelled,
+    cancelAlbumNavigation: () => albumDetailEntryTransition.cancel(),
     dispose,
   }
 }

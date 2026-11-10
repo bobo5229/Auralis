@@ -11,10 +11,9 @@ const props = defineProps<{
   albums: AlbumSummary[]
   artistLabel: string
   genreLabel: string
-  opening: boolean
   singleRow?: boolean
 }>()
-const emit = defineEmits<{ open: [album: AlbumSummary, event: MouseEvent] }>()
+const emit = defineEmits<{ open: [album: AlbumSummary] }>()
 const { t, locale } = useI18n()
 const { songText } = useChineseTextDisplay()
 const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
@@ -72,7 +71,9 @@ function updateMoreAlbumsScrollState(scroller: HTMLElement | null): void {
     albumGalleryCapacity(
       availableWidth,
       parseFloat(style.getPropertyValue('--gallery-card-min-width')),
-      parseFloat(style.columnGap),
+      // The rendered gap may be a percentage-based clamp(), and depends on this capacity.
+      // Use the stable minimum gap to avoid feeding the layout result back into its input.
+      parseFloat(style.getPropertyValue('--gallery-card-gap')),
     ),
   )
   if (props.singleRow) {
@@ -198,6 +199,7 @@ onBeforeUnmount(() => {
         'is-at-end': isMoreScrolledToEnd,
         'is-unscrollable': !isMoreScrollable,
         'is-single-row': singleRow,
+        'is-full-row': singleRow && rowCapacity > 1 && visibleAlbums.length === rowCapacity,
       }"
       @scroll="onMoreAlbumsScroll"
       @wheel="onMoreAlbumsWheel"
@@ -205,13 +207,13 @@ onBeforeUnmount(() => {
       <button
         v-for="album in visibleAlbums"
         :key="album.key"
+        :data-album-key="album.key"
         type="button"
         class="album-more-gallery-card"
         :aria-label="
           t('albums.detail.openAlbumAria', { title: formatDisplayAlbumTitle(album.title) })
         "
-        :disabled="opening"
-        @click="emit('open', album, $event)"
+        @click="emit('open', album)"
       >
         <div class="album-more-gallery-visual">
           <div class="album-more-gallery-cover">
@@ -239,7 +241,10 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div class="album-more-gallery-meta">
-          <p class="album-more-gallery-album-title">
+          <p
+            v-tooltip.overflow="formatDisplayAlbumTitle(album.title)"
+            class="album-more-gallery-album-title"
+          >
             {{ formatDisplayAlbumTitle(album.title) }}
           </p>
           <p class="album-more-gallery-year">

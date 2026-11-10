@@ -395,48 +395,18 @@ function handleNext(): void {
               />
             </svg>
           </button>
-          <div v-if="isFullLayout" class="player-bar-full-mode">
-            <button
-              ref="modeButtonRef"
-              v-tooltip="playbackModeTooltip"
-              class="player-bar-control player-bar-mode-trigger"
-              :class="{ 'player-bar-control-active': isModeMenuOpen }"
-              data-testid="player-mode-button"
-              type="button"
-              :aria-label="playbackModeLabel"
-              aria-haspopup="menu"
-              :aria-expanded="isModeMenuOpen"
-              @click="toggleModeMenu"
-            >
-              <PlayerBarActionIcon :icon="playbackModeIconClass" size="compact" />
-              <span class="i-ph-caret-down h-2.5 w-2.5" aria-hidden="true" />
-            </button>
-            <div ref="modeMenuRef" class="contents">
-              <PlaybackModeMenu
-                v-if="isModeMenuOpen"
-                :current-mode="playback.state.playbackMode"
-                playbar
-                @select="handleSelectMode"
-                @close="handleModeMenuClose"
-              />
-            </div>
-          </div>
-          <div v-if="isFullLayout" class="player-bar-full-time" aria-hidden="true">
-            <span>{{ elapsedClock }}</span>
-            <span class="player-bar-full-time-divider">/</span>
-            <span>{{ durationClock }}</span>
-          </div>
         </div>
 
         <TrackProgressInfo :show-progress="!isFullLayout" :show-split-clocks="!isFullLayout" />
 
         <div class="playback-actions">
           <button
-            v-if="!isFullLayout && !isUtilitiesOverflow"
+            v-if="!isUtilitiesOverflow"
             ref="modeButtonRef"
             v-tooltip="playbackModeTooltip"
             class="player-bar-control"
             :class="{ 'player-bar-control-active': isModeMenuOpen }"
+            data-testid="player-mode-button"
             type="button"
             :aria-label="playbackModeLabel"
             aria-haspopup="menu"
@@ -545,10 +515,11 @@ function handleNext(): void {
             </div>
           </div>
 
-          <div v-if="!isFullLayout" ref="modeMenuRef" class="contents">
+          <div ref="modeMenuRef" class="contents">
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
+              :anchor="isFullLayout ? modeButtonRef : null"
               playbar
               @select="handleSelectMode"
               @close="handleModeMenuClose"
@@ -562,6 +533,11 @@ function handleNext(): void {
         </div>
       </div>
 
+      <div v-if="isFullLayout" class="player-bar-full-time" aria-hidden="true">
+        <span>{{ elapsedClock }}</span>
+        <span class="player-bar-full-time-divider">/</span>
+        <span>{{ durationClock }}</span>
+      </div>
       <div v-if="isFullLayout" class="player-bar-full-progress">
         <PlayerBarProgress />
       </div>

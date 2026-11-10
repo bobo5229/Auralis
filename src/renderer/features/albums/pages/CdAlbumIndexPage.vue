@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { indexedAlbums } from '../utils/indexedAlbums'
 import ArtistLetterIndex from '@renderer/shared/components/ArtistLetterIndex.vue'
+import CdPageStatus from '../components/CdPageStatus.vue'
 import { currentArtistLetter, visibleIndex } from '@renderer/shared/artistIndexPosition'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -289,13 +290,22 @@ onBeforeUnmount(() => {
       </button>
     </header>
 
-    <div v-if="isLoading || failed || rows.length === 0" class="cd-index-status" role="status">
-      <template v-if="failed">
-        <p>{{ t('albums.status.loadError') }}</p>
-        <button type="button" @click="refresh">{{ t('albums.status.retry') }}</button>
-      </template>
-      <p v-else>{{ t(isLoading ? 'albums.status.loading' : 'albums.status.empty') }}</p>
-    </div>
+    <template v-if="isLoading || failed || rows.length === 0">
+      <CdPageStatus :loading="isLoading" :failed="failed" @retry="refresh" />
+      <button
+        v-tooltip.feedback="themeTooltip"
+        type="button"
+        class="cd-index-theme cd-index-theme--status"
+        :aria-label="themeToggleLabel"
+        @click="toggleTheme"
+      >
+        <span
+          :class="cdCanvasTheme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+          class="cd-index-theme-icon"
+          aria-hidden="true"
+        ></span>
+      </button>
+    </template>
 
     <div v-else class="cd-index-body">
       <div
@@ -489,8 +499,7 @@ onBeforeUnmount(() => {
   padding: 16px 24px 8px;
 }
 
-.cd-index-back,
-.cd-index-status button {
+.cd-index-back {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -521,31 +530,9 @@ onBeforeUnmount(() => {
 .cd-index-back:focus-visible,
 .cd-index-theme:focus-visible,
 .cd-index-card:focus-visible,
-.cd-index-letters :deep(button):focus-visible,
-.cd-index-status button:focus-visible {
+.cd-index-letters :deep(button):focus-visible {
   outline: 2px solid var(--cd-focus-ring);
   outline-offset: 3px;
-}
-
-.cd-index-status {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--cd-text-muted);
-}
-
-.cd-index-status p {
-  margin: 0;
-}
-
-.cd-index-status button {
-  min-height: 32px;
-  padding: 0 14px;
-  border-color: var(--cd-border);
-  border-radius: 3px;
 }
 
 .cd-index-body {
@@ -738,6 +725,27 @@ onBeforeUnmount(() => {
   height: 11px;
   max-width: 100%;
   max-height: 80%;
+}
+
+.cd-index-theme--status {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.cd-index-theme--status:hover {
+  color: var(--cd-text);
 }
 
 :where([data-reduced-motion='false']) .cd-index-card--return .cd-index-cover {

@@ -24,6 +24,7 @@ import { useArtworkPalette } from '@renderer/shared/artwork/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
 import CdPlaybackInfo from '../components/CdPlaybackInfo.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
+import CdPageStatus from '../components/CdPageStatus.vue'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
@@ -411,14 +412,13 @@ onBeforeUnmount(() => {
         :tracks="trackPanelRef"
         :playback-information="playbackInfoRef"
       />
-      <div v-if="loading || failed || !count" class="cd-status" role="status">
-        <template v-if="failed">
-          <p>{{ t('albums.status.loadError') }}</p>
-          <button type="button" @click="loadAlbums">{{ t('albums.status.retry') }}</button>
-        </template>
-        <p v-else>{{ t(loading ? 'albums.status.loading' : 'albums.status.empty') }}</p>
-      </div>
     </div>
+    <CdPageStatus
+      v-if="loading || failed || !count"
+      :loading="loading"
+      :failed="failed"
+      @retry="loadAlbums"
+    />
     <footer ref="controlsRef" class="cd-controls" :inert="starting || focused">
       <span class="sr-only" role="status" aria-live="polite">
         {{ count ? t('albums.cd.position', { index: selected + 1, total: count }) : '' }}
@@ -476,8 +476,8 @@ onBeforeUnmount(() => {
   }
 }
 
-.cd-page--loading .cd-content > :not(.cd-status),
-.cd-page--loading > :not(.cd-header):not(.cd-content) {
+.cd-page--loading .cd-content > *,
+.cd-page--loading > :not(.cd-header):not(.cd-content):not(.cd-page-status):not(.cd-theme-toggle) {
   visibility: hidden;
 }
 .cd-tracks {
@@ -917,18 +917,6 @@ onBeforeUnmount(() => {
 }
 .cd-stage--unavailable {
   visibility: hidden;
-}
-.cd-status {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 12px;
-  font-size: var(--cd-type-status-size);
-  line-height: var(--cd-type-status-line-height);
-  font-family: var(--cd-font-text);
 }
 .cd-controls {
   display: flex;

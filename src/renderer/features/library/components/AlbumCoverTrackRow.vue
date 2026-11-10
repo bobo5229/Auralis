@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
+import PlayingIndicator from '@renderer/features/appearance/components/PlayingIndicator.vue'
 import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { formatBitrate } from '../utils/formatBitrate'
 import { isMultiValueArtist } from '@renderer/shared/media/formatArtist'

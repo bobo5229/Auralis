@@ -117,7 +117,8 @@
  * (--auralis-font-*, the English font selector and --auralis-font-disc-heading).
  * Do not propagate main-interface font changes here, and vice versa. */
 .cd-page,
-.cd-view-switch {
+.cd-view-switch,
+.cd-page-status {
   --cd-font-cjk: 'Auralis Serif SC', 'SimSun', 'Yu Mincho', serif;
   --cd-font-display: 'Auralis CD Numerals', 'Auralis CD Display', var(--cd-font-cjk);
   --cd-font-text: 'Auralis CD Text', var(--cd-font-cjk);

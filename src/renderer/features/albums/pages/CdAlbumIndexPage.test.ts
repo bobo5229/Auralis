@@ -145,7 +145,7 @@ async function flush() {
     await nextTick()
   }
 }
-async function mount(tracks: TrackListItem[] = [song()]) {
+async function mount(tracks: TrackListItem[] | Promise<TrackListItem[]> = [song()]) {
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -163,7 +163,7 @@ async function mount(tracks: TrackListItem[] = [song()]) {
       }
     },
   )
-  library.getTracks.mockResolvedValue(tracks)
+  library.getTracks.mockReturnValue(Promise.resolve(tracks))
   let changed!: Parameters<AuralisApi['library']['onChanged']>[0]
   library.onChanged.mockImplementation((callback) => {
     changed = callback
@@ -195,6 +195,30 @@ async function mount(tracks: TrackListItem[] = [song()]) {
     },
   }
 }
+
+it('shows page-level loading and empty states, then retries a failed load', async () => {
+  let resolve!: (tracks: TrackListItem[]) => void
+  const pending = new Promise<TrackListItem[]>((done) => (resolve = done))
+  const view = await mount(pending)
+  const status = () => find(view.root, (item) => hasClass(item, 'cd-page-status'))[0]
+  const contents = (item: TestNode): string => item.text + item.children.map(contents).join('')
+  expect(contents(status())).toBe('albums.status.loading')
+  expect(hasClass(status().parent!, 'cd-index-page')).toBe(true)
+  expect(find(view.root, (item) => hasClass(item, 'cd-index-back'))).toHaveLength(1)
+  expect(find(view.root, (item) => hasClass(item, 'cd-index-theme--status'))).toHaveLength(1)
+  resolve([])
+  await flush()
+  expect(contents(status())).toBe('albums.status.empty')
+  library.getTracks.mockRejectedValueOnce(new Error('offline'))
+  await view.changed([])
+  expect(contents(status())).toContain('albums.status.loadError')
+  library.getTracks.mockResolvedValue([song()])
+  const retry = find(view.root, (item) => hasClass(item, 'cd-page-status__retry'))[0]
+  ;(retry.props.onClick as () => void)()
+  await flush()
+  expect(find(view.root, (item) => hasClass(item, 'cd-page-status'))).toHaveLength(0)
+  expect(view.images()).toHaveLength(1)
+})
 
 it.each([1, 6])('loads a changed resource after an image failure with %i albums', async (count) => {
   const tracks = Array.from({ length: count }, (_, index) =>

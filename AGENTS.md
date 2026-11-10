@@ -10,7 +10,7 @@ Renderer 通过显式、类型化的 Preload/IPC 使用跨进程能力，不直�
 
 验证范围、独立验收条件和完成标准统一按[风险与验收](docs/rules/validation.md)执行。
 
-修改、实现或修复时，读取[施工者规则](docs/rules/implementation.md)与[低耦合与高内聚](docs/rules/coupling-cohesion.md)；只读审查、验收或诊断时，读取[审查者规则](docs/rules/review.md)。目标明确时直接推进，小型可逆的实现选择自行判断；仅在歧义实质影响结果、授权或风险时询问。
+修改、实现或修复时，读取[施工者规则](docs/rules/implementation.md)；只读审查、验收或诊断时，读取[审查者规则](docs/rules/review.md)。目标明确时直接推进，小型可逆的实现选择自行判断；仅在歧义实质影响结果、授权或风险时询问。
 
 用户明确指定的会话职责持续有效，最新明确请求优先。只读审查检查并报告；“审查并直接修复”授权连续完成审查、修复与必要复验。引用材料和历史记录用于参考。
 
@@ -18,17 +18,17 @@ Renderer 通过显式、类型化的 Preload/IPC 使用跨进程能力，不直�
 
 ## 专项规则
 
-涉及多个专项时合并读取，引用文件按相关性选读。
+按任务选读相关章节，涉及多个专项时合并读取；引用文件按相关性选读。
 
 | 触发条件                                                                             | 读取规则                                                                   |
 | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | 创建、复用或升级子代理，选择模型与思考强度                                           | [子代理派遣与额度](docs/rules/agent-dispatch.md)                           |
+| 调整或审查模块结构、依赖、共享状态、资源归属或进行重构                               | [低耦合与高内聚](docs/rules/coupling-cohesion.md)                         |
 | 准备依赖、构建或运行验证，排查 Windows / Electron 环境                               | [环境与操作](docs/rules/environment.md)                                    |
 | 新增、修改或审查跨进程能力、Preload API、IPC 契约与校验                              | [架构与 IPC](docs/rules/architecture.md)                                   |
 | 调整或审查曲库查询、分页与快照、数据库、音乐文件读写、元数据解析、规范化、编辑与展示 | [曲库与数据](docs/rules/library-data.md)                                   |
-| 调整或审查界面布局、播放状态、窗口尺寸或生命周期                                     | [Renderer 视觉与交互](docs/rules/renderer.md)                              |
+| 调整或审查界面布局、播放状态、窗口尺寸或生命周期                                     | [Renderer 视觉与交互](docs/rules/renderer.md)（按主题选读；圆角细则仅在涉及圆角、轮廓或嵌套关系时读取） |
 | 选择验证范围、判断完成状态或独立验收要求                                             | [风险与验收](docs/rules/validation.md)                                     |
 | 编写任务委派或跨会话的施工、审查、复验交接信息                                       | [施工提示词](docs/rules/handoff-prompts.md)                                |
-| 为 6LunaMax 编写或修订施工提示词                                                     | [6LunaMax 施工提示词撰写规则](docs/rules/6lunamax-construction-prompts.md) |
 | 冗余筛查、旧实现清理或 UI 需求收缩                                                   | [可复用经验索引](docs/lessons/README.md)（按任务选读）                     |
 | 执行用户已授权的 Git 写操作或发布，进行本地打包、安装包与产物检查                    | [Git 与发布](docs/rules/git-release.md)                                    |

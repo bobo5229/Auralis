@@ -185,16 +185,10 @@
       },
       "playbarLayout": {
         "title": "播放栏布局",
-        "description": "选择底部播放栏的布局方式。全宽布局采用通栏控制与贴底进度条。",
+        "description": "选择底部播放栏的布局方式。贴边布局沿主内容区域底部展开，进度条贴合底边。",
         "island": "悬浮岛",
-        "full": "全宽",
+        "full": "贴边",
         "persistFailed": "本次选择未保存，请重新选择以重试。"
-      },
-      "playingIcon": {
-        "title": "“播放中”图标",
-        "description": "选择播放状态所展示的图标符号。",
-        "equalizer": "三柱均衡器",
-        "blocks-wave": "方块律动"
       },
       "englishFont": {
         "title": "英文字体",
@@ -547,11 +541,9 @@
       "play": "播放",
       "shuffle": "随机播放",
       "disc": "Disc {number}",
-      "previousTracks": "上一页曲目",
-      "nextTracks": "下一页曲目",
-      "chooseDisc": "选择碟片",
-      "discPlaying": "正在播放",
-      "showPlayingTrack": "当前播放",
+      "trackList": "曲目列表",
+      "currentPlaying": "当前正在播放",
+      "currentPaused": "当前曲目已暂停",
       "unknownYear": "年份未知",
       "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",

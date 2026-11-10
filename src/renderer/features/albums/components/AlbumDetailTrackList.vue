@@ -1,157 +1,102 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
+import PlayingIndicator from '@renderer/features/appearance/components/PlayingIndicator.vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatDuration } from '@renderer/shared/media/formatDuration'
 import { resolveAlbumTrackPresentation } from '../utils/albumTrackPresentation'
 import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
-import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 
 const props = defineProps<{
   groups: { discNo: number | null; tracks: TrackListItem[] }[]
   albumArtist: string
-  selectedTrackId: number | null
   isPlaying: boolean
   currentTrackId: number | null
   highlightedTrackId: number | null
+  maxVisibleTracks: number
 }>()
-
-const emit = defineEmits<{
-  play: [trackId: number]
-}>()
-
+const emit = defineEmits<{ play: [trackId: number] }>()
 const { t } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
-const panel = ref<HTMLElement | null>(null)
-const capacity = ref(10)
-const groupIndex = ref(0)
-const offset = ref(0)
-const direction = ref(0)
-const group = computed(() => props.groups[groupIndex.value])
-const showAllDiscs = computed(
-  () =>
-    props.groups.length > 1 &&
-    props.groups.reduce((total, item) => total + item.tracks.length, 0) * 60 +
-      props.groups.length * 36 <=
-      availableHeight.value,
+const list = ref<HTMLElement | null>(null)
+const maxHeight = ref<string>()
+const hasMultipleDiscs = computed(
+  () => props.groups.filter((group) => group.tracks.length > 0).length > 1,
 )
-const availableHeight = ref(600)
-const pageIndex = computed(() => Math.floor(offset.value / capacity.value))
-const pageCount = computed(() => Math.ceil((group.value?.tracks.length ?? 0) / capacity.value))
-const startIndex = computed(() => pageIndex.value * capacity.value)
-const presentedGroups = computed(() => {
-  const groups = showAllDiscs.value ? props.groups : group.value ? [group.value] : []
-  return groups.map((item) => ({
-    discNo: item.discNo,
-    tracks: (showAllDiscs.value
-      ? item.tracks
-      : item.tracks.slice(startIndex.value, startIndex.value + capacity.value)
-    ).map((track, index) => ({
+const presentedTracks = computed(() =>
+  props.groups.flatMap((item) =>
+    item.tracks.map((track, index) => ({
       track,
+      groupStart: index === 0,
+      groupEnd: index === item.tracks.length - 1,
+      discTitle:
+        index === 0 && hasMultipleDiscs.value
+          ? t('albums.detail.disc', { number: String(item.discNo ?? 1).padStart(2, '0') })
+          : null,
       presentation: resolveAlbumTrackPresentation(
         track.id,
         track.trackNo,
-        (showAllDiscs.value ? 0 : startIndex.value) + index,
-        props.selectedTrackId,
+        index,
         props.currentTrackId,
         props.highlightedTrackId,
       ),
     })),
-  }))
-})
-const hasPrevious = computed(
-  () => !showAllDiscs.value && (groupIndex.value > 0 || pageIndex.value > 0),
-)
-const hasNext = computed(
-  () =>
-    !showAllDiscs.value &&
-    (groupIndex.value < props.groups.length - 1 || pageIndex.value + 1 < pageCount.value),
-)
-const currentTrackGroup = computed(() =>
-  props.groups.findIndex((item) => item.tracks.some((track) => track.id === props.currentTrackId)),
-)
-const discOptions = computed(() =>
-  props.groups.map((item, index) => ({
-    value: String(index),
-    label: `${discLabel(item.discNo)}${props.isPlaying && currentTrackGroup.value === index ? ` ${t('albums.detail.discPlaying')}` : ''}`,
-  })),
-)
-const currentTrackVisible = computed(() =>
-  presentedGroups.value.some((item) =>
-    item.tracks.some(({ track }) => track.id === props.currentTrackId),
   ),
 )
-const showPlayingJump = computed(
-  () => props.isPlaying && currentTrackGroup.value >= 0 && !currentTrackVisible.value,
-)
-let sizeObserver: ResizeObserver | undefined
+let observer: ResizeObserver | undefined
 
-function measureCapacity(): void {
-  const scroller = panel.value?.closest<HTMLElement>('.album-detail-scroll-wrapper')
-  if (!scroller?.clientHeight) return
-  // Reserve space for the page controls, shell insets and the largest two-line track row.
-  const available = Math.max(0, scroller.clientHeight - 150)
-  availableHeight.value = available
-  const fit = Math.floor(available / 60)
-  const singleCount = props.groups.length === 1 ? props.groups[0].tracks.length : 0
-  capacity.value =
-    singleCount > 10 && singleCount <= 12 && fit >= singleCount
-      ? singleCount
-      : Math.max(5, Math.min(10, fit))
+function measureHeight(): void {
+  const viewport = list.value
+  if (!viewport) return
+  const rows = viewport.querySelectorAll<HTMLElement>('.album-detail-track')
+  if (rows.length <= props.maxVisibleTracks) {
+    maxHeight.value = undefined
+    return
+  }
+  const style = getComputedStyle(viewport)
+  let height = 0
+  let count = 0
+  for (const child of Array.from(viewport.children)) {
+    if (!child.matches('.album-detail-track, .album-detail-disc-header')) continue
+    height += child.getBoundingClientRect().height
+    if (child.matches('.album-detail-track') && ++count === props.maxVisibleTracks) break
+  }
+  if (height > 0)
+    maxHeight.value = height + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 'px'
 }
-onMounted(() => {
-  const scroller = panel.value?.closest<HTMLElement>('.album-detail-scroll-wrapper')
-  measureCapacity()
-  if (!scroller || typeof ResizeObserver === 'undefined') return
-  sizeObserver = new ResizeObserver(measureCapacity)
-  sizeObserver.observe(scroller)
-})
-onBeforeUnmount(() => sizeObserver?.disconnect())
-
 function goToTrack(id: number | null): void {
   if (id == null) return
-  const nextGroup = props.groups.findIndex((item) => item.tracks.some((track) => track.id === id))
-  if (nextGroup < 0) return
-  const nextOffset = props.groups[nextGroup].tracks.findIndex((track) => track.id === id)
-  direction.value = nextGroup < groupIndex.value ? -1 : 1
-  groupIndex.value = nextGroup
-  offset.value = nextOffset
+  const viewport = list.value
+  const target = viewport?.querySelector<HTMLElement>('[data-track-id="' + id + '"]')
+  if (!viewport || !target) return
+  if (viewport.scrollHeight > viewport.clientHeight + 1) {
+    const bounds = viewport.getBoundingClientRect()
+    const rect = target.getBoundingClientRect()
+    viewport.scrollTo({
+      top: viewport.scrollTop + rect.top - bounds.top - (bounds.height - rect.height) / 2,
+      behavior: 'auto',
+    })
+    viewport.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+  } else target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' })
 }
-function changePage(step: number): void {
-  direction.value = step
-  if (step < 0 && pageIndex.value > 0) offset.value = (pageIndex.value - 1) * capacity.value
-  else if (step > 0 && pageIndex.value + 1 < pageCount.value)
-    offset.value = (pageIndex.value + 1) * capacity.value
-  else {
-    const next = groupIndex.value + step
-    if (next < 0 || next >= props.groups.length) return
-    groupIndex.value = next
-    offset.value = step < 0 ? Math.max(0, props.groups[next].tracks.length - 1) : 0
+onMounted(() => {
+  measureHeight()
+  goToTrack(props.highlightedTrackId)
+  if (typeof ResizeObserver !== 'undefined' && list.value) {
+    observer = new ResizeObserver(measureHeight)
+    observer.observe(list.value)
   }
-}
-function selectDisc(value: string): void {
-  const next = Number(value)
-  if (!Number.isInteger(next) || next < 0 || next >= props.groups.length) return
-  direction.value = next < groupIndex.value ? -1 : 1
-  groupIndex.value = next
-  offset.value = 0
-}
-function discLabel(discNo: number | null): string {
-  return t('albums.detail.disc', { number: String(discNo ?? 1).padStart(2, '0') })
-}
+})
+onBeforeUnmount(() => observer?.disconnect())
 watch(
-  () => props.groups,
+  [() => props.groups, () => props.maxVisibleTracks],
   () => {
-    direction.value = 0
-    groupIndex.value = 0
-    offset.value = 0
-    measureCapacity()
+    measureHeight()
     goToTrack(props.highlightedTrackId)
   },
+  { flush: 'post' },
 )
-watch(() => props.highlightedTrackId, goToTrack, { immediate: true, flush: 'sync' })
-
+watch(() => props.highlightedTrackId, goToTrack, { flush: 'post' })
 function formatDisplayArtist(artist: string | null | undefined): string {
   if (!artist || artist === 'Unknown Artist') return t('library.missing.artist')
   return songValues(artist)
@@ -159,84 +104,34 @@ function formatDisplayArtist(artist: string | null | undefined): string {
 </script>
 
 <template>
-  <div ref="panel" class="album-tracklist-panel">
-    <div v-if="hasPrevious || hasNext" class="album-track-pagination">
-      <div class="album-track-pagination-group">
-        <button
-          class="album-track-pagination-arrow"
-          type="button"
-          :disabled="!hasPrevious"
-          :aria-label="t('albums.detail.previousTracks')"
-          @click="changePage(-1)"
-        >
-          <span class="i-lucide-chevron-left" aria-hidden="true"></span>
-        </button>
-        <div class="album-track-pagination-position">
-          <span id="album-track-disc-label" class="album-track-visually-hidden">{{
-            t('albums.detail.chooseDisc')
-          }}</span>
-          <div v-if="groups.length > 1" class="album-track-disc-select">
-            <SettingsSelect
-              id="album-track-disc"
-              labelledby="album-track-disc-label"
-              :model-value="String(groupIndex)"
-              :options="discOptions"
-              :show-value-title="false"
-              @update:model-value="selectDisc"
-            />
-          </div>
-          <span v-if="pageCount > 1" class="album-track-page-number"
-            >{{ pageIndex + 1 }} / {{ pageCount }}</span
-          >
-        </div>
-        <button
-          class="album-track-pagination-arrow"
-          type="button"
-          :disabled="!hasNext"
-          :aria-label="t('albums.detail.nextTracks')"
-          @click="changePage(1)"
-        >
-          <span class="i-lucide-chevron-right" aria-hidden="true"></span>
-        </button>
-      </div>
-      <button
-        v-if="showPlayingJump"
-        class="album-track-playing-jump"
-        type="button"
-        @click="goToTrack(currentTrackId)"
-      >
-        <span class="i-lucide-audio-lines" aria-hidden="true"></span
-        >{{ t('albums.detail.showPlayingTrack') }}
-      </button>
-    </div>
+  <div class="album-tracklist-panel">
     <div
-      :key="`${groupIndex}-${pageIndex}`"
+      ref="list"
       class="album-detail-track-list"
-      :class="
-        direction < 0 ? 'album-track-enter-previous' : direction > 0 ? 'album-track-enter-next' : ''
-      "
+      :style="{ maxHeight }"
+      role="region"
+      :aria-label="t('albums.detail.trackList')"
+      tabindex="0"
     >
       <template
-        v-for="(item, groupPosition) in presentedGroups"
-        :key="`${item.discNo}-${groupPosition}`"
+        v-for="{ track, presentation, discTitle, groupStart, groupEnd } in presentedTracks"
+        :key="track.id"
       >
-        <div
-          v-if="showAllDiscs && item.discNo != null"
-          class="album-detail-disc-header"
-          role="presentation"
-        >
-          {{ discLabel(item.discNo) }}
-        </div>
+        <h2 v-if="discTitle" class="album-detail-disc-header">{{ discTitle }}</h2>
         <button
-          v-for="({ track, presentation }, index) in item.tracks"
-          :key="track.id"
+          v-tooltip="
+            presentation.current
+              ? t(isPlaying ? 'albums.detail.currentPlaying' : 'albums.detail.currentPaused')
+              : undefined
+          "
           class="album-detail-track auralis-track-row-divider"
           :class="{
-            'album-detail-track--disc-end': index === item.tracks.length - 1,
-            'album-detail-track--selected': presentation.selected,
-            'album-detail-track--playing': presentation.playing,
+            'album-detail-track--start': groupStart,
+            'album-detail-track--end': groupEnd,
+            'album-detail-track--current': presentation.current,
             'album-detail-track--search-highlight': presentation.highlighted,
           }"
+          :aria-current="presentation.current ? 'true' : undefined"
           :data-track-id="track.id"
           type="button"
           @dblclick="emit('play', track.id)"
@@ -245,9 +140,8 @@ function formatDisplayArtist(artist: string | null | undefined): string {
             <span class="album-detail-track-index">
               {{ String(presentation.displayNumber).padStart(2, '0') }}
             </span>
-            <span class="album-detail-track-play-icon i-lucide-play"></span>
             <PlayingIndicator
-              v-if="track.id === currentTrackId"
+              v-if="presentation.current"
               class="album-detail-track-eq"
               :playing="isPlaying"
             />
@@ -262,6 +156,9 @@ function formatDisplayArtist(artist: string | null | undefined): string {
               >{{ formatDisplayArtist(track.artist) }}</span
             >
           </span>
+          <span v-if="presentation.current" class="album-track-visually-hidden">{{
+            t(isPlaying ? 'albums.detail.currentPlaying' : 'albums.detail.currentPaused')
+          }}</span>
           <span class="album-detail-track-duration">{{
             formatDuration(track.durationSeconds)
           }}</span>

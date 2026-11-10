@@ -185,16 +185,10 @@
       },
       "playbarLayout": {
         "title": "Playback bar layout",
-        "description": "Choose how the bottom playback bar is arranged. The full-width layout uses an edge-to-edge control row and a flush progress bar.",
+        "description": "Choose how the bottom playback bar is arranged. The docked layout spans the bottom of the main content area, with a progress bar along its bottom edge.",
         "island": "Floating island",
-        "full": "Full width",
+        "full": "Docked",
         "persistFailed": "Your selection could not be saved. Select it again to retry."
-      },
-      "playingIcon": {
-        "title": "Now playing icon",
-        "description": "Choose the icon symbol displayed during playback.",
-        "equalizer": "Equalizer",
-        "blocks-wave": "Animated blocks"
       },
       "englishFont": {
         "title": "English font",
@@ -547,11 +541,9 @@
       "play": "Play",
       "shuffle": "Shuffle",
       "disc": "Disc {number}",
-      "previousTracks": "Previous tracks",
-      "nextTracks": "Next tracks",
-      "chooseDisc": "Choose disc",
-      "discPlaying": "Playing",
-      "showPlayingTrack": "Now playing",
+      "trackList": "Tracks",
+      "currentPlaying": "Currently playing",
+      "currentPaused": "Current track, paused",
       "unknownYear": "Unknown year",
       "unknownDate": "Unknown date",
       "unknownTitle": "Untitled track",

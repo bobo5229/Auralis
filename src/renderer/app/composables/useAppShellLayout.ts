@@ -45,8 +45,6 @@ interface AppShellLayoutOptions {
   syncCdViewSwitch(): void
   getAlbumDetailColors(): Record<string, string>
   releaseAlbumDetailColors(): void
-  waitForAlbumDetailColors(signal: AbortSignal): Promise<void>
-  onAlbumDetailTimeout(): void
 }
 
 export function useAppShellLayout({
@@ -61,8 +59,6 @@ export function useAppShellLayout({
   syncCdViewSwitch,
   getAlbumDetailColors,
   releaseAlbumDetailColors,
-  waitForAlbumDetailColors,
-  onAlbumDetailTimeout,
 }: AppShellLayoutOptions) {
   const { lyricsPanelExpanded } = useLyricsPanelVisibility()
   const { mode: lyricsPanelMode } = useLyricsPanelMode()
@@ -242,13 +238,12 @@ export function useAppShellLayout({
     syncCdViewSwitch,
     getAlbumDetailColors,
     releaseAlbumDetailColors,
-    waitForAlbumDetailColors,
-    onAlbumDetailTimeout,
     beforeNavigate: () => {
       if (transition.isGenericTransitioning)
         applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
     },
   })
+  watch(displayMode, () => routeTransitions.cancelAlbumNavigation())
   const {
     cdIndexSlideDirection,
     isAlbumDetailEntering,

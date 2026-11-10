@@ -270,7 +270,7 @@ html[data-theme-transition] :is(.page-search-tools, .library-flat-track-header) 
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-hover-fg);
   --auralis-playbar-control-disabled-fg: rgba(183, 174, 162, 0.35);
   --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
-  --auralis-playbar-hover-time-fg: #c2c6cc;
+  --auralis-playbar-hover-time-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1;
@@ -382,7 +382,7 @@ html[data-theme-transition] :is(.page-search-tools, .library-flat-track-header) 
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-control-disabled-fg: #a8adb2;
   --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
-  --auralis-playbar-hover-time-fg: #777c81;
+  --auralis-playbar-hover-time-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-highlight-soft: transparent;
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1.08;
@@ -698,10 +698,6 @@ input {
 .app-shell:has(> .player-bar[data-playbar-layout='full']) {
   --auralis-playbar-safe-area: calc(var(--auralis-full-playbar-height) + 16px);
   grid-template-rows: minmax(0, 1fr);
-}
-
-.app-shell:has(> .player-bar[data-playbar-layout='full']) > .app-sidebar {
-  padding-bottom: var(--auralis-full-playbar-height);
 }
 
 .app-shell:has(> .player-bar[data-playbar-layout='full']) > .now-playing-panel {
@@ -1096,7 +1092,7 @@ body.is-column-resizing * {
 
 /* Full-width playbar layout: one row, with the seek rail on the bottom edge. */
 .player-bar[data-playbar-layout='full'] {
-  left: 0;
+  left: var(--auralis-sidebar-width, 260px);
   right: 0;
   bottom: 0;
   height: var(--auralis-full-playbar-height);
@@ -1115,9 +1111,10 @@ body.is-column-resizing * {
 
 .player-bar .player-bar-island--full .player-bar-row {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   grid-template-areas: 'now transport actions';
   column-gap: 20px;
-  padding: 8px 24px 12px;
+  padding: 12px 24px;
 }
 
 .player-bar .player-bar-island--full .transport-controls {
@@ -1125,7 +1122,6 @@ body.is-column-resizing * {
   display: grid;
   grid-area: transport;
   grid-template-columns: repeat(3, auto);
-  grid-template-rows: auto auto;
   align-items: center;
   justify-content: center;
   gap: 0 12px;
@@ -1135,37 +1131,18 @@ body.is-column-resizing * {
   grid-row: 1;
 }
 
-.player-bar .player-bar-full-mode {
-  position: absolute;
-  display: flex;
-  top: 4px;
-  left: calc(100% + 12px);
-  z-index: 5;
-}
-
-.player-bar .player-bar-mode-trigger {
-  height: 32px;
-  gap: 3px;
-  padding: 6px 4px;
-}
-
-.player-bar .player-bar-full-mode .playback-mode-menu {
-  left: calc(100% + 8px);
-  right: auto;
-  bottom: 0;
-}
-
 .player-bar .player-bar-island--full .player-bar-full-time {
+  position: absolute;
+  right: 24px;
+  bottom: 8px;
   display: inline-flex;
-  grid-column: 1 / -1;
-  grid-row: 2;
   align-items: baseline;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 5px;
-  margin-top: 2px;
-  color: var(--auralis-text-muted);
-  font-size: 10px;
-  line-height: 14px;
+  pointer-events: none;
+  color: var(--auralis-playbar-control-fg);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1203,6 +1180,7 @@ body.is-column-resizing * {
 .player-bar .player-bar-island--full .playback-actions {
   grid-area: actions;
   gap: 8px;
+  top: -10px;
 }
 
 .player-bar .player-bar-island--full .player-bar-full-progress {
@@ -1264,7 +1242,11 @@ body.is-column-resizing * {
 @container modern-player-bar (max-width: 700px) {
   .player-bar .player-bar-island--full .player-bar-row {
     column-gap: 12px;
-    padding: 8px 16px 12px;
+    padding: 12px 16px;
+  }
+
+  .player-bar .player-bar-island--full .player-bar-full-time {
+    right: 16px;
   }
 
   .player-bar .player-bar-island--full .transport-controls {
@@ -1278,10 +1260,6 @@ body.is-column-resizing * {
 
   .player-bar .player-bar-island--full .track-subtitle {
     display: none;
-  }
-
-  .player-bar .player-bar-island--full .player-bar-full-time {
-    font-size: 9px;
   }
 }
 
@@ -3537,7 +3515,7 @@ input[type='range'].volume-overlay-slider {
 }
 :root.album-palette-reveal::view-transition-old(root),
 :root.album-palette-reveal::view-transition-new(root) {
-  animation-duration: 650ms;
+  animation-duration: 180ms;
   animation-timing-function: ease-in-out;
 }
 

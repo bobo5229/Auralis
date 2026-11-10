@@ -14,7 +14,6 @@ import {
   setAlbumColorPreference,
 } from './features/albums/albumColorPreferences'
 import { albumDetailColors, cssAlbumColor } from './features/albums/albumDetailColors'
-import { albumEntryFallback } from './features/albums/prepareAlbumDetailPalette'
 import { albumIdentityKey } from '@shared/utils/albumIdentity'
 import {
   beginCdViewSwitchTransition,
@@ -304,7 +303,6 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storage.set(key, value),
   })
   fixture.width.value = 1600
-  albumEntryFallback.value = false
   fixture.paletteReady.value = true
   fixture.detailCover = false
   fixture.detailCoverKey = 'test-cover'
@@ -328,6 +326,15 @@ afterEach(() => {
 })
 
 describe('App shell composition', () => {
+  it('keys album details by album identity, not other query parameters', async () => {
+    await mount('albums')
+    await navigate('album-detail', undefined, { artist: 'Artist', title: 'First' })
+    const first = find('.test-page')
+    await navigate('album-detail', undefined, { artist: 'Artist', title: 'First', highlight: '7' })
+    expect(find('.test-page')).toBe(first)
+    await navigate('album-detail', undefined, { artist: 'Artist', title: 'Second' })
+    expect(find('.test-page')).not.toBe(first)
+  })
   it('suppresses surface transitions when returning from album details', async () => {
     await mount('album-detail')
     await navigate('albums')
@@ -408,6 +415,25 @@ describe('App shell composition', () => {
       expect(shell.style.getPropertyValue('--album-detail-main')).toBe(automatic)
     },
   )
+  it('enters immediately with a pending palette and applies it after the fade', async () => {
+    fixture.detailCover = true
+    fixture.paletteReady.value = false
+    await mount('albums')
+    await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
+    expect(fixture.route.name).toBe('album-detail')
+    const page = find('.test-page')
+    hook('onBeforeEnter', page)
+    hook('onEnter', page)
+    await frame()
+    fixture.paletteReady.value = true
+    await flush()
+    expect(find('.app-shell').style.getPropertyValue('--album-detail-main')).toBeFalsy()
+    await finishAnimations()
+    hook('onAfterEnter', page)
+    await flush()
+    expect(find('.app-shell').style.getPropertyValue('--album-detail-main')).toBeTruthy()
+  })
+
   it('applies the album palette immediately after entering', async () => {
     fixture.detailCover = true
     await mount('albums')
@@ -429,18 +455,17 @@ describe('App shell composition', () => {
     expect(page.animations).toHaveLength(0)
   })
 
-  it('keeps fallback colors when a late palette arrives, but accepts a user preference', async () => {
+  it('accepts a late palette and retains user color preferences', async () => {
     fixture.detailCover = true
     fixture.paletteReady.value = false
     await mount('album-detail')
     fixture.route.query = { artist: 'Artist', title: 'Album' }
-    albumEntryFallback.value = true
     await flush()
     const shell = find('.app-shell')
     expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
     fixture.paletteReady.value = true
     await flush()
-    expect(shell.style.getPropertyValue('--album-detail-main')).toBeFalsy()
+    expect(shell.style.getPropertyValue('--album-detail-main')).toBeTruthy()
     const saved = { r: 207, g: 255, b: 196 }
     expect(setAlbumColorPreference([{ id: 7, createdAt: '2024-01-01' }], saved)).toBe(true)
     await flush()
@@ -449,13 +474,11 @@ describe('App shell composition', () => {
     )
   })
 
-  it('clears the fallback on navigation away', async () => {
+  it('clears detail colors on navigation away', async () => {
     fixture.detailCover = true
     await mount('album-detail')
-    albumEntryFallback.value = true
     await flush()
     await navigate('albums')
-    expect(albumEntryFallback.value).toBe(false)
     expect(find('.app-shell').classList.contains('has-album-detail-color')).toBe(false)
   })
 
@@ -717,13 +740,13 @@ describe('App shell composition', () => {
     await navigate('album-detail', undefined, { artist: 'Artist', title: 'Album' })
     const old = new ShellTestElement()
     hook('onBeforeEnter', old)
-    expect(main.inert).toBe(true)
+    expect(main.inert).toBe(false)
     await navigate('albums')
     const latest = new ShellTestElement()
     hook('onBeforeEnter', latest)
     hook('onAfterEnter', old)
     await flush()
-    expect(main.inert).toBe(true)
+    expect(main.inert).toBe(false)
     const card = new ShellTestElement()
     card.className = 'album-card'
     card.setAttribute('data-album-key', albumIdentityKey('Artist', 'Album'))
@@ -737,7 +760,7 @@ describe('App shell composition', () => {
     expect(doc.activeElement).toBe(cover)
   })
 
-  it('unlocks the returning list immediately without a page animation', async () => {
+  it('keeps the returning list interactive while fading it in', async () => {
     await mount('album-detail')
     find('.app-main').focus()
     await navigate('albums')
@@ -756,11 +779,12 @@ describe('App shell composition', () => {
     call('onBeforeEnter', list, () => {})
     const entered = vi.fn(() => hook('onAfterEnter', list))
     call('onEnter', list, entered)
-    await flush()
-    expect(entered).toHaveBeenCalledOnce()
+    await frame()
     expect(main.inert).toBe(false)
-    expect(detail.animations).toHaveLength(0)
-    expect(list.animations).toHaveLength(0)
+    expect(detail.animations).toHaveLength(1)
+    expect(list.animations).toHaveLength(1)
+    await finishAnimations()
+    expect(entered).toHaveBeenCalledOnce()
   })
 
   it('preserves outgoing inert state and respects focus moved to the player bar', async () => {

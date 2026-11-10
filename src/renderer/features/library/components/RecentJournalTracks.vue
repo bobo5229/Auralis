@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import PlayingIndicator from '@renderer/features/appearance/components/PreferredPlayingIndicator.vue'
+import PlayingIndicator from '@renderer/features/appearance/components/PlayingIndicator.vue'
 import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { formatDuration } from '@renderer/shared/media/formatDuration'
 
