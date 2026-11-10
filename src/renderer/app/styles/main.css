@@ -1183,6 +1183,10 @@ body.is-column-resizing * {
   top: -10px;
 }
 
+.player-bar .player-bar-island--full .queue-popover {
+  bottom: calc(100% + 8px);
+}
+
 .player-bar .player-bar-island--full .player-bar-full-progress {
   --auralis-playbar-slider-fill: var(--auralis-theme-accent);
   position: absolute;
