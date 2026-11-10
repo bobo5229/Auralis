@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
@@ -9,13 +10,41 @@ import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverla
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 
+const props = defineProps<{ anchor?: HTMLElement | null; verticalAnchor?: HTMLElement | null }>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
+const isPositioned = ref(!props.anchor)
 
 const { t } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 
 defineExpose({ element })
+
+let floatingPosition: ReturnType<typeof startFloatingPosition> | undefined
+onMounted(() => {
+  if (!props.anchor || !element.value) return
+  const anchor = props.anchor
+  floatingPosition = startFloatingPosition({
+    reference: {
+      contextElement: anchor,
+      getBoundingClientRect: () => {
+        const rect = anchor.getBoundingClientRect()
+        const top = props.verticalAnchor?.getBoundingClientRect().top ?? rect.top
+        return new DOMRect(rect.x, top, rect.width, rect.height)
+      },
+    },
+    floating: element.value,
+    profile: 'popover',
+    placement: 'top-end',
+    fallbackPlacements: ['top-start', 'bottom-end'],
+    gap: 32,
+    onPosition: (_result, first) => {
+      if (first) isPositioned.value = true
+    },
+    onError: () => emit('close'),
+  })
+})
+onBeforeUnmount(() => floatingPosition?.dispose())
 
 const { currentTrack, currentIndex, upcomingTracks, isQueueEmpty, playTrack, isActive } =
   usePlaybackQueue()
@@ -43,7 +72,7 @@ watch(currentIndex, () => {
 
 let restoreOnClose = false
 useOverlayFocusTrap({
-  isOpen: true,
+  isOpen: isPositioned,
   container: element,
   initialFocus: () =>
     element.value?.querySelector<HTMLElement>('.queue-item-active button') ?? undefined,
@@ -61,6 +90,7 @@ useOverlayFocusTrap({
   <div
     ref="element"
     class="player-overlay queue-popover"
+    :style="anchor ? { position: 'fixed', bottom: 'auto', right: 'auto' } : undefined"
     role="dialog"
     tabindex="-1"
     :aria-label="t('player.queue')"

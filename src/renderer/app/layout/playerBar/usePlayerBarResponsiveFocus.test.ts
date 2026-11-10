@@ -37,6 +37,8 @@ function setup() {
     lyricsButton: shallowRef<HTMLElement | null>(button()),
     overflowLyricsButton: shallowRef<HTMLElement | null>(null),
     modeButton: shallowRef<HTMLElement | null>(button()),
+    modeMenu: shallowRef<HTMLElement | null>(null),
+    modeOpen: ref(false),
     overflowButton: shallowRef<HTMLElement | null>(null),
     overflowPanel: shallowRef<HTMLElement | null>(null),
     queueButton: shallowRef<HTMLElement | null>(button()),
@@ -84,6 +86,27 @@ describe('responsive player bar focus', () => {
     options.overflow.value = true
     expect(more.focus).not.toHaveBeenCalled()
     await flushFocus()
+    expect(more.focus).toHaveBeenCalledWith({ preventScroll: true })
+  })
+
+  it('closes the open mode menu and moves focus to more when narrowing', async () => {
+    const { options, button, render, remove } = setup()
+    const menuItem = button()
+    const menu = button()
+    menu.contains = (target: Node | null) => target === menuItem
+    options.modeMenu.value = menu
+    options.modeOpen.value = true
+    menuItem.focus()
+    const more = button()
+    render(() => {
+      remove(menuItem)
+      options.modeMenu.value = null
+      options.modeButton.value = null
+      options.overflowButton.value = more
+    })
+    options.overflow.value = true
+    await flushFocus()
+    expect(options.closeOverflowPanels).toHaveBeenCalledOnce()
     expect(more.focus).toHaveBeenCalledWith({ preventScroll: true })
   })
 

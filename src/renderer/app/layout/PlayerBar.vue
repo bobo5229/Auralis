@@ -26,7 +26,10 @@ import {
 } from './playerBar/usePlayerBarOverlayController'
 import { usePlayerBarIslandMetrics } from './playerBar/usePlayerBarIslandMetrics'
 import { usePlayerBarResponsiveFocus } from './playerBar/usePlayerBarResponsiveFocus'
-import { shouldOverflowModernUtilities } from '@renderer/features/playback/utils/modernPlayerBarLayout'
+import {
+  shouldOverflowDockedUtilities,
+  shouldOverflowModernUtilities,
+} from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolvePlaybarAccent'
 import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/features/appearance/composables/useTheme'
@@ -182,8 +185,10 @@ const { islandInlineSize } = usePlayerBarIslandMetrics({
   enabled: isNormalPlayerDisplay,
 })
 
-const isUtilitiesOverflow = computed(
-  () => !isFullLayout.value && shouldOverflowModernUtilities(islandInlineSize.value),
+const isUtilitiesOverflow = computed(() =>
+  isFullLayout.value
+    ? shouldOverflowDockedUtilities(islandInlineSize.value)
+    : shouldOverflowModernUtilities(islandInlineSize.value),
 )
 
 function toggleQueue(): void {
@@ -276,6 +281,8 @@ usePlayerBarResponsiveFocus({
   lyricsButton: lyricsButtonRef,
   overflowLyricsButton: overflowLyricsButtonRef,
   modeButton: modeButtonRef,
+  modeMenu: modeMenuRef,
+  modeOpen: isModeMenuOpen,
   overflowButton: overflowButtonRef,
   overflowPanel: overflowPanelRef,
   queueButton: queueButtonRef,
@@ -432,7 +439,12 @@ function handleNext(): void {
           </button>
 
           <div ref="queuePopoverRef" class="contents">
-            <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
+            <PlaybackQueuePopover
+              v-if="isQueueOpen"
+              :anchor="isFullLayout ? queueButtonRef : null"
+              :vertical-anchor="isFullLayout ? playbackActionsRef : null"
+              @close="handleQueueClose"
+            />
           </div>
 
           <button
@@ -520,7 +532,9 @@ function handleNext(): void {
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
-              :anchor="isFullLayout ? modeButtonRef : null"
+              :anchor="
+                isFullLayout ? (isUtilitiesOverflow ? overflowButtonRef : modeButtonRef) : null
+              "
               :vertical-anchor="isFullLayout ? playbackActionsRef : null"
               playbar
               @select="handleSelectMode"

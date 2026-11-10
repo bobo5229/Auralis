@@ -1184,8 +1184,15 @@ body.is-column-resizing * {
 
 .player-bar .player-bar-island--full .playback-actions {
   grid-area: actions;
+  align-self: start;
   gap: 8px;
-  top: -10px;
+}
+
+.player-bar .player-bar-island--full .volume-control-group,
+.player-bar .player-bar-island--full .volume-control-group::before,
+.player-bar .player-bar-island--full .volume-inline-reveal,
+.player-bar .player-bar-island--full .volume-inline-panel {
+  height: 36px;
 }
 
 .player-bar .player-bar-island--full .player-bar-full-progress {

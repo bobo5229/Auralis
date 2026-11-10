@@ -991,9 +991,14 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    align-self: stretch;
     min-height: 0;
     box-sizing: border-box;
     padding: 28px var(--album-detail-inline-padding) 28px 16px;
+  }
+
+  .album-body-grid > :deep(.album-tracklist-panel) {
+    margin-block: auto;
   }
 
   .album-detail-wrapper > :deep(.album-more-gallery) {

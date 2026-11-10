@@ -8,6 +8,8 @@ export function usePlayerBarResponsiveFocus(options: {
   lyricsButton: Ref<HTMLElement | null>
   overflowLyricsButton: Ref<HTMLElement | null>
   modeButton: Ref<HTMLElement | null>
+  modeMenu: Ref<HTMLElement | null>
+  modeOpen: Readonly<Ref<boolean>>
   overflowButton: Ref<HTMLElement | null>
   overflowPanel: Ref<HTMLElement | null>
   queueButton: Ref<HTMLElement | null>
@@ -22,7 +24,8 @@ export function usePlayerBarResponsiveFocus(options: {
         active &&
         (active === options.lyricsButton.value || active === options.overflowLyricsButton.value)
           ? 'lyrics'
-          : active && active === options.modeButton.value
+          : active &&
+              (active === options.modeButton.value || options.modeMenu.value?.contains(active))
             ? 'mode'
             : active &&
                 (active === options.overflowButton.value ||
@@ -30,7 +33,9 @@ export function usePlayerBarResponsiveFocus(options: {
               ? 'overflow'
               : null
 
-      if (!overflow && wasOverflow) options.closeOverflowPanels()
+      if ((!overflow && wasOverflow) || (overflow !== wasOverflow && options.modeOpen.value)) {
+        options.closeOverflowPanels()
+      }
       if (!owner) return
 
       let cancelled = false
