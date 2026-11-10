@@ -216,6 +216,7 @@ function handleOverflowToggleLyrics(): void {
 
 // --- Mode menu ---
 const modeButtonRef = ref<HTMLElement | null>(null)
+const playbackActionsRef = ref<HTMLElement | null>(null)
 const modeMenuRef = ref<HTMLElement | null>(null)
 
 function toggleModeMenu(): void {
@@ -399,7 +400,7 @@ function handleNext(): void {
 
         <TrackProgressInfo :show-progress="!isFullLayout" :show-split-clocks="!isFullLayout" />
 
-        <div class="playback-actions">
+        <div ref="playbackActionsRef" class="playback-actions">
           <button
             v-if="!isUtilitiesOverflow"
             ref="modeButtonRef"
@@ -520,6 +521,7 @@ function handleNext(): void {
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
               :anchor="isFullLayout ? modeButtonRef : null"
+              :vertical-anchor="isFullLayout ? playbackActionsRef : null"
               playbar
               @select="handleSelectMode"
               @close="handleModeMenuClose"

@@ -1161,6 +1161,11 @@ body.is-column-resizing * {
   height: 52px;
 }
 
+.player-bar .player-bar-island--full .track-cover-fullscreen > span {
+  width: 20px;
+  height: 20px;
+}
+
 .player-bar .player-bar-island--full .track-text {
   height: auto;
 }
@@ -1181,10 +1186,6 @@ body.is-column-resizing * {
   grid-area: actions;
   gap: 8px;
   top: -10px;
-}
-
-.player-bar .player-bar-island--full .queue-popover {
-  bottom: calc(100% + 8px);
 }
 
 .player-bar .player-bar-island--full .player-bar-full-progress {

@@ -16,6 +16,7 @@ const props = defineProps<{
   currentMode: PlaybackMode
   playbar?: boolean
   anchor?: HTMLElement | null
+  verticalAnchor?: HTMLElement | null
 }>()
 const emit = defineEmits<{
   select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
@@ -82,13 +83,21 @@ onMounted(() => {
   const initialIndex = currentIndex >= 0 ? currentIndex : 0
   focusedIndex.value = initialIndex
   if (props.anchor && element.value) {
+    const anchor = props.anchor
     floatingPosition = startFloatingPosition({
-      reference: props.anchor,
+      reference: {
+        contextElement: anchor,
+        getBoundingClientRect: () => {
+          const rect = anchor.getBoundingClientRect()
+          const top = props.verticalAnchor?.getBoundingClientRect().top ?? rect.top
+          return new DOMRect(rect.x, top, rect.width, rect.height)
+        },
+      },
       floating: element.value,
       profile: 'popover',
       placement: 'top-end',
       fallbackPlacements: ['top-start', 'bottom-end'],
-      gap: 8,
+      gap: 32,
       onPosition: (_result, first) => {
         if (first) getMenuItems()[initialIndex]?.focus()
       },

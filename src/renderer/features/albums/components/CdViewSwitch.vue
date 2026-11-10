@@ -221,14 +221,14 @@ function open(view: CdViewSwitchTarget): void {
 
 .cd-view-switch--moving .cd-view-switch-indicator {
   transition:
-    transform var(--cd-view-switch-duration, 420ms)
+    transform var(--cd-view-switch-duration, 240ms)
       var(--cd-view-switch-easing, cubic-bezier(0.22, 1, 0.36, 1)),
-    width var(--cd-view-switch-duration, 420ms)
+    width var(--cd-view-switch-duration, 240ms)
       var(--cd-view-switch-easing, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .cd-view-switch--moving button {
-  transition: color var(--cd-view-switch-duration, 420ms)
+  transition: color var(--cd-view-switch-duration, 240ms)
     var(--cd-view-switch-easing, cubic-bezier(0.22, 1, 0.36, 1));
 }
 

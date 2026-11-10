@@ -1,5 +1,5 @@
 .app-main {
-  --cd-view-switch-duration: 420ms;
+  --cd-view-switch-duration: 240ms;
   --cd-view-switch-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -16,62 +16,88 @@
 }
 
 .cd-index-slide-enter-active,
-.app-main > .cd-index-page.cd-index-slide-return-leave-active {
-  z-index: 2;
-  transition: transform var(--cd-view-switch-duration) var(--cd-view-switch-easing);
-  will-change: transform;
-}
-.cd-index-slide-enter-from,
-.cd-index-slide-return-leave-to {
-  transform: translate3d(100%, 0, 0);
-}
-.cd-index-slide-enter-to,
-.cd-index-slide-return-leave-from {
-  transform: translate3d(0, 0, 0);
-}
-/* Hold the outgoing canvas underneath until the incoming slide completes. */
-.app-main > .cd-page.cd-index-slide-leave-active {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-.app-main > .cd-index-page.cd-index-slide-return-leave-active {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-/* Reveal the incoming browse canvas without moving or fading it. */
-.cd-index-slide-return-enter-active {
-  z-index: 1;
-}
 .cd-index-slide-leave-active,
+.cd-index-slide-return-enter-active,
+.cd-index-slide-return-leave-active {
+  transition: opacity var(--cd-view-switch-duration) var(--cd-view-switch-easing);
+}
+
+.cd-index-slide-enter-active,
 .cd-index-slide-return-enter-active {
-  animation: cd-index-slide-hold var(--cd-view-switch-duration);
+  z-index: 2;
 }
-@keyframes cd-index-slide-hold {
-  from,
-  to {
-    opacity: 1;
-  }
+
+/* Keep both canvases in the same area while their content crossfades. */
+.app-main > .cd-page.cd-index-slide-leave-active,
+.app-main > .cd-index-page.cd-index-slide-return-leave-active {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
-:where([data-reduced-motion='true']) .cd-canvas-fade-enter-active,
-:where([data-reduced-motion='true']) .cd-canvas-fade-leave-active,
-:where([data-reduced-motion='true']) .cd-index-slide-enter-active,
-:where([data-reduced-motion='true']) .cd-index-slide-leave-active,
-:where([data-reduced-motion='true']) .cd-index-slide-return-enter-active,
-:where([data-reduced-motion='true']) .app-main > .cd-index-page.cd-index-slide-return-leave-active {
+
+/* Move content independently so page backgrounds and the shared switch stay still. */
+:is(
+    .cd-index-slide-enter-active,
+    .cd-index-slide-leave-active,
+    .cd-index-slide-return-enter-active,
+    .cd-index-slide-return-leave-active
+  )
+  > * {
+  transition: translate var(--cd-view-switch-duration) var(--cd-view-switch-easing);
+}
+
+.cd-index-slide-enter-from,
+.cd-index-slide-leave-to,
+.cd-index-slide-return-enter-from,
+.cd-index-slide-return-leave-to {
+  opacity: 0;
+}
+
+.cd-index-slide-enter-from > *,
+.cd-index-slide-return-leave-to > * {
+  translate: 24px 0;
+}
+
+.cd-index-slide-leave-to > *,
+.cd-index-slide-return-enter-from > * {
+  translate: -24px 0;
+}
+
+:where([data-reduced-motion='true'])
+  :is(
+    .cd-canvas-fade-enter-active,
+    .cd-canvas-fade-leave-active,
+    .cd-index-slide-enter-active,
+    .cd-index-slide-leave-active,
+    .cd-index-slide-return-enter-active,
+    .cd-index-slide-return-leave-active
+  ),
+:where([data-reduced-motion='true'])
+  :is(
+    .cd-index-slide-enter-active,
+    .cd-index-slide-leave-active,
+    .cd-index-slide-return-enter-active,
+    .cd-index-slide-return-leave-active
+  )
+  > * {
   transition: none;
-  animation: none;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .cd-canvas-fade-enter-active,
   .cd-canvas-fade-leave-active,
   .cd-index-slide-enter-active,
   .cd-index-slide-leave-active,
   .cd-index-slide-return-enter-active,
-  .app-main > .cd-index-page.cd-index-slide-return-leave-active {
+  .cd-index-slide-return-leave-active,
+  :is(
+      .cd-index-slide-enter-active,
+      .cd-index-slide-leave-active,
+      .cd-index-slide-return-enter-active,
+      .cd-index-slide-return-leave-active
+    )
+    > * {
     transition: none;
-    animation: none;
   }
 }
