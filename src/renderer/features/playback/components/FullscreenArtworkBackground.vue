@@ -8,7 +8,6 @@ const props = defineProps<{
   artworkUrl: string | null
   active: boolean
   playing: boolean
-  motionPaused: boolean
   deferInitialization?: boolean
 }>()
 const surface = ref<HTMLElement | null>(null)
@@ -32,7 +31,6 @@ const background = useFullscreenArtworkBackground(props)
         :playing="playing"
         :visible="background.fluidVisible.value"
         :window-visible="background.windowVisible.value"
-        :motion-paused="motionPaused"
         :defer-initialization="deferInitialization"
         @unavailable="background.onFluidUnavailable"
       />

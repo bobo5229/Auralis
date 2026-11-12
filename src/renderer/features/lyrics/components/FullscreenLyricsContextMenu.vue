@@ -5,12 +5,13 @@ import type { ChineseScript } from '@renderer/shared/media/chineseText'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 
 type CloseReason = 'escape' | 'tab' | 'outside' | 'focusout' | 'scroll' | 'position-error'
-type MenuItemKey = 'script'
+type MenuItemKey = 'script' | 'clear'
 
 const props = withDefaults(
   defineProps<{
     open: boolean
     anchor: { clientX: number; clientY: number }
+    blurEnabled?: boolean
     currentScript: ChineseScript
     id?: string
   }>(),
@@ -18,6 +19,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  toggleBlur: []
   select: [script: ChineseScript]
   close: [reason: CloseReason]
 }>()
@@ -25,9 +27,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const menuRef = ref<HTMLElement | null>(null)
 const toggleRef = ref<HTMLButtonElement | null>(null)
+const clearRef = ref<HTMLButtonElement | null>(null)
 const activeIndex = ref(0)
 
-const items: readonly MenuItemKey[] = ['script']
+const items = computed<readonly MenuItemKey[]>(() =>
+  typeof props.blurEnabled === 'boolean' ? ['script', 'clear'] : ['script'],
+)
 
 const targetScript = computed<ChineseScript>(() =>
   props.currentScript === 'simplified' ? 'traditional' : 'simplified',
@@ -37,14 +42,15 @@ let tabCloseTimer: ReturnType<typeof setTimeout> | null = null
 let closeRequested = false
 
 function getItemElement(index: number): HTMLButtonElement | null {
-  const key = items[index]
+  const key = items.value[index]
   if (key === 'script') return toggleRef.value
+  if (key === 'clear') return clearRef.value
   return null
 }
 
 function focusItem(index: number): void {
-  if (items.length === 0) return
-  const clamped = (index + items.length) % items.length
+  if (items.value.length === 0) return
+  const clamped = (index + items.value.length) % items.value.length
   activeIndex.value = clamped
   void nextTick(() => getItemElement(clamped)?.focus({ preventScroll: true }))
 }
@@ -85,15 +91,17 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'End') {
     event.preventDefault()
     event.stopPropagation()
-    focusItem(items.length - 1)
+    focusItem(items.value.length - 1)
     return
   }
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     event.stopPropagation()
-    const activeKey = items[activeIndex.value]
+    const activeKey = items.value[activeIndex.value]
     if (activeKey === 'script') {
       select(targetScript.value)
+    } else if (activeKey === 'clear') {
+      emit('toggleBlur')
     }
     return
   }
@@ -210,6 +218,20 @@ onBeforeUnmount(() => {
       <span class="library-context-menu-text">{{
         t(`fullscreen.lyricsContextMenu.${targetScript}`)
       }}</span>
+    </button>
+    <button
+      v-if="typeof blurEnabled === 'boolean'"
+      ref="clearRef"
+      type="button"
+      class="library-context-menu-item"
+      role="menuitem"
+      data-testid="lyrics-blur-toggle"
+      tabindex="-1"
+      @click="emit('toggleBlur')"
+      @mouseenter="activeIndex = 1"
+    >
+      <span class="i-lucide-eye" aria-hidden="true" />
+      <span class="library-context-menu-text">{{ t(blurEnabled ? 'player.disableLyricsBlur' : 'player.enableLyricsBlur') }}</span>
     </button>
   </div>
 </template>

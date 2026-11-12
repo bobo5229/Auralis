@@ -4,7 +4,7 @@ interface ArtworkRenderer {
   dispose(): void
 }
 
-/** AMLL 的异步纹理提交不能取消：串行提交，并在最后一次提交结束后释放 GPU 资源。 */
+/** 串行提交封面，并在最后一次异步提交结束后释放 GPU 资源。 */
 export function createArtworkBackgroundSession(renderer: ArtworkRenderer) {
   let closed = false
   let version = 0

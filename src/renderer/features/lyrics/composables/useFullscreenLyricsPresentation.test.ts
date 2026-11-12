@@ -2,13 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, effectScope, nextTick, ref, shallowRef } from 'vue'
 import type { LyricsStatus } from './useTrackLyrics'
 import { useDisplayedTrackLyrics } from './useDisplayedTrackLyrics'
-import { useFullscreenLyricsTypography } from './useFullscreenLyricsTypography'
 import { useFullscreenLyricsViewport } from './useFullscreenLyricsViewport'
 import { useFullscreenLyricsPresentation } from './useFullscreenLyricsPresentation'
 import type { LyricLine } from '../types'
 
 vi.mock('./useDisplayedTrackLyrics', () => ({ useDisplayedTrackLyrics: vi.fn() }))
-vi.mock('./useFullscreenLyricsTypography', () => ({ useFullscreenLyricsTypography: vi.fn() }))
 vi.mock('./useFullscreenLyricsViewport', () => ({
   FULLSCREEN_LYRICS_FADE_TOP_RATIO: 0.07,
   FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO: 0.1,
@@ -48,11 +46,6 @@ function fixture() {
     preludeLitDotCount: computed(() => source.preludeLitDotCount.value),
     preludeElapsed: computed(() => source.preludeElapsed.value),
   })
-  const preference = ref({ fontSizePercent: 100, fontWeight: 700, lineGapPercent: 100 })
-  vi.mocked(useFullscreenLyricsTypography).mockReturnValue({
-    preference,
-    style: ref({}),
-  } as unknown as ReturnType<typeof useFullscreenLyricsTypography>)
   const refresh = vi.fn(),
     onWheel = vi.fn(),
     onKeydown = vi.fn(),
@@ -99,7 +92,7 @@ function fixture() {
     frames.clear()
     for (const cb of callbacks) cb(0)
   }
-  return { session, source, preference, refresh, frames, isOpen, currentTrackId, flushFrame }
+  return { session, source, refresh, frames, isOpen, currentTrackId, flushFrame }
 }
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup()
@@ -134,27 +127,26 @@ describe('useFullscreenLyricsPresentation', () => {
     f.session.seekToLyricLine(0)
     expect(seekTo).toHaveBeenCalledOnce()
   })
-  it('coalesces typography and content layout requests into one frame and cancels on close', async () => {
+  it('coalesces content layout requests into one frame and cancels on close', async () => {
     const f = fixture()
-    f.preference.value.fontSizePercent = 120
+    f.source.parsedLines.value = [{ id: 'first', timeSeconds: 4, text: '第一版' }]
     await nextTick()
     expect(f.frames.size).toBe(1)
-    f.preference.value.lineGapPercent = 150
     f.source.parsedLines.value = [{ id: 'two', timeSeconds: 8, text: '新歌词' }]
     await nextTick()
     expect(f.frames.size).toBe(1)
     f.flushFrame()
     expect(f.refresh).toHaveBeenCalledOnce()
     expect(f.refresh).toHaveBeenCalledWith('auto', true)
-    f.preference.value.fontWeight = 800
+    f.source.parsedLines.value = [{ id: 'third', timeSeconds: 12, text: '第三版' }]
     await nextTick()
     f.isOpen.value = false
     expect(f.frames.size).toBe(0)
-    f.preference.value.fontSizePercent = 130
+    f.source.parsedLines.value = []
     await nextTick()
     expect(f.frames.size).toBe(0)
     f.isOpen.value = true
-    f.preference.value.fontSizePercent = 140
+    f.source.parsedLines.value = [{ id: 'fourth', timeSeconds: 16, text: '第四版' }]
     await nextTick()
     expect(f.frames.size).toBe(1)
     f.session.dispose()

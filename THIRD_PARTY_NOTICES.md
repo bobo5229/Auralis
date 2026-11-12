@@ -1,5 +1,16 @@
 # Third-party notices
 
+## Apple Music Like Lyrics (AMLL)
+
+The fullscreen artwork background uses `@applemusic-like-lyrics/core` 0.6.0
+from [amll-dev/applemusic-like-lyrics](https://github.com/amll-dev/applemusic-like-lyrics).
+The package is licensed under **AGPL-3.0-only**, not MIT. Its complete license
+text is included in the installed package at
+`node_modules/@applemusic-like-lyrics/core/LICENSE` and available in the
+[upstream LICENSE](https://github.com/amll-dev/applemusic-like-lyrics/blob/main/LICENSE).
+The application integrates the package's MeshGradientRenderer without modifying
+the dependency source.
+
 ## Startup album card fonts
 
 The card bundles local WOFF2 editions of:
@@ -139,3 +150,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Liquid Glass Standard filter
+
+The Standard displacement map and filter in `src/renderer/app/layout/playerBar/liquidGlass/` are adapted from `@wxperia/liquid-glass-vue` 1.0.9 (package declares MIT), based on rdev/liquid-glass-react. The product uses a local TypeScript/Vue adapter; no upstream Worker or full component is shipped.
+
+Copyright 2025 MAX ROVENSKY
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+

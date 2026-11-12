@@ -125,11 +125,11 @@ export default defineConfig({
       'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_80px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-md cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
-    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
+    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-semibold text-[24px] leading-9 py-3',
     'lyric-inactive':
-      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
+      'text-[var(--auralis-lyrics-inactive)] font-semibold text-[24px] leading-9 py-3',
     'lyric-prelude':
-      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
+      'text-[var(--auralis-lyrics-inactive)] font-semibold text-[24px] leading-9 py-3',
     'lyric-empty': 'h-3 py-0',
   },
 })

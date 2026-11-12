@@ -12,7 +12,7 @@ import PlainLyricsView from './PlainLyricsView.vue'
 import LyricsEmptyState from './LyricsEmptyState.vue'
 
 const { t } = useI18n()
-const { effects } = useLyricsEffectsPreference()
+const { effects, persistFailed: effectsPersistFailed, setEnabled } = useLyricsEffectsPreference()
 const props = withDefaults(defineProps<{ active?: boolean; interactive?: boolean }>(), {
   active: true,
   interactive: true,
@@ -58,6 +58,11 @@ function closeMenu(restoreFocus = false): void {
 
 function onMenuClose(reason: string): void {
   closeMenu(reason === 'escape' || reason === 'position-error')
+}
+
+function toggleBlur(): void {
+  setEnabled('blur', !effects.blur)
+  closeMenu(true)
 }
 
 function selectScript(script: ChineseScript): void {
@@ -168,7 +173,7 @@ defineExpose({ prepareForDisplay })
         :aria-controls="menuOpen ? 'normal-lyrics-context-menu' : undefined"
       />
     </div>
-    <p v-if="enabled && lyricsPersistFailed" class="lyrics-panel-save-status" role="status">
+    <p v-if="enabled && (lyricsPersistFailed || effectsPersistFailed.blur)" class="lyrics-panel-save-status" role="status">
       {{ t('fullscreen.lyricsContextMenu.persistFailed') }}
     </p>
     <Teleport to="body">
@@ -178,6 +183,8 @@ defineExpose({ prepareForDisplay })
           :open="menuOpen"
           :anchor="anchor"
           :current-script="lyricsScript"
+          :blur-enabled="status === 'lrc' ? effects.blur : undefined"
+          @toggle-blur="toggleBlur"
           @select="selectScript"
           @close="onMenuClose"
         />

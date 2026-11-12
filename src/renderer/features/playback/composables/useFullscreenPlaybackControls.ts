@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
 import type { PlaybackPublicApi } from './usePlayback'
 import { usePlaybackMetadataDisplay } from './usePlaybackMetadataDisplay'
-import { useFullscreenInfoTypography } from './useFullscreenInfoTypography'
 import { usePlaybackProgressInteraction } from './usePlaybackProgressInteraction'
 
 interface Options {
@@ -24,17 +23,6 @@ export function useFullscreenPlaybackControls({
   const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
   const imgError = ref(false)
   const progressFillRef = ref<HTMLElement | null>(null)
-  const { preference: infoTypography, style: infoTypographyStyle } = useFullscreenInfoTypography()
-
-  // The lines carry their own size and weight so a parent variable cannot leave the subtitle inherited.
-  const titleTypographyStyle = computed(() => ({
-    fontSize: `${infoTypography.value.titleFontSizePx}px`,
-    fontWeight: infoTypography.value.titleFontWeight,
-  }))
-  const subtitleTypographyStyle = computed(() => ({
-    fontSize: `${infoTypography.value.subtitleFontSizePx}px`,
-    fontWeight: infoTypography.value.subtitleFontWeight,
-  }))
   const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
   const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
   const title = computed(
@@ -139,9 +127,6 @@ export function useFullscreenPlaybackControls({
     artworkUrl,
     title,
     subtitle,
-    infoTypographyStyle,
-    titleTypographyStyle,
-    subtitleTypographyStyle,
     currentTimeLabel,
     remainingTimeLabel,
     volumeIconClass,

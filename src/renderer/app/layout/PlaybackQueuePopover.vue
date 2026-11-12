@@ -10,7 +10,10 @@ import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverla
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 
-const props = defineProps<{ anchor?: HTMLElement | null; verticalAnchor?: HTMLElement | null }>()
+const props = defineProps<{
+  anchor?: HTMLElement | null
+  verticalAnchor?: HTMLElement | null
+}>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
 const isPositioned = ref(!props.anchor)
@@ -29,8 +32,8 @@ onMounted(() => {
       contextElement: anchor,
       getBoundingClientRect: () => {
         const rect = anchor.getBoundingClientRect()
-        const top = props.verticalAnchor?.getBoundingClientRect().top ?? rect.top
-        return new DOMRect(rect.x, top, rect.width, rect.height)
+        const vertical = props.verticalAnchor?.getBoundingClientRect() ?? rect
+        return new DOMRect(rect.x, vertical.top, rect.width, vertical.height)
       },
     },
     floating: element.value,

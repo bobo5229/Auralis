@@ -89,8 +89,8 @@ onMounted(() => {
         contextElement: anchor,
         getBoundingClientRect: () => {
           const rect = anchor.getBoundingClientRect()
-          const top = props.verticalAnchor?.getBoundingClientRect().top ?? rect.top
-          return new DOMRect(rect.x, top, rect.width, rect.height)
+          const vertical = props.verticalAnchor?.getBoundingClientRect() ?? rect
+          return new DOMRect(rect.x, vertical.top, rect.width, vertical.height)
         },
       },
       floating: element.value,

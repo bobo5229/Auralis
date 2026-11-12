@@ -130,12 +130,14 @@ function makeDocumentStub(): {
   return stub
 }
 
-function mountMenu(currentScript: 'simplified' | 'traditional' = 'simplified') {
+function mountMenu(currentScript: 'simplified' | 'traditional' = 'simplified', blurEnabled?: boolean) {
   const props = reactive({
     open: false,
     anchor: { clientX: 40, clientY: 50 },
     currentScript,
+    blurEnabled,
   })
+  const toggleBlur = vi.fn()
   const select = vi.fn()
   const close = vi.fn()
   const root = new TestNode('root')
@@ -145,13 +147,15 @@ function mountMenu(currentScript: 'simplified' | 'traditional' = 'simplified') {
         open: props.open,
         anchor: props.anchor,
         currentScript: props.currentScript,
+        blurEnabled: props.blurEnabled,
+        onToggleBlur: toggleBlur,
         onSelect: select,
         onClose: close,
       }),
   })
   app.mount(root)
   props.open = true
-  return { app, root, props, select, close }
+  return { app, root, props, select, close, toggleBlur }
 }
 
 beforeEach(() => {
@@ -273,5 +277,37 @@ it('disposes positioning sessions when repositioned, closed and unmounted', asyn
   await nextTick()
   expect(second.disposed).toBe(true)
   expect(findRole(root, 'menu')).toBeUndefined()
+  app.unmount()
+})
+
+it('shows the action for the current blur state and supports pointer activation', async () => {
+  const { app, root, props, toggleBlur } = mountMenu('simplified', true)
+  await nextTick()
+  const item = find(root, node => node.props['data-testid'] === 'lyrics-blur-toggle')!
+  expect(find(item, node => node.textContent === 'player.disableLyricsBlur')).toBeDefined()
+  callHandler(item, 'onClick', {})
+  expect(toggleBlur).toHaveBeenCalledOnce()
+  props.blurEnabled = false
+  await nextTick()
+  expect(find(item, node => node.textContent === 'player.enableLyricsBlur')).toBeDefined()
+  app.unmount()
+})
+
+it('navigates between script and clear lyrics and activates the blur action from the keyboard', async () => {
+  const { app, root, toggleBlur, select } = mountMenu('simplified', true)
+  await nextTick()
+  const menu = findRole(root, 'menu')!
+  const clear = find(root, node => node.props['data-testid'] === 'lyrics-blur-toggle')!
+  callHandler(menu, 'onKeydown', { key: 'End', preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  await nextTick()
+  expect(activeDocument?.activeElement).toBe(clear)
+  for (const key of ['Enter', ' ']) {
+    callHandler(menu, 'onKeydown', { key, preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  }
+  expect(toggleBlur).toHaveBeenCalledTimes(2)
+  expect(select).not.toHaveBeenCalled()
+  callHandler(menu, 'onKeydown', { key: 'ArrowDown', preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  await nextTick()
+  expect(activeDocument?.activeElement).toBe(findRole(root, 'menuitem'))
   app.unmount()
 })

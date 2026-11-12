@@ -21,12 +21,10 @@ const props = withDefaults(
     target: HTMLElement | null
     enabled: boolean
     visible: boolean
-    motionPaused?: boolean
     windowVisible?: boolean
     deferInitialization?: boolean
   }>(),
   {
-    motionPaused: false,
     windowVisible: true,
     deferInitialization: false,
   },
@@ -51,9 +49,6 @@ let committedArtworkUrl: string | null | undefined
 let readyArtworkUrl: string | null | undefined
 let readinessSupported = true
 
-const FLUID_BACKGROUND_FEATHER_PX = 12
-const FLUID_BACKGROUND_SCALE = 1.08
-
 const FALLBACK_ALBUM =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%230e1117'/%3E%3C/svg%3E"
 function cancelPrime(): void {
@@ -77,7 +72,7 @@ function syncRendererState(): void {
   if (!background) return
   cancelPrime()
 
-  background.setStaticMode(props.motionPaused || reducedMotionQuery?.matches === true)
+  background.setStaticMode(reducedMotionQuery?.matches === true)
   background.setFlowSpeed(props.playing ? 1.6 : 0.6)
   background.setFPS(props.playing ? 60 : 12)
 
@@ -297,9 +292,6 @@ async function initializeBackground(): Promise<void> {
     canvas.style.width = '100%'
     canvas.style.height = '100%'
     canvas.style.zIndex = '0'
-    canvas.style.filter = `blur(${FLUID_BACKGROUND_FEATHER_PX}px)`
-    canvas.style.transform = `scale(${FLUID_BACKGROUND_SCALE})`
-    canvas.style.transformOrigin = 'center'
     container.prepend(canvas)
     background.setRenderScale(0.5)
     background.setLowFreqVolume(0)
@@ -367,7 +359,6 @@ watch(
     props.playing,
     props.visible,
     props.target,
-    props.motionPaused,
     props.windowVisible,
     props.deferInitialization,
   ],

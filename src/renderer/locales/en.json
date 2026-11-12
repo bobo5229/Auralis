@@ -183,9 +183,15 @@
         "emphasized": "Emphasized",
         "persistFailed": "Applied, but could not save this preference."
       },
+      "playbarMaterial": {
+        "title": "Floating bar material",
+        "frosted": "Frosted",
+        "liquid": "Liquid Glass",
+        "persistFailed": "Applied, but could not save this preference."
+      },
       "playbarLayout": {
         "title": "Playback bar layout",
-        "description": "Choose how the bottom playback bar is arranged. The docked layout spans the bottom of the main content area, with a progress bar along its bottom edge.",
+        "description": "Choose the playback bar layout. The docked layout spans the main content area.",
         "island": "Floating island",
         "full": "Docked",
         "persistFailed": "Your selection could not be saved. Select it again to retry."
@@ -369,6 +375,8 @@
     }
   },
   "player": {
+    "disableLyricsBlur": "Disable lyrics blur",
+    "enableLyricsBlur": "Enable lyrics blur",
     "play": "Play",
     "pause": "Pause",
     "playbackLoading": "Loading audio",
@@ -409,54 +417,12 @@
     }
   },
   "fullscreen": {
-    "settings": "Fullscreen settings",
-    "closeSettings": "Close fullscreen settings",
     "overlayAria": "Fullscreen player",
     "exit": "Exit fullscreen player",
     "repeatEnableOne": "Enable repeat one",
     "repeatDisable": "Disable repeat",
     "repeatEnableAll": "Enable repeat all",
     "lyricsStartingSoon": "Lyrics starting soon",
-    "background": {
-      "section": "Background",
-      "pause": "Pause background"
-    },
-    "info": {
-      "section": "Track information",
-      "title": "Title",
-      "subtitle": "Subtitle",
-      "titleFontSize": "Title size",
-      "titleFontWeight": "Title weight",
-      "subtitleFontSize": "Subtitle size",
-      "subtitleFontWeight": "Subtitle weight",
-      "reset": "Restore defaults",
-      "resetStatus": "Default track information settings restored",
-      "persistFailed": "Changes are applied, but could not be saved. They may reset after restarting.",
-      "weights": {
-        "400": "Regular (400)",
-        "500": "Medium (500)",
-        "600": "Semibold (600)",
-        "700": "Bold (700)",
-        "800": "Extra bold (800)"
-      }
-    },
-    "lyrics": {
-      "section": "Lyrics",
-      "fontSize": "Font size",
-      "fontWeight": "Font weight",
-      "lineGap": "Line spacing",
-      "scaleDescription": "Font size and line spacing use the adaptive defaults at 100%.",
-      "reset": "Restore defaults",
-      "resetStatus": "Default lyrics settings restored",
-      "persistFailed": "Changes are applied, but could not be saved. They may reset after restarting.",
-      "weights": {
-        "400": "Regular (400)",
-        "500": "Medium (500)",
-        "600": "Semibold (600)",
-        "700": "Bold (700)",
-        "800": "Extra bold (800)"
-      }
-    },
     "lyricsContextMenu": {
       "label": "Lyrics display",
       "simplified": "Switch to Simplified Chinese",

@@ -16,6 +16,8 @@ import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
 import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
+import IslandLiquidGlass from './playerBar/IslandLiquidGlass.vue'
+import { useIslandPlaybarMaterial } from '@renderer/features/appearance/composables/useIslandPlaybarMaterial'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
@@ -46,6 +48,8 @@ const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const { layout: playbarLayout } = usePlaybarLayout()
+const { material: islandMaterial } = useIslandPlaybarMaterial()
+const liquidReady = ref(false)
 const isFullLayout = computed(() => playbarLayout.value === 'full')
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
@@ -289,6 +293,11 @@ usePlayerBarResponsiveFocus({
   closeOverflowPanels: () => overlayController.closeMany(['overflow', 'mode']),
 })
 
+watch(islandMaterial, () => {
+  overlayController.closeAll()
+  document.querySelectorAll<HTMLElement>('.player-bar .track-progress').forEach(element => element.dispatchEvent(new Event('pointercancel')))
+})
+
 watch([isNormalPlayerDisplay, playbarLayout], () =>
   overlayController.closeMany(['mode', 'overflow']),
 )
@@ -325,12 +334,14 @@ function handleNext(): void {
 </script>
 
 <template>
+  <IslandLiquidGlass :target="islandRef" :enabled="isNormalPlayerDisplay && !isFullLayout && islandMaterial === 'liquid'" @ready="liquidReady = $event" />
   <footer
     ref="playerBarHostRef"
     class="player-bar"
     :data-playbar-layout="playbarLayout"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
+      'player-bar--liquid': liquidReady && !isFullLayout && islandMaterial === 'liquid',
     }"
     :style="playerBarStyle"
   >

@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,vue,css}\" \"docs/**/*.md\""
   },
   "dependencies": {
-    "@applemusic-like-lyrics/core": "^0.5.1",
+    "@applemusic-like-lyrics/core": "^0.6.0",
     "@floating-ui/dom": "1.8.0",
     "@pixi/app": "^7.4.3",
     "@pixi/core": "^7.4.3",

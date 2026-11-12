@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref } from 'vue'
 import AppearanceSettings from './AppearanceSettings.vue'
+import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
 import SongFontSizeInput from '@renderer/shared/components/SongFontSizeInput.vue'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
 import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
@@ -406,5 +407,23 @@ it('changes each cover information gap using the numeric controls', async () => 
   ;(input.props.onBlur as () => void)()
   await nextTick()
   expect(input.props.value).toBe('30')
+  app.unmount()
+})
+
+it('keeps both layouts without a position setting, including a stored top preference', async () => {
+  vi.stubGlobal('localStorage', { getItem: () => 'top', setItem: vi.fn() })
+  body = new TestNode('body')
+  vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() })
+  const layout = usePlaybarLayout()
+  const root = new TestNode('root')
+  const app = renderer.createApp({ render: () => h(AppearanceSettings) })
+  app.mount(root)
+  for (const value of ['full', 'island'] as const) {
+    layout.setLayout(value)
+    await nextTick()
+    expect(find(root, (node) => node.props.id === 'appearance-playbar-layout')).toBeDefined()
+    expect(find(root, (node) => node.props.id === 'appearance-playbar-position')).toBeUndefined()
+  }
   app.unmount()
 })

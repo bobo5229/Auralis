@@ -1913,6 +1913,25 @@ input[type='range'].volume-overlay-slider {
   transition: box-shadow 280ms ease;
 }
 
+/* Fill the floating sidebar gutters on the same canvas as the detail page. */
+.app-window.is-sidebar-floating:not(.is-cd-albums) > .app-shell {
+  --album-surface-color: var(--album-detail-main);
+  background: var(--album-surface-color);
+  transition:
+    grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    --album-surface-color 650ms ease;
+}
+
+.app-window.is-sidebar-floating:not(.is-cd-albums)
+  > .app-shell:is(.album-navigation-instant, .album-palette-instant) {
+  transition-duration: 280ms, 0s;
+}
+
+:where([data-reduced-motion='true'])
+  .app-window.is-sidebar-floating:not(.is-cd-albums) > .app-shell {
+  transition: none;
+}
+
 .app-shell:not(.is-cd-albums) > .app-main {
   --album-surface-color: var(--album-detail-main);
   --main-page-inset-start: 32px;
@@ -3512,6 +3531,67 @@ input[type='range'].volume-overlay-slider {
   background-clip: padding-box;
 }
 
+/* Detail-only Docked material: use the viewed album, never the playing album. */
+.app-shell.is-album-detail.has-album-detail-color > .player-bar[data-playbar-layout='full'] {
+  & > .player-bar-island--full {
+    border-top-color: color-mix(in srgb, var(--album-detail-main-text) 12%, transparent);
+    box-shadow: none;
+  }
+
+  & > .player-bar-island--full > .player-bar-surface {
+    --album-surface-color: var(--album-detail-main);
+    --auralis-parameter-surface-bg: rgb(from var(--album-surface-color) r g b / 0.28);
+    --auralis-parameter-surface-filter: blur(14px) saturate(1);
+    transition: --album-surface-color 650ms ease;
+  }
+
+  & > .player-bar-island--full > .player-bar-album-tint {
+    display: none;
+  }
+
+  /* Keep these tokens on content and controls, outside the popover surfaces. */
+  & :is(.track-info-card, .player-bar-control, .transport-control, .transport-control-primary,
+    .player-bar-full-time, .player-bar-full-progress, .volume-slider) {
+    --auralis-text: var(--album-detail-main-text);
+    --auralis-text-muted: var(--album-detail-main-muted);
+    --auralis-text-faint: var(--album-detail-main-faint);
+    --auralis-playbar-control-fg: var(--album-detail-main-text);
+    --auralis-playbar-control-strong-fg: var(--album-detail-main-text);
+    --auralis-playbar-transport-fg: var(--album-detail-main-text);
+    --auralis-playbar-control-hover-fg: var(--album-detail-main-muted);
+    --auralis-playbar-transport-hover-fg: var(--album-detail-main-muted);
+    --auralis-playbar-control-pressed-fg: var(--album-detail-main-text);
+    --auralis-playbar-control-disabled-fg: var(--album-detail-main-faint);
+    --auralis-playbar-control-focus-ring: var(--album-detail-main-text);
+    --auralis-playbar-hover-time-fg: var(--album-detail-main-text);
+    --auralis-active-album-accent: var(--album-detail-accent);
+    --auralis-playbar-slider-fill: var(--album-detail-accent);
+    --auralis-volume-fill: var(--album-detail-accent);
+    --auralis-control-hover-bg: color-mix(in srgb, var(--album-detail-main-text) 8%, transparent);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .app-shell.is-album-detail.has-album-detail-color > .player-bar[data-playbar-layout='full']
+    > .player-bar-island--full > .player-bar-surface {
+    --auralis-parameter-surface-bg: var(--album-surface-color);
+    --auralis-parameter-surface-filter: none;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .app-shell.is-album-detail.has-album-detail-color > .player-bar[data-playbar-layout='full']
+    > .player-bar-island--full > .player-bar-surface {
+    --auralis-parameter-surface-bg: var(--album-surface-color);
+    --auralis-parameter-surface-filter: none;
+  }
+}
+
+:is(.app-shell.album-navigation-instant, [data-reduced-motion='true'] .app-shell)
+  > .player-bar[data-playbar-layout='full'] > .player-bar-island--full > .player-bar-surface {
+  transition: none;
+}
+
 /* Capture both palette states without the intermediate foreground switches. */
 .app-shell.album-palette-instant > .app-main,
 .app-shell.album-palette-instant > .app-sidebar,
@@ -3562,4 +3642,13 @@ input[type='range'].volume-overlay-slider {
 :where(:root[lang='en']) .sidebar-section-label {
   text-transform: none;
   letter-spacing: normal;
+}
+
+/* Liquid paints a separate live backdrop; keep the interactive island transparent. */
+.player-bar.player-bar--liquid > .player-bar-island {
+  border-color: transparent;
+  box-shadow: none;
+}
+.player-bar.player-bar--liquid > .player-bar-island > :is(.player-bar-surface, .player-bar-album-tint) {
+  display: none;
 }

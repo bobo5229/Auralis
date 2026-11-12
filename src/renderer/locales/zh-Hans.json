@@ -183,9 +183,15 @@
         "emphasized": "强调",
         "persistFailed": "已应用，本次保存未完成。"
       },
+      "playbarMaterial": {
+        "title": "悬浮播放栏材质",
+        "frosted": "毛玻璃",
+        "liquid": "Liquid Glass",
+        "persistFailed": "已应用，但未能保存此偏好。"
+      },
       "playbarLayout": {
         "title": "播放栏布局",
-        "description": "选择底部播放栏的布局方式。贴边布局沿主内容区域底部展开，进度条贴合底边。",
+        "description": "选择播放栏布局。贴边布局横跨主内容区域。",
         "island": "悬浮岛",
         "full": "贴边",
         "persistFailed": "本次选择未保存，请重新选择以重试。"
@@ -369,6 +375,8 @@
     }
   },
   "player": {
+    "disableLyricsBlur": "取消歌词模糊",
+    "enableLyricsBlur": "开启歌词模糊",
     "play": "播放",
     "pause": "暂停",
     "playbackLoading": "音频加载中",
@@ -409,54 +417,12 @@
     }
   },
   "fullscreen": {
-    "settings": "全屏设置",
-    "closeSettings": "关闭全屏设置",
     "overlayAria": "全屏播放器",
     "exit": "退出全屏播放器",
     "repeatEnableOne": "开启单曲循环",
     "repeatDisable": "关闭循环",
     "repeatEnableAll": "开启列表循环",
     "lyricsStartingSoon": "歌词即将开始",
-    "background": {
-      "section": "背景",
-      "pause": "暂停背景"
-    },
-    "info": {
-      "section": "曲目信息",
-      "title": "曲名",
-      "subtitle": "副标题",
-      "titleFontSize": "曲名字号",
-      "titleFontWeight": "曲名字重",
-      "subtitleFontSize": "副标题字号",
-      "subtitleFontWeight": "副标题字重",
-      "reset": "恢复默认",
-      "resetStatus": "已恢复曲目信息默认参数",
-      "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
-      "weights": {
-        "400": "常规（400）",
-        "500": "中等（500）",
-        "600": "半粗（600）",
-        "700": "粗体（700）",
-        "800": "特粗（800）"
-      }
-    },
-    "lyrics": {
-      "section": "歌词",
-      "fontSize": "字号",
-      "fontWeight": "字重",
-      "lineGap": "行间距",
-      "scaleDescription": "字号和行间距以当前自适应值为 100%。",
-      "reset": "恢复默认",
-      "resetStatus": "已恢复歌词默认参数",
-      "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
-      "weights": {
-        "400": "常规（400）",
-        "500": "中等（500）",
-        "600": "半粗（600）",
-        "700": "粗体（700）",
-        "800": "特粗（800）"
-      }
-    },
     "lyricsContextMenu": {
       "label": "歌词显示",
       "simplified": "切换为简体中文",

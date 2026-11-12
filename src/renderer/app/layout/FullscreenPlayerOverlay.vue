@@ -7,10 +7,8 @@ import { useFullscreenPlaybackControls } from '@renderer/features/playback/compo
 import { useFullscreenLyricsPresentation } from '@renderer/features/lyrics/composables/useFullscreenLyricsPresentation'
 import { useFullscreenLyricsMenu } from '@renderer/features/lyrics/composables/useFullscreenLyricsMenu'
 import { useFullscreenOverlayLifecycle } from '../composables/useFullscreenOverlayLifecycle'
-import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import FullscreenArtworkBackground from '@renderer/features/playback/components/FullscreenArtworkBackground.vue'
-import FullscreenBackgroundControls from '@renderer/features/playback/components/FullscreenBackgroundControls.vue'
 import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
 import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
 import LyricsFractureDots from '@renderer/features/lyrics/components/LyricsFractureDots.vue'
@@ -31,9 +29,7 @@ const { t } = useI18n()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
 const reducedMotion = useReducedMotion()
 const artworkRef = ref<HTMLElement | null>(null)
-const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundControls> | null>(null)
 const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
-const { backgroundMotionPaused } = useFullscreenBackground()
 const {
   imgError,
   progressFillRef,
@@ -41,9 +37,6 @@ const {
   artworkUrl,
   title,
   subtitle,
-  infoTypographyStyle,
-  titleTypographyStyle,
-  subtitleTypographyStyle,
   currentTimeLabel,
   remainingTimeLabel,
   volumeIconClass,
@@ -95,7 +88,6 @@ const lyricsMenu = useFullscreenLyricsMenu({
   scrollRef: lyricsScrollRef,
   closeOtherMenus: () => {
     modeControlRef.value?.close(false)
-    backgroundControlsRef.value?.close(false)
   },
   onKeydown: lyrics.handleFullscreenLyricsKeydown,
   onWheel: lyrics.handleFullscreenLyricsWheel,
@@ -127,7 +119,7 @@ const lifecycle = useFullscreenOverlayLifecycle({
       return
     }
     if (modeControlRef.value?.close()) return
-    if (!backgroundControlsRef.value?.close()) closeFullscreenPlayer()
+    closeFullscreenPlayer()
   },
 })
 const {
@@ -156,7 +148,6 @@ onBeforeUnmount(() => {
       :target="backgroundTarget"
       :artwork-url="artworkUrl"
       :active="isFullscreenPlayerOpen"
-      :motion-paused="backgroundMotionPaused"
       :playing="playback.state.isPlaying"
       :defer-initialization="deferBackgroundInitialization"
     />
@@ -193,7 +184,6 @@ onBeforeUnmount(() => {
         >
           <span class="i-lucide-chevron-down h-6 w-6" aria-hidden="true" />
         </button>
-        <FullscreenBackgroundControls ref="backgroundControlsRef" />
 
         <div class="fullscreen-player-left">
           <div class="fullscreen-player-artwork-slot">
@@ -213,9 +203,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="fullscreen-player-meta-row">
-            <div class="fullscreen-player-meta" :style="infoTypographyStyle">
-              <h1 v-tooltip.overflow="title" :style="titleTypographyStyle">{{ title }}</h1>
-              <p v-tooltip.overflow="subtitle" :style="subtitleTypographyStyle">{{ subtitle }}</p>
+            <div class="fullscreen-player-meta">
+              <h1 v-tooltip.overflow="title">{{ title }}</h1>
+              <p v-tooltip.overflow="subtitle">{{ subtitle }}</p>
             </div>
           </div>
 
@@ -593,7 +583,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 18px;
-  margin-top: 18px;
+  margin-top: 24px;
   flex-shrink: 0;
   width: 100%;
 }
@@ -608,19 +598,19 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fullscreen-info-title-font-size, 25px);
-  font-weight: var(--fullscreen-info-title-font-weight, 800);
+  font-size: 25px;
+  font-weight: 700;
   line-height: 1.18;
 }
 
 .fullscreen-player-meta p {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--auralis-text-muted);
-  font-size: var(--fullscreen-info-subtitle-font-size, 19px);
-  font-weight: var(--fullscreen-info-subtitle-font-weight, 700);
+  font-size: 18px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -674,7 +664,7 @@ onBeforeUnmount(() => {
   margin-top: 0;
   color: var(--auralis-text-muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -683,7 +673,17 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: clamp(4px, 1vw, 20px);
-  margin-top: 8px;
+  margin-top: 2px;
+}
+
+@media (min-width: 1000px) {
+  .fullscreen-player-controls > :first-child {
+    margin-right: 8px;
+  }
+
+  .fullscreen-player-controls > :last-child {
+    margin-left: 8px;
+  }
 }
 
 .fullscreen-player-control-stack {
@@ -790,8 +790,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 8px;
-  width: 100%;
+  margin: 0 auto;
+  width: 75%;
 }
 
 .fullscreen-player-volume-track {
@@ -876,12 +876,8 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player-lyrics-scroll {
-  --fullscreen-lyrics-font-size: calc(
-    clamp(22px, 2.25vw, 39px) * var(--fullscreen-lyrics-font-scale, 1)
-  );
-  --fullscreen-lyrics-line-gap: calc(
-    clamp(26px, 4vh, 52px) * var(--fullscreen-lyrics-gap-scale, 1)
-  );
+  --fullscreen-lyrics-font-size: clamp(22px, 2.25vw, 39px);
+  --fullscreen-lyrics-line-gap: calc(clamp(26px, 4vh, 52px) * 0.85);
   box-sizing: border-box;
   width: calc(min(900px, 100%) + var(--fullscreen-lyrics-left-bleed));
   height: 100%;
@@ -967,7 +963,7 @@ onBeforeUnmount(() => {
 .fullscreen-player-lyric-line {
   overflow-wrap: anywhere;
   font-size: var(--fullscreen-lyrics-font-size);
-  font-weight: var(--fullscreen-lyrics-font-weight, 800);
+  font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0;
   transform-origin: left center;

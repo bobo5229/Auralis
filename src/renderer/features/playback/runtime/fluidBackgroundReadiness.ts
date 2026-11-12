@@ -1,6 +1,6 @@
 import type { MeshGradientRenderer } from '@applemusic-like-lyrics/core'
 
-/** AMLL 0.5.1 has no public readiness hook. Observe completed draws so a
+/** AMLL 0.6.0 has no public readiness hook. Observe completed draws so a
  * parked surface can finish loading its cover and stop without continuous flow.
  * If the internal hook changes, keep native flow usable with commit readiness.
  */

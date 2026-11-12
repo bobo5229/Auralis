@@ -1,6 +1,5 @@
 import { computed, nextTick, ref, watch, type Ref } from 'vue'
 import { useDisplayedTrackLyrics } from './useDisplayedTrackLyrics'
-import { useFullscreenLyricsTypography } from './useFullscreenLyricsTypography'
 import { useLyricLineSeek } from './useLyricLineSeek'
 import {
   FULLSCREEN_LYRICS_FADE_TOP_RATIO,
@@ -26,8 +25,6 @@ export function useFullscreenLyricsPresentation(options: Options) {
   const lyricsTrackRef = ref<HTMLElement | null>(null)
   const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
   const { effect: countdownEffect } = useLyricsCountdownPreference()
-  const { preference: lyricsTypography, style: lyricsTypographyStyle } =
-    useFullscreenLyricsTypography()
   let lyricsLayoutRefreshFrame = 0
 
   const {
@@ -86,7 +83,6 @@ export function useFullscreenLyricsPresentation(options: Options) {
   })
 
   const lyricsMaskStyle = computed(() => ({
-    ...lyricsTypographyStyle.value,
     '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
     '--fullscreen-lyrics-fade-bottom': `${(1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) * 100}%`,
     '--fullscreen-lyric-active-scale': FULLSCREEN_LYRICS_ACTIVE_SCALE,
@@ -116,16 +112,7 @@ export function useFullscreenLyricsPresentation(options: Options) {
     })
   }
 
-  watch(
-    () => [
-      lyricsTypography.value.fontSizePercent,
-      lyricsTypography.value.fontWeight,
-      lyricsTypography.value.lineGapPercent,
-      fullscreenLyricLines.value,
-    ],
-    scheduleLyricsLayoutRefresh,
-    { flush: 'post' },
-  )
+  watch(fullscreenLyricLines, scheduleLyricsLayoutRefresh, { flush: 'post' })
 
   watch(
     isFullscreenPlayerOpen,
