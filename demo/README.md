@@ -33,7 +33,6 @@
 | 专辑展开过渡     | [打开](albums/album-open-transition/index.html)                                                                                                                                                                  |
 | 专辑封套 Hero    | [打开](albums/album-sleeve-hero/index.html)                                                                                                                                                                      |
 | CD 聚焦          | [打开](albums/cd-focus-demo/index.html)                                                                                                                                                                          |
-| CD 动效          | [打开](albums/cd-motion-demo/index.html)                                                                                                                                                                         |
 | CD 常规动效      | [打开](albums/cd-normal-motion/index.html)                                                                                                                                                                       |
 | CD 进度环        | [静态](albums/cd-progress-rings-static/index.html)、[诗意](albums/cd-progress-rings-poetic/index.html)、[动效](albums/cd-progress-rings-motion/index.html)、[扩展](albums/cd-progress-rings-extended/index.html) |
 | CD 频谱          | [打开](albums/cd-spectrum-live/index.html)                                                                                                                                                                       |
@@ -57,8 +56,6 @@
 
 - [歌词倒计时](playback/lyrics-countdown/index.html)
 - [正在播放图标](playback/now-playing-icons/index.html)
-- [Playbar 竖向音量浮层](playback/playbar-vertical-volume-popover-demo/index.html)
-- [历史 Playbar 草稿](playback/auralis-playbar-prototype/index.html)
 
 ### 独立目录原型
 
@@ -114,7 +111,6 @@
 - [软盘材质](archive/floppy-material-prototype/index.html)
 - [软盘与花卉](archive/floppy-putty/index.html)
 - [日期软盘交互（Macintosh）](archive/mac-diskbox-demo/index.html)
-- [Mac 磁盘盒（早期版本）](archive/mac-diskbox-original-study/index.html)
 - [新归档页草稿](archive/new-archive-prototype/index.html)
 - [夜井星空](archive/night-well/index.html)
 - [包装袋撕开交互](archive/pouch-tear/index.html)
@@ -139,12 +135,8 @@
 ### 专辑
 
 - [专辑布局方案入口](local/albums/album-layout-index/index.html)
-- [专辑高亮流派](local/albums/album-highlighted-genres/index.html)
 
 ### 界面外壳
 
 - [中文字体对照](local/shell/chinese-fonts/index.html)
 - [浅色强调色对照](local/shell/light-accent-colors/index.html)
-- [氛围交叉淡化](local/shell/style-transition-atmospheric-crossfade-demo/index.html)
-- [幕布展开](local/shell/style-transition-curtain-unfurl-demo/index.html)
-- [墨迹显现](local/shell/style-transition-ink-reveal-demo/index.html)

@@ -139,7 +139,6 @@ vi.mock('../router/routeWarmup', () => ({ prefetchRouteOnIntent: vi.fn() }))
 vi.mock('@renderer/features/settings/utils/settingsContentLoader', () => ({
   preloadSettingsContent: vi.fn(),
 }))
-vi.mock('./sidebarBrandMotion', () => ({ vBrandResonance: {} }))
 vi.mock('focus-trap', () => ({ createFocusTrap: vi.fn() }))
 vi.mock('@renderer/shared/floating/floatingPosition', () => ({
   pointReference: vi.fn(),

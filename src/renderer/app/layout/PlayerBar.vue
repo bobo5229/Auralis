@@ -16,8 +16,6 @@ import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
 import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
-import IslandLiquidGlass from './playerBar/IslandLiquidGlass.vue'
-import { useIslandPlaybarMaterial } from '@renderer/features/appearance/composables/useIslandPlaybarMaterial'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
@@ -48,8 +46,6 @@ const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const { layout: playbarLayout } = usePlaybarLayout()
-const { material: islandMaterial } = useIslandPlaybarMaterial()
-const liquidReady = ref(false)
 const isFullLayout = computed(() => playbarLayout.value === 'full')
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
@@ -293,11 +289,6 @@ usePlayerBarResponsiveFocus({
   closeOverflowPanels: () => overlayController.closeMany(['overflow', 'mode']),
 })
 
-watch(islandMaterial, () => {
-  overlayController.closeAll()
-  document.querySelectorAll<HTMLElement>('.player-bar .track-progress').forEach(element => element.dispatchEvent(new Event('pointercancel')))
-})
-
 watch([isNormalPlayerDisplay, playbarLayout], () =>
   overlayController.closeMany(['mode', 'overflow']),
 )
@@ -334,14 +325,12 @@ function handleNext(): void {
 </script>
 
 <template>
-  <IslandLiquidGlass :target="islandRef" :enabled="isNormalPlayerDisplay && !isFullLayout && islandMaterial === 'liquid'" @ready="liquidReady = $event" />
   <footer
     ref="playerBarHostRef"
     class="player-bar"
     :data-playbar-layout="playbarLayout"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
-      'player-bar--liquid': liquidReady && !isFullLayout && islandMaterial === 'liquid',
     }"
     :style="playerBarStyle"
   >
@@ -378,7 +367,12 @@ function handleNext(): void {
             :aria-label="t('player.previous')"
             @click="handlePrev"
           >
-            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <span
+              v-if="isFullLayout"
+              class="i-ph-skip-back-fill h-5 w-5"
+              aria-hidden="true"
+            />
+            <svg v-else class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"
               />
@@ -407,7 +401,12 @@ function handleNext(): void {
             :aria-label="t('player.next')"
             @click="handleNext"
           >
-            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <span
+              v-if="isFullLayout"
+              class="i-ph-skip-forward-fill h-5 w-5"
+              aria-hidden="true"
+            />
+            <svg v-else class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 transform="translate(32 0) scale(-1 1)"
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"

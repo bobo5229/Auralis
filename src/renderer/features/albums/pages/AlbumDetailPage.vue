@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { createReusableTemplate, useResizeObserver } from '@vueuse/core'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/shared/media/getArtworkUrl'
@@ -17,6 +18,10 @@ import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
 import { useAlbumDetailArtworkPublisher } from '../albumDetailArtwork'
 import AlbumColorPreference from '../components/AlbumColorPreference.vue'
 import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
+
+const [DefineAlbumInfo, AlbumInfo] = createReusableTemplate()
+const [DefineAlbumFooter, AlbumFooter] = createReusableTemplate()
+const [DefineAlbumTracks, AlbumTracks] = createReusableTemplate()
 
 const props = withDefaults(
   defineProps<{
@@ -37,6 +42,8 @@ const { t } = useI18n()
 const { songText, songValues, songParts } = useChineseTextDisplay()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
+const shortSummaryRef = ref<HTMLElement | null>(null)
+const shortCoverSize = ref(0)
 const coverImageRef = ref<HTMLImageElement | null>(null)
 const coverImageReady = ref(false)
 const highlightedTrackId = ref<number | null>(null)
@@ -83,6 +90,25 @@ onBeforeRouteUpdate((to, from) => {
  * 完整详情由快照/查询是否就绪决定；入场动画只关闭高开销效果，不拆两套 DOM。
  */
 const hasRenderableData = computed(() => loadState.value === 'ready')
+const SHORT_ALBUM_MAX_TRACKS = 6
+const isShortAlbum = computed(
+  () => albumTracks.value.length > 0 && albumTracks.value.length <= SHORT_ALBUM_MAX_TRACKS,
+)
+// 以真实信息和曲目高度分配封面空间，覆盖换行、Disc 标题及窗口缩放。
+function measureShortCover(): void {
+  const viewport = detailRootRef.value
+  const summary = shortSummaryRef.value
+  if (!isShortAlbum.value || !viewport || !summary || !viewport.clientHeight) return
+  const style = getComputedStyle(viewport)
+  const safeArea = parseFloat(style.paddingBottom) || 0
+  const available = viewport.clientHeight - safeArea - summary.getBoundingClientRect().height - 32
+  shortCoverSize.value = Math.max(96, Math.min(480, viewport.clientWidth - 48, available))
+}
+useResizeObserver([detailRootRef, shortSummaryRef], measureShortCover)
+watch([isShortAlbum, albumArtist, albumTitle], async () => {
+  await nextTick()
+  measureShortCover()
+}, { flush: 'post' })
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
 const {
   albumGenrePills,
@@ -134,9 +160,16 @@ function retryLoad(): void {
   void reloadTracks()
 }
 
+const recentAddedReturnTo = computed(() => {
+  const target = route.query.returnTo
+  return typeof target === 'string' && /^\/recent-added(?:[?#]|$)/.test(target)
+    ? target
+    : undefined
+})
+
 function goBack(): void {
   cancelPendingPlayback()
-  void router.push({ name: 'albums' })
+  void router.push(recentAddedReturnTo.value ?? { name: 'albums' })
 }
 
 function openAlbum(album: AlbumSummary): void {
@@ -155,7 +188,11 @@ function openAlbum(album: AlbumSummary): void {
 
   void router.push({
     name: 'album-detail',
-    query: { artist: album.albumArtist, title: album.title },
+    query: {
+      artist: album.albumArtist,
+      title: album.title,
+      ...(recentAddedReturnTo.value ? { returnTo: recentAddedReturnTo.value } : {}),
+    },
   })
 }
 
@@ -211,6 +248,86 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <DefineAlbumInfo>
+
+    <div class="album-hero-content-stage">
+      <!-- 核心文本与专辑元数据 -->
+      <div class="album-hero-zone-primary">
+        <div class="album-hero-meta-block">
+          <h1 v-tooltip.overflow="displayAlbumTitle" class="album-hero-title select-none">
+            {{ displayAlbumTitle }}
+          </h1>
+          <div class="album-hero-artist-row select-text">
+            <span v-tooltip.overflow="displayAlbumArtist" class="album-hero-artist-text">
+              {{ displayAlbumArtist }}
+            </span>
+            <span class="album-hero-date-text">{{ albumReleaseDate }}</span>
+            <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
+              <span
+                v-tooltip.overflow="songParts(albumGenrePills.slice(0, 2))"
+                class="album-hero-genre-text"
+              >
+                {{ songParts(albumGenrePills.slice(0, 2)) }}
+              </span>
+            </span>
+          </div>
+          <p class="album-hero-track-summary">
+            <span>{{ t('albums.cd.trackCount', { count: albumTracks.length }) }}</span>
+            <span v-if="albumDuration">{{ albumDuration }}</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- 专辑播放操作 -->
+      <div class="album-hero-actions">
+        <button class="album-hero-play-btn" type="button" @click="playAlbum">
+          <span class="album-hero-action-icon" aria-hidden="true">
+            <span class="i-lucide-play h-4 w-4"></span>
+          </span>
+          <span class="album-hero-action-label">{{ t('albums.detail.play') }}</span>
+        </button>
+        <button
+          v-tooltip="t('albums.detail.shuffle')"
+          class="album-hero-shuffle-btn"
+          type="button"
+          :aria-label="t('albums.detail.shuffle')"
+          @click="playAlbumShuffle"
+        >
+          <span class="album-hero-action-icon" aria-hidden="true">
+            <span class="i-lucide-shuffle h-4 w-4"></span>
+          </span>
+        </button>
+        <AlbumColorPreference
+          :anchors="colorAnchors"
+          :artwork-key="artworkCacheKey"
+          :cover-image="coverImageRef"
+          :cover-ready="coverImageReady"
+        />
+      </div>
+    </div>
+  </DefineAlbumInfo>
+  <DefineAlbumFooter>
+
+    <div v-if="heroLegalLine" class="album-hero-footer-stage select-none">
+      <p class="album-hero-legal-text">
+        {{ songValues(heroLegalLine) }}
+      </p>
+    </div>
+  </DefineAlbumFooter>
+  <DefineAlbumTracks>
+
+    <div class="album-body-grid">
+      <AlbumDetailTrackList
+        :max-visible-tracks="16"
+        :groups="albumDiscGroups"
+        :album-artist="albumArtist"
+        :current-track-id="playback.state.currentTrackId"
+        :is-playing="playback.state.isPlaying"
+        :highlighted-track-id="highlightedTrackId"
+        @play="playTrack"
+      />
+    </div>
+  </DefineAlbumTracks>
   <div class="album-detail-container album-detail-page h-full w-full relative bg-transparent">
     <button
       v-if="hasRenderableData || loadState === 'loading'"
@@ -227,7 +344,10 @@ onBeforeUnmount(() => {
       ref="detailRootRef"
       class="album-detail-scroll-wrapper h-full w-full overflow-x-hidden overflow-y-auto relative z-10"
     >
-      <div class="album-detail-wrapper">
+      <div
+        class="album-detail-wrapper"
+        :class="{ 'album-detail-wrapper--short': isShortAlbum }"
+        :style="isShortAlbum ? { '--short-cover-size': shortCoverSize + 'px' } : undefined">
         <!-- Phase 1: Hero 巨幕 Banner -->
         <section
           class="album-hero-billboard"
@@ -263,83 +383,20 @@ onBeforeUnmount(() => {
             </div>
 
             <!-- 专辑信息与操作 -->
-            <div class="album-hero-content-stage">
-              <!-- 核心文本与专辑元数据 -->
-              <div class="album-hero-zone-primary">
-                <div class="album-hero-meta-block">
-                  <h1 v-tooltip.overflow="displayAlbumTitle" class="album-hero-title select-none">
-                    {{ displayAlbumTitle }}
-                  </h1>
-                  <div class="album-hero-artist-row select-text">
-                    <span v-tooltip.overflow="displayAlbumArtist" class="album-hero-artist-text">
-                      {{ displayAlbumArtist }}
-                    </span>
-                    <span class="album-hero-date-text">{{ albumReleaseDate }}</span>
-                    <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
-                      <span
-                        v-tooltip.overflow="songParts(albumGenrePills.slice(0, 2))"
-                        class="album-hero-genre-text"
-                      >
-                        {{ songParts(albumGenrePills.slice(0, 2)) }}
-                      </span>
-                    </span>
-                  </div>
-                  <p class="album-hero-track-summary">
-                    <span>{{ t('albums.cd.trackCount', { count: albumTracks.length }) }}</span>
-                    <span v-if="albumDuration">{{ albumDuration }}</span>
-                  </p>
-                </div>
-              </div>
-
-              <!-- 专辑播放操作 -->
-              <div class="album-hero-actions">
-                <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                  <span class="album-hero-action-icon" aria-hidden="true">
-                    <span class="i-lucide-play h-4 w-4"></span>
-                  </span>
-                  <span class="album-hero-action-label">{{ t('albums.detail.play') }}</span>
-                </button>
-                <button
-                  v-tooltip="t('albums.detail.shuffle')"
-                  class="album-hero-shuffle-btn"
-                  type="button"
-                  :aria-label="t('albums.detail.shuffle')"
-                  @click="playAlbumShuffle"
-                >
-                  <span class="album-hero-action-icon" aria-hidden="true">
-                    <span class="i-lucide-shuffle h-4 w-4"></span>
-                  </span>
-                </button>
-                <AlbumColorPreference
-                  :anchors="colorAnchors"
-                  :artwork-key="artworkCacheKey"
-                  :cover-image="coverImageRef"
-                  :cover-ready="coverImageReady"
-                />
-              </div>
-            </div>
+            <AlbumInfo v-if="!isShortAlbum" />
           </div>
 
           <!-- 下半部分：底部脚注层（横跨全宽，完整横向展开，低于按钮与封面底边） -->
-          <div v-if="heroLegalLine" class="album-hero-footer-stage select-none">
-            <p class="album-hero-legal-text">
-              {{ songValues(heroLegalLine) }}
-            </p>
-          </div>
+          <AlbumFooter v-if="!isShortAlbum" />
         </section>
 
         <!-- 中部：通栏曲目 -->
-        <div class="album-body-grid">
-          <AlbumDetailTrackList
-            :max-visible-tracks="16"
-            :groups="albumDiscGroups"
-            :album-artist="albumArtist"
-            :current-track-id="playback.state.currentTrackId"
-            :is-playing="playback.state.isPlaying"
-            :highlighted-track-id="highlightedTrackId"
-            @play="playTrack"
-          />
-        </div>
+        <section v-if="isShortAlbum" ref="shortSummaryRef" class="album-short-summary">
+          <AlbumInfo />
+          <AlbumFooter />
+          <AlbumTracks />
+        </section>
+        <AlbumTracks v-else />
 
         <!-- Phase 3: 底部同艺人画廊 -->
         <AlbumMoreGallery
@@ -555,7 +612,6 @@ onBeforeUnmount(() => {
   border-radius: 12px;
 }
 .album-hero-zone-primary {
-  grid-row: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -641,7 +697,6 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-actions {
-  grid-row: 3;
   align-self: end;
   z-index: 2;
   display: flex;
@@ -1003,6 +1058,124 @@ onBeforeUnmount(() => {
 
   .album-detail-wrapper > :deep(.album-more-gallery) {
     grid-column: 1 / -1;
+  }
+}
+
+/* 少曲目封面按视口剩余高度缩放；信息和曲目保持自然文档流。 */
+.album-detail-wrapper--short {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.album-detail-wrapper--short .album-hero-main-stage {
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+.album-detail-wrapper--short .album-hero-cover-container {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: var(--short-cover-size, 0px);
+  height: var(--short-cover-size, 0px);
+  aspect-ratio: 1;
+  max-width: calc(100% - 48px);
+}
+
+.album-detail-wrapper--short .album-hero-cover {
+  position: absolute;
+  inset: 0;
+}
+
+.album-detail-wrapper--short .album-hero-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.album-detail-wrapper--short .album-hero-content-stage::before {
+  display: none;
+}
+
+.album-detail-wrapper--short .album-body-grid {
+  display: grid;
+  padding: 0 var(--album-detail-inline-padding) 28px;
+}
+
+.album-detail-wrapper--short .album-body-grid > :deep(.album-tracklist-panel) {
+  margin-block: 0;
+}
+
+.album-detail-wrapper--short .album-hero-billboard {
+  padding: 16px 0;
+}
+
+.album-short-summary {
+  min-width: 0;
+  padding-bottom: 12px;
+}
+
+.album-short-summary .album-hero-content-stage {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px var(--album-detail-inline-padding) 0;
+  text-align: left;
+}
+
+.album-short-summary .album-hero-zone-primary,
+.album-short-summary .album-hero-meta-block {
+  align-items: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.album-short-summary .album-hero-title {
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+  font-weight: 600;
+}
+
+.album-short-summary .album-hero-track-summary {
+  font-size: var(--album-detail-type-metadata-size);
+  line-height: var(--album-detail-type-metadata-line-height);
+}
+
+.album-short-summary .album-hero-artist-row,
+.album-short-summary .album-hero-track-summary {
+  justify-content: flex-start;
+}
+
+.album-short-summary .album-hero-artist-text {
+  flex: 0 1 100%;
+  width: 100%;
+}
+
+.album-short-summary .album-hero-actions {
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.album-short-summary .album-hero-footer-stage {
+  padding: 10px var(--album-detail-inline-padding) 12px;
+  text-align: left;
+}
+
+.album-short-summary .album-body-grid {
+  padding-block: 16px 0;
+}
+
+@container (width < 520px) {
+  .album-short-summary .album-hero-content-stage {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .album-short-summary .album-hero-actions {
+    align-self: flex-start;
   }
 }
 </style>

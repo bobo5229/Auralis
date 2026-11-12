@@ -21,6 +21,7 @@ const { t } = useI18n()
 const isOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
+const resetButton = ref<HTMLButtonElement | null>(null)
 const samplingCover = ref<HTMLImageElement | null>(null)
 const samplingCoverUrl = ref('')
 const samplingPosition = ref<Record<string, string>>({})
@@ -33,12 +34,22 @@ let previewFrame: number | null = null
 let pointer: { x: number; y: number } | null = null
 const preference = computed(() => getAlbumColorPreference(props.anchors))
 const { palette } = useArtworkPalette(toRef(props, 'artworkKey'))
+const automaticColor = computed(() =>
+  palette.value.key === props.artworkKey && palette.value.quality !== 'fallback'
+    ? palette.value.dominant
+    : null,
+)
+function matchesAutomatic(color: { r: number; g: number; b: number }): boolean {
+  const automatic = automaticColor.value
+  return !!automatic && color.r === automatic.r && color.g === automatic.g && color.b === automatic.b
+}
+const canReset = computed(() => !!preference.value && !matchesAutomatic(preference.value))
+watch(canReset, (visible) => {
+  if (!visible && resetButton.value && document.activeElement === resetButton.value)
+    trigger.value?.focus()
+})
 const currentColor = computed(() => {
-  const automatic =
-    palette.value.key === props.artworkKey && palette.value.quality !== 'fallback'
-      ? palette.value.dominant
-      : null
-  const color = preference.value ?? automatic
+  const color = preference.value ?? automaticColor.value
   return color
     ? `#${[color.r, color.g, color.b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
     : '#808080'
@@ -50,7 +61,7 @@ function selectColor(hex: string): void {
     g: parseInt(hex.slice(3, 5), 16),
     b: parseInt(hex.slice(5, 7), 16),
   }
-  error.value = !setAlbumColorPreference(props.anchors, color)
+  error.value = !setAlbumColorPreference(props.anchors, matchesAutomatic(color) ? null : color)
 }
 function resetColor(): void {
   error.value = !setAlbumColorPreference(props.anchors, null)
@@ -238,7 +249,7 @@ onBeforeUnmount(() => {
         v-if="isOpen"
         id="album-color-actions"
         class="album-color-actions"
-        :class="{ 'has-reset': preference }"
+        :class="{ 'has-reset': canReset }"
         role="group"
         :aria-label="t('albums.detail.colorPreference')"
       >
@@ -253,7 +264,8 @@ onBeforeUnmount(() => {
           <span class="i-lucide-pipette" aria-hidden="true"></span>
         </button>
         <button
-          v-if="preference"
+          v-if="canReset"
+          ref="resetButton"
           v-tooltip="t('albums.detail.colorReset')"
           type="button"
           class="album-color-action album-color-reset"

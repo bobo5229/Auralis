@@ -15,10 +15,13 @@ interface Store {
   migrated: string[]
 }
 const STORAGE_KEY = 'auralis-album-color-preferences-v1'
+// Retain the most recent damaged source before an explicit save repairs its records.
+const RECOVERY_KEY = `${STORAGE_KEY}-recovery`
 const initial = (): Store => ({ version: 1, preferences: [], migrated: [] })
 const revision = ref(0)
 let cachedRaw: string | null | undefined
 let cachedStore: Store | null = null
+let needsRecovery = false
 
 function validColor(value: unknown): value is RgbColor {
   if (!value || typeof value !== 'object') return false
@@ -43,22 +46,26 @@ function load(): Store | null {
     if (raw === cachedRaw) return cachedStore
     cachedRaw = raw
     cachedStore = null
+    needsRecovery = false
     if (!raw) return (cachedStore = initial())
-    const data = JSON.parse(raw) as Store
-    if (data.version !== 1 || !Array.isArray(data.preferences) || !Array.isArray(data.migrated))
-      return null
+    const data = JSON.parse(raw) as Partial<Store> | null
     if (
-      !data.preferences.every(
-        (entry) =>
-          validColor(entry.color) &&
-          Array.isArray(entry.anchors) &&
-          entry.anchors.length > 0 &&
-          entry.anchors.every(validAnchor),
-      )
+      !data || data.version !== 1 || !Array.isArray(data.preferences) || !Array.isArray(data.migrated)
     )
       return null
-    if (!data.migrated.every((key) => typeof key === 'string')) return null
-    return (cachedStore = data)
+    const preferences = data.preferences.filter(
+      (entry) =>
+        entry &&
+        typeof entry === 'object' &&
+        validColor(entry.color) &&
+        Array.isArray(entry.anchors) &&
+        entry.anchors.length > 0 &&
+        entry.anchors.every(validAnchor),
+    )
+    const migrated = data.migrated.filter((key) => typeof key === 'string')
+    needsRecovery =
+      preferences.length !== data.preferences.length || migrated.length !== data.migrated.length
+    return (cachedStore = { version: 1, preferences, migrated })
   } catch {
     return null
   }
@@ -66,9 +73,11 @@ function load(): Store | null {
 function save(data: Store): boolean {
   try {
     const raw = JSON.stringify(data)
+    if (needsRecovery && cachedRaw != null) localStorage.setItem(RECOVERY_KEY, cachedRaw)
     localStorage.setItem(STORAGE_KEY, raw)
     cachedRaw = raw
     cachedStore = data
+    needsRecovery = false
     revision.value++
     return true
   } catch {

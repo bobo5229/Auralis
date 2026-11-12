@@ -2173,11 +2173,6 @@ input[type='range'].volume-overlay-slider {
   transform: translateX(-10px);
   clip-path: inset(0 100% 0 0);
   pointer-events: none;
-  transition:
-    opacity 120ms ease-out,
-    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    clip-path 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s 180ms;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-brand-symbol {
@@ -2301,6 +2296,12 @@ input[type='range'].volume-overlay-slider {
 .app-sidebar:not(.app-sidebar--collapsed) .sidebar-brand-left {
   /* Align the logo box with navigation icons: margin + border + padding - header inset. */
   padding-left: calc(var(--sidebar-row-gutter) + 1px + var(--sidebar-row-inset) - 16px);
+  align-items: baseline;
+}
+
+.app-sidebar:not(.app-sidebar--collapsed) .sidebar-brand-symbol {
+  /* The SVG artwork ends above its viewBox edge; align its ink with the text baseline. */
+  transform: translateY(2.5px);
 }
 
 .sidebar-brand-mark {
@@ -2331,22 +2332,12 @@ input[type='range'].volume-overlay-slider {
   visibility: visible;
   transform: translateX(0);
   clip-path: inset(0);
-  transition:
-    opacity 180ms ease-out 60ms,
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
-    clip-path 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
-    visibility 0s;
 }
 
 .sidebar-brand-name {
   --sidebar-brand-ink: var(
     --auralis-sidebar-brand-text,
     color-mix(in srgb, #ffffff 88%, transparent)
-  );
-  --sidebar-brand-echo: color-mix(
-    in srgb,
-    var(--sidebar-brand-ink) 55%,
-    var(--auralis-sidebar-active-indicator)
   );
   color: var(--sidebar-brand-ink);
   font-size: 17px;
@@ -3430,20 +3421,6 @@ input[type='range'].volume-overlay-slider {
   transition: none;
 }
 
-:where([data-reduced-motion='true']) .sidebar-brand-mark,
-:where([data-reduced-motion='true']) .sidebar-brand-symbol,
-:where([data-reduced-motion='true']) .sidebar-brand-copy,
-:where([data-reduced-motion='true']) .sidebar-brand-name,
-:where([data-reduced-motion='true']) .sidebar-brand-letter {
-  transition: none;
-}
-
-:where([data-reduced-motion='true'])
-  .sidebar-brand-left:is(:hover, :focus-visible)
-  .sidebar-brand-name {
-  color: var(--sidebar-brand-echo);
-}
-
 :where([data-reduced-motion='true']) .library-view-fade-enter-active,
 :where([data-reduced-motion='true']) .library-view-fade-leave-active {
   transition-duration: 0ms !important;
@@ -3644,11 +3621,3 @@ input[type='range'].volume-overlay-slider {
   letter-spacing: normal;
 }
 
-/* Liquid paints a separate live backdrop; keep the interactive island transparent. */
-.player-bar.player-bar--liquid > .player-bar-island {
-  border-color: transparent;
-  box-shadow: none;
-}
-.player-bar.player-bar--liquid > .player-bar-island > :is(.player-bar-surface, .player-bar-album-tint) {
-  display: none;
-}

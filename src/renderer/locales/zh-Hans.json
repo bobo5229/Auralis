@@ -123,9 +123,9 @@
       "textDisplay": {
         "title": "语言与文字",
         "songInfo": "歌曲信息字形",
-        "songInfoDescription": "切换歌曲与专辑信息的简繁显示，不改变原始元数据。",
+        "songInfoDescription": "选择歌曲和专辑信息显示为简体或繁体中文，不会更改原始元数据。",
         "lyrics": "歌词字形",
-        "lyricsDescription": "独立切换歌词的简繁显示，不跟随歌曲信息设置。",
+        "lyricsDescription": "单独选择歌词显示为简体或繁体中文，不受歌曲信息设置影响。",
         "simplified": "简体",
         "traditional": "繁体",
         "persistFailed": "已应用，本次保存未完成。"
@@ -133,14 +133,14 @@
       "theme": "主题",
       "reducedMotion": {
         "title": "减少动态效果",
-        "description": "减少位移、缩放和持续动效。默认跟随系统，也可手动开启。",
+        "description": "减少位移、缩放和持续动画。可以跟随系统设置，也可以在此开启。",
         "system": "跟随系统",
         "enabled": "开启",
         "persistFailed": "已应用，本次保存未完成。"
       },
       "lyricsPanelLayout": {
         "title": "歌词面板布局",
-        "description": "独立分区为歌词保留空间；悬浮面板以半透明磨砂背景覆盖在内容右侧，播放栏向左让出位置。仅影响主界面歌词。",
+        "description": "独立分区为歌词预留空间；悬浮面板覆盖在内容上方。仅适用于主界面歌词。",
         "split": "独立分区",
         "floating": "悬浮面板",
         "persistFailed": "已应用，本次保存未完成。"
@@ -149,24 +149,24 @@
         "title": "歌词",
         "countdown": {
           "title": "歌词倒计时动效",
-          "description": "选择歌词开始前圆点依次点亮或化为细小粒子消散的效果，适用于主界面与全屏歌词。",
+          "description": "选择歌词开始前倒计时圆点的动画效果。适用于主界面和全屏歌词。",
           "lighting": "逐个点亮",
           "fracture": "逐个破碎"
         },
         "edgeFade": {
           "title": "顶部与底部渐隐",
-          "description": "让同步歌词在面板的上下边缘逐渐隐去。仅影响主界面歌词。"
+          "description": "让同步歌词在面板顶部和底部逐渐淡出。仅适用于主界面歌词。"
         },
         "blur": {
           "title": "高斯模糊",
-          "description": "柔化非当前歌词，突出正在播放的一行。仅影响主界面歌词。"
+          "description": "模糊非当前歌词，突出正在播放的一行。仅适用于主界面歌词。"
         },
         "persistFailed": "已应用，本次保存未完成。"
       },
       "windowBehavior": {
         "title": "启动与窗口",
         "label": "点击关闭按钮时",
-        "description": "选择退出应用，或保留播放并收起窗口。",
+        "description": "选择关闭窗口时退出应用，或将窗口收起至系统托盘。",
         "quit": "退出应用",
         "tray": "收起到系统托盘",
         "trayUnavailable": "系统托盘不可用，无法选择收起到托盘；已有托盘设置将保留窗口。",
@@ -176,34 +176,28 @@
       },
       "lyricsScroll": {
         "title": "歌词滚动效果",
-        "description": "控制普通与全屏同步歌词的过渡曲线；减少动态效果开启时仍即时定位。",
+        "description": "选择主界面和全屏同步歌词的滚动效果。开启减少动态效果后，歌词将立即定位。",
         "standard": "标准",
         "quick": "迅捷",
         "soft": "柔和",
         "emphasized": "强调",
         "persistFailed": "已应用，本次保存未完成。"
       },
-      "playbarMaterial": {
-        "title": "悬浮播放栏材质",
-        "frosted": "毛玻璃",
-        "liquid": "Liquid Glass",
-        "persistFailed": "已应用，但未能保存此偏好。"
-      },
       "playbarLayout": {
         "title": "播放栏布局",
-        "description": "选择播放栏布局。贴边布局横跨主内容区域。",
+        "description": "选择悬浮的播放栏，或横跨主内容区域的贴边播放栏。",
         "island": "悬浮岛",
         "full": "贴边",
         "persistFailed": "本次选择未保存，请重新选择以重试。"
       },
       "englishFont": {
         "title": "英文字体",
-        "description": "选择界面英文与数字使用的字体。",
+        "description": "选择英文和数字使用的字体。",
         "persistFailed": "已应用，本次保存未完成。"
       },
       "chineseFont": {
         "title": "中文字体",
-        "description": "选择界面中文使用的字体；碟片标题与唱片室保留专用字体。",
+        "description": "选择中文使用的字体。碟片标题和唱片室保留各自的专用字体。",
         "persistFailed": "已应用，本次保存未完成。"
       },
       "themeDark": "深色",
@@ -220,12 +214,12 @@
         "pickerLabel": "{theme}强调色选择器"
       },
       "sidebarLayout": "侧边栏布局",
-      "sidebarLayoutDescription": "悬浮布局与窗口边缘留白；全高布局贴齐左侧并占满窗口高度。",
+      "sidebarLayoutDescription": "选择四周留白的悬浮侧边栏，或沿窗口左侧延伸的全高侧边栏。",
       "sidebarFloating": "悬浮",
       "sidebarFullHeightOption": "全高",
       "coverArtworkRounded": "封面圆角",
       "language": "界面语言",
-      "languageDescription": "选择应用界面显示的语言。",
+      "languageDescription": "选择应用界面使用的语言。",
       "songFontWeight": {
         "coverSection": "封面",
         "coverRadius": "圆角弧度",
@@ -276,18 +270,18 @@
     },
     "playback": {
       "gapless": "无缝播放",
-      "gaplessDescription": "减少连续曲目切换时的间隙。",
+      "gaplessDescription": "减少连续曲目之间的停顿。",
       "gaplessAriaOn": "无缝播放，当前已开启",
       "gaplessAriaOff": "无缝播放，当前已关闭",
       "digitalSilence": "跳过边界数字静音",
-      "digitalSilenceDescription": "移除连续专辑曲目间极短的数字静音。",
+      "digitalSilenceDescription": "移除连续专辑曲目边界处短暂的数字静音。",
       "nativeUnavailable": "当前原生播放不可用。",
       "softTransition": "柔和过渡",
-      "softTransitionDescription": "普通换曲时按设定时长交叉淡化；较短曲目会自动缩短。",
+      "softTransitionDescription": "普通切歌时按所选时长交叉淡入淡出；较短的曲目会自动缩短过渡时间。",
       "softTransitionDuration": "过渡时长",
       "softTransitionDurationValue": "{seconds} 秒",
       "effectivePlayThreshold": "有效播放阈值",
-      "effectivePlayThresholdDescription": "累计播放达到曲目时长的设定比例时，记为一次有效播放。更改在下一次开始播放曲目时生效。"
+      "effectivePlayThresholdDescription": "设置曲目累计播放达到多少比例后计为一次有效播放。更改在下次开始播放曲目时生效。"
     },
     "library": {
       "maintenanceSection": "资料库维护",
@@ -298,14 +292,14 @@
       "copySuccess": "已复制",
       "copyFailed": "复制失败",
       "backupDatabase": "备份数据库",
-      "backupDatabaseDescription": "将当前曲库数据库、播放列表与播放统计完整导出为单文件备份。",
+      "backupDatabaseDescription": "将资料库数据库、播放列表和播放统计导出为一个备份文件。",
       "exportBackup": "备份数据库",
       "backupExporting": "选择保存位置…",
       "backupSaved": "备份成功",
       "backupCancelled": "已取消",
       "backupFailed": "备份失败",
       "restoreDatabase": "恢复数据库",
-      "restoreDatabaseDescription": "从备份文件恢复曲库数据；完成校验后暂存，重启应用后生效。",
+      "restoreDatabaseDescription": "校验备份文件并准备恢复，重新启动应用后生效。",
       "restoreBackup": "恢复数据库",
       "restoreStaging": "选择备份文件…",
       "restoreStaged": "已暂存，请重启应用",
@@ -315,7 +309,7 @@
       "currentFolder": "音乐文件夹",
       "noFolderSelected": "尚未选择音乐文件夹",
       "lastScanned": "上次扫描 {time}",
-      "chooseFolderHint": "选择一个文件夹以建立本地资料库",
+      "chooseFolderHint": "选择音乐文件夹，建立本地资料库。",
       "changeFolder": "更改",
       "selectFolder": "选择文件夹",
       "rescan": "重新扫描",
@@ -363,10 +357,10 @@
       "thirdPartyNotices": "第三方声明",
       "tagline": "为个人音乐收藏打造的本地播放器",
       "version": "版本",
-      "versionDescription": "当前安装的应用版本",
+      "versionDescription": "当前安装的应用版本。",
       "versionUnavailable": "无法读取",
       "diagnostics": "诊断信息",
-      "diagnosticsDescription": "仅导出限量本地日志和应用版本；不包含音乐文件或数据库，路径和网址均会脱敏。",
+      "diagnosticsDescription": "导出有限的本地日志和应用版本；不包含音乐文件及数据库，路径和网址会被隐藏。",
       "exportDiagnostics": "导出诊断信息",
       "diagnosticsExporting": "选择保存位置…",
       "diagnosticsSaved": "导出成功",

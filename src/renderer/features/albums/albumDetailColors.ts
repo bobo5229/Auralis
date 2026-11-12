@@ -34,8 +34,8 @@ export function albumDetailColors(source: RgbColor) {
     }
     return color
   }
-  // Keep the main panel close to black without changing the surrounding surfaces.
-  const main = surface(Math.max(0.18, Math.min(0.9, l)))
+  // Preserve bright source colors exactly, including white; retain the dark-surface floor.
+  const main = l > 0.9 ? { ...source } : surface(Math.max(0.18, l))
   const more = surface(mainLightness - 0.04)
   const side = surface(mainLightness - 0.08)
   const accent = surface(Math.min(0.48, mainLightness - 0.18))

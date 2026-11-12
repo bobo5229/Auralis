@@ -15,6 +15,65 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('album color preferences', () => {
+  it('isolates invalid records and backs up their source only on an explicit save', () => {
+    const key = 'auralis-album-color-preferences-v1'
+    const raw = JSON.stringify({
+      version: 1,
+      preferences: [
+        null,
+        { anchors: [first], color: green },
+        { anchors: [second], color: { r: 999, g: 0, b: 0 } },
+        { anchors: [], color: green },
+        { anchors: [null], color: green },
+      ],
+      migrated: ['legacy', null],
+    })
+    storage.set(key, raw)
+    expect(getAlbumColorPreference([first])).toEqual(green)
+    expect(getAlbumColorPreference([second])).toBeNull()
+    expect(storage.get(key)).toBe(raw)
+    expect(storage.has(`${key}-recovery`)).toBe(false)
+    expect(setAlbumColorPreference([second], green)).toBe(true)
+    expect(storage.get(`${key}-recovery`)).toBe(raw)
+    expect(JSON.parse(storage.get(key)!)).toEqual({
+      version: 1,
+      preferences: [{ anchors: [first], color: green }, { anchors: [second], color: green }],
+      migrated: ['legacy'],
+    })
+    expect(getAlbumColorPreference([first])).toEqual(green)
+    expect(setAlbumColorPreference([second], null)).toBe(true)
+    expect(storage.get(`${key}-recovery`)).toBe(raw)
+  })
+  it.each(['backup', 'main'])('preserves the damaged source if the %s write fails', (failure) => {
+    const key = 'auralis-album-color-preferences-v1'
+    const raw = JSON.stringify({
+      version: 1,
+      preferences: [{ anchors: [first], color: green }, null],
+      migrated: [],
+    })
+    storage.set(key, raw)
+    vi.stubGlobal('localStorage', {
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => {
+        if (name === (failure === 'backup' ? `${key}-recovery` : key)) throw new Error('quota')
+        storage.set(name, value)
+      },
+    })
+    expect(setAlbumColorPreference([second], green)).toBe(false)
+    expect(storage.get(key)).toBe(raw)
+    expect(getAlbumColorPreference([first])).toEqual(green)
+    expect(getAlbumColorPreference([second])).toBeNull()
+  })
+  it('recovers when all individual preferences are invalid without overwriting unknown versions', () => {
+    const key = 'auralis-album-color-preferences-v1'
+    storage.set(key, JSON.stringify({ version: 1, preferences: [null], migrated: [] }))
+    expect(setAlbumColorPreference([first], green)).toBe(true)
+    expect(getAlbumColorPreference([first])).toEqual(green)
+    const future = JSON.stringify({ version: 2, preferences: [null], migrated: [] })
+    storage.set(key, future)
+    expect(setAlbumColorPreference([first], green)).toBe(false)
+    expect(storage.get(key)).toBe(future)
+  })
   it('allows an explicit choice to resolve conflicting history without changing other albums', () => {
     const anchors = (ids: number[]) => ids.map((id) => ({ ...first, id }))
     expect(setAlbumColorPreference(anchors([1, 2, 3]), green)).toBe(true)

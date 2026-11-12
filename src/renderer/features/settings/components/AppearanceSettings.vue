@@ -23,7 +23,6 @@ import {
   usePlaybarLayout,
   type PlaybarLayout,
 } from '@renderer/features/appearance/composables/usePlaybarLayout'
-import { useIslandPlaybarMaterial, type IslandPlaybarMaterial } from '@renderer/features/appearance/composables/useIslandPlaybarMaterial'
 import SettingsSelect from '@renderer/shared/components/SettingsSelect.vue'
 import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
@@ -68,8 +67,6 @@ const {
   setLayout: setPlaybarLayout,
 } = usePlaybarLayout()
 
-const { material: islandMaterial, persistFailed: materialPersistFailed, setMaterial } = useIslandPlaybarMaterial()
-const materialOptions = computed(() => ['frosted', 'liquid'].map(value => ({ value, label: t(`settings.appearance.playbarMaterial.${value}`) })))
 const playbarLayoutOptions = computed(() =>
   PLAYBAR_LAYOUTS.map((value) => ({
     value,
@@ -203,15 +200,6 @@ function selectPlaybarLayout(value: PlaybarLayout): void {
             :options="playbarLayoutOptions"
             @update:model-value="selectPlaybarLayout($event as PlaybarLayout)"
           />
-        </div>
-        <div v-if="playbarLayout === 'island'" class="settings-row settings-row--with-desc">
-          <div>
-            <strong id="appearance-island-material-label">{{ t('settings.appearance.playbarMaterial.title') }}</strong>
-            <span v-if="materialPersistFailed" class="settings-status--error" role="status">{{ t('settings.appearance.playbarMaterial.persistFailed') }}</span>
-          </div>
-          <SettingsSegmentedControl
-            id="appearance-island-material" labelledby="appearance-island-material-label"
-            :model-value="islandMaterial" :options="materialOptions" @update:model-value="setMaterial($event as IslandPlaybarMaterial)" />
         </div>
         <div class="settings-row settings-row--with-desc">
           <div>

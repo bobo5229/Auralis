@@ -261,7 +261,7 @@ async function openAlbum(album: AlbumSummary): Promise<void> {
   try {
     await router.push({
       name: 'album-detail',
-      query: { artist: album.albumArtist, title: album.title },
+      query: { artist: album.albumArtist, title: album.title, returnTo: route.fullPath },
     })
   } catch {
     actionError.value = true
@@ -430,19 +430,19 @@ function playAlbum(album: AlbumSummary): void {
             :aria-label="t('library.journal.dateNavigation')"
           >
             <button
-              v-if="pageStart > 0"
               type="button"
+              :disabled="pageStart === 0"
               @click="showDays(Math.max(0, pageStart - 7))"
             >
-              <span class="i-lucide-arrow-up" aria-hidden="true"></span
+              <span class="i-lucide-arrow-left" aria-hidden="true"></span
               >{{ t('library.journal.newer') }}</button
             ><button
-              v-if="pageStart + 7 < days.length"
               type="button"
+              :disabled="pageStart + 7 >= days.length"
               @click="showDays(pageStart + 7)"
             >
               {{ t('library.journal.older')
-              }}<span class="i-lucide-arrow-down" aria-hidden="true"></span>
+              }}<span class="i-lucide-arrow-right" aria-hidden="true"></span>
             </button>
           </nav>
         </div>
@@ -712,6 +712,15 @@ h1 {
   overflow-y: auto;
   padding-bottom: var(--auralis-playbar-safe-area, 100px);
 }
+.journal-scroll,
+.journal-date-nav {
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+.journal-scroll::-webkit-scrollbar,
+.journal-date-nav::-webkit-scrollbar {
+  display: none;
+}
 button {
   cursor: pointer;
   font: inherit;
@@ -741,23 +750,35 @@ button:focus-visible {
 }
 .journal-pagination {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 24px;
-  padding: 12px 0;
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0 12px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   color: var(--auralis-text-muted);
 }
 .journal-pagination button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  box-sizing: border-box;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--auralis-border-subtle);
   border-radius: 8px;
+  white-space: nowrap;
 }
-.journal-pagination button:hover {
+.journal-pagination button:hover:not(:disabled) {
   background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+.journal-pagination button:active:not(:disabled) {
+  background: var(--auralis-control-pressed-bg, var(--auralis-control-hover-bg));
+}
+.journal-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .journal-feedback {
   display: flex;

@@ -23,6 +23,8 @@ const playbackActions = vi.hoisted(() => ({
 }))
 const navigation = vi.hoisted(() => ({
   push: vi.fn(),
+  returnTo: undefined as string | undefined,
+  trackCount: 1,
   album: {
     key: 'Other\u0000Next',
     albumArtist: 'Other',
@@ -35,7 +37,9 @@ const navigation = vi.hoisted(() => ({
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: { artist: 'Artist', title: 'Album' } }),
+  useRoute: () => ({
+    query: { artist: 'Artist', title: 'Album', returnTo: navigation.returnTo },
+  }),
   useRouter: () => ({ push: navigation.push }),
   onBeforeRouteLeave: vi.fn(),
   onBeforeRouteUpdate: vi.fn(),
@@ -74,7 +78,9 @@ vi.mock('../composables/useAlbumDetailTracks', () => ({
           lastPlayedAt: null,
           createdAt: '2022-03-01T00:00:00.000Z',
         },
-      ],
+      ].flatMap((track) =>
+        Array.from({ length: navigation.trackCount }, (_, index) => ({ ...track, id: index + 1 })),
+      ),
     },
     moreAlbums: { value: [navigation.album] },
     genreAlbums: { value: [] },
@@ -158,6 +164,8 @@ const rendererOptions = {
 const mounted: Array<() => void> = []
 
 afterEach(() => {
+  navigation.returnTo = undefined
+  navigation.trackCount = 1
   mounted.splice(0).forEach((unmount) => unmount())
   vi.clearAllMocks()
   vi.unstubAllGlobals()
@@ -231,6 +239,33 @@ it('opens a recommendation immediately and seeds its detail snapshot', async () 
   expect(readAlbumDetailSnapshot('Other', 'Next')?.artworkCacheKey).toBe('cover')
 })
 
+it('returns to recently added with its original range', async () => {
+  navigation.returnTo = '/recent-added?range=30'
+  const { root } = await mountAlbum(null)
+  ;(byClass(root, 'album-detail-back').props.onClick as () => void)()
+  expect(navigation.push).toHaveBeenCalledWith('/recent-added?range=30')
+})
+
+it('preserves the recently added origin when opening another album', async () => {
+  navigation.returnTo = '/recent-added?range=all'
+  const { root } = await mountAlbum(null)
+  ;(byClass(root, 'test-gallery-open').props.onClick as () => void)()
+  expect(navigation.push).toHaveBeenCalledWith({
+    name: 'album-detail',
+    query: { artist: 'Other', title: 'Next', returnTo: '/recent-added?range=all' },
+  })
+})
+
+it.each([undefined, '/songs', '/recent-added-other', 'https://example.com'])(
+  'returns to albums for an unsupported origin: %s',
+  async (target) => {
+    navigation.returnTo = target
+    const { root } = await mountAlbum(null)
+    ;(byClass(root, 'album-detail-back').props.onClick as () => void)()
+    expect(navigation.push).toHaveBeenCalledWith({ name: 'albums' })
+  },
+)
+
 it('exposes cover sampling and restores a saved color from the inline controls', async () => {
   const { root, storage } = await mountAlbum(null)
   const preference = byClass(root, 'album-color-preference')
@@ -256,4 +291,11 @@ it('does not pass library selection to the detail track list', async () => {
   const { root } = await mountAlbum(null)
   expect(byClass(root, 'test-detail-track-list').props['selected-track-id']).toBeUndefined()
   expect(byClass(root, 'test-detail-track-list').props.selectedTrackId).toBeUndefined()
+})
+
+it.each([1, 6, 7, 16])('chooses the album layout at the six-track boundary: %i', async (count) => {
+  navigation.trackCount = count
+  const { root } = await mountAlbum(null)
+  const wrapper = byClass(root, 'album-detail-wrapper')
+  expect(String(wrapper.props.class).includes('album-detail-wrapper--short')).toBe(count <= 6)
 })

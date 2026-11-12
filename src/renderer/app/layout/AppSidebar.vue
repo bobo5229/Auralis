@@ -30,7 +30,6 @@ import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon from '@renderer/shared/components/SidebarIcon.vue'
 import SidebarAlbumEntry from './SidebarAlbumEntry.vue'
-import { vBrandResonance } from './sidebarBrandMotion'
 import '@renderer/shared/dialog/dialogBackdrop.css'
 
 const props = defineProps<{ maxWidth: number; resizeDisabled: boolean }>()
@@ -258,7 +257,6 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
       <div class="sidebar-header-main">
         <component
           :is="sidebarFullHeight ? 'button' : 'div'"
-          v-brand-resonance="isRail"
           v-tooltip.right="isRail ? t('sidebar.expand') : ''"
           class="sidebar-brand-left"
           :data-sidebar-toggle="sidebarFullHeight ? '' : undefined"
@@ -286,21 +284,12 @@ function onFacetAlbumOpened(album: AlbumDetailRequest): void {
               stroke-linejoin="round"
             >
               <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
-              <path
-                class="sidebar-brand-resonance"
-                d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38"
-                stroke-width="6.5"
-              />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6.5" />
             </svg>
           </span>
           <div class="sidebar-brand-copy" :aria-hidden="isRail || undefined">
             <div class="sidebar-brand-name" role="img" aria-label="AuralisMusic">
-              <span
-                v-for="(letter, index) in 'uralisMusic'"
-                :key="index"
-                class="sidebar-brand-letter"
-                >{{ letter }}</span
-              >
+              uralisMusic
             </div>
           </div>
         </component>

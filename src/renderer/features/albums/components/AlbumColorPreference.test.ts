@@ -183,6 +183,58 @@ it('updates the closed button with the current cover color and respects custom a
   expect(swatch().style.backgroundColor).toBe('#112233')
 })
 
+it('hides reset when the saved RGB matches the loaded automatic color', async () => {
+  const color = { r: 18, g: 52, b: 86 }
+  setAlbumColorPreference([anchor], color)
+  mount(ref('reset-equal-auto'))
+  await settle()
+  ;(root.querySelector('.album-color-trigger')!.props.onClick as () => void)()
+  await settle()
+  // A fallback is not a confirmed automatic color.
+  expect(root.querySelector('.album-color-reset')).not.toBeNull()
+  const button = root.querySelector('.album-color-reset')!
+  Object.assign(document, { activeElement: button })
+  const trigger = root.querySelector('.album-color-trigger')!
+  const focus = vi.spyOn(trigger, 'focus')
+  palettes.get('reset-equal-auto')!(color)
+  await settle()
+  expect(root.querySelector('.album-color-reset')).toBeNull()
+  expect(focus).toHaveBeenCalled()
+  expect(String(root.querySelector('.album-color-actions')!.props.class)).not.toContain('has-reset')
+  setAlbumColorPreference([anchor], { ...color, b: 87 })
+  await settle()
+  expect(root.querySelector('.album-color-reset')).not.toBeNull()
+})
+
+it('uses the default preference when a newly sampled RGB equals the automatic color', async () => {
+  const cover = { complete: true, naturalWidth: 100, src: 'artwork://same-color' } as HTMLImageElement
+  mount(ref('sample-equal-auto'), cover)
+  await settle()
+  palettes.get('sample-equal-auto')!({ r: 18, g: 52, b: 86 })
+  await settle()
+  ;(root.querySelector('.album-color-trigger')!.props.onClick as () => void)()
+  await settle()
+  ;(root.querySelector('.album-color-sample')!.props.onClick as () => void)()
+  await settle()
+  const image = overlay.querySelector('.album-cover-sampling-image')!
+  Object.assign(image, {
+    complete: true,
+    naturalWidth: 100,
+    naturalHeight: 100,
+    getBoundingClientRect: () => ({ width: 100, height: 100, left: 0, top: 0 }),
+  })
+  ;(image.props.onLoad as () => void)()
+  ;(image.props.onPointerdown as (event: unknown) => void)({
+    clientX: 20, clientY: 20, preventDefault: vi.fn(),
+  })
+  await settle()
+  expect(getAlbumColorPreference([anchor])).toBeNull()
+  expect(swatch().style.backgroundColor).toBe('#123456')
+  ;(root.querySelector('.album-color-trigger')!.props.onClick as () => void)()
+  await settle()
+  expect(root.querySelector('.album-color-reset')).toBeNull()
+})
+
 it('does not show an old cover result after switching albums', async () => {
   const key = ref<string | null>('swatch-old-b')
   mount(key)

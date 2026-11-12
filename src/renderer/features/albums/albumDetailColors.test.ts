@@ -3,6 +3,18 @@ import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/c
 import { albumDetailColors, readableAlbumText } from './albumDetailColors'
 
 describe('album detail colors', () => {
+  it.each([
+    { r: 255, g: 255, b: 255 },
+    { r: 250, g: 250, b: 250 },
+    { r: 255, g: 248, b: 240 },
+  ])('preserves bright main-panel source colors exactly: %j', (source) => {
+    const colors = albumDetailColors(source)
+    expect(colors.main).toEqual(source)
+    expect(colors.mainText.r).toBeLessThan(128)
+    expect(getContrastRatio(colors.mainText, colors.main)).toBeGreaterThanOrEqual(4.5)
+    expect(getContrastRatio(colors.mainMuted, colors.main)).toBeGreaterThanOrEqual(4.5)
+    expect(getContrastRatio(colors.mainFaint, colors.main)).toBeGreaterThanOrEqual(4.5)
+  })
   it('keeps a light green source coordinated and readable', () => {
     const colors = albumDetailColors({ r: 207, g: 255, b: 196 })
     expect(colors.main.g).toBeGreaterThan(colors.main.r)
