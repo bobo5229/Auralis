@@ -5,6 +5,7 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', redirect: { name: 'library' } },
+    { path: '/search', name: 'search', component: routeLoaders.search, meta: { title: 'Search' } },
     {
       path: '/songs',
       name: 'library',

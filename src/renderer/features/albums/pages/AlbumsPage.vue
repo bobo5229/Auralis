@@ -8,7 +8,6 @@ import {
 } from '@shared/utils/artistIndex'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { useAlbumGridViewport } from '../composables/useAlbumGridViewport'
-import { useAlbumSearchSession } from '../composables/useAlbumSearchSession'
 import { useAlbumContextMenu } from '../composables/useAlbumContextMenu'
 import { useAlbumPlaybackActions } from '../composables/useAlbumPlaybackActions'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, toRef, watch } from 'vue'
@@ -18,7 +17,6 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import MainPageStatus from '@renderer/shared/components/MainPageStatus.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useChineseTextDisplay } from '@renderer/shared/preferences/useChineseTextDisplay'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '@renderer/shared/components/AlbumCard.vue'
@@ -53,7 +51,6 @@ const pageParameters = usePageParameters()
 const hasPageParameters = computed(() => pageParameters?.context.value?.kind === 'albums')
 const { songText } = useChineseTextDisplay()
 const playback = usePlayback()
-const { displayMode } = usePlayerDisplayMode()
 const hasCurrentTrack = computed(() => Boolean(playback.state.currentTrackId))
 const isPageActive = ref(false)
 const canRefresh = computed(
@@ -114,36 +111,6 @@ function onAlbumScroll(event: Event): void {
   indexScrollTop.value = scrollTop
   if (artistJump.value && Math.abs(scrollTop - artistJump.value.scrollTop) > 1)
     artistJump.value = null
-}
-const albumSearch = useAlbumSearchSession({
-  tracks,
-  albums,
-  canRefresh,
-  displayMode,
-  contextMenu,
-  isLayoutTransitionActive: computed(() => isLayoutTransitionActive.value),
-  scrollToAlbum: (index) => {
-    artistJump.value = null
-    rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
-  },
-  t,
-})
-const {
-  searchOutcome,
-  searchQuery,
-  searchInputRef,
-  searchRootRef,
-  highlightedAlbumKey,
-  searchHighlightRevision,
-  searchFeedback,
-  onSearchBlur,
-  onSearchFocus,
-  onSearchKeydown,
-} = albumSearch
-
-function clearAlbumSearch(): void {
-  albumSearch.clearSearch()
-  searchInputRef.value?.focus({ preventScroll: true })
 }
 const { metadataOccupancy } = useAlbumListParameters()
 const gridLayout = useAlbumGridLayout({
@@ -262,7 +229,6 @@ const { playAlbum, playContextAlbum, insertContextAlbum } = useAlbumPlaybackActi
 
 onActivated(() => {
   isPageActive.value = true
-  albumSearch.activate()
   window.addEventListener('resize', closeContextMenu)
   void connectGrid()
 })
@@ -277,7 +243,6 @@ function disconnectPage(): void {
   artistJump.value = null
   albumMenu.deactivate()
   isPageActive.value = false
-  albumSearch.deactivate()
   window.removeEventListener('resize', closeContextMenu)
   gridViewport.disconnect()
 }
@@ -292,7 +257,6 @@ onBeforeUnmount(() => {
   gridViewport.dispose()
   cancelCurrentTransition()
   disconnectPage()
-  albumSearch.dispose()
 })
 
 defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
@@ -300,68 +264,8 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 
 <template>
   <section class="albums-page main-page-frame relative">
-    <div class="albums-toolbar">
-      <div
-        ref="searchRootRef"
-        class="page-search-tools"
-        :class="{ 'page-search-tools--parameters': hasPageParameters }"
-      >
-        <div
-          class="library-search-bar"
-          :class="{ 'library-search-bar--parameters': hasPageParameters }"
-          @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
-        >
-          <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-          <input
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            class="library-search-input"
-            :disabled="isLoading || albums.length === 0"
-            :placeholder="t('albums.search.placeholder')"
-            :aria-label="t('albums.search.ariaLabel')"
-            :aria-description="t('albums.search.locateHint')"
-            spellcheck="false"
-            @focus="onSearchFocus"
-            @blur="onSearchBlur"
-            @keydown="onSearchKeydown"
-          />
-          <span class="album-search-feedback auralis-type-caption">
-            <span
-              v-if="searchOutcome !== 'idle'"
-              class="library-search-outcome"
-              :class="{ 'album-search-not-found': searchOutcome === 'not-found' }"
-              role="status"
-              aria-live="polite"
-            >
-              {{ searchFeedback }}
-            </span>
-            <span
-              v-else-if="!isLoading && albums.length > 0"
-              class="album-search-hint"
-              aria-hidden="true"
-            >
-              {{ t('albums.search.locateHint') }}
-            </span>
-          </span>
-          <span class="album-search-clear-slot">
-            <button
-              v-if="searchQuery !== ''"
-              v-tooltip.fast="t('albums.search.clear')"
-              type="button"
-              class="album-search-clear"
-              :aria-label="t('albums.search.clear')"
-              @pointerdown.stop.prevent
-              @click.stop="clearAlbumSearch"
-            >
-              <span class="i-lucide-x" aria-hidden="true"></span>
-            </button>
-          </span>
-          <span v-if="hasPageParameters" class="page-search-parameters">
-            <PageParameterTrigger @pointerdown.stop />
-          </span>
-        </div>
-      </div>
+    <div v-if="hasPageParameters" class="albums-toolbar">
+      <PageParameterTrigger />
     </div>
 
     <MainPageStatus v-if="isLoading" kind="loading" :title="t('albums.status.loading')" />
@@ -409,10 +313,6 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
                 :key="album.key"
                 :data-album-key="album.key"
                 :album="album"
-                :highlighted="highlightedAlbumKey === album.key"
-                :highlight-revision="
-                  highlightedAlbumKey === album.key ? searchHighlightRevision : 0
-                "
                 :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
                 @play="playAlbum"
@@ -547,123 +447,6 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   display: flex;
   /* Align with the covers, excluding their shadow gutters and the letter index. */
   padding: 8px 48px 8px 20px;
-}
-
-.albums-toolbar .page-search-tools {
-  container-type: inline-size;
-  position: relative;
-  top: auto;
-  left: auto;
-  transform: none;
-  width: 100%;
-  max-width: 100%;
-}
-
-.albums-toolbar .library-search-bar {
-  box-sizing: border-box;
-  border-radius: 8px;
-  border-color: var(--auralis-border-subtle);
-  background: color-mix(in srgb, var(--auralis-text) 3%, var(--auralis-main-bg));
-  box-shadow: none;
-  transition: border-color 150ms ease;
-}
-
-.albums-toolbar .library-search-bar:focus-within {
-  border-color: color-mix(in srgb, var(--auralis-theme-accent) 45%, var(--auralis-border-subtle));
-}
-
-.album-search-feedback {
-  display: flex;
-  flex: 0 0 10em;
-  justify-content: flex-end;
-  color: var(--auralis-text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.album-search-hint {
-  color: var(--auralis-text-faint);
-}
-
-@container (max-width: 440px) {
-  .album-search-feedback:has(.album-search-hint) {
-    display: none;
-  }
-}
-
-.album-search-clear-slot {
-  display: flex;
-  flex: 0 0 24px;
-  height: 24px;
-}
-
-.album-search-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--auralis-text-muted);
-  cursor: pointer;
-}
-
-.album-search-clear:hover {
-  background: var(--auralis-control-hover-bg);
-  color: var(--auralis-text);
-}
-
-.album-search-clear:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring);
-  outline-offset: -2px;
-}
-
-.album-search-not-found {
-  animation: album-search-not-found-shake 320ms ease-in-out;
-}
-
-@keyframes album-search-not-found-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-3px);
-  }
-  40% {
-    transform: translateX(3px);
-  }
-  60% {
-    transform: translateX(-2px);
-  }
-  80% {
-    transform: translateX(1px);
-  }
-}
-
-:where([data-reduced-motion='true']) .albums-toolbar .library-search-bar {
-  transition: none;
-}
-
-:where([data-reduced-motion='true']) .album-search-not-found {
-  animation: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .albums-toolbar .library-search-bar {
-    transition: none;
-  }
-
-  .album-search-not-found {
-    animation: none;
-  }
-}
-
-.albums-toolbar :deep(.page-parameter-trigger) {
-  border-radius: 4px;
 }
 
 .albums-page-body {

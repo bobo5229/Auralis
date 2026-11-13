@@ -255,6 +255,52 @@
       inset -4px 0 7px rgb(0 0 0 / 35%),
       inset 0 -2px 3px rgb(190 193 186 / 10%);
   }
+
+  .has-pbr-shell {
+    --shell-corner-inset: 0px;
+
+    .collection-case::after {
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      border-style: solid;
+      border-width: calc(56px - var(--shell-corner-inset)) calc(31px - var(--shell-corner-inset))
+        calc(43px - var(--shell-corner-inset));
+      /* Keep the baked corners and front wall at their own scale as the gallery resizes. */
+      border-image: url('../assets/milestones/case/pbr-shell.png') 112 62 86 62 fill stretch;
+      pointer-events: none;
+      content: '';
+    }
+    .case-foot {
+      background: transparent;
+      box-shadow:
+        0 18px 26px -15px rgb(0 0 0 / 64%),
+        0 5px 8px -4px rgb(0 0 0 / 50%);
+    }
+    .aluminium-rim,
+    .inner-channel {
+      background: none;
+      box-shadow: none;
+    }
+    .aluminium-rim::before,
+    .aluminium-rim::after,
+    .rim-grain {
+      display: none;
+    }
+    .inner-channel::before {
+      position: absolute;
+      inset: 0;
+      border: 6px solid transparent;
+      /* The recess follows the existing scroll viewport during category transitions. */
+      border-image: url('../assets/milestones/case/pbr-recess.png') 24 16 28 16 stretch;
+      pointer-events: none;
+      content: '';
+    }
+    .inner-channel::after {
+      box-shadow: inset 2px 5px 10px rgb(16 22 22 / 52%);
+    }
+  }
+
   .foam-viewport {
     overflow-x: auto;
     overflow-y: hidden;
@@ -726,6 +772,9 @@
     right: max(24px, calc(50% - 290px));
   }
   @media (max-width: 700px) {
+    .has-pbr-shell {
+      --shell-corner-inset: 5px;
+    }
     .case-toolbar {
       align-items: start;
       gap: 16px;

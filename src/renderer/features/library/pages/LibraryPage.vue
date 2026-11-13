@@ -15,7 +15,7 @@ import { useSongFontWeights } from '@renderer/features/appearance/composables/us
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
-import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
+import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
 import PageParameterTrigger from '@renderer/features/appearance/components/PageParameterTrigger.vue'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
@@ -40,8 +40,6 @@ import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
-import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
-import { useLibrarySearchMatchHint } from '../composables/useLibrarySearchMatchHint'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
 import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnLayout'
@@ -52,12 +50,8 @@ import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libr
 import '../styles/flatTrackGrid.css'
 
 const { t } = useI18n()
-const {
-  hasParameters: hasPageParameters,
-  keepVisible: keepSearchToolsVisible,
-  onFocusIn: onSearchToolsFocusIn,
-  onFocusOut: onSearchToolsFocusOut,
-} = usePageSearchTools('songs')
+const pageParameters = usePageParameters()
+const hasPageParameters = computed(() => pageParameters?.context.value?.kind === 'songs')
 
 const playback = usePlayback()
 const route = useRoute()
@@ -75,7 +69,6 @@ watch(
 )
 
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
-const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 const { songFontWeightStyle } = useSongFontWeights()
 const { songFontSizeStyle } = useSongFontSizes()
 // All song surfaces share the song page's preferences; only the song page exposes editing.
@@ -210,7 +203,6 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
-const isSearchEnabled = computed(() => isLibrarySurface.value)
 if (instanceRouteName === 'library') {
   usePageParameterSource(
     'songs',
@@ -373,7 +365,6 @@ const viewport = useLibraryViewport({
 const {
   scheduleFirstVisibleTrackIndexUpdate,
   scrollToTrackById,
-  scrollToTrackIndex,
   scrollToPlaybackTrack,
   captureLibraryViewportRestore,
   restoreLibraryViewportRestore,
@@ -610,68 +601,6 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return false
 }
 
-const searchMatchHint = useLibrarySearchMatchHint(scrollRef)
-
-const {
-  searchQuery,
-  isSearchFocused,
-  searchInputRef,
-  searchRootRef,
-  searchZoneRef,
-  searchOutcome,
-  shouldRenderSearchBar,
-  scheduleLibrarySearchIndex,
-  clearSearch,
-  resetMatchCursor,
-  onLibraryListMouseMove: updateSearchHoverFromMouseMove,
-  onLibraryListMouseLeave: clearSearchHover,
-  onSearchBarPointerDown,
-  onSearchInputFocus,
-  onSearchBarFocusOut,
-  onSearchKeydown,
-  onDocumentPointerDown,
-  onWindowKeyDown,
-  invalidate: invalidateLibrarySearchSession,
-} = useLibrarySearchSession({
-  isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
-  isLibrarySurface: () => isSearchEnabled.value && !isLoading.value && tracks.value.length > 0,
-  isInteractiveTarget,
-  scrollToTrackIndex: async (index, isRequestCurrent) => {
-    const trackId = tracks.value[index]?.id
-    if (trackId === undefined) return
-    const scrollGeneration = viewport.captureScrollGeneration()
-    await searchMatchHint.revealAfterPosition(
-      trackId,
-      () => scrollToTrackIndex(index, isRequestCurrent),
-      () =>
-        !isPageUnmounted &&
-        !hasLeftInstanceRoute &&
-        (isRequestCurrent?.() ?? true) &&
-        !viewport.isScrollInputCancelled(scrollGeneration),
-    )
-  },
-})
-
-watch(searchOutcome, searchMatchHint.clear, { flush: 'sync' })
-watch([() => route.fullPath, isCoverView], searchMatchHint.clear, { flush: 'sync' })
-
-watch(
-  isSearchEnabled,
-  (enabled) => {
-    if (enabled) return
-    clearSearch()
-    clearSearchHover()
-    searchInputRef.value?.blur()
-    isSearchFocused.value = false
-  },
-  { flush: 'sync' },
-)
-
-watch(isCoverView, (cover) => {
-  if (cover) return
-  clearSearchHover()
-})
-
 function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
   flatColumnLayoutState.preview(widths)
 }
@@ -690,7 +619,6 @@ function onFlatColumnResizeCancel(): void {
 function onFlatColumnResizeStateChange(active: boolean): void {
   isFlatColumnResizeActive.value = active
   isFlatColumnResizeTarget.value = active
-  if (active) clearSearchHover()
 }
 
 function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolean {
@@ -711,22 +639,11 @@ function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolea
 function onLibrarySurfaceMouseMove(event: MouseEvent): void {
   const insideHandle = isPointInsideFlatResizeHandle(event.clientX, event.clientY)
   isFlatColumnResizeTarget.value = insideHandle || isFlatColumnResizeActive.value
-  if (
-    insideHandle ||
-    isFlatColumnResizeActive.value ||
-    !isSearchEnabled.value ||
-    !isCoverView.value
-  ) {
-    clearSearchHover()
-    return
-  }
-  updateSearchHoverFromMouseMove(event)
 }
 
 function onLibrarySurfaceMouseLeave(): void {
   if (isFlatColumnResizeActive.value) return
   isFlatColumnResizeTarget.value = false
-  clearSearchHover()
 }
 
 function onLibraryPointerDownCapture(event: PointerEvent): void {
@@ -736,7 +653,6 @@ function onLibraryPointerDownCapture(event: PointerEvent): void {
 
   const handles = header.getResizeHandles()
   const target = event.target instanceof Element ? event.target : null
-  if (target?.closest('.library-flat-search')) return
   const directHandle = target?.closest<HTMLElement>('[data-column-resize-handle]')
   const handle =
     directHandle && handles.includes(directHandle)
@@ -758,7 +674,6 @@ function onLibraryContextMenuCapture(event: MouseEvent): void {
   if (isCoverView.value) return
   const header = scrollRef.value?.querySelector<HTMLElement>('.library-flat-track-header')
   const target = event.target instanceof Element ? event.target : null
-  if (target?.closest('.library-flat-search')) return
   if (!header || (target && header.contains(target))) return
   const rect = header.getBoundingClientRect()
   if (
@@ -898,12 +813,7 @@ const {
   getPlaylistDetail: (id) => playlistCatalogClient.getPlaylistDetail(id),
   getSmartPlaylistDetail: (id) => playlistCatalogClient.getSmartPlaylistDetail(id),
   readPersistedViewMode,
-  onSnapshotCommitted: (snapshot) => {
-    resetMatchCursor()
-    searchOutcome.value = { kind: 'idle' }
-    ensureKeyboardFocusTrackId()
-    scheduleLibrarySearchIndex(snapshot.tracks)
-  },
+  onSnapshotCommitted: ensureKeyboardFocusTrackId,
   captureViewportRestore: captureLibraryViewportRestore,
   restoreViewportRestore: restoreLibraryViewportRestore,
   scrollToPlaybackTrack,
@@ -918,8 +828,6 @@ const {
 
 onMounted(async () => {
   if (hasLeftInstanceRoute) return
-  document.addEventListener('pointerdown', onDocumentPointerDown)
-  window.addEventListener('keydown', onWindowKeyDown)
   bindExternalPlaylistEvents()
   subscribeLibraryEvents()
   void loadRegularPlaylistItems()
@@ -944,7 +852,6 @@ watch(
     if (hasLeftInstanceRoute) return
     navigationRestorePending = true
     navigationRestoreIntent = viewport.captureNavigationIntent()
-    clearSearch()
     closeFlatColumnMenu()
     closeContextMenu()
     await loadLibraryData('foreground')
@@ -955,17 +862,13 @@ watch(
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
-  searchMatchHint.clear()
   if (flatContainerWidthFrame) window.cancelAnimationFrame(flatContainerWidthFrame)
   flatContainerWidthFrame = 0
   flatColumnMenu.value = null
   flatColumnLayoutState.cancelPreview()
-  invalidateLibrarySearchSession()
   disposeLibraryViewport()
   disposeLibraryContextMenu()
   disposeLibraryCatalogLoader()
-  window.removeEventListener('keydown', onWindowKeyDown)
-  document.removeEventListener('pointerdown', onDocumentPointerDown)
 })
 </script>
 
@@ -993,131 +896,10 @@ onBeforeUnmount(() => {
         {{ t('library.status.retry') }}
       </button>
     </div>
-    <div v-if="isSearchEnabled && isCoverView" ref="searchZoneRef" class="library-search-zone">
-      <Transition name="search-overlay" :duration="160">
-        <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
-          <div
-            ref="searchRootRef"
-            class="page-search-tools library-song-search-tools"
-            :class="{ 'page-search-tools--parameters': hasPageParameters }"
-            @focusin="onSearchToolsFocusIn"
-            @focusout="onSearchToolsFocusOut"
-          >
-            <div
-              class="library-search-bar"
-              :class="{ 'library-search-bar--parameters': hasPageParameters }"
-              @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
-              @focusout="onSearchBarFocusOut"
-            >
-              <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-              <input
-                ref="searchInputRef"
-                v-model="searchQuery"
-                type="text"
-                class="library-search-input"
-                :disabled="isLoading || tracks.length === 0"
-                :placeholder="t('library.search.placeholder')"
-                :aria-label="t('library.search.ariaLabel')"
-                spellcheck="false"
-                @focus="onSearchInputFocus"
-                @keydown="onSearchKeydown"
-              />
-              <span
-                v-if="searchOutcome.kind !== 'idle'"
-                class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
-                role="status"
-                aria-live="polite"
-              >
-                <template v-if="searchOutcome.kind === 'matched'">
-                  {{
-                    searchOutcome.wrapped
-                      ? t('library.search.wrapped', {
-                          index: String(searchOutcome.index).padStart(2, '0'),
-                          total: String(searchOutcome.total).padStart(2, '0'),
-                        })
-                      : t('library.search.matched', {
-                          index: String(searchOutcome.index).padStart(2, '0'),
-                          total: String(searchOutcome.total).padStart(2, '0'),
-                        })
-                  }}
-                </template>
-                <template v-else-if="searchOutcome.kind === 'not-found'">
-                  <span class="library-search-not-found text-[var(--auralis-danger)] font-medium">
-                    {{ t('library.search.notFound') }}
-                  </span>
-                </template>
-              </span>
-              <span v-if="hasPageParameters" class="page-search-parameters">
-                <PageParameterTrigger @pointerdown.stop />
-              </span>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </div>
-
-    <div class="library-list-frame relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div v-if="isSearchEnabled && !isCoverView" ref="searchRootRef" class="library-flat-search">
-        <div
-          class="page-search-tools library-song-search-tools"
-          :class="{ 'page-search-tools--parameters': hasPageParameters }"
-          @focusin="onSearchToolsFocusIn"
-          @focusout="onSearchToolsFocusOut"
-        >
-          <div
-            class="library-search-bar"
-            :class="{ 'library-search-bar--parameters': hasPageParameters }"
-            @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
-            @focusout="onSearchBarFocusOut"
-          >
-            <span
-              class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"
-              aria-hidden="true"
-            ></span>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              class="library-search-input"
-              :disabled="isLoading || tracks.length === 0"
-              :placeholder="t('library.search.placeholder')"
-              :aria-label="t('library.search.ariaLabel')"
-              spellcheck="false"
-              @focus="onSearchInputFocus"
-              @keydown="onSearchKeydown"
-            />
-            <span
-              v-if="searchOutcome.kind !== 'idle'"
-              class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
-              role="status"
-              aria-live="polite"
-            >
-              <template v-if="searchOutcome.kind === 'matched'">
-                {{
-                  searchOutcome.wrapped
-                    ? t('library.search.wrapped', {
-                        index: String(searchOutcome.index).padStart(2, '0'),
-                        total: String(searchOutcome.total).padStart(2, '0'),
-                      })
-                    : t('library.search.matched', {
-                        index: String(searchOutcome.index).padStart(2, '0'),
-                        total: String(searchOutcome.total).padStart(2, '0'),
-                      })
-                }}
-              </template>
-              <template v-else-if="searchOutcome.kind === 'not-found'">
-                <span class="library-search-not-found text-[var(--auralis-danger)] font-medium">
-                  {{ t('library.search.notFound') }}
-                </span>
-              </template>
-            </span>
-            <span v-if="hasPageParameters" class="page-search-parameters">
-              <PageParameterTrigger @pointerdown.stop />
-            </span>
-          </div>
-        </div>
+    <div class="library-list-frame relative flex min-h-0 min-w-0 flex-1 flex-col" :class="{ 'library-list-frame--flat-parameters': hasPageParameters && !isCoverView }">
+      <div v-if="hasPageParameters" class="page-parameter-tools" :class="{ 'page-parameter-tools--flat': !isCoverView }">
+        <PageParameterTrigger />
       </div>
-
       <LibraryStatusState v-if="isLoading" kind="loading" />
 
       <LibraryStatusState
@@ -1308,43 +1090,26 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.library-search-not-found {
-  display: inline-block;
-  animation: library-search-not-found-shake 320ms ease-in-out;
+.page-parameter-tools { display: flex; flex: 0 0 auto; justify-content: flex-end; padding: 8px 28px 8px 0; }
+.page-parameter-tools--flat {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  z-index: 31;
+  padding: 0;
 }
-
-@keyframes library-search-not-found-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-3px);
-  }
-  40% {
-    transform: translateX(3px);
-  }
-  60% {
-    transform: translateX(-2px);
-  }
-  80% {
-    transform: translateX(1px);
-  }
+.page-parameter-tools--flat :deep(.page-parameter-trigger) {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  font-size: 16px;
 }
-
-:where([data-reduced-motion='true']) .library-search-not-found {
-  animation: none;
+.library-list-frame--flat-parameters :deep(.main-artist-index) {
+  top: 40px;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .library-search-not-found {
-    animation: none;
-  }
-}
-
 .library-cover-virtual-window {
   box-sizing: border-box;
-  /* 为封面外描边预留 2px 线宽 + 3px 偏移，避免被滚动容器裁切。 */
+  /* Reserve the existing 2px outline plus its 3px offset. */
   padding-inline: 5px;
 }
 </style>

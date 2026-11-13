@@ -1,6 +1,6 @@
 import type { RouteComponent } from 'vue-router'
 
-export type WarmableRouteName = 'library' | 'albums' | 'recent-added' | 'archive'
+export type WarmableRouteName = 'search' | 'library' | 'albums' | 'recent-added' | 'archive'
 
 export type RouteComponentModule = RouteComponent | { default: RouteComponent }
 export type RouteComponentLoader = () => Promise<RouteComponentModule>
@@ -10,6 +10,7 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
   'albums',
   'recent-added',
   'archive',
+  'search',
 ] as const
 
 /**
@@ -17,6 +18,7 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
  * 绝不能在模块顶层 import 任何页面组件，保持页面级代码分割。
  */
 export const rawRouteLoaders = {
+  search: () => import('@renderer/features/search/SearchPage.vue'),
   library: () => import('@renderer/features/library/pages/LibraryPage.vue'),
   recentAdded: () => import('@renderer/features/library/pages/RecentAddedPage.vue'),
   albums: () => import('@renderer/features/albums/pages/AlbumsPage.vue'),
@@ -54,6 +56,7 @@ export function createRouteLoaderRegistry(
   }
 
   const routeLoaders = {
+    search: () => getOrLoad('search', loaders.search ?? rawRouteLoaders.search),
     library: () => getOrLoad('library', loaders.library),
     recentAdded: () => getOrLoad('recentAdded', loaders.recentAdded),
     albums: () => getOrLoad('albums', loaders.albums),
@@ -65,6 +68,7 @@ export function createRouteLoaderRegistry(
   }
 
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {
+    search: routeLoaders.search,
     library: routeLoaders.library,
     albums: routeLoaders.albums,
     'recent-added': routeLoaders.recentAdded,

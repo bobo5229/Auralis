@@ -593,21 +593,9 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           key, bubbles: true, cancelable: true,
         }))
         const page = document.querySelector('.library-page')
-        const launcher = page?.querySelector('.library-flat-search-launcher')
-        if (launcher instanceof HTMLElement) {
-          launcher.click()
-        } else {
-          const zone = page?.querySelector('.library-search-zone')
-          if (zone) {
-            const rect = zone.getBoundingClientRect()
-            page.dispatchEvent(new MouseEvent('mousemove', {
-              bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + 20,
-            }))
-          }
-        }
-        await waitFor('search tools parameter entry', () =>
-          Boolean(page?.querySelector('.page-search-tools [data-page-parameters-trigger]')))
-        const trigger = page.querySelector('.page-search-tools [data-page-parameters-trigger]')
+        await waitFor('page parameter entry', () =>
+          Boolean(page?.querySelector('[data-page-parameters-trigger]')))
+        const trigger = page.querySelector('[data-page-parameters-trigger]')
         const panel = document.getElementById('page-parameter-panel')
         if (!page || !trigger || !panel || trigger.disabled) {
           throw new Error('Song page parameters entry is unavailable')
@@ -796,8 +784,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         const filters = groupedTools.find((el) =>
           ['筛选面板', 'Filter panel'].includes(el.getAttribute('aria-label')))
         const valid = Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
-          groupedTools.length === (rail ? 3 : 2) && Boolean(refresh) && Boolean(filters) &&
-          toolbar.contains(refresh) === rail &&
+          groupedTools.length === 3 && Boolean(refresh) && Boolean(filters) &&
+          toolbar.contains(refresh) &&
           Boolean(settings) && !toolbar.contains(settings) && Boolean(themeToggle) &&
           !document.querySelector('.sidebar-footer [data-page-parameters-trigger]') &&
           tools.every((el) => {

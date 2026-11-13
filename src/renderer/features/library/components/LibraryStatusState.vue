@@ -34,7 +34,6 @@ const emit = defineEmits<{
   selectFolder: []
   retryScan: []
   retryRoots: []
-  clearSearch: []
   retry: []
 }>()
 
@@ -46,7 +45,6 @@ const statusKind = computed(() => {
 const title = computed(() => {
   if (statusKind.value === 'loading') return t('library.status.loading')
   if (props.kind === 'error') return props.errorMessage || t('library.status.loadError')
-  if (props.kind === 'no-search-match') return t('library.search.notFound')
   if (props.kind === 'empty' && props.isRecentAdded) return t('library.recentAdded.empty')
   return t(
     props.isSmartPlaylist
@@ -58,7 +56,6 @@ const title = computed(() => {
 })
 const actionLabel = computed(() => {
   if (props.kind === 'error') return t('library.status.retry')
-  if (props.kind === 'no-search-match') return t('library.search.clearSearch')
   if (props.kind === 'empty' && props.emptyAction === 'select-folder')
     return t('settings.library.selectFolder')
   if (props.kind === 'empty' && props.emptyAction === 'retry-scan')
@@ -70,7 +67,6 @@ const actionLabel = computed(() => {
 
 function onAction(): void {
   if (props.kind === 'error') emit('retry')
-  else if (props.kind === 'no-search-match') emit('clearSearch')
   else if (props.emptyAction === 'select-folder') emit('selectFolder')
   else if (props.emptyAction === 'retry-scan') emit('retryScan')
   else if (props.emptyAction === 'retry-roots') emit('retryRoots')
@@ -89,7 +85,7 @@ function onAction(): void {
     :action-label="actionLabel"
     :action-disabled="actionPending"
     :show-icon="kind !== 'empty'"
-    :icon="kind === 'no-search-match' ? 'i-lucide-search-x' : 'i-lucide-music-4'"
+    icon="i-lucide-music-4"
     @action="onAction"
   />
 </template>

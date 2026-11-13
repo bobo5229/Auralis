@@ -2,32 +2,6 @@
   container-type: inline-size;
 }
 
-/* 搜索工具独占表头上方的一行，避免遮挡曲目或列标题。 */
-.library-flat-search {
-  position: relative;
-  z-index: 90;
-  box-sizing: border-box;
-  display: flex;
-  flex: 0 0 44px;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding-inline: var(--library-flat-grid-padding-inline);
-  pointer-events: none;
-  -webkit-app-region: no-drag;
-}
-
-.library-flat-search .page-search-tools {
-  position: relative;
-  inset: auto;
-  z-index: auto;
-  max-width: 100%;
-  height: auto;
-  min-width: 0;
-  flex: 0 1 auto;
-  transform: none;
-  pointer-events: auto;
-}
 
 .library-flat-track-grid {
   display: grid;
@@ -59,7 +33,7 @@
   min-height: var(--library-flat-header-height);
   align-items: center;
   background: var(--auralis-main-bg);
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 45%, transparent);
   color: var(--auralis-text-muted);
   font-weight: 600;
 }

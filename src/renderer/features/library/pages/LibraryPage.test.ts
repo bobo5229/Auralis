@@ -483,11 +483,6 @@ describe('LibraryPage focus wiring', () => {
   })
 })
 
-async function openFlatSearch(): Promise<void> {
-  fire(find('.library-search-input'), 'onFocus')
-  await settle()
-}
-
 describe('artist index', () => {
   it('jumps to the selected row below the sticky header and disables missing letters', async () => {
     fixture.tracks = [
@@ -519,122 +514,24 @@ describe('artist index', () => {
   })
 })
 
-describe('LibraryPage flat search entry', () => {
-  it.each(['flat', 'cover'])(
-    'cues a search result in %s view and preserves input focus and playback',
-    async (mode) => {
-      vi.stubGlobal('Document', EventTarget)
-      storage.set('auralis-library-view-mode', mode)
-      await mount()
-      if (mode === 'cover') {
-        fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-        await settle()
-      }
-      const input = find('.library-search-input')
-      Object.assign(input, { getRootNode: () => doc })
-      input.focus()
-      fire(input, 'onUpdate:modelValue', 'Track 2')
-      key(input, 'Enter')
-      // The production search index yields to the event loop before building.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0))
-      await settle()
-      expect(row(2).animations).toHaveLength(1)
-      expect(row(1).animations).toHaveLength(0)
-      expect(doc.activeElement).toBe(input)
-      expect(fixture.select).not.toHaveBeenCalled()
-      expect(fixture.play).not.toHaveBeenCalled()
-      key(input, 'Enter')
-      await settle()
-      expect(row(2).animations).toHaveLength(2)
-      expect(row(2).animations[0].cancelled).toBe(true)
-      key(input, 'Escape')
-      expect(row(2).animations[1].cancelled).toBe(true)
-    },
-  )
-
-  it('keeps the search bar visible without a corner launcher', async () => {
-    await mount(true)
-    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-    await settle()
-    expect(find('.library-search-input')).toBeDefined()
-    expect(doc.body.querySelector('.library-search-zone')).toBeNull()
-    expect(doc.body.querySelector('.library-flat-search-launcher')).toBeNull()
-    const bar = find('.library-search-bar')
-    expect(bar.querySelector('.i-lucide-search')).toBeDefined()
-    expect(bar.contains(find('[data-page-parameters-trigger]'))).toBe(true)
-    expect(find('[data-page-parameters-trigger]').parent).toBe(find('.page-search-parameters'))
-    expect(bar.parent).toBe(find('.page-search-tools'))
-  })
-
-  it('keeps cover search on the centered hover zone', async () => {
-    storage.set('auralis-library-view-mode', 'cover')
+describe('LibraryPage standalone parameter entry', () => {
+  it.each(['flat', 'cover'])('removes page search but keeps parameters in %s view', async (view) => {
+    storage.set('auralis-library-view-mode', view)
+    fixture.tracks = [track(1)]
     const parameters = (await mount(true))!
-    expect(doc.body.querySelector('.library-flat-search-launcher')).toBeNull()
-    expect(doc.body.querySelector('.library-search-bar')).toBeNull()
-    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
-    await settle()
-    expect(find('.library-search-zone')).toBeDefined()
-    const bar = find('.library-search-bar')
-    expect(bar.querySelector('.i-lucide-search')).toBeDefined()
+    expect(doc.body.querySelector('.library-search-input')).toBeNull()
     const trigger = find('[data-page-parameters-trigger]')
-    expect(bar.contains(trigger)).toBe(true)
     fire(trigger, 'onClick', { currentTarget: trigger })
     expect(parameters.open.value).toBe(true)
-  })
-})
-
-describe('LibraryPage page parameter entry', () => {
-  it('keeps the parameter button inside search, preserves the query and returns focus', async () => {
-    const parameters = (await mount(true))!
-    await openFlatSearch()
-    const tools = find('.page-search-tools')
-    const bar = find('.library-search-bar')
-    const input = find('.library-search-input')
-    const trigger = find('[data-page-parameters-trigger]')
-    expect(trigger.parent).toBe(find('.page-search-parameters'))
-    expect(bar.parent).toBe(tools)
-    expect(bar.contains(trigger)).toBe(true)
-    Reflect.set(input, 'value', 'al')
-    fire(input, 'onUpdate:modelValue', 'al')
-    await settle()
-    const focus = vi.spyOn(input, 'focus')
-    fire(trigger, 'onClick', { currentTarget: trigger })
-    await settle()
-    expect(parameters.open.value).toBe(true)
-    expect(focus).not.toHaveBeenCalled()
-    fire(find('.library-page'), 'onMouseleave')
     parameters.close()
     await settle()
     expect(doc.activeElement).toBe(trigger)
-    expect(find('[data-page-parameters-trigger]')).toBe(trigger)
-    expect(Reflect.get(input, 'value')).toBe('al')
   })
-  it('keeps the parameter entry available for an empty library while search is disabled', async () => {
-    fixture.tracks = []
+  it('keeps parameters accessible for an empty library', async () => {
     const parameters = (await mount(true))!
-    await openFlatSearch()
-    expect(find('.library-search-input').props.disabled).toBe(true)
     const trigger = find('[data-page-parameters-trigger]')
-    expect(trigger.props.disabled).toBe(false)
     fire(trigger, 'onClick', { currentTarget: trigger })
     expect(parameters.open.value).toBe(true)
-  })
-  it('retains the search toolbar after panel closure and focus leaves', async () => {
-    const parameters = (await mount(true))!
-    await openFlatSearch()
-    const trigger = find('[data-page-parameters-trigger]')
-    fire(trigger, 'onClick', { currentTarget: trigger })
-    fire(find('.library-page'), 'onMouseleave')
-    await settle()
-    parameters.close()
-    await settle()
-    expect(doc.activeElement).toBe(trigger)
-    const tools = find('.page-search-tools')
-    const bar = find('.library-search-bar')
-    fire(bar, 'onFocusout', { currentTarget: bar, relatedTarget: row(1) })
-    fire(tools, 'onFocusout', { currentTarget: tools, relatedTarget: row(1) })
-    await settle()
-    expect(doc.body.querySelector('.page-search-tools')).toBeDefined()
   })
 })
 

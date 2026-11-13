@@ -1,4 +1,19 @@
 {
+  "search": {
+    "title": "Search",
+    "placeholder": "Search songs, artists and albums…",
+    "categories": "Result type",
+    "all": "All",
+    "songs": "Songs",
+    "albums": "Albums",
+    "empty": "Search songs, albums, or artists",
+    "searching": "Searching…",
+    "failed": "Could not search your library. Try again.",
+    "noResults": "No matching results",
+    "viewAll": "View all",
+    "more": "Show more ({count} remaining)",
+    "openAlbum": "Open album"
+  },
   "colorPicker": {
     "invalidColor": "Enter a valid six-digit HEX color.",
     "presetColor": "Preset color",
@@ -524,15 +539,6 @@
       "colorSampleHint": "Click an opaque area of the cover to pick a color; press Esc to cancel",
       "colorSampleError": "Unable to pick a color from the cover"
     },
-    "search": {
-      "ariaLabel": "Search albums and album artists",
-      "placeholder": "Start of an album or album artist name",
-      "locateHint": "Enter to locate",
-      "clear": "Clear search",
-      "matched": "{index} / {total}",
-      "wrapped": "Back to start",
-      "notFound": "No matching albums"
-    },
     "contextMenu": {
       "locateCurrent": "Locate current album",
       "play": "Play {title}",
@@ -576,14 +582,6 @@
       "resizeBetween": "Resize columns between {left} and {right}",
       "menuLabel": "Track list column width menu",
       "restoreDefaults": "Restore default column widths"
-    },
-    "search": {
-      "ariaLabel": "Search this list",
-      "placeholder": "Search titles, artists and albums…",
-      "matched": "{index} / {total}",
-      "wrapped": "Back to the first match ({index} of {total})",
-      "notFound": "No matches",
-      "clearSearch": "Clear search"
     },
     "contextMenu": {
       "ariaLabel": "Library actions",
@@ -669,12 +667,9 @@
     "today": "Today",
     "less": "Less",
     "more": "More",
-    "intensityLegend": "Lighter to darker colors indicate fewer to more plays",
-    "dayTracks": "Top tracks",
+    "intensityLegend": "Smaller, fainter dots indicate fewer plays; larger, stronger dots indicate more plays",
     "daySummary": "{count} plays · {minutes} min | {count} play · {minutes} min | {count} plays · {minutes} min",
     "playCount": "{count} plays | {count} play | {count} plays",
-    "dayEmpty": "No listening records for this day",
-    "dayLoadError": "Could not load tracks.",
     "dayAlbumsTitle": "Albums of the day",
     "albumPreview": "Rank {rank}, {album}, {artist}, expand cover",
     "dayAlbumsNoDate": "Choose a date",
@@ -734,13 +729,13 @@
         "hours10": "First Notes",
         "hours100": "Taking Shape",
         "hours500": "Resonance",
-        "hours1000": "Long Companionship",
-        "days7": "A Week Together",
-        "days30": "A Month Together",
+        "hours1000": "Endless Listening",
+        "days7": "First Seven Days",
+        "days30": "Thirty Days of Echoes",
         "days100": "A Hundred Days",
-        "days365": "A Year Together",
-        "days520": "Close at Heart",
-        "albums1": "From Start to Finish",
+        "days365": "Three Hundred Sixty-Five Days",
+        "days520": "The 520 Promise",
+        "albums1": "A Complete Album",
         "albumsLive": "Live Echoes"
       },
       "labels": {

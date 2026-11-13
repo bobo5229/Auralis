@@ -45,7 +45,7 @@ function matchesAutomatic(color: { r: number; g: number; b: number }): boolean {
 }
 const canReset = computed(() => !!preference.value && !matchesAutomatic(preference.value))
 watch(canReset, (visible) => {
-  if (!visible && resetButton.value && document.activeElement === resetButton.value)
+  if (!visible && resetButton.value && typeof document !== 'undefined' && document.activeElement === resetButton.value)
     trigger.value?.focus()
 })
 const currentColor = computed(() => {

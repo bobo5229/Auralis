@@ -42,9 +42,10 @@ const playButtonStyle = computed(() => {
       ? (palette.value.dominant ?? palette.value.accents[0]?.rgb)
       : null
   if (!color) return undefined
+  const foreground = resolveArtworkButtonTextColor(color)
   return {
-    '--album-card-play-bg': `rgb(${color.r} ${color.g} ${color.b})`,
-    '--album-card-play-fg': resolveArtworkButtonTextColor(color),
+    '--album-card-play-fg': foreground,
+    '--album-card-play-outline': foreground === '#ffffff' ? '#1f1f1f' : '#ffffff',
   }
 })
 
@@ -281,20 +282,12 @@ function onContextMenu(event: MouseEvent): void {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background-color: color-mix(
-    in srgb,
-    var(--album-card-play-bg, var(--auralis-control-primary-bg))
-      var(--auralis-frosted-surface-tint-opacity),
-    transparent
-  );
-  backdrop-filter: var(--auralis-frosted-surface-filter);
-  -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
-  color: var(--album-card-play-fg, var(--auralis-control-primary-text));
+  background: transparent;
+  color: var(--album-card-play-fg, #ffffff);
   opacity: 0;
   pointer-events: none;
   transform: translateY(18px);
   transition:
-    background-color 180ms ease-out,
     opacity 180ms ease-out,
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
   cursor: pointer;
@@ -304,6 +297,10 @@ function onContextMenu(event: MouseEvent): void {
   display: block;
   width: 26px;
   height: 26px;
+  stroke: var(--album-card-play-outline, #1f1f1f);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
   /* 右向三角视觉质量偏左，相对几何中心右移 1px */
   transform: translateX(1px);
 }
@@ -312,15 +309,6 @@ function onContextMenu(event: MouseEvent): void {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
-}
-
-.album-card-play:is(:hover, :focus-visible) {
-  background-color: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--album-card-play-bg, var(--auralis-control-primary-bg)) 88%, white)
-      var(--auralis-frosted-surface-tint-opacity),
-    transparent
-  );
 }
 
 .album-card-play:focus-visible {
@@ -357,21 +345,6 @@ function onContextMenu(event: MouseEvent): void {
   border-radius: inherit;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: var(--auralis-surface-shadow, 0 10px 24px rgba(0, 0, 0, 0.28));
-}
-
-.cover-frame::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.28), transparent 58%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease-out;
-  content: '';
-}
-
-.album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
-  opacity: 1;
 }
 
 .cover-img {
@@ -467,7 +440,4 @@ function onContextMenu(event: MouseEvent): void {
   transition: none;
 }
 
-:where([data-reduced-motion='true']) .cover-frame::after {
-  transition: none;
-}
 </style>

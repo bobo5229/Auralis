@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { DailyPlayCount, DailyTopAlbum } from '@shared/types/listeningArchive'
+import type { DailyTopAlbum } from '@shared/types/listeningArchive'
 import ArchiveAlbumSpines from './ArchiveAlbumSpines.vue'
-import ArchiveDayTracks from './ArchiveDayTracks.vue'
+import ArchiveDateDigit from './ArchiveDateDigit.vue'
 
 const props = defineProps<{
   date: string | null
   albums: DailyTopAlbum[]
   loading: boolean
   failed: boolean
-  daySummary?: DailyPlayCount
 }>()
 const emit = defineEmits<{ retry: [] }>()
 const { t, locale } = useI18n()
 const sectionId = useId()
 const dateNumber = computed(() => props.date?.slice(5).replace('-', '.') ?? '')
+const dateDirection = ref(1)
+watch(() => props.date, (date, previous) => {
+  if (date && previous && date !== previous) dateDirection.value = date > previous ? 1 : -1
+}, { flush: 'sync' })
 const weekday = computed(() =>
   props.date
     ? new Intl.DateTimeFormat(locale.value, {
@@ -39,10 +42,8 @@ const dateLabel = computed(() => {
 <template>
   <section class="archive-day-albums" :aria-label="dateLabel || t('archive.title')">
     <header class="archive-day-albums-header">
-      <div v-if="date" :key="date" class="archive-day-date-block" aria-live="polite">
-        <time :datetime="date" :aria-label="dateLabel" class="archive-day-date-number">{{
-          dateNumber
-        }}</time>
+      <div v-if="date" class="archive-day-date-block" aria-live="polite">
+        <time :datetime="date" :aria-label="dateLabel" class="archive-day-date-number"><span aria-hidden="true"><template v-for="(character, index) in dateNumber" :key="index"><span v-if="character === '.'">.</span><ArchiveDateDigit v-else :digit="character" :direction="dateDirection" /></template></span></time>
         <div class="archive-day-date-context auralis-type-caption">
           <span>{{ weekday }}</span
           ><span>{{ date.slice(0, 4) }}</span>
@@ -82,16 +83,6 @@ const dateLabel = computed(() => {
           </p>
         </div>
       </section>
-      <section
-        v-if="date"
-        class="archive-day-tracks-panel"
-        :aria-labelledby="sectionId + '-tracks'"
-      >
-        <h3 :id="sectionId + '-tracks'" class="archive-day-section-title auralis-type-control">
-          {{ t('archive.dayTracks') }}
-        </h3>
-        <ArchiveDayTracks :date="date" :day-summary="daySummary" />
-      </section>
     </div>
   </section>
 </template>
@@ -125,7 +116,6 @@ const dateLabel = computed(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  animation: archive-day-reveal 180ms ease-out;
 }
 .archive-day-date-number {
   /* The date is this section's display anchor, using the shared hero scale. */
@@ -150,16 +140,8 @@ const dateLabel = computed(() => {
   gap: 20px;
   align-items: start;
 }
-.archive-day-albums-panel,
-.archive-day-tracks-panel {
+.archive-day-albums-panel {
   min-width: 0;
-}
-.archive-day-tracks-panel {
-  width: 100%;
-  max-width: 960px;
-  margin-inline: auto;
-  padding-top: 20px;
-  border-top: 1px solid var(--auralis-border-subtle);
 }
 .archive-day-album-stage {
   min-height: 390px;

@@ -29,7 +29,7 @@ html[data-theme-transition] *::after {
   --theme-control-subtle: var(--auralis-text-subtle);
 }
 
-html[data-theme-transition] :is(.page-search-tools, .library-flat-track-header) {
+html[data-theme-transition] .library-flat-track-header {
   --auralis-text: var(--theme-control-text);
   --auralis-text-muted: var(--theme-control-muted);
   --auralis-text-faint: var(--theme-control-faint);
@@ -2880,59 +2880,8 @@ input[type='range'].volume-overlay-slider {
   border-radius: 12px;
 }
 
-/* Library search bar */
-.library-search-zone {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 48px;
-  z-index: 70;
-  pointer-events: none;
-}
-
-.library-search-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.search-overlay-enter-from .page-search-tools,
-.search-overlay-leave-to .page-search-tools {
-  opacity: 0;
-}
-
-.page-search-tools {
-  --page-search-tools-width: 360px;
-  position: absolute;
-  z-index: 1;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: var(--page-search-tools-width);
-  max-width: calc(100% - 48px);
-  height: 38px;
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
-}
-
-.page-search-tools--parameters {
-  --page-search-tools-width: 406px;
-}
-
-/* Both song views share the compact search and parameter controls. */
-.page-search-tools.library-song-search-tools {
-  --page-search-tools-width: 360px;
-}
-
-.library-song-search-tools .library-search-bar {
-  box-sizing: border-box;
-}
-
-.library-song-search-tools .page-parameter-trigger {
+/* Standalone page parameter controls. */
+.page-parameter-trigger {
   font-size: 14px;
 }
 
@@ -2980,81 +2929,6 @@ input[type='range'].volume-overlay-slider {
 .page-parameter-trigger:disabled {
   opacity: 0.5;
   cursor: default;
-}
-
-.library-search-bar--parameters {
-  padding-right: 4px;
-}
-
-.page-search-parameters {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-search-parameters::before {
-  width: 1px;
-  height: 20px;
-  background: var(--auralis-border-strong);
-  content: '';
-}
-
-.page-search-parameters .page-parameter-trigger {
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.page-search-parameters .page-parameter-trigger:hover,
-.page-search-parameters .page-parameter-trigger--active {
-  background: var(--auralis-control-hover-bg);
-}
-
-.page-search-parameters .page-parameter-trigger:focus-visible {
-  outline-offset: 0;
-}
-
-.library-search-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  /* Search uses the compact 12px caption scale for input and placeholder text. */
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  color: var(--auralis-text);
-  /* Align the text's visual center with the search icon. */
-  transform: translateY(1px);
-}
-
-.library-search-input::placeholder {
-  color: var(--auralis-text-faint);
-}
-
-.search-overlay-enter-active .page-search-tools,
-.search-overlay-leave-active .page-search-tools {
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease;
-}
-
-.search-overlay-leave-active .page-search-tools {
-  pointer-events: none;
-}
-
-.search-overlay-enter-from .page-search-tools,
-.search-overlay-leave-to .page-search-tools {
-  transform: translateX(-50%) translateY(-4px);
-}
-
-.search-overlay-enter-to .page-search-tools,
-.search-overlay-leave-from .page-search-tools {
-  transform: translateX(-50%) translateY(0);
 }
 
 .library-context-menu {
@@ -3424,20 +3298,6 @@ input[type='range'].volume-overlay-slider {
 :where([data-reduced-motion='true']) .library-view-fade-enter-active,
 :where([data-reduced-motion='true']) .library-view-fade-leave-active {
   transition-duration: 0ms !important;
-}
-
-/* Library 搜索层：减少动态效果时瞬时切换 */
-
-:where([data-reduced-motion='true']) .search-overlay-enter-active .page-search-tools,
-:where([data-reduced-motion='true']) .search-overlay-leave-active .page-search-tools {
-  transition-duration: 0ms !important;
-}
-
-:where([data-reduced-motion='true']) .search-overlay-enter-from .page-search-tools,
-:where([data-reduced-motion='true']) .search-overlay-leave-to .page-search-tools,
-:where([data-reduced-motion='true']) .search-overlay-enter-to .page-search-tools,
-:where([data-reduced-motion='true']) .search-overlay-leave-from .page-search-tools {
-  transform: translateX(-50%);
 }
 
 :where([data-reduced-motion='true']) .player-bar-album-tint-previous {

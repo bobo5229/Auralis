@@ -71,7 +71,6 @@ const statusMessage = computed(() => {
         :albums="pinnedAlbums"
         :loading="pinnedAlbumsLoading"
         :failed="pinnedAlbumsError"
-        :day-summary="days.find((day) => day.date === pinnedDate)"
         @retry="refreshPinnedAlbums"
       />
       <p v-if="statusMessage" class="archive-status auralis-type-caption" role="status">

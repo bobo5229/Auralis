@@ -55,8 +55,8 @@ describe('routeComponentLoaders', () => {
     expect(archive).toHaveBeenCalledTimes(1)
   })
 
-  it('defines primary warmable routes strictly matching the four primary navigation targets', () => {
-    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'recent-added', 'archive'])
+  it('defines primary warmable routes strictly matching the five primary navigation targets', () => {
+    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'recent-added', 'archive', 'search'])
   })
 
   it('correctly checks isWarmableRoute only for valid warmable routes', () => {

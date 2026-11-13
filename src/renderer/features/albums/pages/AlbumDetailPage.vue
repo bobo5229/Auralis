@@ -160,16 +160,16 @@ function retryLoad(): void {
   void reloadTracks()
 }
 
-const recentAddedReturnTo = computed(() => {
+const detailReturnTo = computed(() => {
   const target = route.query.returnTo
-  return typeof target === 'string' && /^\/recent-added(?:[?#]|$)/.test(target)
+  return typeof target === 'string' && /^\/(?:recent-added|search)(?:[?#]|$)/.test(target)
     ? target
     : undefined
 })
 
 function goBack(): void {
   cancelPendingPlayback()
-  void router.push(recentAddedReturnTo.value ?? { name: 'albums' })
+  void router.push(detailReturnTo.value ?? { name: 'albums' })
 }
 
 function openAlbum(album: AlbumSummary): void {
@@ -191,7 +191,7 @@ function openAlbum(album: AlbumSummary): void {
     query: {
       artist: album.albumArtist,
       title: album.title,
-      ...(recentAddedReturnTo.value ? { returnTo: recentAddedReturnTo.value } : {}),
+      ...(detailReturnTo.value ? { returnTo: detailReturnTo.value } : {}),
     },
   })
 }

@@ -1,4 +1,19 @@
 {
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索歌曲、艺术家和专辑…",
+    "categories": "结果类型",
+    "all": "全部",
+    "songs": "歌曲",
+    "albums": "专辑",
+    "empty": "搜索歌曲、专辑或艺术家",
+    "searching": "正在搜索…",
+    "failed": "暂时无法搜索曲库，请重试",
+    "noResults": "没有找到匹配结果",
+    "viewAll": "查看全部",
+    "more": "显示更多（剩余 {count} 项）",
+    "openAlbum": "打开专辑"
+  },
   "colorPicker": {
     "invalidColor": "请输入有效的六位 HEX 颜色。",
     "presetColor": "预设颜色",
@@ -524,15 +539,6 @@
       "colorSampleHint": "点击封面的不透明区域取色，按 Esc 取消",
       "colorSampleError": "无法从封面取色"
     },
-    "search": {
-      "ariaLabel": "搜索专辑和专辑艺术家",
-      "placeholder": "输入专辑名或专辑艺术家的开头",
-      "locateHint": "Enter 定位",
-      "clear": "清除搜索",
-      "matched": "{index} / {total}",
-      "wrapped": "已回到开头",
-      "notFound": "未找到匹配专辑"
-    },
     "contextMenu": {
       "locateCurrent": "定位到当前专辑",
       "play": "播放「{title}」",
@@ -599,14 +605,6 @@
       "menuLabel": "曲目列表列宽菜单",
       "restoreDefaults": "恢复默认列宽"
     },
-    "search": {
-      "ariaLabel": "搜索当前列表",
-      "placeholder": "搜索标题、艺人、专辑…",
-      "matched": "{index} / {total}",
-      "wrapped": "已回到开头（{index} / {total}）",
-      "notFound": "未找到匹配项",
-      "clearSearch": "清空搜索"
-    },
     "contextMenu": {
       "ariaLabel": "曲库操作菜单",
       "locateCurrent": "定位到当前歌曲",
@@ -669,12 +667,9 @@
     "today": "今天",
     "less": "少",
     "more": "多",
-    "intensityLegend": "颜色由浅至深表示播放次数由少至多",
-    "dayTracks": "常听曲目",
+    "intensityLegend": "圆点由小至大、由淡至深表示播放次数由少至多",
     "daySummary": "{count} 次 · {minutes} 分钟",
     "playCount": "{count} 次",
-    "dayEmpty": "当日暂无聆听记录",
-    "dayLoadError": "曲目加载失败。",
     "dayAlbumsTitle": "当日专辑",
     "albumPreview": "第 {rank} 名，{album}，{artist}，展开封面",
     "dayAlbumsNoDate": "选择一个日期",
@@ -734,13 +729,13 @@
         "hours10": "初响",
         "hours100": "成章",
         "hours500": "共鸣",
-        "hours1000": "久伴",
-        "days7": "一周相伴",
-        "days30": "月下相伴",
+        "hours1000": "长听不倦",
+        "days7": "七日初遇",
+        "days30": "三十日回响",
         "days100": "百日留声",
-        "days365": "一岁相伴",
-        "days520": "倾心相伴",
-        "albums1": "从头到尾",
+        "days365": "三百六十五日",
+        "days520": "五二零之约",
+        "albums1": "整张聆听",
         "albumsLive": "现场回声"
       },
       "labels": {

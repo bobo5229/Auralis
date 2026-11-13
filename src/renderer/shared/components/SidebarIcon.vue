@@ -1,5 +1,6 @@
 <script setup lang="ts">
 export type SidebarIconKind =
+  | 'search'
   | 'song'
   | 'albums'
   | 'cd'
@@ -30,7 +31,11 @@ defineProps<{ kind: SidebarIconKind }>()
       stroke-linecap="round"
       stroke-linejoin="round"
     >
-      <template v-if="kind === 'song'">
+      <template v-if="kind === 'search'">
+        <circle cx="10.5" cy="10.5" r="7" />
+        <path d="m16 16 5 5" />
+      </template>
+      <template v-else-if="kind === 'song'">
         <ellipse cx="7.5" cy="18" rx="3.5" ry="2.7" />
         <path d="M11 18V3.5l9 3" />
       </template>

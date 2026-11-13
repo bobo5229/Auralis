@@ -11,7 +11,8 @@ import { createPressureSurface } from '../runtime/badgePressureSurface'
 import type { BadgeAchievements } from '@shared/types/badgeAchievements'
 import { badgeAchievementStatus } from '../utils/badgeAchievementStatus'
 import type { InspectBadge } from '../runtime/badgeInspectRenderer'
-import aluminiumTexture from '../assets/milestones/case/brushed-aluminium.png?url'
+import aluminiumShell from '../assets/milestones/case/pbr-shell.png?url'
+import aluminiumRecess from '../assets/milestones/case/pbr-recess.png?url'
 import '../styles/badgeGallery.css'
 
 const props = defineProps<{
@@ -305,9 +306,13 @@ onMounted(async () => {
   viewport.value!.addEventListener('wheel', wheel, { passive: false, signal: lifetime.signal })
   void (async () => {
     try {
-      const image = new Image()
-      image.src = aluminiumTexture
-      await image.decode()
+      await Promise.all(
+        [aluminiumShell, aluminiumRecess].map((source) => {
+          const image = new Image()
+          image.src = source
+          return image.decode()
+        }),
+      )
       if (!lifetime.signal.aborted) aluminiumReady.value = true
     } catch {
       if (!lifetime.signal.aborted) aluminiumFailed.value = true
@@ -354,6 +359,7 @@ defineExpose({
       class="archive-badge-gallery"
       :class="{
         'is-ready': casePresented,
+        'has-pbr-shell': aluminiumReady,
         'is-inspecting': active,
         'is-all': displayedGroup === 'all',
         'is-switching': contentHidden,

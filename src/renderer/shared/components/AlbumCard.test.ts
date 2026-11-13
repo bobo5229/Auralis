@@ -161,7 +161,7 @@ describe('AlbumCard play control', () => {
     expect(source.title).toBe('看着你')
     expect(source.key).toBe(album.key)
   })
-  it('uses the cover dominant color and plays without opening the album', () => {
+  it('uses the cover dominant color for the outlined play icon and plays without opening the album', () => {
     const card = mountCard()
     const playClip = findByClass(card.root, 'album-card-play-clip')
     const playButton = findByClass(card.root, 'album-card-play')
@@ -170,8 +170,8 @@ describe('AlbumCard play control', () => {
     expect(playClip && findByClass(playClip, 'album-card-play')).toBe(playButton)
     expect(playButton).toBeDefined()
     expect(playButton?.props.style).toMatchObject({
-      '--album-card-play-bg': 'rgb(20 30 40)',
       '--album-card-play-fg': '#ffffff',
+      '--album-card-play-outline': '#1f1f1f',
     })
     ;(playButton?.props.onClick as () => void)()
     expect(card.play).toHaveBeenCalledExactlyOnceWith(album)

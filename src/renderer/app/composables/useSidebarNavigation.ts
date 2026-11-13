@@ -6,7 +6,7 @@ import { prefetchRouteOnIntent } from '../router/routeWarmup'
 import type { WarmableRouteName } from '../router/routeComponentLoaders'
 
 interface SidebarNavigationOptions {
-  route: Pick<RouteLocationNormalizedLoaded, 'path' | 'name'>
+  route: Pick<RouteLocationNormalizedLoaded, 'path' | 'name'> & Partial<Pick<RouteLocationNormalizedLoaded, 'query'>>
   libraryStats: Readonly<Ref<LibraryStats>>
   t: (key: string) => string
 }
@@ -24,6 +24,7 @@ export function useSidebarNavigation({ route, libraryStats, t }: SidebarNavigati
       routeName?: WarmableRouteName
     }>
   >(() => [
+    { to: '/search', label: t('search.title'), icon: 'search', routeName: 'search' },
     {
       to: '/songs',
       label: t('nav.songs'),
@@ -53,7 +54,8 @@ export function useSidebarNavigation({ route, libraryStats, t }: SidebarNavigati
     return (
       activePath.value === path ||
       (path === '/archive' && route.name === 'archive-annual-summary') ||
-      (path === '/albums' && route.name === 'album-detail' && activePath.value === route.path)
+      (path === '/albums' && route.name === 'album-detail' && route.query?.returnTo !== '/search' && activePath.value === route.path) ||
+      (path === '/search' && route.name === 'album-detail' && route.query?.returnTo === '/search')
     )
   }
   function onRouteIntent(routeName?: WarmableRouteName): void {

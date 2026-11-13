@@ -246,6 +246,17 @@ it('returns to recently added with its original range', async () => {
   expect(navigation.push).toHaveBeenCalledWith('/recent-added?range=30')
 })
 
+it('returns to the unified search and preserves its origin through more albums', async () => {
+  navigation.returnTo = '/search'
+  const { root } = await mountAlbum(null)
+  ;(byClass(root, 'test-gallery-open').props.onClick as () => void)()
+  expect(navigation.push).toHaveBeenCalledWith({
+    name: 'album-detail', query: { artist: 'Other', title: 'Next', returnTo: '/search' },
+  })
+  ;(byClass(root, 'album-detail-back').props.onClick as () => void)()
+  expect(navigation.push).toHaveBeenLastCalledWith('/search')
+})
+
 it('preserves the recently added origin when opening another album', async () => {
   navigation.returnTo = '/recent-added?range=all'
   const { root } = await mountAlbum(null)

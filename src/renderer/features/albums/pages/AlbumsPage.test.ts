@@ -397,17 +397,6 @@ function shortcut(target?: TestElement): KeyboardEvent {
   return event as KeyboardEvent
 }
 
-function escape(target: TestElement = doc.activeElement, flags: object = {}): KeyboardEvent {
-  const event = new Event('keydown', { cancelable: true })
-  Object.assign(event, { key: 'Escape', ...flags })
-  Object.defineProperty(event, 'target', { value: target })
-  return event as KeyboardEvent
-}
-
-function setSearchQuery(input: TestElement, value: string): void {
-  ;(input.props['onUpdate:modelValue'] as (value: string) => void)(value)
-}
-
 describe('AlbumsPage grid connection', () => {
   it('opens the existing music library settings from the empty state', async () => {
     await mountPage()
@@ -521,297 +510,6 @@ describe('AlbumsPage grid connection', () => {
   })
 })
 
-describe('AlbumsPage keyboard search', () => {
-  beforeEach(() => {
-    fixture.tracks = [
-      {
-        id: 1,
-        album: 'Album',
-        albumArtist: 'Artist',
-        artist: 'Artist',
-        title: 'Song',
-      } as TrackListItem,
-    ]
-  })
-  it('shows the Enter hint and clears from the button without changing scroll or playback', async () => {
-    await mountPage()
-    expect(find('album-search-hint')?.text).toBe('albums.search.locateHint')
-    expect(find('album-search-clear')).toBeUndefined()
-    const input = find('library-search-input')!
-    input.focus()
-    setSearchQuery(input, 'Album')
-    await settle()
-    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
-    await settle()
-    expect(find('album-card')?.props.highlighted).toBe(true)
-    expect(find('album-search-hint')).toBeUndefined()
-    const scroll = find('albums-scroll')!
-    scroll.scrollTop = 420
-    const clear = find('album-search-clear')!
-    expect(clear.props['aria-label']).toBe('albums.search.clear')
-    clear.focus()
-    ;(clear.props.onClick as (event: object) => void)({ stopPropagation: vi.fn() })
-    await settle()
-    expect(input.value).toBe('')
-    expect(doc.activeElement).toBe(input)
-    expect(scroll.scrollTop).toBe(420)
-    expect(find('album-search-clear')).toBeUndefined()
-    expect(find('library-search-outcome')).toBeUndefined()
-    expect(find('album-card')?.props.highlighted).toBe(false)
-    expect(find('album-search-hint')).toBeDefined()
-    expect(fixture.play).not.toHaveBeenCalled()
-  })
-
-  it('replays the same album and restores the counter after the brief wrap notice', async () => {
-    await mountPage()
-    vi.useFakeTimers()
-    const input = find('library-search-input')!
-    setSearchQuery(input, 'Album')
-    await settle()
-    const enter = () =>
-      (input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
-    enter()
-    await settle()
-    const firstRevision = find('album-card')?.props['highlight-revision']
-    expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
-    enter()
-    await settle()
-    expect(find('album-card')?.props['highlight-revision']).toBe(Number(firstRevision) + 1)
-    expect(find('library-search-outcome')?.text).toBe('albums.search.wrapped')
-    await vi.advanceTimersByTimeAsync(1200)
-    await settle()
-    expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
-    expect(find('album-card')?.props.highlighted).toBe(false)
-    enter()
-    await settle()
-    setSearchQuery(input, 'Missing')
-    await settle()
-    await vi.advanceTimersByTimeAsync(1200)
-    await settle()
-    expect(find('library-search-outcome')).toBeUndefined()
-    expect(find('album-card')?.props.highlighted).toBe(false)
-  })
-
-  it('ignores hidden dialogs while yielding to visible dialogs', async () => {
-    await mountPage()
-    const panel = new TestElement('section')
-    panel.props.hidden = true
-    vi.spyOn(doc, 'querySelectorAll').mockReturnValue([panel])
-    expect(shortcut().defaultPrevented).toBe(true)
-    await settle()
-    expect(doc.activeElement).toBe(find('library-search-input'))
-    panel.props.hidden = false
-    expect(shortcut().defaultPrevented).toBe(false)
-  })
-
-  it('keeps empty-catalog search visible and disabled without taking shortcut focus', async () => {
-    fixture.tracks = []
-    await mountPage()
-    expect(shortcut().defaultPrevented).toBe(false)
-    await settle()
-    expect(find('library-search-input')?.props.disabled).toBe(true)
-  })
-
-  it('clears the previous album highlight when a new query has no match', async () => {
-    await mountPage()
-    await setAlbums(40)
-    shortcut()
-    await settle()
-    const input = find('library-search-input')!
-    setSearchQuery(input, 'Album')
-    await settle()
-    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
-    await settle()
-    expect(find('album-card')?.props.highlighted).toBe(true)
-    setSearchQuery(input, 'No Such Album')
-    await settle()
-    expect(find('album-card')?.props.highlighted).toBe(false)
-    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
-    await settle()
-    expect(find('library-search-outcome')?.text).toBe('albums.search.notFound')
-    expect(find('album-card')?.props.highlighted).toBe(false)
-  })
-
-  it('locates original and displayed album prefixes without changing catalog identities', async () => {
-    await mountPage()
-    fixture.tracks = [
-      {
-        id: 1,
-        album: '苧與音樂',
-        albumArtist: '萧敬腾',
-        artist: '萧敬腾',
-        title: '歌曲',
-      } as TrackListItem,
-    ]
-    const original = structuredClone(fixture.tracks)
-    fixture.changed?.({ reason: 'metadata-refresh' })
-    await settle()
-    shortcut()
-    await settle()
-    const input = find('library-search-input')!
-    const preference = useChineseTextDisplay()
-    for (const script of ['simplified', 'traditional'] as const) {
-      preference.setSongInfoScript(script)
-      for (const query of [
-        '苧與音樂',
-        preference.songText('苧與音樂'),
-        preference.songText('萧敬腾'),
-      ]) {
-        setSearchQuery(input, query)
-        await settle()
-        ;(input.props.onKeydown as (event: object) => void)({
-          key: 'Enter',
-          preventDefault: vi.fn(),
-        })
-        await settle()
-        expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
-      }
-    }
-    expect(fixture.tracks).toEqual(original)
-  })
-  it('clears unfocused search on page Escape while preserving the outside focus and scroll', async () => {
-    await mountPage()
-    await setAlbums(40)
-    shortcut()
-    await settle()
-    const input = find('library-search-input')!
-    setSearchQuery(input, 'Album')
-    await settle()
-    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
-    await settle()
-    expect(find('library-search-outcome')).toBeDefined()
-    const scroll = find('albums-scroll')!
-    scroll.scrollTop = 420
-    const pointer = new Event('pointerdown')
-    Object.defineProperty(pointer, 'target', { value: scroll })
-    doc.dispatchEvent(pointer)
-    input.blur()
-    scroll.focus()
-    await settle()
-    expect(find('library-search-input')).toBe(input)
-    const event = escape(scroll)
-    doc.dispatchEvent(event)
-    await settle()
-    expect(event.defaultPrevented).toBe(true)
-    expect(find('library-search-input')).toBeDefined()
-    expect(doc.activeElement).toBe(scroll)
-    expect(scroll.scrollTop).toBe(420)
-    shortcut()
-    await settle()
-    expect(find('library-search-input')?.value).toBe('')
-    expect(find('library-search-outcome')).toBeUndefined()
-  })
-
-  it('keeps the first focused Escape in the editor and exits focus on the second', async () => {
-    await mountPage()
-    shortcut()
-    await settle()
-    const input = find('library-search-input')!
-    setSearchQuery(input, 'Album')
-    const first = escape(input)
-    ;(input.props.onKeydown as (event: object) => void)(first)
-    doc.dispatchEvent(first)
-    await settle()
-    expect(find('library-search-input')).toBe(input)
-    expect(input.value).toBe('')
-    expect(doc.activeElement).toBe(input)
-    const second = escape(input)
-    ;(input.props.onKeydown as (event: object) => void)(second)
-    doc.dispatchEvent(second)
-    await settle()
-    expect(find('library-search-input')).toBeDefined()
-  })
-
-  it.each([{ isComposing: true }, { keyCode: 229 }])(
-    'leaves focused Escape to the IME: %j',
-    async (flags) => {
-      await mountPage()
-      shortcut()
-      await settle()
-      const input = find('library-search-input')!
-      setSearchQuery(input, 'Album')
-      const event = escape(input, flags)
-      ;(input.props.onKeydown as (event: object) => void)(event)
-      doc.dispatchEvent(event)
-      await settle()
-      expect(event.defaultPrevented).toBe(false)
-      expect(input.value).toBe('Album')
-      expect(doc.activeElement).toBe(input)
-    },
-  )
-
-  it('preserves an unfocused query for other editors, overlays and inactive pages', async () => {
-    const active = await mountPage()
-    shortcut()
-    await settle()
-    const input = find('library-search-input')!
-    setSearchQuery(input, 'Album')
-    input.blur()
-    await settle()
-    const editor = new TestElement('input')
-    editor.focus()
-    const editorEscape = escape(editor)
-    doc.dispatchEvent(editorEscape)
-    expect(editorEscape.defaultPrevented).toBe(false)
-    const querySelector = vi
-      .spyOn(doc, 'querySelectorAll')
-      .mockReturnValue([new TestElement('section')])
-    const overlayEscape = escape(body)
-    doc.dispatchEvent(overlayEscape)
-    expect(overlayEscape.defaultPrevented).toBe(false)
-    querySelector.mockRestore()
-    expect(input.value).toBe('Album')
-    active.value = false
-    await settle()
-    const inactiveEscape = escape(body)
-    doc.dispatchEvent(inactiveEscape)
-    expect(inactiveEscape.defaultPrevented).toBe(false)
-  })
-
-  it('keeps the toolbar visible after page Escape without pointer activation', async () => {
-    await mountPage()
-    const input = find('library-search-input')!
-    expect(input).toBeDefined()
-    const event = escape(body)
-    doc.dispatchEvent(event)
-    await settle()
-    expect(event.defaultPrevented).toBe(false)
-    expect(find('library-search-input')).toBe(input)
-  })
-
-  it('focuses from the shortcut and returns focus on Escape while staying visible', async () => {
-    await mountPage()
-    const originalFocus = new TestElement('button')
-    originalFocus.parent = body
-    originalFocus.focus()
-    expect(find('library-search-input')).toBeDefined()
-    shortcut(originalFocus)
-    await settle()
-    const input = find('library-search-input')!
-    expect(doc.activeElement).toBe(input)
-    const event = { key: 'Escape', preventDefault: vi.fn() }
-    ;(input.props.onKeydown as (event: object) => void)(event)
-    await settle()
-    expect(doc.activeElement).toBe(originalFocus)
-    expect(find('library-search-input')).toBeDefined()
-  })
-  it('handles the active page shortcut but preserves other input and menu focus', async () => {
-    const active = await mountPage()
-    expect(shortcut(new TestElement('input')).defaultPrevented).toBe(false)
-    expect(shortcut().defaultPrevented).toBe(true)
-    await settle()
-    expect(doc.activeElement).toBe(find('library-search-input'))
-    const querySelector = vi
-      .spyOn(doc, 'querySelectorAll')
-      .mockReturnValue([new TestElement('section')])
-    expect(shortcut().defaultPrevented).toBe(false)
-    querySelector.mockRestore()
-    active.value = false
-    await settle()
-    expect(shortcut().defaultPrevented).toBe(false)
-  })
-})
-
 describe('AlbumsPage layout transition participant', () => {
   it('locks interaction and grid geometry until the exposed transition completes', async () => {
     await mountPage()
@@ -844,7 +542,7 @@ describe('AlbumsPage layout transition participant', () => {
     await settle()
     expect(grid.props.inert).toBeUndefined()
     expect(grid.props['aria-hidden']).toBeUndefined()
-    expect(shortcut().defaultPrevented).toBe(true)
+    expect(shortcut().defaultPrevented).toBe(false)
   })
 
   it('emits cancellation for input, catalog, metadata and route changes only while participating', async () => {
@@ -907,23 +605,18 @@ describe('AlbumsPage layout transition participant', () => {
 })
 
 describe('AlbumsPage page parameter entry', () => {
-  it('opens parameters inside the search bar and restores the empty toolbar focus', async () => {
+  it('keeps the parameter entry without the removed search controls', async () => {
     await mountPage(true)
     await setAlbums(4)
-    expect(find('library-search-bar')).toBeDefined()
-    const tools = find('page-search-tools')!
-    const bar = find('library-search-bar')!
+    expect(find('library-search-input')).toBeUndefined()
     const trigger = find('page-parameter-trigger')!
-    expect(bar.parent).toBe(tools)
-    expect(bar.contains(trigger)).toBe(true)
+    expect(trigger).toBeDefined()
     ;(trigger.props.onClick as (event: object) => void)({ currentTarget: trigger })
     expect(parameters!.open.value).toBe(true)
     await settle()
     parameters!.close()
     await settle()
     expect(doc.activeElement).toBe(trigger)
-    expect(find('page-parameter-trigger')).toBe(trigger)
-    expect(find('library-search-input')?.value).toBe('')
   })
 })
 

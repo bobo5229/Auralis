@@ -3,7 +3,7 @@ import type { RevealInExplorerResult } from '@shared/ipc/contracts'
 export type LibraryViewMode = 'flat' | 'cover'
 export type LibraryContextMenuSource = 'track' | 'album-artwork'
 export type LibraryContextMenuOpenReason = 'pointer' | 'keyboard'
-export type LibraryStatusKind = 'loading' | 'scanning' | 'empty' | 'no-search-match' | 'error'
+export type LibraryStatusKind = 'loading' | 'scanning' | 'empty' | 'error'
 
 export interface LibraryContextMenuAnchor {
   clientX: number
@@ -30,11 +30,6 @@ export interface LibraryRevealFeedback {
 }
 
 export type LibraryRevealRequest = (trackIds: number[]) => Promise<RevealInExplorerResult>
-
-export type LibrarySearchOutcome =
-  | { kind: 'idle' }
-  | { kind: 'matched'; index: number; total: number; wrapped: boolean }
-  | { kind: 'not-found' }
 
 export interface LibraryFocusTarget {
   trackId: number
